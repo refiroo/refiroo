@@ -19,7 +19,7 @@
 import { StatusPill } from "@/ui/StatusPill";
 import { useEffect, useId, useMemo, useRef, useState, type Ref } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { attributeName } from "@/model/fields";

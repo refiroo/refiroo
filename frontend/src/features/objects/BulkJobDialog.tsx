@@ -23,13 +23,13 @@ import {
   BatchResultSection,
   deletesRecords,
   type Noun,
-} from "@/features/jobs/BatchOutcome";
-import { useJobNotifications } from "@/features/jobs/JobNotifications";
-import { newIdempotencyKey } from "@/features/jobs/importRequest";
-import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
-import { bytes, count } from "@/features/settings/limits";
-import { useCapabilities } from "@/features/settings/useSystem";
-import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+} from "@/ui/BatchOutcome";
+import { useJobNotifications } from "@/ui/JobNotifications";
+import { newIdempotencyKey } from "@/model/importRequest";
+import { isFinal, useJobStream } from "@/state/useJobStream";
+import { bytes, count } from "@/ui/limits";
+import { useCapabilities } from "@/state/useSystem";
+import { useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { ReadStopped } from "@/lib/readMatching";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import type { BatchRequest, Job, JobItemOutcome } from "@/types";
@@ -40,7 +40,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { recordsToChange } from "./bulkChange";
-import { useSubjectSeen } from "@/features/inbox/useInbox";
+import { useSubjectSeen } from "@/state/useInbox";
 
 type Step = "form" | "reading" | "sending" | "previewing" | "preview" | "applying" | "result";
 

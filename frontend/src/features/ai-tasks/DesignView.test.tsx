@@ -22,13 +22,13 @@ describe("DesignView", () => {
         onAnswer={vi.fn()}
       />,
     );
-    expect(screen.getByText(/The model gets a Scheduling application/)).toBeInTheDocument();
+    expect(screen.getByText(/The model gets a Timetable application/)).toBeInTheDocument();
     expect(screen.getByText(/Nothing is written until you confirm/)).toBeInTheDocument();
     const model = screen.getByRole("region", { name: /The model: what changes/ });
     expect(within(model).getByText("Proposed")).toBeInTheDocument();
     expect(within(model).getByText("New application")).toBeInTheDocument();
     expect(within(model).getByText(/Starts \(required\)/)).toBeInTheDocument();
-    expect(within(model).getByText(/Timetable → Category \(many to one\)/)).toBeInTheDocument();
+    expect(within(model).getByText(/Departure → Category \(many to one\)/)).toBeInTheDocument();
     fireEvent.click(within(model).getByRole("button", { name: "Open in the model editor" }));
     expect(onOpenEditor).toHaveBeenCalledWith("draft-1");
     const sheets = screen.getByRole("region", { name: "Where each sheet goes" });
@@ -48,7 +48,7 @@ describe("DesignView", () => {
     expect(screen.getByRole("radio", { name: "Drop" })).toBeChecked();
     fireEvent.click(screen.getByRole("radio", { name: "No" }));
     fireEvent.click(screen.getByRole("button", { name: "Answer and design again" }));
-    expect(onAnswer).toHaveBeenCalledWith({ "Is a visit one timetable?": "No", "Keep walk-ins?": "Drop" });
+    expect(onAnswer).toHaveBeenCalledWith({ "Is a run one departure?": "No", "Keep extra runs?": "Drop" });
   });
 
   it("offers no design round while every choice is the assumed one the draft is built on", () => {

@@ -10,7 +10,7 @@ import type { MoveSummary } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
-import { figuresOf } from "./moveRun";
+import { figuresOf } from "@/model/moveRun";
 
 const count = (value: number, one: string, many: string) =>
   `${value.toLocaleString("en-GB")} ${value === 1 ? one : many}`;

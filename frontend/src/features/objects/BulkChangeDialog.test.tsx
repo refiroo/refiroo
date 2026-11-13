@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openEventStream } from "@/api/eventStream";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import { JobNotificationsProvider } from "@/features/jobs/JobNotifications";
+import { JobNotificationsProvider } from "@/ui/JobNotifications";
 import { ReadStopped } from "@/lib/readMatching";
 import { emptySelection, selectMatching, toggle, type RecordSelection } from "@/lib/recordSelection";
 import { capabilitiesFixture } from "@/test/capabilities";

@@ -1544,7 +1544,7 @@ def test_where_the_rules_fix_no_place_new_cells_go_where_the_view_already_has_ce
     busy, empty, tied = (world.made("P", f"System {n}") for n in "ABC")
     big = world.made("C", "Big group", parent=busy["id"])
     small = world.made("C", "Small group", parent=busy["id"])
-    unused = world.made("C", "Station", parent=empty["id"])
+    unused = world.made("C", "Depot", parent=empty["id"])
     left = world.made("C", "Small group", parent=tied["id"])
     right = world.made("C", "Right", parent=tied["id"])
     held = world.made("H", "Row held", values={"H.code": "HELD"})
@@ -1682,7 +1682,7 @@ def test_a_value_sheet_lists_each_columns_records_and_its_edits_reach_the_record
         sheet.cell(number, at["Name"]).value = name
         sheet.cell(number, at[code]).value = value
     # Row a's cell still lists the record by its old value: it is found, not created again.
-    main.cell(rows["Row b"], cell).value = "Tentative; Operator new; Typed twice"
+    main.cell(rows["Row b"], cell).value = "Tentative; Brand new; Typed twice"
     main.cell(rows["Row c"], cell).value = "Typed twice"
     preview = _import(world, W1, _saved(book))
     assert preview["state"] == "awaiting_confirmation", preview["error"]
@@ -1701,21 +1701,21 @@ def test_a_value_sheet_lists_each_columns_records_and_its_edits_reach_the_record
         "Tentative",
         "Spare",
         "Typed twice",
-        "Operator new",
+        "Brand new",
     }
     assert records["Booked, renamed"]["id"] == booked["id"]
     assert all(
         records[name]["parentObjectId"] == place["id"]
-        for name in ("Tentative", "Spare", "Typed twice", "Operator new")
+        for name in ("Tentative", "Spare", "Typed twice", "Brand new")
     )
     assert set(_linked(world, row_a["id"], relation).values()) == {"Booked, renamed"}
     assert set(_linked(world, row_b["id"], relation).values()) == {
         "Tentative",
-        "Operator new",
+        "Brand new",
         "Typed twice",
     }
     assert set(_linked(world, row_c["id"], relation).values()) == {"Typed twice"}
-    held = {item["attributeTypeKey"]: item["value"] for item in records["Operator new"]["attributes"]}
+    held = {item["attributeTypeKey"]: item["value"] for item in records["Brand new"]["attributes"]}
     assert world.key("H.code") not in held
     held = {item["attributeTypeKey"]: item["value"] for item in records["Tentative"]["attributes"]}
     assert held[world.key("H.code")] == "TNT"

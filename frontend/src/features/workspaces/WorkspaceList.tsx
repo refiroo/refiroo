@@ -4,7 +4,7 @@ import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { UnavailableBadge, unavailability } from "@/features/workspaces/UnavailableWorkspace";
 import type { Workspace } from "@/types";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { EntityList, type EntityGroup } from "@/ui/EntityList";
 import { SearchField } from "@/ui/SearchField";
 import { SettingsPanel, SettingsTile, SettingsTools } from "@/ui/SettingsParts";

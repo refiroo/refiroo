@@ -2,11 +2,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { ModelCompilation, ModelDraft, ModelValidation } from "@/types";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { ItemHeader, SettingsTile } from "@/ui/SettingsParts";
-import { DeleteDraftDialog } from "@/features/model-admin/DeleteDraftDialog";
+import { DeleteDraftDialog } from "@/ui/DeleteDraftDialog";
 import { Notice } from "@/ui/Notice";
 import {
   freeVersionOf,

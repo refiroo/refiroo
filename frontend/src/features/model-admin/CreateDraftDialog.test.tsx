@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { CreateDraftDialog } from "@/features/model-admin/CreateDraftDialog";
-import { takeWaitingProposal } from "@/features/model-editor/proposing";
+import { takeWaitingProposal } from "@/model/proposing";
 import type { ModelDraft } from "@/types";
 
 vi.mock("@/api/client", async (load) => {

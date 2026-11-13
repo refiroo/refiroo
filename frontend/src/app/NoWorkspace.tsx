@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import type { EngineModel, RouteState } from "@/types";
-import { listedNames } from "@/features/security/permissionText";
+import { listedNames } from "@/state/permissionText";
 import { BrandMascot } from "@/ui/ProductMark";
 import { ShellFrame } from "./ShellFrame";
 import { TopBar } from "./TopBar";

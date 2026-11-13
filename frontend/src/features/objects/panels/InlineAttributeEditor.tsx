@@ -14,7 +14,7 @@ import { useNavigationGuard } from "@/routing/navigationGuard";
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { AttributeTypeDefinition, ObjectAttributeValue, ObjectItem, ObjectTypeAttributeDefinition } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";

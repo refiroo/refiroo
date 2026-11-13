@@ -56,7 +56,7 @@ mapping grid, a job asking the provider among the grid's own candidates and writ
 provenance on change-set relations through publication into history, the Proposed filter,
 `AI_CONTEXT_TOKENS`. **AP6a, loading a workbook with the assistant, is delivered (2026-10-29)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap6a-record-2026-10-29)): the naming helper removed; Import offers the assistant first; a task reads the workbook (a stored profile that fits followed first), shows what needs the person, checks every row in a dry run, has the assistant fix refused values and loads into a change set.
 
-**The assistant is now a Claude Code session (AP8, the user's decision of 2026-10-31)**, built and tried on real files; it supersedes AP3–AP7, which are kept as [history](BASE_0_16_IMPLEMENTATION_PLAN.md#history-of-the-assistant). The plan was [reconciled](BASE_0_16_IMPLEMENTATION_PLAN.md#where-each-decision-stands) with the code on 2026-10-31. **Open:** WM1 (planned, not built); AP9 (who did it) built 2026-10-31, its real try waiting; AP10 (one path) delivered 2026-10-31; AP11 (good models in time) closed 2026-11-01; AP12 (reshaping, "Change this model…") delivered 2026-11-01; [AP13, always a way out](BASE_0_16_IMPLEMENTATION_PLAN.md#ap13-record-2026-11-02), built 2026-11-02 (a failed or stopped turn takes words, Stop ends the turn and not the task, a wrong load takes words and loads again, the session lives until the work is published, discarded or confirmed, a published task points onward), **its one real walk-through of the acceptance workbook still waiting**; Track O (not started); R.
+**The assistant is now a Claude Code session (AP8, the user's decision of 2026-10-31)**, built and tried on sample files; it supersedes AP3–AP7, which are kept as [history](BASE_0_16_IMPLEMENTATION_PLAN.md#history-of-the-assistant). The plan was [reconciled](BASE_0_16_IMPLEMENTATION_PLAN.md#where-each-decision-stands) with the code on 2026-10-31. **Open:** WM1 (planned, not built); AP9 (who did it) built 2026-10-31, its real try waiting; AP10 (one path) delivered 2026-10-31; AP11 (good models in time) closed 2026-11-01; AP12 (reshaping, "Change this model…") delivered 2026-11-01; [AP13, always a way out](BASE_0_16_IMPLEMENTATION_PLAN.md#ap13-record-2026-11-02), built 2026-11-02 (a failed or stopped turn takes words, Stop ends the turn and not the task, a wrong load takes words and loads again, the session lives until the work is published, discarded or confirmed, a published task points onward), **its one real walk-through of the acceptance workbook still waiting**; Track O (not started); R.
 
 ## Previous baseline — Base 0.12 complete (2026-10-28)
 
@@ -433,8 +433,7 @@ alternatives; `…/inference/application` writes them as one step each; proposin
 is still the engine's and reports where the administrator decided otherwise; W1 goes from upload to
 a published change set by applying its proposals; `missing: "create"` on flag sets and related
 records' parents. Its group runs went over the 2-minute ceiling (TODO). **A6b, the editor filled
-by the inference, is delivered (2026-10-14, screenshots approved after its run on the user's
-workbooks, D99–D103)**: New
+by the inference, is delivered (2026-10-14, screenshots approved after its run on workbooks, D99–D103)**: New
 from a workbook asks what to propose and the editor opens with the proposals applied, one step each;
 what is still as proposed reads Proposed, with Proposed because, its evidence and its alternatives
 in the centre; ⋯ › Propose again…; Map to… matches by an attribute and fills a related record's
@@ -466,8 +465,7 @@ lists side by side and under each other is read list by list, each with its head
 above it and a note under its header; column statistics are kept per block (migration
 `20261016_01`); each list is proposed as a list type loading its block by name (a source's new
 `key: {"field": "name"}`), with its translations, yes/no columns and note, and the lists under one
-title as a navigation group. On the user's reading-layout workbook it proposes 87 lists and 10
-groups whose dry run refuses no row. It fixed an A5/A6 defect: a header ending in a space could not
+title as a navigation group. On a workbook laid out for reading it proposes lists and groups whose dry run refuses no row. It fixed an A5/A6 defect: a header ending in a space could not
 be mapped. **A9, a list's cells edited in place, is delivered (2026-10-15)**
 ([record](BASE_0_10_IMPLEMENTATION_PLAN.md#a9-record-2026-10-15)), added by the user and its
 screenshots approved: in a collection or a record's table a value, a name or a relationship is
@@ -483,8 +481,8 @@ delivered (2026-10-15)** ([record](BASE_0_10_IMPLEMENTATION_PLAN.md#a8c-record-2
 D140–D146 accepted by the user: three lists or more of one shape under one title (or none) offer,
 on each, to be read as one list in a parent list of their headers; an import source may fix every
 row's parent (`parent`), and a source keyed by name finds records among their parent's children; a
-row under a header answering none of its yes/no columns is a second header row, skipped. On the
-user's reading-layout workbook a run of 11 lists loads as one list under 11
+row under a header answering none of its yes/no columns is a second header row, skipped. On a
+workbook laid out for reading a run of lists loads as one list under
 categories, refusing nothing, a second load changing nothing.
 
 ### How 0.9 was built
@@ -682,7 +680,7 @@ document, paths written out with its name and version (C-D69, C-D70,
 `/docs` lists every consumer API of the active release beside the management API, labelled
 `{name} · v{contractVersion}`; a link to a source (`?api=`) opens it
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#v2-delivery-record)). **C8 is delivered (2026-10-05):** parity
-acceptance on a fixture shaped like the reference deployment, every answer checked against the API's
+acceptance on a fixture shaped like the example deployment, every answer checked against the API's
 own document; a projection may name each item's type (`objectType`) and the parent's fields take the
 roles' output names (C-D72–C-D75, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c8-delivery-record)).
 **C16 is delivered (2026-10-05):** `asOf` on every consumer read, over the model's declared effective
@@ -1270,7 +1268,7 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   changes require 0.11 and supported parser/runtime versions. A draft can work under a compatible
   version the user chooses (ADR-028; WP-6 backend, WP-7 browser). A draft on a replaced version can be read, edited and discarded,
   but activation still requires agreement with the active model.
-- The starter remains representative rather than a one-to-one reproduction of the source export.
+- The starter remains representative rather than a one-to-one reproduction of a particular model.
 
 ## Historical delivery record
 

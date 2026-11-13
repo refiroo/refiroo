@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import type { AiTaskLoad, AiTaskLoadExample, AiTaskLoadFinding, AiTaskLoadPart } from "@/types";
-import { count } from "@/features/settings/limits";
+import { count } from "@/ui/limits";
 import { Card } from "@/ui/Card";
 import { Disclosure } from "@/ui/Disclosure";
 import { Notice } from "@/ui/Notice";

@@ -7,7 +7,7 @@
  */
 
 import { signOut } from "@/api/session";
-import { useInbox } from "@/features/inbox/useInbox";
+import { useInbox } from "@/state/useInbox";
 import { Choice } from "@/ui/Choice";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { Icon, type IconName } from "@/ui/Icon";

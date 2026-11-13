@@ -96,7 +96,7 @@ const coveragePage: MappingCoveragePage = {
         {
           relationId: "r1",
           attributes: {},
-          object: { id: "t1", objectTypeKey: "codelist", name: "Timetable types", fields: { code: "MOT" } },
+          object: { id: "t1", objectTypeKey: "codelist", name: "Means of transport", fields: { code: "MOT" } },
         },
       ],
       targetsNextCursor: null,
@@ -186,7 +186,7 @@ describe("MappingGridView", () => {
 
     expect(within(grid).getByText("Connections")).toBeInTheDocument();
     expect(within(grid).getByText("Mapped")).toBeInTheDocument();
-    expect(within(grid).getByText("Timetable types")).toBeInTheDocument();
+    expect(within(grid).getByText("Means of transport")).toBeInTheDocument();
 
     expect(within(grid).getByText("Financial")).toBeInTheDocument();
     expect(within(grid).getByText("Unmapped")).toBeInTheDocument();
@@ -277,7 +277,7 @@ describe("MappingGridView", () => {
     });
     await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
     expect(screen.getAllByText("Connections")).toHaveLength(1);
-    expect(screen.getAllByText("Timetable types")).toHaveLength(1);
+    expect(screen.getAllByText("Means of transport")).toHaveLength(1);
   });
 
   it("shows source columns from the view config", async () => {
@@ -295,7 +295,7 @@ describe("MappingGridView", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Connections" }));
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: "s1", objectTypeKey: "domain" }));
     expect(screen.queryByText(/Change mapping/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Timetable types" }));
+    fireEvent.click(screen.getByRole("button", { name: "Means of transport" }));
     expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: "t1", objectTypeKey: "codelist" }));
     expect(screen.queryByText(/Change mapping/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("CLI"));
@@ -448,7 +448,7 @@ describe("MappingGridView type colours (UA6)", () => {
       "data-hue",
       String(objectTypeHue(model, "domain")),
     );
-    const target = within(grid).getByText("Timetable types").closest(".record-chip");
+    const target = within(grid).getByText("Means of transport").closest(".record-chip");
     expect(target).toHaveAttribute("data-hue", String(objectTypeHue(model, "codelist")));
     expect(within(grid).getByText("Mapped").closest(".status-pill")).toHaveClass("tone-success");
     expect(
@@ -459,7 +459,7 @@ describe("MappingGridView type colours (UA6)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Change mapping for Connections/ }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Timetable types").closest(".record-chip")).toHaveAttribute(
+    expect(within(dialog).getByText("Means of transport").closest(".record-chip")).toHaveAttribute(
       "data-hue",
       String(objectTypeHue(model, "codelist")),
     );
@@ -600,7 +600,7 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
     expect(screen.getByText(/changed by another operation/)).toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: /^Save$/ })).toBeDisabled();
-    expect(screen.getByText(/Current mapping:/)).toHaveTextContent("Timetable types");
+    expect(screen.getByText(/Current mapping:/)).toHaveTextContent("Means of transport");
     fireEvent.click(screen.getByRole("button", { name: /Continue with my selection/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
 

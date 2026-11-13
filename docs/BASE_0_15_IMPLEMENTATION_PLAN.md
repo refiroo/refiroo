@@ -100,7 +100,7 @@ conversion, ignoring formatting. Equal means the conversion changed text and not
 markup, no attribute. It runs over every converted file, not a sample, and is how the primary agent
 verifies a Haiku batch without reading every line. Where a conversion has to change code (a sentence
 built from pieces becomes one message with placeholders), the check reports it and the primary agent
-reads that file. Cost: the script, and JSX whitespace rules, which LG1 works out on real files.
+reads that file. Cost: the script, and JSX whitespace rules, which LG1 works out on sample files.
 
 **The tricky strings** (the primary agent converts these, not Haiku, in every batch): text built from
 pieces; plurals; text that includes a link, bold or an icon; text passed through props or computed in

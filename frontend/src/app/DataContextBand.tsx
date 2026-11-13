@@ -23,8 +23,8 @@
 
 import { useCallback, useLayoutEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
-import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { WorkspaceSelector } from "@/ui/WorkspaceSelector";
+import { useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { PHONE_WIDTH, useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { applicationHue } from "@/model/hues";
 import { routeChangeSetId, routePublicationId, viewRoute } from "@/routing/routes";

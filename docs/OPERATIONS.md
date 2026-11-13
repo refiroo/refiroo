@@ -1095,7 +1095,7 @@ offered.
   `AI_TIMEOUT_SECONDS` for a laptop. The `openai-compatible` adapter asks for the answer's JSON schema
   and also shows its shape in the instructions as an example to fill in, so a build that does not
   enforce the schema (Ollama's MLX builds, tags ending `-mlx`) still answers in shape. Tried
-  2026-10-28: `qwen3.5:9b-mlx` with thinking off named the types of a real workbook in 67 s.
+  2026-10-28: `qwen3.5:9b-mlx` with thinking off named the types of a workbook in 67 s.
 - **Data protection:** a provider outside the organisation receives what the send level allows, under
   the organisation's own agreement with that provider. For data that may not leave, use
   `openai-compatible` with a model run inside the organisation, or `AI_SEND_LEVEL=structure`.

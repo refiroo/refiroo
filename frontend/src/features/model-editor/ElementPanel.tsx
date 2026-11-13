@@ -19,7 +19,7 @@ import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { Tabs } from "@/ui/Tabs";
 import { MarkPill } from "@/features/model-editor/MarkPill";
-import { ProposedPill } from "@/features/model-editor/ProposedBecause";
+import { ProposedPill } from "@/ui/ProposedBecause";
 import { GroupFoldCell } from "@/features/model-editor/GroupFoldCell";
 import { TypePlacement } from "@/features/model-editor/TypePlacement";
 import { EditorTable, type EditorColumn } from "@/features/model-editor/EditorTable";
@@ -70,7 +70,7 @@ import {
   typeName,
   VIEW_KINDS,
   type NavigationEntryRef,
-} from "@/features/model-editor/outline";
+} from "@/model/outline";
 
 export function Header({
   tile,

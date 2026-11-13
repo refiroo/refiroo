@@ -29,7 +29,7 @@ import { MigrationPage } from "@/features/model-admin/MigrationPage";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
 import { MODEL_TAB_LABELS, ModelDetail, ModelNamePage, runningWorkspaces } from "@/features/model-admin/ModelPage";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { releasesByModel, type ModelLine } from "@/features/model-admin/modelLines";
 import { EntityList, type EntityGroup, type EntityRow } from "@/ui/EntityList";
 import { Icon } from "@/ui/Icon";

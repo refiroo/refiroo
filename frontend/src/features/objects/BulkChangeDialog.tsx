@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import type { Noun } from "@/features/jobs/BatchOutcome";
+import type { Noun } from "@/ui/BatchOutcome";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import type { EngineModel, Job, ObjectTypeDefinition } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";

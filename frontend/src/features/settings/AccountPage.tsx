@@ -9,7 +9,7 @@ import { useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { signOut } from "@/api/session";
-import type { Navigate } from "@/features/home/openWorkspace";
+import type { Navigate } from "@/state/openWorkspace";
 import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
 import { applicationHue } from "@/model/hues";
 import type { EngineModel, Grant, Me, SignInSession, WorkspacePage } from "@/types";
@@ -25,10 +25,10 @@ import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
 import { permissionsSummary, PermissionsBody, type AppInfo, type AppsByName } from "./AccountPermissions";
 import { browserName, onPhone } from "./browserName";
-import { settingsHead } from "./navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { PasskeysPanel } from "./PasskeysPanel";
 import { SecondFactorPanel } from "./SecondFactorPanel";
-import { useSettingsRead } from "./useSystem";
+import { useSettingsRead } from "@/state/useSystem";
 
 const SIGNED_IN_WITH: Record<string, string> = {
   password: "Signed in with your password",

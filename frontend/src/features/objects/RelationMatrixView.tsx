@@ -11,7 +11,7 @@
 import { StatusPill } from "@/ui/StatusPill";
 import { Card } from "@/ui/Card";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { nextGridCell } from "@/lib/gridNavigation";
 import { InlineError } from "@/ui/InlineError";
@@ -38,7 +38,7 @@ import {
   stateLabel,
   type MatrixStateKey,
 } from "@/features/objects/relationMatrixStates";
-import { ScopeBanner } from "@/features/objects/CollectionScope";
+import { ScopeBanner } from "@/ui/CollectionScope";
 import type {
   RelationMatrixCell,
   RelationMatrixColumn,

@@ -4,7 +4,7 @@
  * is. The letters and the hue come from `features/home/homeText`.
  */
 
-import { tileLetters, workspaceHue } from "@/features/home/homeText";
+import { tileLetters, workspaceHue } from "@/model/workspaceTile";
 
 export function WorkspaceTile({
   workspaceKey,

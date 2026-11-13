@@ -11,7 +11,7 @@ import {
   undoable,
 } from "@/features/model-editor/history";
 import { summarizeChanges } from "@/features/model-editor/InstallDialog";
-import { nameOf } from "@/features/model-editor/outline";
+import { nameOf } from "@/model/outline";
 
 const outline = outlineFixture();
 const names = nameOf(outline);

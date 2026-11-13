@@ -22,7 +22,7 @@ import type { DraftProfile, DryRun, Job, ModelCompilation, ModelDraftOutline, Mo
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
-import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
+import { isFinal, useJobStream } from "@/state/useJobStream";
 import {
   ChangeSetFields,
   changeSetName,
@@ -30,7 +30,7 @@ import {
   LoadProgress,
   LoadStep,
   stepState,
-} from "@/features/jobs/ChangeSetLoad";
+} from "@/ui/ChangeSetLoad";
 import { activationRefusal, ReleaseIdentityFields, useReleaseIdentity } from "@/features/model-editor/InstallDialog";
 import type { RunStep } from "@/features/model-editor/OperationDialog";
 import { dryRunLabel } from "@/features/model-editor/DryRunPanel";

@@ -196,7 +196,7 @@ def test_names_fold_case_accents_punctuation_and_a_plural():
 
 
 def test_a_sheet_with_one_clear_table_is_read_by_it_and_lists_side_by_side_are_not():
-    """facts.main_block (reported on a real workbook, 2026-10-14): a wide table with a narrow note
+    """facts.main_block (reported on a workbook, 2026-10-14): a wide table with a narrow note
     beside it is read by the table; lists of two columns side by side, or blocks of like size, are
     left to A8."""
     from app.engine.sources.inference.facts import main_block

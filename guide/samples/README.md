@@ -2,7 +2,7 @@
 
 The guide's own sample data: the reference domain, the public transport stops of the canton of
 Graubünden, from open data, plus one fictional system and one fictional workbook. Not published. Never
-put a private model or a source export here. The sources, licences and attribution lines are in
+put other data here. The sources, licences and attribution lines are in
 [`SOURCES.md`](SOURCES.md); the data is a dated snapshot (2026-11-02).
 
 | Path | What it is |

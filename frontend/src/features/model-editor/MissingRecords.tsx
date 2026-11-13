@@ -8,7 +8,7 @@
 import { useId, useState } from "react";
 import type { DraftOperation, ModelDraftOutline, ProfileSource } from "@/types";
 import { canSetMissing, missingOf, setMissingOperation, type MissingChoice } from "@/features/model-editor/lists";
-import { typeName } from "@/features/model-editor/outline";
+import { typeName } from "@/model/outline";
 import { Choice } from "@/ui/Choice";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 

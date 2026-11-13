@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
-import { criteriaFromFilters } from "@/features/jobs/exportRequest";
+import { criteriaFromFilters } from "@/model/exportRequest";
 import { FilterBar, filterFields, filterPills, pillText } from "@/features/objects/filters/FilterBar";
 import { relationFilterEntries, relationFilterMode, relationFilterText } from "@/features/objects/RelationFilter";
 import { relatedAncestorTypes } from "@/model/lookup";

@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { count } from "@/features/settings/limits";
+import { count } from "@/ui/limits";
 import type { AiTask, ChangeSet, Job, ModelReleaseDiff, RouteState, WorkspaceModel } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";

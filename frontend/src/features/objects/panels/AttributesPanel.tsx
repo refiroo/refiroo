@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useWorkspaceData } from "@/state/WorkspaceDataContext";
 import type { AttributesPanelDefinition, EngineModel, ObjectItem } from "@/types";
 import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";

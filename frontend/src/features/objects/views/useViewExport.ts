@@ -5,28 +5,9 @@
  */
 
 import { useEffect, type MutableRefObject } from "react";
-import type { ExportStart } from "@/features/jobs/ExportDialog";
-import { exportViewStart } from "@/features/jobs/exportRequest";
-import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import type { ViewComponentProps } from "./types";
-
-/** What only one kind of view knows: a table's columns as its Display shows them. */
-export interface ExportViewExtra {
-  columns?: { shown: readonly string[]; hidden: readonly string[] };
-  /**
-   * What the page holds of the file, for the dialog's count line: rows and columns, or records where
-   * the kind has no columns. A part the page does not know yet is absent.
-   */
-  size?: ExportViewSize;
-}
-
-/** The size of the file "This view" writes: the page's total, not what it has loaded. */
-export interface ExportViewSize {
-  rows?: number;
-  columns?: number;
-  /** A view of records (a tree, a mapping grid): the line says records, not rows. */
-  records?: number;
-}
+import { exportViewStart, type ExportStart } from "@/model/exportRequest";
+import { useWorkspaceData } from "@/state/WorkspaceDataContext";
+import type { ExportViewExtra, ViewComponentProps } from "./types";
 
 /** What a list's total is, once it is read: undefined while loading or when the list does not know it. */
 export function windowTotal(list: {

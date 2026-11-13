@@ -54,7 +54,7 @@ do, are not hardcoded modules and are not a template other models must follow
 - Attribute values retain their declared types. Do not reduce booleans, numbers or dates to strings.
 - Updates use optimistic concurrency. Never silently overwrite a newer version.
 - Model releases are immutable snapshots; schema-language and content-release versions are separate.
-- Keep vendor-specific source exports and internal numeric identifiers outside this repository.
+- Keep internal numeric identifiers outside this repository.
 - Other domains (MDM-lite, small product catalogues) are modelled, never built in. Add no capability
   only one domain can use, and keep the doors in `docs/COMPOSABLE_DOMAINS.md` open: a plan touching
   identity, attribute storage, audit/history, bulk APIs, the consumer API `match` declaration or
@@ -420,6 +420,8 @@ Do not run implementation and review concurrently. Review the completed diff.
 
 Subagents must preserve unrelated working-tree changes and must not commit,
 revert or rewrite another agent's work.
+
+Before every push, run `scripts/check-private-terms.sh`; the local pre-push hook runs it too.
 
 ### Context discipline
 

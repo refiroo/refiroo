@@ -10,7 +10,7 @@ import { useId, useMemo, useRef, type DragEvent, type KeyboardEvent, type MouseE
 import { CellGrid } from "@/features/model-editor/CellGrid";
 import { columnLetter, columnNumber } from "@/features/model-editor/lists";
 import { usesOf } from "@/features/model-editor/mapping";
-import { columnElements } from "@/features/model-editor/proposing";
+import { columnElements } from "@/model/proposing";
 import { useCells } from "@/features/model-editor/useCells";
 import type { DraftProfileDocument, SourceColumn, SourceSheet } from "@/types/sources";
 import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";

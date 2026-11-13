@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { holds } from "@/features/security/permissions";
+import { useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
+import { holds } from "@/state/permissions";
 import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
 import { useTreeMoves } from "@/features/objects/useTreeMoves";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";

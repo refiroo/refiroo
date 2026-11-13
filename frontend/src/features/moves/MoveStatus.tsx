@@ -9,7 +9,7 @@
 
 import type { Job, MoveSummary } from "@/types";
 import { Notice } from "@/ui/Notice";
-import { figuresOf, modeWords, movesAnything } from "./moveRun";
+import { figuresOf, modeWords, movesAnything } from "@/model/moveRun";
 
 const n = (value: number) => value.toLocaleString("en-GB");
 const records = (value: number) => `${n(value)} ${value === 1 ? "record" : "records"}`;

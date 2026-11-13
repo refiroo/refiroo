@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useId, useState } from "react";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeHue } from "@/model/hues";
 import type { CandidateScope } from "@/model/candidates";

@@ -13,9 +13,9 @@ vi.mock("@/api/securityClient", () => ({
     updateClient: vi.fn(),
   },
 }));
-vi.mock("@/features/settings/useSystem", () => ({ useCapabilities: () => ({ capabilities: undefined }) }));
-vi.mock("./permissions", async (original) => ({
-  ...(await original<typeof import("./permissions")>()),
+vi.mock("@/state/useSystem", () => ({ useCapabilities: () => ({ capabilities: undefined }) }));
+vi.mock("@/state/permissions", async (original) => ({
+  ...(await original<typeof import("@/state/permissions")>()),
   useHeldAnywhere: () => [],
 }));
 vi.mock("./GrantsSection", () => ({ GrantsSection: () => null, useWorkspaceLabels: () => ({}) }));

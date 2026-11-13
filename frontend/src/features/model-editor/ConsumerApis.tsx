@@ -74,7 +74,7 @@ import type { RunStep } from "@/features/model-editor/OperationDialog";
 import { OperationsMenu, type OnOperation } from "@/features/model-editor/OperationsMenu";
 import { operationById, operationsFor, type OperationTarget } from "@/features/model-editor/operations";
 import { EditInPlaceValue } from "@/ui/EditInPlace";
-import { consumerApiOf, isReleased, typeName } from "@/features/model-editor/outline";
+import { consumerApiOf, isReleased, typeName } from "@/model/outline";
 
 const SECTIONS: { tab: ConsumerApiTab; label: string; count?: keyof OutlineConsumerApi["counts"] }[] = [
   { tab: "types", label: "Types and related", count: "related" },

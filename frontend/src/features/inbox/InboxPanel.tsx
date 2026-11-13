@@ -18,7 +18,7 @@ import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { Skeleton } from "@/ui/Skeleton";
 import { noticeRoute, noticeText } from "./inboxText";
-import { setUnreadCount, touchSubject, useInbox } from "./useInbox";
+import { setUnreadCount, touchSubject, useInbox } from "@/state/useInbox";
 
 /** Unread notices the panel lists at most; the rest are counted. */
 const SHORT_LIST = 20;

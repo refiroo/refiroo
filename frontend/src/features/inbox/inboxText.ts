@@ -1,6 +1,6 @@
 /** How a notice of the inbox reads and where it leads (0.12 A2): the one copy of its wording. */
 
-import { KIND } from "@/features/jobs/jobText";
+import { KIND } from "@/ui/jobText";
 import { changeReviewFor } from "@/routing/routes";
 import type { Notification, NotificationKind, RouteState } from "@/types";
 

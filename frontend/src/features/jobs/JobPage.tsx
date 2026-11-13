@@ -37,8 +37,8 @@ import { Skeleton } from "@/ui/Skeleton";
 import { principalName } from "@/ui/ActorName";
 import { StatusPill } from "@/ui/StatusPill";
 import { useWorkspaceLabels } from "@/features/security/GrantsSection";
-import { count } from "@/features/settings/limits";
-import { jobTitle, useJobNotifications } from "./JobNotifications";
+import { count } from "@/ui/limits";
+import { jobTitle, useJobNotifications } from "@/ui/JobNotifications";
 import {
   BindingReportSection,
   ImportFacts,
@@ -47,20 +47,20 @@ import {
   ImportReadingSection,
   ImportResultSection,
   ImportRowsSection,
-} from "./ImportOutcome";
+} from "@/ui/ImportOutcome";
 import {
   BatchDeletionSection,
   BatchItemsSection,
   BatchPreviewSection,
   BatchResultSection,
   type TypeName,
-} from "./BatchOutcome";
+} from "@/ui/BatchOutcome";
 import { JobProduced } from "./JobProduced";
 import { MigrationOutcome } from "./MigrationOutcome";
 import { MoveOutcome } from "./MoveOutcome";
-import { ORIGIN, RESULT, STATE, cancellable, fileSize } from "./jobText";
-import { isResting, useJobStream } from "./useJobStream";
-import { useSubjectSeen } from "@/features/inbox/useInbox";
+import { ORIGIN, RESULT, STATE, cancellable, fileSize } from "@/ui/jobText";
+import { isResting, useJobStream } from "@/state/useJobStream";
+import { useSubjectSeen } from "@/state/useInbox";
 
 const FORMAT_NAMES = { jsonl: "JSON Lines", csv: "CSV", xlsx: "Excel (XLSX)" } as const;
 

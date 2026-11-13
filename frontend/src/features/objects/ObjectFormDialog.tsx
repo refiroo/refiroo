@@ -1,7 +1,7 @@
 import { useNavigationGuard } from "@/routing/navigationGuard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
 import type {
   AttributeTypeDefinition,

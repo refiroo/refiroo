@@ -121,7 +121,7 @@ Applied fourth-round steering: added eleven recipes for real questions, mapping 
 
 ## 2026-11-04T02:41:34+01:00 — single workbook task recipes
 
-Applied fourth-round steering in `_waves/C10.screens.json`: added two cancelled dialogs and one real workbook-task pair, with explicit proposal-only cleanup. `_waves/C10.data-changes.md` records planned calls and retained artifacts; provider output, task duration and row-check availability await external capture.
+Applied fourth-round steering in `_waves/C10.screens.json`: added two cancelled dialogs and one workbook-task pair, with explicit proposal-only cleanup. `_waves/C10.data-changes.md` records planned calls and retained artifacts; provider output, task duration and row-check availability await external capture.
 
 ## 2026-11-04T02:42:01+01:00 — mail and agent-call recipes
 

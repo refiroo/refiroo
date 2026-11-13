@@ -1765,7 +1765,7 @@ I5's frame and styles.
   `/reset-password`, or the engine's page when no application address is known).
 - **Routes:** `POST /oauth/sign-in/reset-request`, `GET`/`POST /oauth/sign-in/reset` in `oauth_app.py`;
   `options.reset`. Left out of the OpenAPI document, so the lock did not move.
-- **Frontend:** `SignInFrame` (extracted from `SignInScreen`, so the operator and card exist once),
+- **Frontend:** `SignInFrame` (extracted from `SignInScreen`, so the brand and card exist once),
   `ResetPasswordScreen` (ask; choose), `signInClient` calls; `main.tsx` shows the pages at `/reset-password`
   before any session starts. **Runner** `i6-reset` (22 checks, axe 0 violations).
 - **Tests:** `test_j46_reset_by_mail` (5 cases x 2 configurations, J46.8); Vitest `ResetPasswordScreen.test` (6),
@@ -3113,9 +3113,8 @@ development database (read only).
 - **Only live entries know what they changed.** `feed_subject` (record type, a relationship's type
   and ends) is filled for feed entries only; a change-set entry has the record's ID and its values,
   not its type.
-- **On the development database** (49,496 entries): every change-set entry (54 lifecycle, 16,213
-  record, 13,300 relationship) can be placed from its change set, the publication entry naming it, or
-  its lifecycle entries naming `workspaceKey`; 4,557 live entries from 2026-10-02, before the feed,
+- **On the development database:** every change-set entry (lifecycle, record, relationship) can be placed from its change set, the publication entry naming it, or
+  its lifecycle entries naming `workspaceKey`; the live entries from before the feed
   name neither and stay unplaced.
 - **Deleting a workspace clears `workspace_key`** on its entries (`workspaces/catalogue`, 0.9 D208);
   they stay as history belonging to no workspace.
@@ -3288,7 +3287,7 @@ not the audit).
 
 **Found on the way and fixed:**
 
-- **The migration missed 30,250 entries' subjects** on the development database: the ORM wrote "no
+- **The migration missed many entries' subjects** on the development database: the ORM wrote "no
   subject" as JSON `null`, not SQL `NULL`. The migration's unit test caught it; both statements now
   take either.
 - **Load more with a period chosen replaced the list with an error:** each request computed a new
@@ -3316,9 +3315,9 @@ lock and the paged count, `test_api_journeys`' inventory (API_JOURNEYS), `feed_s
 - **Ruff** check on `app/` and `tests/`; format on the new files and on the changed files that were
   formatted before (the others keep their formatting, only Z6's lines changed).
 - **Smoke start on a copy of the development database** (`rdm` copied to a scratch database, then
-  dropped): upgraded `20261101_01` → `20261102_01`, `/health` ok. Entries with a workspace 14,424 →
-  44,644 of 49,496 (the 30,220 the plan measured); unplaced: the 4,557 entries from before the feed
-  and 24 relation-set summaries; 7,864 change-set entries keep no subject (their records were only
+  dropped): upgraded `20261101_01` → `20261102_01`, `/health` ok. Entries with a workspace rose to
+  nearly all (as the plan measured); unplaced: the entries from before the feed
+  and the relation-set summaries; some change-set entries keep no subject (their records were only
   in discarded change sets) and read "a record since removed". Started with a scratch key, so the
   copy's signing keys were replaced on it to issue tokens (see the TODO above).
 - **Timing (D347), on that copy:** a client changed 200 records, then 2,000 by batch; `GET /changes`
@@ -3827,7 +3826,7 @@ relationships (D359, not planned).
 ### LS1: A collection's rows scroll on their own
 
 **Needs:** 0.11 X6 (delivered). _Added by the user, 2026-10-25:_ "scrolling it immediately laggy …
-200 timetable types, with some language relations … if it's laggy for 200 records … what could we
+a few hundred stops, with some language relations … if it's laggy for that many records … what could we
 expect for a larger set?", asking for a code review and a solution, not more measuring. After the
 review: "I accept the decision", then, on how the page would avoid the sidebar scrolling away and
 columns ending at different bottoms, the layout below; "ok"; "add this to the build 0.12 then deliver
@@ -3840,7 +3839,7 @@ browser.
 ##### LS1 plan (2026-10-25)
 
 **Planned and accepted 2026-10-25** in the user's words above, with the
-[scrolling mock-up](https://claude.ai/artifact/SGjSLyQJfEGcWk2SKpAEu3) (laptop with 200 records,
+[scrolling mock-up](https://claude.ai/artifact/SGjSLyQJfEGcWk2SKpAEu3) (laptop with a few hundred records,
 laptop with 9, phone). D371–D376 are recorded as recommended. Checked against the code at `9c702d7`
 by reading it; nothing was measured.
 
@@ -3854,7 +3853,7 @@ by reading it; nothing was measured.
    hovered row's edit icons are drawn for each row passing under the pointer.
 2. **Any draw of the page draws every row.** `ObjectTable` builds its columns, row attributes,
    selection and actions anew at each draw, `useCellEditing`'s `renderCell` and
-   `useRecordSelection`'s `isSelected` are new each time: 200 records at the page size of 20 arrive
+   `useRecordSelection`'s `isSelected` are new each time: a few hundred records at the page size of 20 arrive
    as eleven background pages after the list opens, each drawing every drawn row again.
 3. **The wheel waits for the script.** `ScrollWindow`'s wheel listener is not passive and reads the
    layout at each event (`getComputedStyle` up the ancestors, `scrollHeight`, a bounding box), so
@@ -4744,7 +4743,7 @@ user may reopen them).
   `test_delivery`: the list of signatures.
 - **The groups the guide selects for the boundary** (`feed or startup or contract`, parallel): 488 passed
   and one failed, `test_api_journeys::test_every_error_code_is_listed` for `NOT_FOUND`, which
-  `management/operator_assets.py` raises since the branding commit `68dfc8a` and API_JOURNEYS does not list:
+  `management/brand_assets.py` raises since the branding commit `68dfc8a` and API_JOURNEYS does not list:
   not K1's. Its serial part selects nothing. Also the unit tests for `engine/events` and
   `engine/identity` and the `test_j39_*` identity journeys: 34 passed, `test_startup` (head
   `20261108_01`) and `test_schema_drift`.

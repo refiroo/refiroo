@@ -16,7 +16,7 @@ import type { IconName } from "@/ui/Icon";
 import { Choice } from "@/ui/Choice";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
-import { settingsHead } from "./navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 
 const DENSITIES: [TableDensity, string][] = [
   ["comfortable", "Comfortable"],

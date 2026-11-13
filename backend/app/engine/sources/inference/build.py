@@ -92,7 +92,7 @@ def _capital(label: str) -> str:
 
 def readable(label: str) -> str:
     """A header or sheet name as words (D103): underscores and joined capitals split
-    ("Platform_Code" → "Reserved Slot Code", "RBTimetableType" → "FL Timetable Type"), and a
+    ("StopName_Code" → "Stop Name Code", "RBStopType" → "RB Stop Type"), and a
     header written in capitals with more than one word in sentence case ("IS_INTERNAL" → "Is internal")."""
     text = re.sub(r"[_]+", " ", label)
     text = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text)

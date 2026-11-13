@@ -4,23 +4,11 @@
  */
 
 import type { ChangeOrigin } from "@/types/ai";
+import type { PageNavigation } from "@/types/pagination";
 import type { Job } from "@/types/integration";
 import type { ValueType } from "@/types/model";
 import type { WorkspaceModel } from "@/types/modelAdmin";
 import type { Actor, Principal } from "@/types/security";
-
-/**
- * Navigation every collection page returns (ADR-030). The cursor fields other than `nextCursor`
- * and the counts, present only with `includeTotal=true` and otherwise omitted, are optional here so
- * that feeds reading forward only need not model them.
- */
-export interface PageNavigation {
-  nextCursor: string | null;
-  prevCursor?: string | null;
-  anchor?: string | null;
-  totalCount?: number;
-  startIndex?: number;
-}
 
 export interface ObjectItem {
   id: string;

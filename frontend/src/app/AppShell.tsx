@@ -16,7 +16,7 @@ import { api } from "@/api/client";
 import type { ReactNode } from "react";
 import { Explorer } from "@/features/objects/Explorer";
 import { useEditModel } from "@/features/workspaces/useEditModel";
-import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
+import { WorkspaceSelector } from "@/ui/WorkspaceSelector";
 import type { ActionMenuItem } from "@/ui/ActionMenu";
 import { routeChangeSetId, routePublicationId, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, ApplicationRoute, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";

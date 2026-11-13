@@ -10,8 +10,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
-import { SETTINGS_NAVIGATION, navigationFor } from "@/features/settings/navigation";
-import { useHeldAnywhere } from "@/features/security/permissions";
+import { SETTINGS_NAVIGATION, navigationFor } from "@/ui/settingsNavigation";
+import { useHeldAnywhere } from "@/state/permissions";
 import { routePath, workspaceRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, RouteState, SettingsPage } from "@/types";
 import { RouteLink } from "@/ui/RouteLink";

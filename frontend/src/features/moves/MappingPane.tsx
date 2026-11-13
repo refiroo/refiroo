@@ -8,7 +8,7 @@
 
 import { memo, useState } from "react";
 import type { EngineModel, MappingOperation, ObjectTypeDefinition } from "@/types";
-import { ProposedPill } from "@/features/model-editor/ProposedBecause";
+import { ProposedPill } from "@/ui/ProposedBecause";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
 import { formatValue } from "@/ui/formatValue";

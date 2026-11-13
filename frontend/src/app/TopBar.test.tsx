@@ -62,14 +62,14 @@ describe("the top bar (0.17 SH1)", () => {
       <TopBar
         model={model}
         inSettings
-        backTo={{ label: "Back to STOPS Reference Data", href: "/workspace?workspaceKey=stops", onBack }}
+        backTo={{ label: "Back to Graubünden stops", href: "/workspace?workspaceKey=stops", onBack }}
         onHome={vi.fn()}
         onSelectApplication={vi.fn()}
         onNavigate={vi.fn()}
       />,
     );
     expect(screen.queryByRole("button", { name: "Stations" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("link", { name: "Back to STOPS Reference Data" }));
+    fireEvent.click(screen.getByRole("link", { name: "Back to Graubünden stops" }));
     expect(onBack).toHaveBeenCalled();
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();

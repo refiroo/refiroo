@@ -48,11 +48,11 @@ import { TextInPlace } from "@/ui/TextInPlace";
 import { useToast } from "@/ui/Toast";
 import { Trail } from "@/ui/Trail";
 import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
-import { settingsHead } from "@/features/settings/navigation";
-import { readsChanges } from "@/features/changes/changeText";
+import { settingsHead } from "@/ui/settingsNavigation";
+import { readsChanges } from "@/ui/changeText";
 import { GrantsSection, useWorkspaceLabels } from "./GrantsSection";
-import { useCapabilities } from "@/features/settings/useSystem";
-import { useHeldAnywhere } from "./permissions";
+import { useCapabilities } from "@/state/useSystem";
+import { useHeldAnywhere } from "@/state/permissions";
 import { RecentActivity } from "./RecentActivity";
 import { clientAccessLine, clientUseLine } from "./securityText";
 

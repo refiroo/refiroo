@@ -6,7 +6,7 @@ import { ApiError } from "@/api/errors";
 import { testModel } from "@/test/fixtures";
 import type { Job, JobItemOutcome, JobRow } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
-import { JobNotificationsProvider } from "./JobNotifications";
+import { JobNotificationsProvider } from "@/ui/JobNotifications";
 import { JobPage } from "./JobPage";
 
 // Job streams are read with fetch (0.12 I2); the test drives them instead.
@@ -236,7 +236,7 @@ describe("JobPage of an import (0.9 J4)", () => {
         { field: "name", label: "Name", cells: 4, matched: 3, ambiguous: 0 },
         { field: "code", label: "Code", cells: 4, matched: 3, ambiguous: 0 },
       ],
-      newRecords: { objectTypeKey: "group", name: "Booked group", willBeCreated: true },
+      newRecords: { objectTypeKey: "group", name: "New group", willBeCreated: true },
     };
     vi.mocked(api.job).mockResolvedValue({
       ...waiting,
@@ -267,7 +267,7 @@ describe("JobPage of an import (0.9 J4)", () => {
     expect(within(section).getByText("Guessed")).toBeInTheDocument();
     expect(within(section).getByText(/Code was chosen/)).toBeInTheDocument();
     expect(within(section).getByText("3 of 4")).toBeInTheDocument();
-    expect(within(section).getByText("Booked group (will be created)")).toBeInTheDocument();
+    expect(within(section).getByText("New group (will be created)")).toBeInTheDocument();
     fireEvent.change(within(section).getByRole("combobox", { name: /German . linked values is matched by/ }), {
       target: { value: "name" },
     });
@@ -325,7 +325,7 @@ describe("JobPage of an import (0.9 J4)", () => {
                 createdValues: 1,
                 newRecords: {
                   objectTypeKey: "group",
-                  name: "Timetable Type",
+                  name: "Transport Type",
                   willBeCreated: true,
                   typeName: "Group",
                   under: "German",
@@ -340,7 +340,7 @@ describe("JobPage of an import (0.9 J4)", () => {
     const section = (await screen.findAllByText("How the file is read"))[0].closest("section")!;
     expect(within(section).getByText("2 rows update a record, 3 are new")).toBeInTheDocument();
     expect(within(section).getByText("3 of 4, 2 from the value sheet, 1 new")).toBeInTheDocument();
-    expect(within(section).getByText("will create group “Timetable Type” under German")).toBeInTheDocument();
+    expect(within(section).getByText("will create group “Transport Type” under German")).toBeInTheDocument();
   });
 
   it("cancels a waiting import in two steps: the button asks, the dialog's button cancels", async () => {

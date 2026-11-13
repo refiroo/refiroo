@@ -101,13 +101,13 @@ describe("Load a workbook (0.16 AP6a)", () => {
     expect(screen.getByRole("button", { name: "Ask the assistant" })).toBeDisabled();
     expect(screen.getByText(/Without a workbook, your words are the whole instruction/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Tell the assistant about this file (optional)"), {
-      target: { value: "Relate durations and stations" },
+      target: { value: "Relate frequencies and stations" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Ask the assistant" }));
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith(started));
     expect(ai.createTask).toHaveBeenCalledWith(undefined, {
       workspaceKey: "west",
-      words: "Relate durations and stations",
+      words: "Relate frequencies and stations",
     });
   });
 

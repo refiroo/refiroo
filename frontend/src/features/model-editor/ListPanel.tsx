@@ -12,12 +12,12 @@ import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
-import { ProposedPill } from "@/features/model-editor/ProposedBecause";
+import { ProposedPill } from "@/ui/ProposedBecause";
 import { ListReadings } from "@/features/model-editor/ReadingEntries";
 import { MissingRecords } from "@/features/model-editor/MissingRecords";
 import { CellGrid } from "@/features/model-editor/CellGrid";
 import { useCells } from "@/features/model-editor/useCells";
-import { typeName } from "@/features/model-editor/outline";
+import { typeName } from "@/model/outline";
 import {
   listColumns,
   columnLetter,

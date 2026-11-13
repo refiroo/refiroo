@@ -5,13 +5,13 @@ import { ApiError, api } from "@/api/client";
 import type { ChangeEntry, WorkspaceDetail } from "@/types";
 import { WorkspaceAdmin, resetWorkspaceAdminCacheForTests } from "@/features/workspaces/WorkspaceAdmin";
 import { capabilitiesFixture } from "@/test/capabilities";
-import { resetPermissionsForTests } from "@/features/security/permissions";
+import { resetPermissionsForTests } from "@/state/permissions";
 import { EVERY_GROUP, heldAnywhereFixture, permissionsFixture } from "@/test/permissions";
 import { security } from "@/api/securityClient";
 import { testModel, testWorkspaceModel, testAvailability } from "@/test/fixtures";
 import { ToastProvider } from "@/ui/Toast";
 
-vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({ useHistoryAccountOffer: () => undefined }));
+vi.mock("@/state/useWorkspaceAiOffer", () => ({ useHistoryAccountOffer: () => undefined }));
 vi.mock("@/api/securityClient", () => ({ security: { access: vi.fn() } }));
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();

@@ -64,7 +64,7 @@ changed after the check, acceptance checks every record and relationship again f
 [Review the assistant's workbook design](/docs/guide/model/review-an-assistants-workbook-design/)
 explains this review.
 
-![Workbook proposal showing what the load does, its results by type and the choices before acceptance](/docs/screens/use-assistant-proposal.png)
+![Workbook proposal showing what the load does, its results by type and its notes before acceptance](/docs/screens/use-assistant-proposal.png)
 
 *Above: the workbook proposal for the Graubünden reference data, showing What the load does
 and the table of results by type. Below it, Questions marks the assumed answer, and the acceptance

@@ -11,14 +11,14 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("@/app/useMe", () => ({ useHoldsGroup: () => state.authors }));
-vi.mock("@/features/security/permissions", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/security/permissions")>()),
+vi.mock("@/state/permissions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/state/permissions")>()),
   useWorkspacePermissions: () => ({ actionGroups: state.held.map((key) => ({ key })) }) as unknown as MyPermissions,
 }));
-vi.mock("@/features/settings/useSystem", () => ({
+vi.mock("@/state/useSystem", () => ({
   useCapabilities: () => ({ capabilities: { integrationJobs: { createJobs: state.jobs } } }),
 }));
-vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({
+vi.mock("@/state/useWorkspaceAiOffer", () => ({
   useAssistantOfferIn: () => (state.assistant ? { assistant: true } : undefined),
 }));
 

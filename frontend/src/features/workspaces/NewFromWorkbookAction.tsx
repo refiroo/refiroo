@@ -5,9 +5,9 @@
  */
 
 import { useState } from "react";
-import { useHeldAnywhere } from "@/features/security/permissions";
-import { useCapabilities } from "@/features/settings/useSystem";
-import { openWorkspace } from "@/features/home/openWorkspace";
+import { useHeldAnywhere } from "@/state/permissions";
+import { useCapabilities } from "@/state/useSystem";
+import { openWorkspace } from "@/state/openWorkspace";
 import { startsFromWorkbook } from "@/features/workspaces/fromWorkbook";
 import { NewFromWorkbook } from "@/features/workspaces/NewFromWorkbook";
 import type { RouteState } from "@/types";

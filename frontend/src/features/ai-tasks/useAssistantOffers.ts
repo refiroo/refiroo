@@ -8,9 +8,9 @@
  */
 
 import { useHoldsGroup } from "@/app/useMe";
-import { useCapabilities } from "@/features/settings/useSystem";
-import { holds, useWorkspacePermissions } from "@/features/security/permissions";
-import { useAssistantOfferIn } from "@/features/settings/useWorkspaceAiOffer";
+import { useCapabilities } from "@/state/useSystem";
+import { holds, useWorkspacePermissions } from "@/state/permissions";
+import { useAssistantOfferIn } from "@/state/useWorkspaceAiOffer";
 
 export interface AssistantOffers {
   changeModel: boolean;

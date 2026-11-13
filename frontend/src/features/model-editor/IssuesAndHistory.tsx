@@ -18,7 +18,7 @@ import { InlineError } from "@/ui/InlineError";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { describeStep, historySteps, migrationWords, undoable } from "@/features/model-editor/history";
-import { elementLabel, nameOf } from "@/features/model-editor/outline";
+import { elementLabel, nameOf } from "@/model/outline";
 import { columnsOfIssue } from "@/features/model-editor/mapping";
 import { ActorName } from "@/ui/ActorName";
 import { PROFILE_KEY_MISMATCH, PROFILE_KEY_POINTER, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";

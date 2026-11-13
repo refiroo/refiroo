@@ -11,7 +11,7 @@
 import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { WORKBOOK_ACCEPT } from "@/features/model-editor/AddWorkbookDialog";
+import { WORKBOOK_ACCEPT } from "@/ui/AddWorkbookDialog";
 import {
   findings,
   lookAtWorkbook,

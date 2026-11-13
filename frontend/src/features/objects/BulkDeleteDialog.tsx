@@ -7,9 +7,9 @@
  * shares (`BulkJobDialog`); the deleted records leave the selection (D125).
  */
 
-import type { Noun, TypeName } from "@/features/jobs/BatchOutcome";
-import { BatchDeletionSection } from "@/features/jobs/BatchOutcome";
-import { count } from "@/features/settings/limits";
+import type { Noun, TypeName } from "@/ui/BatchOutcome";
+import { BatchDeletionSection } from "@/ui/BatchOutcome";
+import { count } from "@/ui/limits";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import type { EngineModel, Job, ObjectTypeDefinition } from "@/types";
 import { BulkJobDialog, targetText } from "./BulkJobDialog";

@@ -4,7 +4,7 @@
  * run with its summary and rows.
  */
 
-import type { ExportCriterion } from "@/types/integration";
+import type { ExportCriterion } from "@/types/exportCriterion";
 import type { Principal } from "@/types/security";
 
 export interface MappingAttributeEntry {

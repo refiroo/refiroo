@@ -9,7 +9,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { openIn, type Navigate } from "@/features/home/openWorkspace";
+import { openIn, type Navigate } from "@/state/openWorkspace";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
 import { loadedWorkspaceModel, workspaceModel } from "@/model/workspaceModels";

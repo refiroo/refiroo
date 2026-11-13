@@ -20,7 +20,7 @@ import { Notice } from "@/ui/Notice";
 import { refusalText, type RunStep } from "@/features/model-editor/OperationDialog";
 import { moveAttributeOperations } from "@/features/model-editor/operations";
 import { chosenTarget, shownTargets, TargetList } from "@/features/model-editor/TargetList";
-import { attributeTypeOf, draftTypeHue, isReleased, objectTypeOf, typeName } from "@/features/model-editor/outline";
+import { attributeTypeOf, draftTypeHue, isReleased, objectTypeOf, typeName } from "@/model/outline";
 
 export type MoveSubject =
   | { kind: "attribute"; objectType: string; attributeType: string }

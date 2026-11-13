@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
+import { isFinal, useJobStream } from "@/state/useJobStream";
 import { forgetWorkspaceLoad, workspaceLoadOf } from "@/features/workspaces/fromWorkbook";
 import type { Job, RouteState } from "@/types";
 import { Notice } from "@/ui/Notice";

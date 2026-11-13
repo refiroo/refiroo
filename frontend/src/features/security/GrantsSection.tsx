@@ -35,7 +35,7 @@ import { GrantDialog } from "./GrantDialog";
 import { recreation, type GrantChange } from "./grantPlan";
 import type { PickedPrincipal } from "./PrincipalPicker";
 import { grantHeld, grantWhere } from "./securityText";
-import { useSettingsRead } from "@/features/settings/useSystem";
+import { useSettingsRead } from "@/state/useSystem";
 
 /** Every workspace's label by key, retired ones included, for naming where a grant applies. */
 const allWorkspaces = () => api.workspaces({ status: "all", pageSize: 500 });

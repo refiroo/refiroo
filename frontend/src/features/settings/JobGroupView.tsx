@@ -27,11 +27,11 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { Trail, TrailLink, crumbs } from "@/ui/Trail";
 import { routePath } from "@/routing/routes";
-import { ORIGIN, STATE, cancellable } from "@/features/jobs/jobText";
+import { ORIGIN, STATE, cancellable } from "@/ui/jobText";
 import { useWorkspaceLabels } from "@/features/security/GrantsSection";
 import { JOB_COLUMNS, JobRow } from "./JobRow";
 import { JOBS, groupRoute, jobRoute } from "./jobRoutes";
-import { settingsHead } from "./navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { useJobCancel } from "./useJobCancel";
 
 type Origin = NonNullable<Extract<RouteState, { page: "jobs" }>["group"]>;

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
-import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -21,9 +21,9 @@ import { formatValue } from "@/ui/formatValue";
 import { attributeName } from "@/model/fields";
 import { holdsOne, listingApplication, objectTypeFor } from "@/model/lookup";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
-import { ScopeBanner } from "@/features/objects/CollectionScope";
+import { ScopeBanner } from "@/ui/CollectionScope";
 import { MappingProposalDialog } from "@/features/objects/MappingProposalDialog";
-import { useWorkspaceAiOffer } from "@/features/settings/useWorkspaceAiOffer";
+import { useWorkspaceAiOffer } from "@/state/useWorkspaceAiOffer";
 import { AiOriginMark } from "@/ui/AiOriginMark";
 import type {
   EngineModel,

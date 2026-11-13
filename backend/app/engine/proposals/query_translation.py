@@ -5,7 +5,7 @@ fields, conditions and relationships with their labels and the names of the type
 records can sit under. Where the send level allows values (``samples`` or ``values``) and the types a
 relationship reaches, with those they can sit under, hold at most ``SHORT_LIST`` records in the
 context asked about, it is also sent those records' names, so it can choose them by their meaning
-("above 30 minutes" from "45 min"); no other value, no ID (AG-D35, revised 2026-11-01). What comes
+("above 100 km" from "120 km"); no other value, no ID (AG-D35, revised 2026-11-01). What comes
 back is checked here before the person sees it:
 
 * a filter on a field the list does not offer, or with a condition the field does not take, makes the
@@ -68,7 +68,7 @@ Answer with filters, a search text and the parts you cannot express.
 - Dates are written yyyy-mm-dd; a day given for a date-time field means the whole day. Work out relative dates ("last month", "this year") from today's date.
 - Yes or no values are true or false. The conditions isNull and isUnset take the value true or false.
 - A condition on a relationship (eq, under, notUnder) takes the name of a record. under and notUnder mean a related record at any depth below the record named; they are offered only where the relationship lists the types it can sit under.
-- Where a relationship lists recordNames (or, for under and notUnder, ancestorNames), those are all the records there are. Choose records by understanding their names, also by meaning: "above 30 minutes" with names such as "15 min", "45 min" and "60 min" means 45 min and 60 min. Give one eq filter per chosen record with its name exactly as listed; several eq filters on one relationship mean any of them. Choose only from the names listed and never invent one. Where a relationship lists no names, give the name as the person wrote it.
+- Where a relationship lists recordNames (or, for under and notUnder, ancestorNames), those are all the records there are. Choose records by understanding their names, also by meaning: "above 100 km" with names such as "50 km", "120 km" and "300 km" means 120 km and 300 km. Give one eq filter per chosen record with its name exactly as listed; several eq filters on one relationship mean any of them. Choose only from the names listed and never invent one. Where a relationship lists no names, give the name as the person wrote it.
 - If no listed name fits a part of the question, or the question compares in a way the names cannot answer, that part goes to notExpressed.
 - When the question names what a relationship's records stand under (the relationship lists canSitUnder types), "with" it is under and "without" it is notUnder, with the name given. isNull is only for "has none at all" and says nothing about any named record.
 - search is words to look for in the records' names, only when the question asks for a word or name that no field covers. Otherwise leave it empty.

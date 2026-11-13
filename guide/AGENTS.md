@@ -58,8 +58,7 @@ shipped with refiroo, not part of it: a model may rename, reshape, replace or re
    guessing.
 5. **One example world.** Examples use the guide's reference data: the public transport stops of
    Graubünden, Switzerland (`samples/README.md`, `samples/SOURCES.md`): stops, municipalities, operators,
-   names in five languages, codes from other systems. Never another organisation's data, never a private
-   model. The domain is the example, never the definition. Text and steps are generic: "open an
+   names in five languages, codes from other systems. Never another organisation's data. The domain is the example, never the definition. Text and steps are generic: "open an
    application in the current workspace", never "open Network in the Graubünden workspace". The example
    goes in the caption under a screenshot ("Above: the Network application in the Graubünden workspace,
    showing the stops of the canton") or in a clearly marked example after the general text.

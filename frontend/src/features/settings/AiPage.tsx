@@ -31,8 +31,8 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
-import { failureSentence, PURPOSE, sendLevelText } from "./aiText";
-import { settingsHead } from "./navigation";
+import { failureSentence, PURPOSE, sendLevelText } from "@/lib/aiText";
+import { settingsHead } from "@/ui/settingsNavigation";
 
 const number = (value: number) => value.toLocaleString("en");
 

@@ -1592,7 +1592,7 @@ def test_a_new_application_on_an_empty_model_is_a_model_of_the_workbook_alone(wo
 @pytest.mark.journey("J34.4")
 @pytest.mark.structures("K")
 def test_a_workbook_of_real_shapes_gives_a_model_its_own_dry_run_takes_whole(world):
-    """Given W4 (the shapes of the user's workbooks, 2026-10-14) profiled on an empty model. When
+    """Given W4 (the shapes of workbooks, 2026-10-14) profiled on an empty model. When
     the inference runs and every proposal is applied. Then the statuses are keyed by their GUID and
     named; the kinds have one parent, Category, optional for the rows without one, and Slot_Name is
     a list they refer to; Categoría and Kategorie translate Category by their values; North and South
@@ -2260,7 +2260,7 @@ def test_proposing_again_on_the_same_workbook_applies_nothing(world):
 @pytest.mark.journey("J34.4")
 @pytest.mark.structures("K")
 def test_a_workbook_with_nothing_to_propose_leaves_the_draft_as_it_was(world):
-    """Regression (reported on a real workbook, 2026-10-14): when no sheet shows a shape to
+    """Regression (reported on a workbook, 2026-10-14): when no sheet shows a shape to
     propose from, the inference proposes nothing, says why, and applying is NOTHING_TO_APPLY; it
     used to propose the new application alone, and applying it left the draft refusing an
     application without types. (W3 served here until 0.10 A8 made its lists proposable; a sheet of
@@ -2295,7 +2295,7 @@ def test_a_workbook_with_nothing_to_propose_leaves_the_draft_as_it_was(world):
 @pytest.mark.journey("J34.4")
 @pytest.mark.structures("K")
 def test_a_table_with_a_note_beside_it_is_read_by_the_table(world):
-    """Reported on a real workbook (2026-10-14): a sheet whose table has a small block beside it
+    """Reported on a workbook (2026-10-14): a sheet whose table has a small block beside it
     proposed nothing. Given W1 with a two-column note block right of S1's table, the inference reads
     S1 by its table, names the note block in its warnings, every source on S1 loads from the table's
     block, and the applied draft's dry run refuses no row."""
@@ -3546,7 +3546,7 @@ def test_an_import_keyed_by_name_finds_its_records_by_name(world):
 @pytest.mark.journey("J34.2")
 @pytest.mark.structures("K")
 def test_a_header_ending_in_a_space_is_mapped_by_its_trimmed_name(world):
-    """Regression (found on the user's reading-layout workbook by A8a's real-file smoke): the import
+    """Regression (found on a reading-layout workbook by A8a's sample-file smoke): the import
     reads a header without its surrounding spaces, but the draft's sheets kept them, so mapping the
     column by the name the import reads was refused unknownElement. Given a file whose header ends
     in a space, a source maps the column by its trimmed name and the dry run reads it."""

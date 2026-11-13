@@ -1,6 +1,6 @@
 /** The caller and their sessions, as the account menu and Settings › Account show them (0.12 I2). */
 
-import type { PageNavigation } from "@/types/runtime";
+import type { PageNavigation } from "@/types/pagination";
 
 /** Who is signed in: a person (or, through the API, a client). */
 export interface Me {

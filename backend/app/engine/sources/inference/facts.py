@@ -8,7 +8,7 @@ test builds the same interface over rows it generates.
 
 A sheet of one block is read whole. Of a sheet with several blocks, its **main block** is read when
 one is clearly the table (:func:`main_block`: at least :data:`MAIN_COLUMNS` columns and
-:data:`MAIN_SHARE` of the sheet's cells; reported by the user on a real workbook, 2026-10-14: a table
+:data:`MAIN_SHARE` of the sheet's cells; reported on a workbook, 2026-10-14: a table
 with a two-column note beside it proposed nothing); the other blocks are named in the inference's
 warnings. A sheet laid out for reading (its profile's ``laidOut``, 0.10 A8a, D115) is read list by
 list: each of its blocks is a :class:`BlockTable` of the workbook's ``blocks``.
@@ -99,7 +99,7 @@ class Column:
     @property
     def prose(self) -> bool:
         """Sentences rather than names: text averaging more than 60 characters (decided 2026-10-14
-        on the user's workbooks, where repeated descriptions were read as parents)."""
+        on workbooks, where repeated descriptions were read as parents)."""
         return self.textual and self.average > PROSE_AVERAGE
 
 

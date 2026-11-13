@@ -8,7 +8,7 @@
 
 import type { ReactNode } from "react";
 import { formatServerDate } from "@/lib/dates";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { routePath } from "@/routing/routes";
 import type { ModelDraft, ModelReleaseSummary, ModelTab, Workspace } from "@/types";
 import { OpenableRow } from "@/ui/OpenableRow";

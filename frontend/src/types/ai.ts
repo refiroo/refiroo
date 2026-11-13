@@ -1,6 +1,6 @@
 /** The assistant and the AI provider the application asks for proposals, and the calls it made (0.16 AP1). */
 
-import type { PageNavigation } from "@/types/runtime";
+import type { PageNavigation } from "@/types/pagination";
 
 /** What may leave the process: names and types, also sample values, also the values a feature needs. */
 export type AiSendLevel = "structure" | "samples" | "values";

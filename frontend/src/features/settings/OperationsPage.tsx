@@ -20,7 +20,7 @@ import { LogFoot, SettingRow, SettingsGroup, SettingsPanel } from "@/ui/Settings
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
-import { settingsHead } from "./navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import {
   THREAD_LABELS,
   databaseReason,

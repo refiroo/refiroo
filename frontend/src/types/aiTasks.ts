@@ -1,7 +1,7 @@
 /** Loading a workbook with the AI assistant (0.16 AP6a): the task, its design, check and result. */
 
 import type { AiOrigin } from "@/types/ai";
-import type { PageNavigation } from "@/types/runtime";
+import type { PageNavigation } from "@/types/pagination";
 import type { MigrationListConversion, MigrationRelationTypeMapping, MigrationSplit } from "@/types/integration";
 import type { Principal } from "@/types/security";
 

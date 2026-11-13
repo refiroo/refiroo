@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- **The assistant task's code split by concern (SR1)**: internal. `engine/tasks/agent.py` is now the package `engine/tasks/agent/` with `sandbox`, `files`, `words`, `run` and `outcome`; no behaviour, API, prompt or database change.
+- **Frontend features import shared state from one layer (SR2)**: internal. App-wide state and hooks move out of single features into `src/state/`, parts several features show into `src/ui/`, `src/lib/` and `src/model/`; a lint rule (ADR-046) keeps features from importing each other beyond a short list of deliberate edges; two import cycles are gone. No behaviour change.
+
 ## [0.17.1] - 2026-11-13
 
 Fixes after 0.17.0: exports for people offer their drop-down lists in every workbook and open as pop-up
@@ -237,7 +242,7 @@ It also holds what shipped earlier as 0.16.1-alpha.1 to alpha.5 (0.13, the docum
   canvas in the model editor; PL4's Adjust opens the canvas.
 - The model editor shares the canvas's draft steps, dependants dialog, workspace choice and Proposed logic.
 - Fixed: the canvas read a column of numbers as text, and drew a line for a list that contains itself.
-- Fixed (found by trying three real workbooks): the canvas's Create workspace… now lands on the workspace's own page, where
+- Fixed (found by trying three workbooks): the canvas's Create workspace… now lands on the workspace's own page, where
   the load's progress and result are shown. A sheet dropped on a draft with no application, or on a board where a list
   already reads it, no longer fails or makes a second list. A column dropped on the empty board is now a new list of its
   values, linked back, with a source of its own, in one request; a column that already fills a field is not made a second
@@ -357,7 +362,7 @@ It also holds what shipped earlier as 0.16.1-alpha.1 to alpha.5 (0.13, the docum
   job's kind, as the route checks (it said Bulk and import in the workspace). The consumer sweep expects `404
   CONSUMER_API_NOT_FOUND` for a key the workspace's model does not declare, as the consumer API's text says.
 
-### Fixed (0.17 PL3b and PL4, from a real workbook)
+### Fixed (0.17 PL3b and PL4, from a workbook)
 
 - A column whose header ends in a space, on a sheet whose header row is not row 1, can be mapped: a header named as the
   source-columns read lists it is matched without its surrounding whitespace, as the import reads it, and saved trimmed.
@@ -809,7 +814,6 @@ Findings of 0.13 R's full review of every change since 0.16.0, numbered R13-F1 o
 - **`sc07` brought up to date.** Its large-set step expected the starter's 25-target row to be `ambiguous` / "Ambiguous (25)"; since the cardinality rule ("A mapping row with several targets is \"Mapped\" where the relation lets a source hold many", above) it is `mapped` / "Mapped (25)". The runner names the change; 9 checks pass.
 - **The Add members dialog of a group has the dialog's margins.** Why: its content sat directly on the dialog's edges (no `dialog-body`), and the paste box had no field styling, so its text touched the border. It now uses `dialog-body` and the paste box `field-input`, like every other dialog; the security runner (`test:browser:security`) takes a screenshot of both tabs. Reported by the user during 0.13 R.
 - **Known limit, not fixed (decided by the user 2026-11-10).** In a container all assistant sessions run as the one `assistant` user, so a session could read other tasks' folders and transcripts and a concurrent session's token; the engine's secrets stay out of reach. Stated in `docs/OPERATIONS.md` (`AI_AGENT_SANDBOX`); a user per session is planned later.
-- **Private development data removed from the history.** `prototypes/ux-refinement-dev-data/` (a copy of development data) was removed from every commit and the tags v0.16.1-alpha.1 to alpha.4 were rewritten (2026-11-10).
 - **R13-F1.** `images.yml` reacted to every successful `CI` run whose branch was named `main`, and a fork's pull request from its own `main` is one: its commit was built, pushed and tagged `:main`, and the smoke step ran the fork's `compose.yml` with the registry login present. The `prepare` job now needs the run to be a push (`workflow_run.event == 'push'`) to this repository (`head_repository.full_name == github.repository`). `images-cleanup.yml` has no `workflow_run` trigger (schedule and manual only) and needed no change.
 - **R13-F2.** Every third-party action in `images.yml` and `images-cleanup.yml` (`actions/*`, `docker/*`) is pinned to a full commit SHA with its tag as a trailing comment, so a moved tag cannot change what runs with the registry token.
 - **R13-F3.** With a managed identity (`identityMode`), the host's `api://AzureADTokenExchange` token was posted as `client_assertion` to whatever `authorityUrl` an administrator saved. With an `identityMode` the engine now accepts only Microsoft's sign-in hosts (`login.microsoftonline.com`, `.us`, `login.partner.microsoftonline.cn`, `login.chinacloudapi.cn`): any other address is `422 REQUEST_VALIDATION_ERROR` at `authorityUrl` on save, and an address saved earlier is refused (`connection`) before anything is sent.
@@ -1142,7 +1146,7 @@ Findings of 0.13 R's full review of every change since 0.16.0, numbered R13-F1 o
 ### Added (a theme choice: Normal or Website purple, 0.13 TH)
 
 - **Settings › Appearance has a Theme selector: Normal or Website purple.** Website purple is the refiroo website's look (periwinkle, mint, navy, cream, coral) as a second theme of the interface, in light and dark. It is independent of the light and dark choice, which stays as it was and now picks the light or dark of the chosen theme, and of the type colours (A and B apply inside both). The choice is saved in this browser (`rdm:scheme:v1`, JSON `"normal"` or `"purple"`, default Normal) and set as `data-scheme="purple"` on the page by the first-paint script, so there is no flash; the browser's address-bar colour follows. `tokens.css` gains the website's colours as a primitive ramp and two role blocks (light, and dark twice, identical), each setting every role Normal's dark block sets; `tokens.test.ts` checks that, that the two dark blocks match and the contrast of every pair in both, with and without palette A.
-- **The guide and the API reference an instance serves follow it too.** Their header bar (`refiroo-header.css`, now with a copy kept equal under `backend/app/management/operator/`), Starlight's variables (`guide.css`) and Scalar (coloured by the same stylesheet) take the purple values, and all three follow a choice made in any of the three tabs through the storage event, as they follow the light and dark choice. The public site's guide build with a host look (`PUBLIC_GUIDE_THEME`) and its API page keep the site's look and ignore the choice.
+- **The guide and the API reference an instance serves follow it too.** Their header bar (`refiroo-header.css`, now with a copy kept equal under `backend/app/management/brand/`), Starlight's variables (`guide.css`) and Scalar (coloured by the same stylesheet) take the purple values, and all three follow a choice made in any of the three tabs through the storage event, as they follow the light and dark choice. The public site's guide build with a host look (`PUBLIC_GUIDE_THEME`) and its API page keep the site's look and ignore the choice.
 
 ### Fixed (the assistant in a container, 0.13 DOC11)
 
@@ -1179,12 +1183,12 @@ Findings of 0.13 R's full review of every change since 0.16.0, numbered R13-F1 o
 
 ### Added (branded mail)
 
-- **The five messages the engine sends are branded HTML as well as plain text.** Activation, password reset, test message, inbox notice and digest are multipart: the plain text, unchanged, then an HTML part with the refiroo mascot and wordmark in a lavender band (a renamed product shows its name beside them, as the top bar does), a heading, a button, the raw link for a client that hides the button, and a footer saying why the person gets the message and where to change it (Settings › Notifications), with a link to refiroo.com ("Made with refiroo" before it for a renamed product). The HTML carries the same facts as the text and no more (D421, D432); every value is escaped. The images travel inside the message as `cid:` parts from `backend/app/engine/mail/operator/`, never loaded from the application's address. The sealed outbox text now holds the text and the HTML together (`outbox.pack`/`unpack`), so there is no migration; a message queued earlier is sent as plain text. The test message from the Mail page, sent without the outbox, carries the HTML too.
+- **The five messages the engine sends are branded HTML as well as plain text.** Activation, password reset, test message, inbox notice and digest are multipart: the plain text, unchanged, then an HTML part with the refiroo mascot and wordmark in a lavender band (a renamed product shows its name beside them, as the top bar does), a heading, a button, the raw link for a client that hides the button, and a footer saying why the person gets the message and where to change it (Settings › Notifications), with a link to refiroo.com ("Made with refiroo" before it for a renamed product). The HTML carries the same facts as the text and no more (D421, D432); every value is escaped. The images travel inside the message as `cid:` parts from `backend/app/engine/mail/brand/`, never loaded from the application's address. The sealed outbox text now holds the text and the HTML together (`outbox.pack`/`unpack`), so there is no migration; a message queued earlier is sent as plain text. The test message from the Mail page, sent without the outbox, carries the HTML too.
 
 ### Changed (the documentation's sidebar)
 
 - **The documentation's sidebar starts folded.** Only About refiroo is open by default; every other section and its groups start closed. The section and group of the page being read open by themselves, and a reader's own folding is kept as before (`guide/astro.config.mjs`).
-- **"refiroo" is marked as the product name in the documentation's text**, in the wordmark's navy (light periwinkle in dark mode), by the build itself (`guide/tools/rehype-operator.mjs`); code and names such as `refiroo-guide-ref` are left as they are.
+- **"refiroo" is marked as the product name in the documentation's text**, in the wordmark's navy (light periwinkle in dark mode), by the build itself (`guide/tools/rehype-brand.mjs`); code and names such as `refiroo-guide-ref` are left as they are.
 
 ### Fixed (CI on GitHub)
 
@@ -1192,8 +1196,9 @@ Findings of 0.13 R's full review of every change since 0.16.0, numbered R13-F1 o
 - **The backend tests run in parallel in CI**, `-n auto` and then the `serial` tests, as the execution guide runs them; a single process took about an hour. The job stops at 40 minutes. A tag push no longer runs CI a second time for the same commit, and the frontend job installs Playwright's Chromium for the gate-helper test (`.github/workflows/ci.yml`).
 - **One ruff for CI and the developer instance:** `ruff==0.16.5` in the dev dependencies (0.17 dropped DTZ001 and refused the `noqa` comments 0.16 needs); the import order and a nested `if` it reported are fixed.
 
-### Changed (local material out of the repository)
+### Changed (the starter model only)
 
+- **`model/` holds only `rdm-starter.json`.** The consumer API document tests run over the starter model, with its `rdm` definition widened to every type where a test needs the whole model.
 
 ### Fixed (a released consumer API's key fact)
 
@@ -1201,7 +1206,7 @@ Findings of 0.13 R's full review of every change since 0.16.0, numbered R13-F1 o
 
 ### Changed (one header, 0.13 HD)
 
-- **One header for the app, the guide and the API reference.** The three bars share the height, surface, rule, mark and ink underline (`frontend/public/operator/refiroo-header.css`, served at `/operator/`); the logo leads to the app's home, Documentation | API reference come before the guide's search, and the API page drops Scalar's own dark-mode toggle. **"?"** in the app bar, left of the bell, opens the documentation in a new tab. One theme choice: the guide and the API page read and write `rdm:theme:v1` (System, Light, Dark) and, with the app, follow a change made in another open tab. A public site build sets `PUBLIC_GUIDE_SITE=1` and sends the logo to the site's home (first the guide's home; changed by the entry above). **The public site has the API reference too:** `npm run build:public` in `guide/` (with `GUIDE_OUT` to build elsewhere) builds the guide for the public site and writes a static `/docs/api/` beside it with the engine's own page (`render_page`, in its static form: no sign-in script, no test-request button, the Content-Security-Policy in a `<meta>` element), Scalar's bundled script, the management API's document (from the code, no database) and the `stops` consumer API of the guide's reference domain (`guide/samples/model.json`), titled as the example. The module is `app.management.reference.static_site`; an instance does not use it, since the engine serves `/docs/api` from its route before the guide's files.
+- **One header for the app, the guide and the API reference.** The three bars share the height, surface, rule, mark and ink underline (`frontend/public/brand/refiroo-header.css`, served at `/brand/`); the logo leads to the app's home, Documentation | API reference come before the guide's search, and the API page drops Scalar's own dark-mode toggle. **"?"** in the app bar, left of the bell, opens the documentation in a new tab. One theme choice: the guide and the API page read and write `rdm:theme:v1` (System, Light, Dark) and, with the app, follow a change made in another open tab. A public site build sets `PUBLIC_GUIDE_SITE=1` and sends the logo to the site's home (first the guide's home; changed by the entry above). **The public site has the API reference too:** `npm run build:public` in `guide/` (with `GUIDE_OUT` to build elsewhere) builds the guide for the public site and writes a static `/docs/api/` beside it with the engine's own page (`render_page`, in its static form: no sign-in script, no test-request button, the Content-Security-Policy in a `<meta>` element), Scalar's bundled script, the management API's document (from the code, no database) and the `stops` consumer API of the guide's reference domain (`guide/samples/model.json`), titled as the example. The module is `app.management.reference.static_site`; an instance does not use it, since the engine serves `/docs/api` from its route before the guide's files.
 
 ### Changed (image layout)
 
@@ -1377,7 +1382,7 @@ migrations run with `python -m app.cli.database_upgrade` ([Upgrades](docs/OPERAT
 
 ### Added (asking a list in words)
 
-- **Ask a table list in words (0.16 AG4).** Where a provider is set and the person holds Use AI proposals, a Search | Ask switch sits at a table list's search box. Pressing Enter on a question sends it (nothing is sent as you type; Cancel stops it); the list shows the filters it became as ordinary pills, with "Your question became these filters. Change or remove any of them." A part the list cannot express (an order, who changed a record, a record that is not found or is named by several) is named and nothing is applied: the proposed filters are shown as dashed pills with Use these filters. A failure is one sentence and the words stay. The provider is sent the question, today's date and the list's fields, every relationship the type has (declared by the view or not), and, at send level `samples` or `values`, the record names of a relationship's types when they hold at most 50 records, so it can choose records by meaning ("above 30 minutes" from "45 min" as one `eq` filter each); at `structure` no record is sent. A filter on a relationship the view does not declare is drawn as an ordinary pill and kept in the page address. `POST /workspaces/{key}/query-translations` answers directly; new codes `QUERY_TRANSLATION_FAILED`, `QUERY_TRANSLATION_VIEW_UNSUPPORTED` and `VIEW_NOT_FOUND`; no new setting.
+- **Ask a table list in words (0.16 AG4).** Where a provider is set and the person holds Use AI proposals, a Search | Ask switch sits at a table list's search box. Pressing Enter on a question sends it (nothing is sent as you type; Cancel stops it); the list shows the filters it became as ordinary pills, with "Your question became these filters. Change or remove any of them." A part the list cannot express (an order, who changed a record, a record that is not found or is named by several) is named and nothing is applied: the proposed filters are shown as dashed pills with Use these filters. A failure is one sentence and the words stay. The provider is sent the question, today's date and the list's fields, every relationship the type has (declared by the view or not), and, at send level `samples` or `values`, the record names of a relationship's types when they hold at most 50 records, so it can choose records by meaning ("above 100 km" from "120 km" as one `eq` filter each); at `structure` no record is sent. A filter on a relationship the view does not declare is drawn as an ordinary pill and kept in the page address. `POST /workspaces/{key}/query-translations` answers directly; new codes `QUERY_TRANSLATION_FAILED`, `QUERY_TRANSLATION_VIEW_UNSUPPORTED` and `VIEW_NOT_FOUND`; no new setting.
 - **List filters: under an ancestor, and the stamps.** `filter.related:<key>.under=<record ID>` and `.notUnder=<record ID>` keep the records with some, or none, of their related records below a record at any depth (live, in a change set, in a publication; the query and an export say the same with `ancestor:<type>` inside a related hop). The filter bar's relationship editor offers "has none under" and "has any under". `createdAt` and `updatedAt` filter every live list without being declared, and a field with two conditions (a date range) shows a pill for each.
 
 ### Added (agent access)
@@ -1505,7 +1510,7 @@ migrations run with `python -m app.cli.database_upgrade` ([Upgrades](docs/OPERAT
   questions — before anything loads. The steward corrects it in words (`POST /ai/tasks/{id}/model`)
   or accepts it (`POST /ai/tasks/{id}/accept`); the load stage then maps the sheets and checks every
   row. The assistant may use every model-draft operation, the page kinds included.
-- The assistant describes how a wide sheet (one group of columns per operator, list or period) becomes
+- The assistant describes how a wide sheet (one group of columns per brand, list or period) becomes
   rows (`unpivots`) and the engine writes them into the working copy.
 - The assistant's design lists each column no source of its sheet loads with the reason it gave
   (`design.leftOut`; the loaded page shows it), and is told to reuse the records the workspace
@@ -1775,8 +1780,8 @@ and a workspace on an older release is brought up to date from its own screen or
   `supportedSchemaVersions: ["0.10"]`, and `setRelease` accepts only `0.10`. Gone with them: the
   per-version feature checks, the reader of 0.8-shaped consumer API definitions, and the offline schema 0.4
   upgrade command (`python -m app.cli.model_schema_upgrade`).
-- **The example models are released as `0.10.0`** in schema 0.10 (`model/rdm-starter.json`,
-  `model/rdm-operators-timetables.json`); the 0.8 copy of the operators model is removed. A stored release of an
+- **The example model is released as `0.10.0`** in schema 0.10 (`model/rdm-starter.json`); the 0.8 copy
+  of the example model is removed. A stored release of an
   older schema is raised with `python -m app.cli.model_release_raise` or from the interface (UW1).
 
 ### Changed (0.12 L2a follow-up, a bootstrap release conflict no longer stops the start)
@@ -2002,7 +2007,7 @@ and a workspace on an older release is brought up to date from its own screen or
   (the model's product name) while one mailed from People said "refiroo" (a constant), and the test message
   used the constant. `templates.product` is now the one place: the model's own name, or refiroo where the
   model keeps a default name; callers no longer pass a name. The list of default names moved to
-  `common/operator.py`, used by the sign-in pages too.
+  `common/brand.py`, used by the sign-in pages too.
 
 ### Added (0.12 I6)
 
@@ -2118,8 +2123,8 @@ and a workspace on an older release is brought up to date from its own screen or
 - **The application is named refiroo.** The interface shows the refiroo mark in the top bar, the
   loading and empty screens, Home and Settings › About, with the title and favicon in the browser;
   the sign-in pages and the API reference at `/docs` (and the OpenAPI title) carry the same name and
-  mark, served from `/operator/<file>`. The logos are in `logos/`, renamed by what they are; the
-  interface and the engine keep resized copies. Naming rules and files: `docs/OPERATORING.md`.
+  mark, served from `/brand/<file>`. The logos are in `logos/`, renamed by what they are; the
+  interface and the engine keep resized copies. Naming rules and files: `docs/BRANDING.md`.
 
 ### Fixed (0.12 I4 review)
 
@@ -2832,7 +2837,7 @@ of 0.10.0 or 0.11.0-alpha.1 upgrades on start.
   the merged-away type. The containment between the two is dropped, and the consumer APIs name the
   survivor.
 - Add XREF rule… listed a field several exposed types share under the first of them alone, so
-  the others (a model's timetable types) seemed to have no field to match on. A rule weighs a
+  the others (a model's means of transport) seemed to have no field to match on. A rule weighs a
   field on every exposed type alike, so the list now shows each field once, under "Attributes of the
   exposed types", as the field sources do.
 - A list inside a dialog (the relationship dialog's record list) carried the wheel at its first
@@ -2923,7 +2928,7 @@ of 0.10.0 or 0.11.0-alpha.1 upgrades on start.
   edit in place keeps the list where it was. The record tree keeps its groups as they are.
 - A list reads on in the background, a page at a time, until it holds about as much as it keeps
   (600 rows): a list of a few hundred records is held whole a moment after it opens, so scrolling
-  never meets a row not read (reported 2026-10-19: grey rows while scrolling 200 records).
+  never meets a row not read (reported 2026-10-19: grey rows while scrolling a few hundred records).
 - Scrolling a table with relation columns no longer stutters. A relation cell works out how many
   chips fit from their text and its column's width instead of drawing every chip, measuring it and
   drawing again; the edit and remove buttons are drawn in the row the pointer is over or that holds
@@ -3487,7 +3492,7 @@ has); a database of 0.10.0-alpha.1 upgrades on start.
   note row skipped and the note the type's description; a navigation group per title over two lists
   or more; a free field or a header without values is a warning. A source's key may be `{"field":
   "name"}` (`AMBIGUOUS_NAME_KEY`, `KEY_NOT_BOUND`); `addSource` and `setSource` take it. W3 gains a
-  second band of lists with the real workbook's shapes.
+  second band of lists with a workbook's shapes.
 
 - Base 0.10 A7: model-description sheets and matching across files (D106–D113; J34.9). A sheet of a
   field, a type and a target column is read before every other rule: the described type, a list per
@@ -3644,7 +3649,7 @@ has); a database of 0.10.0-alpha.1 upgrades on start.
   after its proposal now makes it the administrator's, as D92 says. Regression:
   `test_a_rectangle_is_read_as_a_list_on_request` (J34.10, seen failing without the fix).
 
-- Base 0.10 A5, A6 (found by A8a's real-file smoke): a column whose header begins or ends with a
+- Base 0.10 A5, A6 (found by A8a's sample-file smoke): a column whose header begins or ends with a
   space could not be mapped in a draft (`unknownElement`), since the draft's sheets kept the spaces
   the import trims. The draft's sheets name a column as the import reads it.
 - Base 0.10 A6 extend mode (found by A7's browser runner): a workbook the editor uploads names no
@@ -3657,14 +3662,14 @@ has); a database of 0.10.0-alpha.1 upgrades on start.
   (21.9 s for 10,000 rows into a workspace holding them); they now join on a table of the values a
   key or a match reads, a hash join (the whole binding of W1′ at 10,000 rows: 2.4 s).
 
-- Base 0.10 A6b (reported on a real workbook): a workbook with nothing to propose got the new
+- Base 0.10 A6b (reported on a workbook): a workbook with nothing to propose got the new
   application alone, which left the draft refusing an application without types; now nothing is
   proposed and the inference says why. Load into a change set and Install and activate on a draft that
   does not compile blanked the page (its compilation has no changes); both now say the draft has
   errors, and Load says when nothing is mapped yet. A sheet with a note or small block beside its
   table is now read by its table. A page part failing while rendering shows what failed and a reload
   under the top bar instead of an empty page.
-- Base 0.10 A6b, on the user's own workbooks (D99–D103): the proposed model no longer refuses rows
+- Base 0.10 A6b, on workbooks (D99–D103): the proposed model no longer refuses rows
   of its own workbook. A type gets one parent (a further repeated column is a list it refers to),
   optional where rows leave it empty (`setContainment`'s `parent.optional`), and a source reads no
   record from a row holding nothing in its columns. Lists of a GUID and a name are proposed;

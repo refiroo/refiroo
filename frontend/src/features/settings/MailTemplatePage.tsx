@@ -21,7 +21,7 @@ import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
 import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
-import { settingsHead } from "./navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 
 /** The preview is asked for once the person stops typing. */
 const PREVIEW_DELAY_MS = 400;

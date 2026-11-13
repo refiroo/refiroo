@@ -1,7 +1,7 @@
 /** Agent access: the assistants that reach the instance, and the calls they made (0.16 AG1). */
 
 import type { Client } from "@/types/security";
-import type { PageNavigation } from "@/types/runtime";
+import type { PageNavigation } from "@/types/pagination";
 
 /** `GET /agent-access`: the settings as read at start and the last 30 days' calls. */
 export interface AgentAccessStatus {

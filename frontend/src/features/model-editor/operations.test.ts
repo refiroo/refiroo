@@ -14,7 +14,7 @@ import {
   type OperationField,
   type OperationTarget,
 } from "@/features/model-editor/operations";
-import { keyFromLabel, suggestedVersion } from "@/features/model-editor/outline";
+import { keyFromLabel, suggestedVersion } from "@/model/outline";
 
 /** Every model-side kind A4a may send (API.md § Kinds, without the view verbs, A4b's). */
 const KINDS = new Set([

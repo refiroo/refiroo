@@ -15,7 +15,7 @@ import {
   relationValue,
   usesOf,
 } from "@/features/model-editor/mapping";
-import { nameOf } from "@/features/model-editor/outline";
+import { nameOf } from "@/model/outline";
 
 const outline = outlineFixture();
 const stores = { relationType: "stores", from: "shelf", to: "bin" };

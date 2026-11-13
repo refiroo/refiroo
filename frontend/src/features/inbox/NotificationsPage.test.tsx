@@ -17,7 +17,7 @@ vi.mock("@/api/client", () => ({
   },
 }));
 // The top bar is the one every page shows (its own tests); here only the page's content.
-vi.mock("@/features/home/openWorkspace", () => ({
+vi.mock("@/state/openWorkspace", () => ({
   appPath: () => "/apps/plants",
   openIn: (_key: string, _path: string, go: (route: unknown) => void, route: (model: unknown) => unknown) =>
     go(route({ applications: [{ key: "plants", defaultView: "all", views: [] }] })),

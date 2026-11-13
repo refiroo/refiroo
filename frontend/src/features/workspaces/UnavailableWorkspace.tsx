@@ -9,8 +9,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useHeldAnywhere } from "@/features/security/permissions";
-import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
+import { useHeldAnywhere } from "@/state/permissions";
+import { workspaceModelLabel } from "@/ui/WorkspaceSelector";
 import { forgetWorkspaceModel, workspaceModel } from "@/model/workspaceModels";
 import { defaultRoute } from "@/routing/routes";
 import type { ModelReleaseRaising, RouteState, Workspace, WorkspaceAvailability } from "@/types";

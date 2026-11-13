@@ -1727,12 +1727,12 @@ is not after their start: with any, activation is refused as `409 MODEL_MIGRATIO
   "id": "c5588b49-...",
   "applicationKey": "rdm-master",
   "objectTypeKey": "domain",
-  "name": "Connections",
+  "name": "Transport",
   "workspaceKey": "default",
   "parentObjectId": null,
   "attributes": [
-    { "attributeTypeKey": "domain-code", "value": "CONNECTIONS" },
-    { "attributeTypeKey": "description", "value": "Connections domain" }
+    { "attributeTypeKey": "domain-code", "value": "TRANSPORT" },
+    { "attributeTypeKey": "description", "value": "Transport domain" }
   ]
 }
 ```
@@ -1774,7 +1774,7 @@ Attributes are arrays of objects in both requests and responses:
 
 ```json
 [
-  { "attributeTypeKey": "domain-code", "value": "CONNECTIONS" },
+  { "attributeTypeKey": "domain-code", "value": "TRANSPORT" },
   { "attributeTypeKey": "active", "value": true }
 ]
 ```
@@ -1784,7 +1784,7 @@ model:
 
 ```json
 [
-  { "id": "51d92c5e-...", "attributeTypeKey": "domain-code", "name": "Domain code", "valueType": "text", "value": "CONNECTIONS" },
+  { "id": "51d92c5e-...", "attributeTypeKey": "domain-code", "name": "Domain code", "valueType": "text", "value": "TRANSPORT" },
   { "id": "ca5121a7-...", "attributeTypeKey": "active", "name": "Active", "valueType": "boolean", "value": true }
 ]
 ```
@@ -1897,7 +1897,7 @@ DELETE). Both claims apply atomically in change set context; live mutations clai
   "attributeTypeKey": "description",
   "name": "Description",
   "valueType": "longText",
-  "value": "Connections domain",
+  "value": "Transport domain",
   "objectVersion": 1,
   "changeSetVersion": null
 }
@@ -1911,7 +1911,7 @@ flag.
 
 ```json
 {
-  "value": "Connections domain",
+  "value": "Transport domain",
   "expectedVersion": 1,
   "changeSetId": "change-set-uuid",
   "expectedChangeSetVersion": 6
@@ -7653,8 +7653,8 @@ listed type has in either direction (whether the view declares it in `filterFiel
 view's `filterFields` and, on a live list, `createdAt` and `updatedAt`. For a relationship it is sent
 the names of the types it reaches and the types its records can stand under and, at send level
 `samples` or `values`, also the record names of those types when they hold at most 50 records in the
-context asked about (`recordNames`, `ancestorNames`), so it can choose records by meaning ("above 30
-minutes" from "45 min"); it answers one `eq` filter per chosen record. At `structure`, or for a longer
+context asked about (`recordNames`, `ancestorNames`), so it can choose records by meaning ("above 100
+km" from "120 km"); it answers one `eq` filter per chosen record. At `structure`, or for a longer
 list, it is sent no record name, value or ID. The call record's `sendLevel` is the level in force.
 Purpose `queryTranslation`, offered at every level. It needs Browse in the workspace (or the change
 set's or publication's) and Use AI proposals.
@@ -7885,7 +7885,7 @@ is a `dryRun` job naming both `taskId` and `draftId`, run against the draft's mo
 client.
 
 **An instruction without a workbook.** `POST /ai/tasks` may leave out `file`: the words are then the whole
-instruction ("relate durations and stations, but only where a driver is assigned"). The session starts at
+instruction ("relate frequencies and stations, but only where a driver is assigned"). The session starts at
 once, with no reading.
 
 **A saved layout.** When a stored import profile written for the workspace's model reads the workbook as

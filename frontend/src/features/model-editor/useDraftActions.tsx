@@ -12,8 +12,8 @@
 
 import { useState, type ReactNode } from "react";
 import type { RouteState } from "@/types";
-import { DeleteDraftDialog } from "@/features/model-admin/DeleteDraftDialog";
-import { AddWorkbookDialog } from "@/features/model-editor/AddWorkbookDialog";
+import { DeleteDraftDialog } from "@/ui/DeleteDraftDialog";
+import { AddWorkbookDialog } from "@/ui/AddWorkbookDialog";
 import { ApplyDialog } from "@/features/model-editor/ApplyDialog";
 import { InstallDialog } from "@/features/model-editor/InstallDialog";
 import { LoadDialog } from "@/features/model-editor/LoadDialog";

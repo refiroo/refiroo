@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { ai } from "@/api/aiClient";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useHeldAnywhere, useWorkspacePermissions, holds } from "@/features/security/permissions";
+import { useHeldAnywhere, useWorkspacePermissions, holds } from "@/state/permissions";
 import { changeReviewFor, routePath } from "@/routing/routes";
 import type { AiTask, EngineModel, JourneyRef, RouteState } from "@/types";
 import { Trail } from "@/ui/Trail";

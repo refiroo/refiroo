@@ -12,12 +12,12 @@ import { useEffect, useId, useState, type ReactNode, type Ref } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { useMe } from "@/app/useMe";
-import { holds } from "@/features/security/permissions";
+import { holds } from "@/state/permissions";
 import { principalName } from "@/ui/ActorName";
 import { formatServerAgo } from "@/lib/dates";
 import { Notice } from "@/ui/Notice";
 import type { ApprovalPolicy } from "@/types";
-import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName } from "@/model/fields";
 import { objectTypeHue } from "@/model/hues";
@@ -41,7 +41,7 @@ import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
-import { useSubjectSeen } from "@/features/inbox/useInbox";
+import { useSubjectSeen } from "@/state/useInbox";
 
 type ReviewRoute = Extract<RouteState, { kind: "changeSetChanges" }>;
 

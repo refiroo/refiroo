@@ -682,8 +682,37 @@ Components supplies composite interaction behaviour only; feature modules cannot
 directly. RDM owns plain-CSS tokens, layout, visual states and product-specific dismissal, dirty-input
 and error behaviour. Native HTML remains the first choice for simple controls, and Lucide icons pass
 through one accessible wrapper. This boundary permits a future behaviour-provider change without
-altering the application model or feature contracts. The module layout is in
+altering the application model or feature contracts. The module layout, as it was built, is in
 [FRONTEND_STRUCTURE_REFACTOR.md](FRONTEND_STRUCTURE_REFACTOR.md).
+
+**Import tiers (ADR-046).** `src/` has nine layers, and a layer imports only those below it:
+
+| Layer | Holds | Imports |
+|---|---|---|
+| `app` | the shell, the router, the top bar, `useMe` | everything below |
+| `features` | one folder per feature (pages, dialogs, the feature's own hooks and text) | `state`, `ui`, `lib`, `model`, `api`, `types`, `routing`, `app`, itself, and its deliberate edges |
+| `state` | app-wide state and hooks that know no single feature: the workspace data context, permissions, system capabilities, the job stream, the inbox, the workspace AI offer, opening a workspace | `api`, `lib`, `model`, `types`, `routing`, `state` |
+| `ui` | the RDM-owned components, and the parts several features show (the job outcomes, the workspace field, the change title) | `state`, `lib`, `model`, `api`, `types`, `routing` |
+| `lib`, `model` | browser helpers; pure functions over the model and the contracts | `api`, `types` (`model` also `lib`, and `ui` for icon names only) |
+| `api`, `types`, `routing` | the HTTP client, the contracts, the route table | each other as the contracts need |
+
+A part used by several features lives in the lowest layer its own imports allow; a part that is one
+feature's own and shown by another stays where it is, as a **deliberate edge**. The deliberate edges
+are `workbook-canvas` to `model-editor` (the canvas is a second view of the model editor) and to
+`workspaces` (it starts a workspace); `model-admin` to `model-editor` (a model's pages open the editor
+and reuse its dialogs); `model-editor` to `objects` (a type's preview draws the real collection
+views); `moves` to `model-editor` (its editor shows the editor's history) and to `objects` (its
+selection uses the list filter bar); `settings` to `jobs` (Settings › Jobs hosts the job pages and
+dialogs) and to `security` (the account and agent pages show its roles and clients); `jobs` and
+`workspaces` to `security` (they show its access list); `home` to `workspaces` (the workbook start
+action). They run one way, so features form no cycle, and `src/types/` has none either.
+
+`frontend/eslint.config.js` holds the rule: a `no-restricted-imports` block per feature forbids
+`@/features/*` except its own folder and its edges (the table `FEATURE_EDGES` at the top of the file,
+the one place an edge is added, with its reason), another per lower layer forbids `@/features/*`, and
+`state` also forbids `@/ui` and `@/app`. No exception list exists; `npm run lint` fails on a new
+feature-to-feature import. It is the frontend counterpart of the backend tiers that
+`tests/test_boundaries.py` enforces.
 
 The URL is the route (`routing/routes.ts`). Every route renders in one frame, `app/ShellFrame`
 (skip link, top bar, resizable rail that moves into the navigation drawer below 760px, main
@@ -1216,7 +1245,14 @@ The assistant (`engine/tasks/`) is a task, `ai_tasks` (migration `20261119_01`):
 reading, the proposal, the latest check, the notes shown to the person, the result and the job it waits
 for, with a `version` every change claims. It calls no provider: `AI_AGENT_COMMAND` alone turns it on
 (`tasks/agent.enabled`), and `AI_PROVIDER` serves mapping targets only. The workbook is the task's own
-source file (`source_files.task_id`, deleted with the task by cascade). A task's work is jobs of kind
+source file (`source_files.task_id`, deleted with the task by cascade). The Claude Code session's code is the
+package `tasks/agent/`, one module per concern: `sandbox` (the operating-system user and its slots and gates,
+the environment and credentials that reach the session, its command), `files` (the task's folder and files),
+`words` (every prompt and refusal text), `run` (one turn: progress read from the stream, ending the process
+group, recording a turn or an interruption) and `outcome` (what the session reached: the proposal landed, the
+installed release, the change set, the recovery of a load, and the entry points `start`, `said` and
+`accepted`). Each module imports only those before it in that order, and `__init__` names what the rest of
+the engine uses. A task's work is jobs of kind
 `aiTask`, one phase each (`job.py`), never holding a transaction while the session runs and checking for a
 cancel while it does:
 

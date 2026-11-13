@@ -8,7 +8,7 @@
 
 import { useCallback } from "react";
 import { errorMessage } from "@/api/errors";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import type { AttributeTypeDefinition, ObjectItem, RelationItem } from "@/types";
 import { useOptionalToast } from "@/ui/Toast";
 

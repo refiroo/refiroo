@@ -6,7 +6,7 @@
  * changed property by property, as a matrix is (`matrixView.changeMatrix`).
  */
 import { ancestorColumnOptions } from "@/features/model-editor/matrixView";
-import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/features/model-editor/outline";
+import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/model/outline";
 import type { DraftOperation, ModelDraftOutline, OutlineApplication, OutlineView } from "@/types";
 
 type Values = Record<string, unknown>;

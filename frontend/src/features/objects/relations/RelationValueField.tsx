@@ -6,7 +6,7 @@
 
 import { useRelationValues, relationValuesFromForm } from "./RelationAttributes";
 import type { AttributeTypeDefinition, RelationRecord } from "@/types";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import { useOptionalToast } from "@/ui/Toast";
 
 export type StoredRelation = Pick<RelationRecord, "id" | "version" | "attributes">;

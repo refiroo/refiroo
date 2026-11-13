@@ -90,7 +90,7 @@ log, the page revised, [record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07));
   "lets a reload replace cells re-read after earlier saves" (once in U3's parallel `vitest related`;
   30 repeats under load passed in UA0). `test:browser:a4` timed out once waiting for the cell dialog
   to reopen after an unlink (`a4-relation-matrix.mjs` line 383) and passed on the rerun.
-  `test:browser` failed once with a timeout whose step was not captured, then passed twice. _UA4 revision (2026-10-07):_ `RelationMatrixView.test` failed once more in a full run ("creates a record from an empty cell…": the row named Connections not found) and passed alone.
+  `test:browser` failed once with a timeout whose step was not captured, then passed twice. _UA4 revision (2026-10-07):_ `RelationMatrixView.test` failed once more in a full run ("creates a record from an empty cell…": the row named Transport not found) and passed alone.
 - **For the user to place, from C12 (2026-10-06): an outbound proxy for webhooks.** The dispatcher
   connects to receivers directly (C-D107); a deployment that reaches the internet only through an
   HTTPS proxy cannot deliver. Adding one means connecting through the proxy while keeping the
@@ -564,7 +564,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] A8b the source pane list by list: **delivered 2026-10-15 (A8b record), its screenshots
     approved by the user**. A sheet laid out for reading shown as its lists, a list adjusted
     (`setSource`'s block) or dropped; a mock-up first, complete on approved screenshots.
-    The real-file smoke's misreadings (a title with sentences under it read as a list, a second
+    The sample-file smoke's misreadings (a title with sentences under it read as a list, a second
     header row read as a value, sub-list headers read as titles) are what it lets the administrator
     correct.
   - [x] A8c lists of one shape as one list under their headers (delivered 2026-10-15, A8c record;

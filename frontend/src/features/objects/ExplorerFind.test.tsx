@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { Explorer } from "@/features/objects/Explorer";
-import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import * as workspaceContext from "@/state/WorkspaceDataContext";
 import { permissionsFixture } from "@/test/permissions";
 import { testModel } from "@/test/fixtures";
 import type { EngineModel } from "@/types";
@@ -15,11 +15,11 @@ const NAMES = [
   "Countries",
   "Regions",
   "Documents",
-  "Visit reasons",
+  "Boarding reasons",
   "Stations",
   "Funding streams",
   "Tariff sources",
-  "Timetable types",
+  "Means of transport",
 ];
 const stored = new Map<string, string>();
 
@@ -100,7 +100,7 @@ describe("Find a list in the sidebar (0.13 LB)", () => {
     const eye = within(collections()).getByRole("button", { name: "Eye colours" });
     expect(Array.from(eye.querySelectorAll("b")).map((bold) => bold.textContent)).toEqual(["colo"]);
 
-    fireEvent.change(find, { target: { value: "ref" } });
+    fireEvent.change(find, { target: { value: "tar" } });
     expect(entries()).toEqual(["Tariff sources"]);
     fireEvent.change(find, { target: { value: "nothing like it" } });
     expect(within(collections()).getByRole("status")).toHaveTextContent("0 of 12");
@@ -146,7 +146,7 @@ describe("Find a list in the sidebar (0.13 LB)", () => {
   it("lists a typed name in the ungrouped entries too", () => {
     const model = bigModel();
     sidebar(model);
-    fireEvent.change(screen.getByRole("textbox", { name: "Find a list" }), { target: { value: "clin" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Find a list" }), { target: { value: "stat" } });
     expect(entries()).toEqual(["Stations"]);
   });
 });

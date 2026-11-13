@@ -20,8 +20,8 @@ import { SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/Set
 import { StatusPill } from "@/ui/StatusPill";
 import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
-import { settingsHead } from "./navigation";
-import { useSettingsRead } from "./useSystem";
+import { settingsHead } from "@/ui/settingsNavigation";
+import { useSettingsRead } from "@/state/useSystem";
 
 type Mode =
   { kind: "idle" } | { kind: "setting-up"; enrolment: SecondFactorEnrolment } | { kind: "codes"; codes: string[] };

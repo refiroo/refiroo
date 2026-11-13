@@ -11,7 +11,7 @@ import { errorMessage } from "@/api/errors";
 import type { Job, SourceFile } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
-import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
+import { isFinal, useJobStream } from "@/state/useJobStream";
 import {
   ChangeSetFields,
   changeSetName,
@@ -19,7 +19,7 @@ import {
   LoadProgress,
   LoadStep,
   stepState,
-} from "@/features/jobs/ChangeSetLoad";
+} from "@/ui/ChangeSetLoad";
 
 type Stage = "ready" | "opening" | "loading" | "done" | "stopped";
 const ORDER: Stage[] = ["opening", "loading", "done"];

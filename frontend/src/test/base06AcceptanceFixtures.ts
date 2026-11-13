@@ -59,14 +59,14 @@ const graph = {
     {
       id: ids.codelistTimetables,
       objectTypeKey: "codelist",
-      name: "Timetable types",
+      name: "Means of transport",
       parentObjectId: ids.domainConnections,
       attributes: { "codelist-code": "MOT", active: true },
     },
     {
       id: ids.translationTimetable,
       objectTypeKey: "translation",
-      name: "Czech timetable label",
+      name: "Czech transport label",
       parentObjectId: null,
       attributes: { "translated-name": "Typy navstev", active: true },
     },
@@ -162,7 +162,7 @@ export const base06AcceptanceFixtures = {
     outcome: { publicationId: ids.publication5, publicationState: "active" },
   },
   cursors: {
-    boundTo: { publicationId: ids.publication5, query: "timetable" },
+    boundTo: { publicationId: ids.publication5, query: "connections" },
     invalidatedBy: "publication_changed",
   },
   errors: {

@@ -2,9 +2,8 @@
 
 Read `guide/AGENTS.md`, `_waves/COMPLETE-COMMON.md` and `_waves/C1-RECORD.md` (the task and the formats).
 C1 read CHANGELOG 0.3–0.6 fully; its second turn read the rest of the CHANGELOG and plans 0.7–0.9 but
-stopped before writing most of it down. Its notes and extracts are in `_coverage/c1-notes/` (`notes.json`:
-what was read, facts, supersessions, corrections already applied; `plan*-packets.json`,
-`records*.json`: extracts of plans 0.9–0.12 and 0.16). Reuse them; do not re-extract.
+stopped before writing most of it down. Its notes are in `_coverage/c1-notes/notes.json`:
+what was read, facts, supersessions, corrections already applied. Reuse them; do not re-extract.
 
 **Work in small steps and save after each.** Take the releases one at a time: 0.7, 0.8, 0.9, 0.10, 0.11,
 0.12, 0.16 (and any other release section the CHANGELOG has). For each release: read its CHANGELOG section

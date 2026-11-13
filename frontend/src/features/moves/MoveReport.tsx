@@ -8,9 +8,9 @@
 import type { EngineModel, MoveSummary } from "@/types";
 import { EmptyState } from "@/ui/EmptyState";
 import { OutcomeCards } from "@/ui/OutcomeCards";
-import { modeWords, reasonCards, rowForAction, VALUES_NOT_CARRIED } from "./moveRun";
+import { modeWords, reasonCards, rowForAction, VALUES_NOT_CARRIED } from "@/model/moveRun";
 import { rowId } from "./MappingPane";
-import { MoveRowsTable } from "./MoveRowsTable";
+import { MoveRowsTable } from "@/ui/MoveRowsTable";
 
 const typeName = (model: EngineModel, key?: string) =>
   (key && model.objectTypes.find((type) => type.key === key)?.name) || key || "";

@@ -80,7 +80,7 @@ def _fail(session: Session, task_id: str, words: str) -> None:
     task.design = design
     task.result = None
     note(task, "warning", words)
-    finish(task, "failed", agent._retention(None))
+    finish(task, "failed", agent.retention(None))
     session.commit()
 
 
@@ -98,7 +98,7 @@ def _refusal_words(session: Session, job: Job, previewed: Job, total: int) -> st
     ]
     more = total - len(shown)
     return (
-        f"The engine refused {agent._plural(total, 'record')} of the load; the data may have "
+        f"The engine refused {agent.plural(total, 'record')} of the load; the data may have "
         "changed since the check, so nothing was loaded. "
         + "; ".join(lines)
         + (f"; and {more:,} more" if more > 0 else "")
@@ -349,7 +349,7 @@ def run(session: Session, job: Job, ctx: Any, task_id: str) -> None:
         _discard(session, change_set.id)
         _fail(session, task_id, failure + _withdraw(session, task_id))
         return
-    counts = agent._counts(session, change_set.id)
+    counts = agent.counts_of(session, change_set.id)
     task = load_task(session, task_id, for_update=True)
     design = dict(task.design or {})
     design.pop("progress", None)
@@ -367,7 +367,7 @@ def run(session: Session, job: Job, ctx: Any, task_id: str) -> None:
         "counts": counts,
         **({"releaseId": release.public_id} if release is not None else {}),
     }
-    finish(task, "loaded", agent._retention(ctx))
+    finish(task, "loaded", agent.retention(ctx))
     session.commit()
 
 
@@ -384,7 +384,7 @@ def _again_words(refused: list[ItemOutcome]) -> str:
     ]
     more = len(refused) - len(shown)
     return (
-        f"After the draft changed, the engine refused {agent._plural(len(refused), 'record')} of the "
+        f"After the draft changed, the engine refused {agent.plural(len(refused), 'record')} of the "
         "load when it checked them again, so nothing was installed or loaded. "
         + "; ".join(lines)
         + (f"; and {more:,} more" if more > 0 else "")

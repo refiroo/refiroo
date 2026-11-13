@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { ApplyDialog } from "@/features/model-editor/ApplyDialog";
-import { useCapabilities } from "@/features/settings/useSystem";
+import { useCapabilities } from "@/state/useSystem";
 import type { DraftMigration, ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
 
 vi.mock("@/api/client", () => ({
@@ -19,9 +19,9 @@ vi.mock("@/api/client", () => ({
     modelDraftMigration: vi.fn(),
   },
 }));
-vi.mock("@/features/settings/useSystem", () => ({ useCapabilities: vi.fn() }));
+vi.mock("@/state/useSystem", () => ({ useCapabilities: vi.fn() }));
 // No provider here: the account of the change is not drawn (ImpactSummary.test.tsx draws it).
-vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({ useImpactSummaryOffer: () => undefined }));
+vi.mock("@/state/useWorkspaceAiOffer", () => ({ useImpactSummaryOffer: () => undefined }));
 
 const model = { releaseId: "r1", releaseKey: "m", releaseName: "Model", releaseVersion: "1.0", version: 3 };
 const north = { key: "north", label: "North", status: "active", model };

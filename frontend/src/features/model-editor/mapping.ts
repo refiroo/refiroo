@@ -17,14 +17,7 @@ import type {
   ProfileSource,
   SourceColumn,
 } from "@/types";
-import {
-  attributeTypeOf,
-  keyFromLabel,
-  keysOf,
-  objectTypeOf,
-  relationTypeOf,
-  typeName,
-} from "@/features/model-editor/outline";
+import { attributeTypeOf, keyFromLabel, keysOf, objectTypeOf, relationTypeOf, typeName } from "@/model/outline";
 
 /** A column of a sheet, as the profile names it: its sheet and its header text. */
 export const columnId = (sheet: string, header: string) => `${sheet}\u0000${header}`;

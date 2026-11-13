@@ -15,8 +15,8 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { holds, recordWrites } from "@/features/security/permissions";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
+import { holds, recordWrites } from "@/state/permissions";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { relatedRecords } from "@/model/fields";
 import { RELATED_FIELD_PREFIX, relatedCellEdit, type RelatedCellEdit } from "@/model/lookup";

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { SettingsIndex } from "@/features/settings/SettingsIndex";
-import { resetPermissionsForTests } from "@/features/security/permissions";
+import { resetPermissionsForTests } from "@/state/permissions";
 import { EVERY_GROUP, heldAnywhereFixture } from "@/test/permissions";
 
 afterEach(() => {

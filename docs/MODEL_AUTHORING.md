@@ -177,7 +177,7 @@ use it. An application's navigation groups and a group's entries are also ordere
   the tree lens's Move to… does for its drag (0.8 B5).
 - Context menus carry the operation catalogue for the selected element.
 - **After every operation the dry-run summary updates**, with the difference from the previous one:
-  "Category: 14 records (was 0); `sort_order` moved from Type, 200 values → 14, 0 conflicts" or
+  "District: 11 records (was 0); `district` moved from Stop, 2,400 values → 11, 0 conflicts" or
   "2 codes have two different names". Each figure links to the rows behind it.
 - Undo and redo apply the inverse operation; the history lists every operation with its author and
   time, and any point of the history can be viewed.
@@ -315,7 +315,7 @@ evidence, and offers the alternatives when the evidence is not decisive.
 | Model description sheet | Columns such as field code, field type and lookup target | Attributes and relations of the described type, read before the lookup sheets it names |
 | List blocks | Several header-and-values blocks on one sheet, separated by empty columns or rows | One source per block, confirmed by the administrator |
 
-**The rules as built (0.10 A6a, D90; revised in A6b on real workbooks, D99–D103).** Each pattern is a fixed rule over the profile's statistics
+**The rules as built (0.10 A6a, D90; revised in A6b on workbooks, D99–D103).** Each pattern is a fixed rule over the profile's statistics
 (A3) and the facts between columns, asked of the staged cells; the thresholds are fixed so a test
 names what a rule finds. The rules run per sheet in this order, each claiming the columns it
 explains:

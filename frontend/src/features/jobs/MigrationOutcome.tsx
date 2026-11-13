@@ -7,8 +7,8 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
-import { count } from "@/features/settings/limits";
-import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "@/features/model-admin/MigrationRows";
+import { count } from "@/ui/limits";
+import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "@/ui/MigrationRows";
 import type { EngineModel, Job, MigrationOutcome as Outcome, MigrationSummary } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { OutcomeCards } from "@/ui/OutcomeCards";

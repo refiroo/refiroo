@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { attributeName, fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { formatValue } from "@/ui/formatValue";

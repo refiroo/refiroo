@@ -4,7 +4,7 @@ import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
 import { HistoryPanel } from "@/features/objects/panels/HistoryPanel";
 import { createPreviewClient, PREVIEW_EMPTY_ID } from "@/api/previewClient";
-import { PreviewDataProvider } from "@/features/workspaces/WorkspaceDataContext";
+import { PreviewDataProvider } from "@/state/WorkspaceDataContext";
 
 vi.mock("@/api/client", () => ({ api: { objectHistory: vi.fn() } }));
 

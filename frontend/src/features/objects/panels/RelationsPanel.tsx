@@ -1,6 +1,6 @@
 import { ownEndReasonParts, ownEndScope, type WordPart } from "@/model/candidates";
 import { useEffect, useMemo, useState } from "react";
-import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";

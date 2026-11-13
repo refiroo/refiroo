@@ -68,7 +68,7 @@ with matched ones: an unexpected new record can mean an intended update failed t
 record. A successful engine check does not prove the design means what you intended. Empty
 cells hold no value; they do not by themselves mean a row was skipped.
 
-![Workbook proposal showing the checked load summary, results by type, questions and acceptance controls](/docs/screens/use-assistant-proposal.png)
+![Workbook proposal showing the checked load summary, results by type, notes on names used twice and acceptance controls](/docs/screens/use-assistant-proposal.png)
 
 *Above: the workbook proposal for the Graubünden reference data, scrolled to What the load does
 and its results by type. Questions shows the assistant’s assumed answer and the other choices.

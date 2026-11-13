@@ -15,7 +15,7 @@ import { ListPanel } from "@/features/model-editor/ListPanel";
 import { dropOperations, listHeader, listStatus, sourceOfList } from "@/features/model-editor/lists";
 import { OperationsMenu } from "@/features/model-editor/OperationsMenu";
 import { operationById, operationsFor, valueTypeLabel, type OperationTarget } from "@/features/model-editor/operations";
-import { typeName, applicationsOf } from "@/features/model-editor/outline";
+import { typeName, applicationsOf } from "@/model/outline";
 import type { DraftEditing } from "@/features/model-editor/useDraftEditing";
 import type { DraftSource } from "@/features/model-editor/useDraftSource";
 import type { SourceDialogs } from "@/features/model-editor/useSourceDialogs";

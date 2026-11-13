@@ -4,8 +4,8 @@
  * person may not open is not listed, and a group left with no page is not shown.
  */
 
-import { useHeldAnywhere } from "@/features/security/permissions";
-import { navigationFor } from "@/features/settings/navigation";
+import { useHeldAnywhere } from "@/state/permissions";
+import { navigationFor } from "@/ui/settingsNavigation";
 import { routePath } from "@/routing/routes";
 import type { RouteState } from "@/types";
 import { Icon } from "@/ui/Icon";

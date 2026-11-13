@@ -16,7 +16,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { refusalText, type RunStep } from "@/features/model-editor/OperationDialog";
 import { VALUE_TYPES } from "@/features/model-editor/operations";
-import { draftTypeHue, objectTypeOf, typeName } from "@/features/model-editor/outline";
+import { draftTypeHue, objectTypeOf, typeName } from "@/model/outline";
 import {
   MAP_KINDS,
   NEW_ATTRIBUTE,

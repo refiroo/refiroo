@@ -20,7 +20,7 @@ import { TaskNotes } from "./TaskNotes";
 import { TellAssistant } from "./TellAssistant";
 import { changesModel, modelNames, proposalRefusal } from "./aiTaskDesign";
 import { notLoadedEntries } from "./aiTaskText";
-import { count } from "@/features/settings/limits";
+import { count } from "@/ui/limits";
 
 export function ModelProposal({
   task,
@@ -232,7 +232,7 @@ export function ModelProposal({
           <TellAssistant
             anchor="task-tell"
             label="Tell the assistant what to change"
-            placeholder="e.g. “Sponsors belong to operators, not to locations”"
+            placeholder="e.g. “Stops belong to operators, not to municipalities”"
             pending={pending}
             onSend={onCorrect}
           />

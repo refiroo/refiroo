@@ -19,7 +19,7 @@ import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
 import { SelectionBar, selectionText } from "@/features/objects/SelectionBar";
 import { RELATION_ATTRIBUTES_LABEL, relationAttributeTypes } from "@/features/objects/relations/RelationAttributes";
 import { relationAttributeColumn } from "@/features/objects/relations/relationAttributeColumns";
-import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
 import { attributeName } from "@/model/fields";

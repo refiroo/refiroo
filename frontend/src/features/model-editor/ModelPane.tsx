@@ -23,8 +23,8 @@ import { viewGlyph } from "@/model/collections";
 import { HueTile } from "@/ui/HueTile";
 import { Icon, type IconName } from "@/ui/Icon";
 import { MarkPill } from "@/features/model-editor/MarkPill";
-import { ProposedPill } from "@/features/model-editor/ProposedBecause";
-import { borrowedWords, draftTypeHue, objectTypeOf } from "@/features/model-editor/outline";
+import { ProposedPill } from "@/ui/ProposedBecause";
+import { borrowedWords, draftTypeHue, objectTypeOf } from "@/model/outline";
 import { scrollAtEdge, scrollerOf } from "@/lib/edgeScroll";
 import { DRAG_COLUMN } from "@/features/model-editor/SourcePane";
 

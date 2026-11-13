@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { recordWrites } from "@/features/security/permissions";
+import { recordWrites } from "@/state/permissions";
 import { permissionsFixture } from "@/test/permissions";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api, type ObjectQuery } from "@/api/client";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
-import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import * as workspaceContext from "@/state/WorkspaceDataContext";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { findTreeItem } from "@/test/tree";
 import { applicationPlacements } from "@/test/placements";
@@ -127,18 +127,13 @@ const record = (base: ObjectItem, id: string, name: string, parent?: ObjectItem,
 
 const connections = domainObject;
 const finance = record(domainObject, "finance", "Finance");
-const timetables = record(codelistObject, codelistObject.id, "Timetable types", connections, "MOT");
-const tariffs = record(
-  { ...codelistObject, attributes: domainObject.attributes },
-  "tariffs",
-  "Tariffs",
-  connections,
-);
+const means = record(codelistObject, codelistObject.id, "Means of transport", connections, "MOT");
+const tariffs = record({ ...codelistObject, attributes: domainObject.attributes }, "tariffs", "Tariffs", connections);
 const zones = record({ ...codelistObject, attributes: domainObject.attributes }, "zones", "Zones", connections);
-const urgent = record(codelistObject, "urgent", "Urgent tariffs", zones);
-const rail = record({ ...codelistObject, objectTypeKey: "unit" }, "rail", "Rail", connections, "CAR");
-const road = record({ ...codelistObject, objectTypeKey: "unit" }, "road", "Road", connections, "ONC");
-const all = [connections, finance, timetables, tariffs, zones, urgent, rail, road];
+const night = record(codelistObject, "night", "Night tariffs", zones);
+const rail = record({ ...codelistObject, objectTypeKey: "unit" }, "rail", "Rail", connections, "RAI");
+const road = record({ ...codelistObject, objectTypeKey: "unit" }, "road", "Road", connections, "ROA");
+const all = [connections, finance, means, tariffs, zones, night, rail, road];
 
 /** Answers object reads by scope, in the query's sort, one page of `pageSize` at a time, with seek. */
 function serve(records: ObjectItem[] = all) {
@@ -242,7 +237,7 @@ describe("TreeView", () => {
       ["codelist", "name", 2],
     ]);
     // A codelist not available says so in its name and on its row.
-    expect(within(tree).getByRole("treeitem", { name: "Timetable types, MOT, not active" })).toBeInTheDocument();
+    expect(within(tree).getByRole("treeitem", { name: "Means of transport, MOT, not active" })).toBeInTheDocument();
   });
 
   it("uses a second configuration's label field, child sort and read-only rows", async () => {
@@ -255,18 +250,18 @@ describe("TreeView", () => {
       within(group)
         .getAllByRole("treeitem")
         .map((node) => node.getAttribute("aria-label")),
-    ).toEqual(["ONC", "CAR"]);
+    ).toEqual(["ROA", "RAI"]);
     expect(read).toHaveBeenCalledWith("unit", expect.objectContaining({ sort: "-code", pageSize: 20 }));
     expect(document.querySelector(".tree-menu-trigger")).toBeNull();
-    key(screen.getByRole("treeitem", { name: "ONC" }), "F2");
+    key(screen.getByRole("treeitem", { name: "ROA" }), "F2");
     expect(screen.queryByRole("textbox", { name: /Rename/ })).not.toBeInTheDocument();
   });
 
   it("reveals the selected record by seeking each branch on its path, leaving others closed", async () => {
     const read = serve();
-    vi.spyOn(api, "object").mockResolvedValue(urgent);
-    render(lens({ selected: urgent }));
-    const selected = await item(/^Urgent tariffs/);
+    vi.spyOn(api, "object").mockResolvedValue(night);
+    render(lens({ selected: night }));
+    const selected = await item(/^Night tariffs/);
     expect(selected).toHaveAttribute("aria-current", "page");
     // Zones is past the first page of two; the branch opened at it with a seek by name.
     expect(read).toHaveBeenCalledWith(
@@ -380,10 +375,10 @@ describe("TreeView", () => {
           reason: "currentParent",
         },
         {
-          id: "urgent",
+          id: "night",
           objectTypeKey: "codelist",
-          name: "Urgent tariffs",
-          path: urgent.path,
+          name: "Night tariffs",
+          path: night.path,
           eligible: false,
           reason: "descendant",
         },
@@ -400,17 +395,13 @@ describe("TreeView", () => {
     vi.spyOn(api, "object").mockResolvedValue({ ...zones, path: [...finance.path, zones.path[1]] });
     render(lens({ onChanged }));
     toggle(await item(/^Connections/));
-    const node = await item(/^Timetable types/);
+    const node = await item(/^Means of transport/);
     key(node, "ContextMenu");
     fireEvent.click(await screen.findByRole("menuitem", { name: "Move to…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Move Timetable types" });
-    expect(candidates).toHaveBeenCalledWith(
-      "codelist",
-      timetables.id,
-      expect.objectContaining({ workspaceKey: "west" }),
-    );
+    const dialog = await screen.findByRole("dialog", { name: "Move Means of transport" });
+    expect(candidates).toHaveBeenCalledWith("codelist", means.id, expect.objectContaining({ workspaceKey: "west" }));
     expect(await within(dialog).findByRole("radio", { name: /Connections.*Current location/ })).toBeDisabled();
-    expect(within(dialog).getByRole("radio", { name: /Urgent tariffs.*Inside the record/ })).toBeDisabled();
+    expect(within(dialog).getByRole("radio", { name: /Night tariffs.*Inside the record/ })).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("radio", { name: /Finance/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Move to Finance" }));
     // A refused move leaves the dialog open with the reason and the choice.
@@ -419,7 +410,7 @@ describe("TreeView", () => {
 
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to Finance" })));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(update).toHaveBeenLastCalledWith("codelist", timetables.id, {
+    expect(update).toHaveBeenLastCalledWith("codelist", means.id, {
       expectedVersion: 1,
       parentObjectId: finance.id,
     });
@@ -433,9 +424,9 @@ describe("TreeView", () => {
     const records = [...all];
     serve(records);
     const moved = {
-      ...timetables,
+      ...means,
       parentObjectId: finance.id,
-      path: [...finance.path, { id: timetables.id, name: timetables.name, objectTypeKey: "codelist" }],
+      path: [...finance.path, { id: means.id, name: means.name, objectTypeKey: "codelist" }],
       version: 2,
     };
     vi.spyOn(api, "parentCandidates").mockResolvedValue({
@@ -447,32 +438,30 @@ describe("TreeView", () => {
       startIndex: 0,
     });
     vi.spyOn(api, "updateObject").mockImplementation(async () => {
-      records[records.indexOf(timetables)] = moved;
+      records[records.indexOf(means)] = moved;
       return moved;
     });
     vi.spyOn(api, "object").mockResolvedValue(moved);
     const onChanged = vi.fn();
     const view = render(lens({ onChanged }));
     toggle(await item(/^Connections/));
-    key(await item(/^Timetable types/), "ContextMenu");
+    key(await item(/^Means of transport/), "ContextMenu");
     fireEvent.click(await screen.findByRole("menuitem", { name: "Move to…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Move Timetable types" });
+    const dialog = await screen.findByRole("dialog", { name: "Move Means of transport" });
     fireEvent.click(await within(dialog).findByRole("radio", { name: /Finance/ }));
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to Finance" })));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     // The reveal has read the moved record; the lists still show it under Connections, and that old row
     // is not the one to focus.
     await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
-    const old = screen
-      .getByRole("treeitem", { name: /^Connections/ })
-      .querySelector(`[data-object-id="${timetables.id}"]`);
+    const old = screen.getByRole("treeitem", { name: /^Connections/ }).querySelector(`[data-object-id="${means.id}"]`);
     expect(old).not.toBeNull();
     expect(document.activeElement).not.toBe(old);
     // The parent's refresh arrives: the lists are read again with the record under Finance.
     view.rerender(lens({ onChanged, refreshToken: 1 }));
     await waitFor(() => {
       const focused = document.activeElement as HTMLElement | null;
-      expect(focused?.dataset.objectId).toBe(timetables.id);
+      expect(focused?.dataset.objectId).toBe(means.id);
       expect(focused?.parentElement?.closest<HTMLElement>("[role='treeitem'][data-object-id]")?.dataset.objectId).toBe(
         finance.id,
       );
@@ -491,15 +480,15 @@ describe("TreeView", () => {
     const update = vi
       .spyOn(api, "updateObject")
       .mockRejectedValueOnce(new ApiError(422, "duplicate_name", "A top-level codelist has this name."))
-      .mockResolvedValueOnce({ ...urgent, parentObjectId: null, path: [urgent.path[2]] });
-    vi.spyOn(api, "object").mockResolvedValue(urgent);
-    render(lens({ model: nestedRootsModel(), selected: urgent, onChanged }));
-    key(await item(/^Urgent tariffs/), "ContextMenu");
+      .mockResolvedValueOnce({ ...night, parentObjectId: null, path: [night.path[2]] });
+    vi.spyOn(api, "object").mockResolvedValue(night);
+    render(lens({ model: nestedRootsModel(), selected: night, onChanged }));
+    key(await item(/^Night tariffs/), "ContextMenu");
     fireEvent.click(await screen.findByRole("menuitem", { name: "Move to…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Move Urgent tariffs" });
+    const dialog = await screen.findByRole("dialog", { name: "Move Night tariffs" });
     await waitFor(() => expect(candidates).toHaveBeenCalled());
     // Not a candidate: the list's count and empty state are the candidates' own.
-    expect(await within(dialog).findByText("No other record can contain Urgent tariffs.")).toBeVisible();
+    expect(await within(dialog).findByText("No other record can contain Night tariffs.")).toBeVisible();
     const top = within(dialog).getByRole("radio", { name: /Top level/ });
     expect(top).toBeEnabled();
     fireEvent.click(top);
@@ -509,7 +498,7 @@ describe("TreeView", () => {
 
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to the top level" })));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(update).toHaveBeenLastCalledWith("codelist", urgent.id, { expectedVersion: 1, parentObjectId: null });
+    expect(update).toHaveBeenLastCalledWith("codelist", night.id, { expectedVersion: 1, parentObjectId: null });
     expect(onChanged).toHaveBeenCalled();
   });
 
@@ -526,7 +515,7 @@ describe("TreeView", () => {
       // Codelists are not a root of the view's tree, so one moved to the top would leave it.
       {
         model: treeModel(),
-        name: /^Timetable types/,
+        name: /^Means of transport/,
         open: /^Connections/,
         reason: "Not shown at the top of this tree",
       },
@@ -562,10 +551,10 @@ describe("TreeView", () => {
 
     // A space typed mid-word continues the search rather than opening the record.
     toggle(first);
-    await item(/^Timetable types/);
+    await item(/^Means of transport/);
     now.mockReturnValue(9_000);
-    for (const letter of "timetable t") key(document.activeElement as HTMLElement, letter);
-    expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: /^Timetable types/ }));
+    for (const letter of "means of t") key(document.activeElement as HTMLElement, letter);
+    expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: /^Means of transport/ }));
     expect(onOpen).not.toHaveBeenCalled();
   });
 
@@ -586,7 +575,7 @@ describe("TreeView", () => {
     });
     render(lens());
     toggle(await item(/^Connections/));
-    const first = await item(/^Timetable types/);
+    const first = await item(/^Means of transport/);
     const second = await item(/^Tariffs/);
     fireEvent.click(first.querySelector(".tree-node")!, { ctrlKey: true });
     fireEvent.click(second.querySelector(".tree-node")!, { ctrlKey: true });
@@ -597,7 +586,7 @@ describe("TreeView", () => {
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to Finance" })));
     await waitFor(() => expect(batch).toHaveBeenCalled());
     expect(batch.mock.calls[0][0].items.map((entry) => ("target" in entry ? entry.target.id : ""))).toEqual([
-      timetables.id,
+      means.id,
       tariffs.id,
     ]);
   });
@@ -684,12 +673,12 @@ describe("TreeView dragging", () => {
   it("drops onto a node and confirms in the move dialog with the target chosen", async () => {
     serve();
     const candidates = vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(finance));
-    const update = vi.spyOn(api, "updateObject").mockResolvedValue({ ...timetables, parentObjectId: finance.id });
-    vi.spyOn(api, "object").mockResolvedValue({ ...timetables, path: [...finance.path, timetables.path[1]] });
+    const update = vi.spyOn(api, "updateObject").mockResolvedValue({ ...means, parentObjectId: finance.id });
+    vi.spyOn(api, "object").mockResolvedValue({ ...means, path: [...finance.path, means.path[1]] });
     const onChanged = vi.fn();
     render(lens({ onChanged }));
     toggle(await item(/^Connections/));
-    const node = await item(/^Timetable types/);
+    const node = await item(/^Means of transport/);
     const target = screen.getByRole("treeitem", { name: /^Finance/ });
 
     press(node);
@@ -698,19 +687,19 @@ describe("TreeView dragging", () => {
     expect(row(node)).toHaveClass("dragging");
     expect(row(target)).toHaveClass("drop-accepted");
     expect(preview()).toHaveClass("accepted");
-    expect(preview()).toHaveTextContent("Timetable typesCodelist");
+    expect(preview()).toHaveTextContent("Means of transportCodelist");
     expect(document.body).toHaveClass("tree-dragging");
     expect(candidates).not.toHaveBeenCalled();
 
     release();
     expect(preview()).toBeNull();
     expect(document.body).not.toHaveClass("tree-dragging");
-    const dialog = await screen.findByRole("dialog", { name: "Move Timetable types" });
+    const dialog = await screen.findByRole("dialog", { name: "Move Means of transport" });
     expect(within(dialog).getByRole("textbox", { name: "Search new locations" })).toHaveValue("Finance");
     expect(await within(dialog).findByRole("radio", { name: /Finance/ })).toBeChecked();
     expect(candidates).toHaveBeenCalledWith(
       "codelist",
-      timetables.id,
+      means.id,
       expect.objectContaining({ workspaceKey: "west", search: "Finance" }),
     );
     // Enter in the dialog confirms, with the request Move to… sends.
@@ -718,7 +707,7 @@ describe("TreeView dragging", () => {
       fireEvent.submit(within(dialog).getByRole("button", { name: "Move to Finance" }).closest("form")!),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(update).toHaveBeenCalledWith("codelist", timetables.id, {
+    expect(update).toHaveBeenCalledWith("codelist", means.id, {
       expectedVersion: 1,
       parentObjectId: finance.id,
     });
@@ -727,11 +716,11 @@ describe("TreeView dragging", () => {
 
   it("glows red with the reason over a refused target and sends nothing on release", async () => {
     serve();
-    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    vi.spyOn(api, "object").mockResolvedValue(night);
     const candidates = vi.spyOn(api, "parentCandidates");
     const update = vi.spyOn(api, "updateObject");
-    render(lens({ selected: urgent }));
-    const inner = await item(/^Urgent tariffs/);
+    render(lens({ selected: night }));
+    const inner = await item(/^Night tariffs/);
     const node = screen.getByRole("treeitem", { name: /^Zones/ });
 
     press(node);
@@ -757,12 +746,12 @@ describe("TreeView dragging", () => {
     serve();
     render(lens());
     toggle(await item(/^Connections/));
-    const above = await item(/^Timetable types/);
+    const above = await item(/^Means of transport/);
     const node = screen.getByRole("treeitem", { name: /^Tariffs/ });
     row(above).getBoundingClientRect = () => box(100);
 
     press(node);
-    // The bottom quarter of Timetable types: the gap before Tariffs, in Connections's branch.
+    // The bottom quarter of Means of transport: the gap before Tariffs, in Connections's branch.
     moveOver(above, undefined, 118);
     expect(row(screen.getByRole("treeitem", { name: /^Connections/ }))).toHaveClass("drop-refused");
     expect(row(above)).not.toHaveClass("drop-refused");
@@ -777,13 +766,13 @@ describe("TreeView dragging", () => {
 
   it("drops onto a type heading as its parent and keeps the dialog when the server refuses", async () => {
     serve();
-    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    vi.spyOn(api, "object").mockResolvedValue(night);
     vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(connections));
     vi.spyOn(api, "updateObject").mockRejectedValue(
       new ApiError(422, "duplicate_name", "Connections already holds a codelist with this name."),
     );
-    render(lens({ selected: urgent }));
-    const node = await item(/^Urgent tariffs/);
+    render(lens({ selected: night }));
+    const node = await item(/^Night tariffs/);
     const heading = screen.getByRole("treeitem", { name: "Codelists within Connections, 3" });
 
     press(node);
@@ -792,7 +781,7 @@ describe("TreeView dragging", () => {
     expect(row(screen.getByRole("treeitem", { name: /^Connections/ }))).toHaveClass("drop-accepted");
     release();
 
-    const dialog = await screen.findByRole("dialog", { name: "Move Urgent tariffs" });
+    const dialog = await screen.findByRole("dialog", { name: "Move Night tariffs" });
     const choice = await within(dialog).findByRole("radio", { name: /Connections/ });
     expect(choice).toBeChecked();
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to Connections" })));
@@ -802,13 +791,13 @@ describe("TreeView dragging", () => {
 
   it("drops onto a top-level heading to move a nested record of a root type to the top", async () => {
     serve();
-    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    vi.spyOn(api, "object").mockResolvedValue(night);
     const candidates = vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(finance));
     const update = vi
       .spyOn(api, "updateObject")
-      .mockResolvedValue({ ...urgent, parentObjectId: null, path: [urgent.path[2]] });
-    render(lens({ model: nestedRootsModel(), selected: urgent }));
-    const node = await item(/^Urgent tariffs/);
+      .mockResolvedValue({ ...night, parentObjectId: null, path: [night.path[2]] });
+    render(lens({ model: nestedRootsModel(), selected: night }));
+    const node = await item(/^Night tariffs/);
     const heading = screen.getByRole("treeitem", { name: "Domains, 2" });
 
     press(node);
@@ -817,7 +806,7 @@ describe("TreeView dragging", () => {
     expect(preview()).toHaveClass("accepted");
     release();
 
-    const dialog = await screen.findByRole("dialog", { name: "Move Urgent tariffs" });
+    const dialog = await screen.findByRole("dialog", { name: "Move Night tariffs" });
     expect(within(dialog).getByRole("radio", { name: /Top level/ })).toBeChecked();
     expect(within(dialog).getByRole("textbox", { name: "Search new locations" })).toHaveValue("");
     await waitFor(() => expect(candidates).toHaveBeenCalled());
@@ -825,7 +814,7 @@ describe("TreeView dragging", () => {
       fireEvent.submit(within(dialog).getByRole("button", { name: "Move to the top level" }).closest("form")!),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(update).toHaveBeenCalledWith("codelist", urgent.id, { expectedVersion: 1, parentObjectId: null });
+    expect(update).toHaveBeenCalledWith("codelist", night.id, { expectedVersion: 1, parentObjectId: null });
   });
 
   it("refuses the top level at a gap for a type the tree does not show there", async () => {
@@ -833,7 +822,7 @@ describe("TreeView dragging", () => {
     const candidates = vi.spyOn(api, "parentCandidates");
     render(lens());
     toggle(await item(/^Connections/));
-    const node = await item(/^Timetable types/);
+    const node = await item(/^Means of transport/);
     const financeRow = screen.getByRole("treeitem", { name: /^Finance/ });
     row(financeRow).getBoundingClientRect = () => box(100);
 
@@ -855,7 +844,7 @@ describe("TreeView dragging", () => {
     const candidates = vi.spyOn(api, "parentCandidates");
     render(lens());
     toggle(await item(/^Connections/));
-    const node = await item(/^Timetable types/);
+    const node = await item(/^Means of transport/);
     press(node);
     moveOver(screen.getByRole("treeitem", { name: /^Finance/ }));
     expect(preview()).not.toBeNull();
@@ -881,11 +870,11 @@ describe("TreeView dragging", () => {
   it("lifts a record held by touch and drops it onto a node through the move dialog", async () => {
     serve();
     vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(finance));
-    const update = vi.spyOn(api, "updateObject").mockResolvedValue({ ...timetables, parentObjectId: finance.id });
-    vi.spyOn(api, "object").mockResolvedValue({ ...timetables, path: [...finance.path, timetables.path[1]] });
+    const update = vi.spyOn(api, "updateObject").mockResolvedValue({ ...means, parentObjectId: finance.id });
+    vi.spyOn(api, "object").mockResolvedValue({ ...means, path: [...finance.path, means.path[1]] });
     render(lens());
     toggle(await item(/^Connections/));
-    const node = await item(/^Timetable types/);
+    const node = await item(/^Means of transport/);
     const target = screen.getByRole("treeitem", { name: /^Finance/ });
 
     vi.useFakeTimers();
@@ -906,13 +895,13 @@ describe("TreeView dragging", () => {
       vi.useRealTimers();
     }
     expect(touchMoveCancelled(node)).toBe(false);
-    const dialog = await screen.findByRole("dialog", { name: "Move Timetable types" });
+    const dialog = await screen.findByRole("dialog", { name: "Move Means of transport" });
     expect(await within(dialog).findByRole("radio", { name: /Finance/ })).toBeChecked();
     await act(async () =>
       fireEvent.submit(within(dialog).getByRole("button", { name: "Move to Finance" }).closest("form")!),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(update).toHaveBeenCalledWith("codelist", timetables.id, {
+    expect(update).toHaveBeenCalledWith("codelist", means.id, {
       expectedVersion: 1,
       parentObjectId: finance.id,
     });
@@ -923,7 +912,7 @@ describe("TreeView dragging", () => {
     const onOpen = vi.fn();
     render(lens({ onOpen }));
     toggle(await item(/^Connections/));
-    const node = await item(/^Timetable types/);
+    const node = await item(/^Means of transport/);
     vi.useFakeTimers();
     try {
       press(node, "touch");
@@ -950,7 +939,7 @@ describe("TreeView dragging", () => {
     const onOpen = vi.fn();
     render(lens({ onOpen }));
     toggle(await item(/^Connections/));
-    const node = await item(/^Timetable types/);
+    const node = await item(/^Means of transport/);
     vi.useFakeTimers();
     try {
       hold(node);
@@ -1044,12 +1033,12 @@ describe("TreeView dragging", () => {
   it("drags several selected records onto a target that takes them all and moves them in one atomic batch", async () => {
     serve();
     vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(finance));
-    const batch = vi.spyOn(api, "runBatch").mockResolvedValue(moved(timetables, tariffs));
+    const batch = vi.spyOn(api, "runBatch").mockResolvedValue(moved(means, tariffs));
     const onChanged = vi.fn();
     const onOpen = vi.fn();
     render(lens({ onChanged, onOpen }));
     toggle(await item(/^Connections/));
-    const first = await item(/^Timetable types/);
+    const first = await item(/^Means of transport/);
     const second = await item(/^Tariffs/);
     select(first);
     select(second);
@@ -1073,7 +1062,7 @@ describe("TreeView dragging", () => {
         policy: "atomic",
         run: "inline",
         stage: "execute",
-        items: [timetables, tariffs].map((record) => ({
+        items: [means, tariffs].map((record) => ({
           op: "update",
           ref: record.name,
           target: { id: record.id },
@@ -1091,8 +1080,8 @@ describe("TreeView dragging", () => {
     const batch = vi.spyOn(api, "runBatch");
     render(lens());
     toggle(await item(/^Connections/));
-    const list = await item(/^Timetable types/);
-    // Tariffs can take Timetable types, but not itself.
+    const list = await item(/^Means of transport/);
+    // Tariffs can take Means of transport, but not itself.
     const tariffsItem = await item(/^Tariffs/);
     select(list);
     select(tariffsItem);
@@ -1112,7 +1101,7 @@ describe("TreeView dragging", () => {
     render(lens());
     toggle(await item(/^Connections/));
     // Under Tariffs, the codelist stands as it is and the domain Finance would become a codelist.
-    const codelist = await item(/^Timetable types/);
+    const codelist = await item(/^Means of transport/);
     const domain = await item(/^Finance/);
     select(codelist);
     select(domain);

@@ -77,7 +77,7 @@ It is served by the engine at `/guide` and published as a site from the same sou
 
 | Role | Does | Does not |
 | --- | --- | --- |
-| **Codex** (DOC-D15) | Writes the pages from their briefs, in waves; writes the descriptions of settings, error codes and model-language fields beside the code (DOC2) | Edit code outside the files a package names; change an example's expected response; commit; read or quote a private model |
+| **Codex** (DOC-D15) | Writes the pages from their briefs, in waves; writes the descriptions of settings, error codes and model-language fields beside the code (DOC2) | Edit code outside the files a package names; change an example's expected response; commit |
 | **Primary agent** (strong model) | Builds the mechanism (DOC1, DOC2), writes every brief and the coverage matrix (DOC3), runs each wave's checks and fact-check, builds the screenshots and the publication | Write pages the brief assigns to Codex, except to correct a fact the fact-check found |
 | **The user** | Decides the open decisions, reads the pages named for a read, commits | |
 
@@ -109,7 +109,7 @@ gets two.
 
 | Page | Kind | Seed | Covers |
 | --- | --- | --- | --- |
-| What refiroo is | Explanation | PRODUCT.md, OPERATORING.md | the four things a team manages; F01 |
+| What refiroo is | Explanation | PRODUCT.md, BRANDING.md | the four things a team manages; F01 |
 | What makes it different | Explanation | PRODUCT_GUIDE.md, REAL_WORLD_RESEARCH.md | |
 | What it does not do | Explanation | PRODUCT.md "not", ROADMAP "Unscheduled" | |
 | Run it in five minutes | Tutorial | README, `compose.yml`, `.env.example` | quick start |
@@ -329,8 +329,7 @@ The group is a check on the documentation, not a test programme ([AGENTS.md](../
 serve the feature). It reuses the journey harness, seeds once and reuses the seed until the model,
 schema or sample data change, and runs only when `guide/` or the engine boundary a page covers has
 changed. The guide's sample data is its own: small files in `guide/samples/` loaded through the public
-API (an import or a batch). It never uses a private model or a source export
-([AGENTS.md](../AGENTS.md), invariants).
+API (an import or a batch). It never uses data from another organisation.
 
 ## Coverage: the check that nothing is missing
 
@@ -392,7 +391,7 @@ when both are empty but for reasoned exclusions.
 | [RA](#ra-attributes-of-the-relationship-in-consumer-api-related-fields) | - | A consumer API related block's fields can read an attribute of the relationship itself (`relation:<attribute>`), typed, validated and offered in the editor's field picker | Primary agent (plan); implementer. **Ordered by the user 2026-11-09; RA-D1 to RA-D3 decided 2026-11-09; built 2026-11-09** |
 | [AW](#aw-an-ai-tasks-progress-line-in-words-not-the-command) | - | An AI task's "Working on it" line says what the session does in words; the session's shell command never reaches the page | Primary agent. **Added to the 0.13 build by the user 2026-11-09; delivered 2026-11-09** |
 | [TN](#tn-an-ai-task-named-by-what-it-asks) | - | An AI task given in words gets a short title the assistant writes from the request, shown on the task page, the task lists and the draft it makes, instead of the cut-off request | Primary agent (plan); implementer. **Added to the 0.13 build by the user 2026-11-10; delivered 2026-11-10: the session writes the title (`agent/20`, `ai_tasks.title`), the task page, confirm bar, Jobs group and draft use it, words cut at a word until then; J50.72; try $0.44** |
-| [AQ](#aq-the-assistant-loads-a-laid-out-workbook-and-asks-only-what-a-person-decides) | - | A laid-out workbook loads through the assistant without guessed operation names, replayed profiles or questions the engine could answer; the session limit is a handled ending | Primary agent (plan); implementer. **Found 2026-11-08; delivered 2026-11-08** (`ef4e16fc`, `a0326f72`; the try, task 97, run the same day) |
+| [AQ](#aq-the-assistant-loads-a-laid-out-workbook-and-asks-only-what-a-person-decides) | - | A laid-out workbook loads through the assistant without guessed operation names, replayed profiles or questions the engine could answer; the session limit is a handled ending | Primary agent (plan); implementer. **Found 2026-11-08; delivered 2026-11-08** (`ef4e16fc`, `a0326f72`) |
 | [JG](#jg-related-jobs-grouped-on-the-jobs-page) | - | The Jobs page groups the jobs an assistant task or a model draft requested, with a trail back and the group in the address | Primary agent (plan); implementer. **Approved 2026-11-08; delivered 2026-11-08** (`5a90acd6`) |
 | [AB](#ab-the-assistant-loads-a-file-as-one-checked-batch) | AQ | The assistant loads a file as one batch the engine has previewed in full; accepting runs exactly those items with no assistant turn | Primary agent (plan); implementer. **Approved 2026-11-09; built 2026-11-09; acceptance runs 2026-11-10, accepted by the user; closed** |
 | [NG](#ng-relation-matrices-in-navigation-groups) | - | A relation matrix is an entry of a navigation group of its own, a collection has an opening view, and a group has a panel in the editor | Built by the 0.13 build, not planned beforehand; recorded 2026-11-10. **Delivered 2026-11-09** (`50e9efc1`, guide wave `NAV-GROUPS`). Narrows [0.17 NG1](BASE_0_17_IMPLEMENTATION_PLAN.md#ng1-views-in-navigation-groups) |
@@ -444,7 +443,7 @@ pages, then the tutorials (which link to the how-tos), then the entry pages (whi
   guide ([below](#the-writing-rules)) and the process Codex follows.
 - **The `docs` group**, proven on one explanation page ("Three kinds of change") whose examples run.
 - **Checks**: links and anchors, front matter, every page in the content collection is a written one (briefs live outside it), banned terms
-  (package IDs, decision IDs, private-model names), spelling of the product name, the page template's
+  (package IDs, decision IDs), spelling of the product name, the page template's
   headings present.
 - **AGENTS.md** gains the step: a change to user-visible behaviour updates its guide pages in the same
   change, as it updates API.md. The step joins "How a package is delivered" and the definition of done.
@@ -460,9 +459,8 @@ running in the `docs` group, the checks green, and `guide/AGENTS.md` in place.
   content schema carries the front matter (the page's reader); a stub is a brief outside the collection, never a page.
 - **Checks** (`guide/tools/check.mjs`, one `npm run` command each, listed in `guide/AGENTS.md`): front matter,
   the sidebar lists exactly the pages, template headings, banned terms (package, decision, journey and capability IDs, delivery
-  history, private-model names by hash), the spelling "refiroo", the examples a page shows, and links and
-  anchors in the built site. The private-model list is empty until the user supplies the names
-  (`node tools/check.mjs hash-term "<name>"` makes the line to add).
+  history), the spelling "refiroo", the examples a page shows, and links and
+  anchors in the built site.
 - **Serving**: `app/management/guide_site.py` serves the built files at `/guide` with a content security
   policy that keeps every load on the engine; the web image's proxy and the Vite dev server forward `/guide`;
   `/docs` and Settings › About link to it. The built files are found in `/app/guide` (the image) or
@@ -485,8 +483,7 @@ running in the `docs` group, the checks green, and `guide/AGENTS.md` in place.
   `THIRD_PARTY_NOTICES.md` is regenerated and `--check` passes. The sitemap is disabled until the public host is
   decided (DOC12).
 - The engine image build was not run in DOC1 (no Docker daemon on the machine); since 2026-11-07 CI builds and starts the
-  images ([CL](#cl-images-built-in-ci-and-ci-as-a-quick-gate)). The list of private-model names for the banned-terms
-  check stays empty by decision (DOC-D25).
+  images ([CL](#cl-images-built-in-ci-and-ci-as-a-quick-gate)).
 
 ### DOC2: Generated reference
 
@@ -767,8 +764,8 @@ the About page.
 **What changes.**
 
 - **One look.** All three bars are 56 px high and share the app's top surface, border, logo (mascot and wordmark)
-  and the ink underline on the current item. That shared part is one stylesheet in `frontend/public/operator/`,
-  which the engine already serves at `/operator/`. The guide's `customCss` and the API page both use it, so the
+  and the ink underline on the current item. That shared part is one stylesheet in `frontend/public/brand/`,
+  which the engine already serves at `/brand/`. The guide's `customCss` and the API page both use it, so the
   look is defined once. The app's bar stays the React component and keys on the same tokens.
 - **The logo goes to the app's home** (`/`) from the guide and the API page.
 - **Documentation | API reference** comes before the search box in the guide's header (a Starlight `Header`
@@ -820,7 +817,7 @@ user. **Delivered 2026-11-05.**
 event), the first-paint script in `frontend/index.html`, `tokens.css` (the `--wp-*` primitives, the purple light
 block and the two identical dark blocks, before the palette A blocks so A applies inside both), the Theme selector in
 `AppearancePage.tsx`, `refiroo-header.css` (header and Scalar values; the dark wordmark rules already match purple
-dark, since they key on the mode only; the engine's copy under `backend/app/management/operator/` kept equal), the
+dark, since they key on the mode only; the engine's copy under `backend/app/management/brand/` kept equal), the
 API page's theme script (`reference/__init__.py`; left out of a host-themed static page), `ThemeProvider.astro` and
 `ThemeSelect.astro` (not applied when `PUBLIC_GUIDE_SITE` and `PUBLIC_GUIDE_THEME` are both set) and `guide.css`.
 Two groups on Appearance are now both labelled "Theme" (the colours first, then the existing light and dark one),
@@ -848,7 +845,7 @@ app offers it as a theme of its own. Normal is today's look, unchanged.
   the existing light and dark selector; the first-paint script in `index.html` applies both; `theme-color` follows.
   The account popover keeps its light and dark choice as it is.
 - **The guide and the API reference an instance serves** (HD's one theme choice) read and follow `rdm:scheme:v1`
-  too: the shared header stylesheet (`frontend/public/operator/refiroo-header.css`), `guide.css` (Starlight's
+  too: the shared header stylesheet (`frontend/public/brand/refiroo-header.css`), `guide.css` (Starlight's
   variables) and the API page (Scalar coloured by the stylesheet) get the purple light and dark values; all follow
   the `storage` event as they do for the mode.
 - **The published guide on the website** keeps the site's own look (W4); it ignores `rdm:scheme:v1`.
@@ -982,14 +979,14 @@ that is a model-language change outside RL.
 
 **Status:** An open product finding of the guide pictures (`guide/_waves/HANDOVER.md`, "the assistant is far over the import time limit"); 0.16 AP11 closed it unmet, accepted by the user on 2026-11-01. Planned in 0.13 and ordered for delivery by the user on 2026-11-08 ("plan a package in 0.13 and implement it").
 
-**Requirement served.** "A few words + workbook → the model and the import", within 1 to 2 minutes for a workbook like the example model and 5 at most for a complex one (0.16 plan, AP11). Lower effort and a smaller model stay ruled out (the user, 2026-11-01).
+**Requirement served.** "A few words + workbook → the model and the import", within 1 to 2 minutes for a small workbook and 5 at most for a complex one (0.16 plan, AP11). Lower effort and a smaller model stay ruled out (the user, 2026-11-01).
 
 **Where the time goes (read 2026-11-08 from what is still stored; no new AI run).**
 
-- **AP11's tries** (0.16 plan, AP11): The example model 821 s proposal + 66 s load, its first model written at 334 s, then 14 dry runs to 789 s. Tariff File 384 + 66 s. The engine's jobs took 26 s of the the example model proposal; the rest is the model generating, at about 125 output tokens a second.
-- **The 14 dry runs of `ap11-example`** (`jobs.report`, kept after the files expired): the session added the workbook one source at a time and learned the binding rules from the refusals. Round 1: `NAME_REQUIRED` on every row; rounds 2 and 3: `PARENT_WRONG_SCOPE`, `REFERENCE_NOT_FOUND` (master values not yet a source); round 4: `RELATION_CANDIDATE_REFUSED`; rounds 7 to 10: new system-value and system-group sources, `REFERENCE_NOT_FOUND` and `PARENT_REQUIRED`; round 12: the translations, `MISSING_REQUIRED_RELATIONS` on 1,619 rows. Each round is a full turn: the profile sent again (123 KB of profile over the task's jobs), the answer read, the next change thought out.
-- **The session logs still on disk** (`var/job-files/agent`): about half of the output is thinking (task 89: 20,175 of 38,864 output tokens), and a session spends its first 10 to 15 turns reading the workbook and the model with small scripts before it writes anything.
-- **The engine already reads a workbook into a model and a profile** (0.10 A6, `POST /model-drafts/{id}/inference`), and no session uses it. Run on the two AP11 workbooks with an empty model (a scratch probe, 2026-11-08): profiling, inference and application under 2 s, the draft compiles and its profile is valid. **The example model:** 9 types (example, its category, flags, duration, reserved slot code and name, other diary, language, translation) and 8 relations; the draft's dry run reads all 1,743 rows in 3 s, 1 rejected (`MISSING_RECORD_KEY`): 14 categories, 200 examples with 812 relationships, the 1,500 translations as relationships. **Tariff File:** the Packages sheet only, 200 rows, 0 rejected; the Products sheet (400 rows, a header of two rows) is not read.
+- **AP11's tries** (0.16 plan, AP11): the engine's jobs took seconds of a proposal of well over ten minutes; the rest is the model generating, at about 125 output tokens a second.
+- **The dry runs:** the session added the workbook one source at a time and learned the binding rules from the refusals (a name required on every row, a wrong parent scope, a reference not found because master values were not yet a source, a candidate refused, the translations missing a required relation). Each round is a full turn: the profile sent again, the answer read, the next change thought out.
+- **The session logs still on disk:** about half of the output is thinking, and a session spends its first 10 to 15 turns reading the workbook and the model with small scripts before it writes anything.
+- **The engine already reads a workbook into a model and a profile** (0.10 A6, `POST /model-drafts/{id}/inference`), and no session uses it. Run on two workbooks with an empty model (a scratch probe, 2026-11-08): profiling, inference and application under 2 s, the draft compiles and its profile is valid, and its dry run reads the rows in seconds; one workbook's second sheet, with a header of two rows, was not read.
 - **Found on the way:** the profile `GET /model-drafts/{id}/profile` answers is refused by the draft's own dry run (`422`: the profile's `key` and `name`, each source's `id`). A session that reads the draft's profile and sends it back hits that wall.
 
 **What changes.**
@@ -1005,9 +1002,9 @@ that is a model-language change outside RL.
 - **AT-D2: Every proposal is applied.** The session changes what the words ask; a person's review comes after the session, as today. Cost: a start with types the words do not want, which the session removes.
 - **AT-D3: The start is not reported to the person.** It is the session's material; the proposal the person reviews is the session's, as today.
 
-**Expected effect (my estimate, not measured).** The reading turns and the first model (334 s of AP11's example-model run) shrink to reading the start; the early rounds of refusals go, as the start's profile already reads every row. The the example model words ask for much the inference does not build (sites and contacts, a CRM system with external IDs, a filtered field, translations by language), so the 120 s limit is not expected; Tariff File's Products sheet is still the session's work. The tries measure it.
+**Expected effect (my estimate, not measured).** The reading turns and the first model shrink to reading the start; the early rounds of refusals go, as the start's profile already reads every row. The words ask for much the inference does not build, so the 120 s limit is not expected. The tries measure it.
 
-**Tries, each announced and run without a stop (after the checks pass).** As AP11's: fresh scratch workspaces, the same words (tasks 80 and 81), Sonnet at medium, none published; `ai_calls.prompt_version = agent/11` proves the server runs the new code. The example model, then Tariff File, one each. **A try counts only if the result holds:** 0 rejected; the workbook's filled cells found in the change set; the example model has its site and contact types, the filter the words ask for, and the category translations on the categories. Reported against AP11's figures and the limits, with tokens and cost at API prices, in the usage log and here. **If the limits are not met,** AT is recorded as not met with the figures and where the remaining time went; no further runs.
+**Tries, each announced and run without a stop (after the checks pass).** As AP11's: fresh scratch workspaces, the same words, Sonnet at medium, none published; `ai_calls.prompt_version = agent/11` proves the server runs the new code. **A try counts only if the result holds:** 0 rejected; the workbook's filled cells found in the change set; the types and the filter the words ask for present. Reported against AP11's figures and the limits, with tokens and cost at API prices, in the usage log and here. **If the limits are not met,** AT is recorded as not met with the figures and where the remaining time went; no further runs.
 
 **Journey cases (J50).**
 
@@ -1032,33 +1029,30 @@ that is a model-language change outside RL.
 
 **Tries (2026-11-08): not met, and slower than AP11.** Both on the dev server running `agent/11`, AP11's words, fresh workspaces, through the API to `loaded`, none published; logged in the usage log (0.16 plan).
 
-| | AP11 (proposal + load) | AT (proposal + load) | Output tokens (design) | Cost at API prices | Limit |
-|---|---|---|---|---|---|
-| The example model (`at-example`) | 814 + 60 s | 793 + 141 s | 83,286 (AP11 86,395) | $3.11 + $0.73 | 120 s |
-| Tariff File (`at-price`) | 379 + 60 s | 606 + 159 s | 61,233 (AP11 39,065) | $2.47 + $0.48 | 300 s |
-
-- **The start worked as built.** The example model: the session had its draft 14 s after the task started, the dry run reading all 1,743 rows, 1 rejected. Tariff File: 200 rows (Packages), 0 rejected, in 33 s.
-- **Both sessions removed it.** The example model, step 50 of 143: "the draft now matches the workspace model, with the generated import types removed"; Tariff File, step 62 of 128: "the draft is back to the workspace's own model". Each then built its own model and profile as in AP11, after the turns spent reading the start and undoing it. On the example model the words ask for a structure the file's columns do not give (sites, contacts, a CRM system, translations per language, a filtered field); on Tariff File the start lacked the Products sheet. The session's rounds of dry runs fell (the example model 8 completed and 4 cancelled, against AP11's 14; Price 2), but the reading turns did not.
-- **The results hold.** The example model: 2,129 records and 4,535 relationships, 0 rejected; the load's cell report: 15,120 cells, 652 empty, 9,984 converted, 4,484 resolved, 0 refused or not found; site and contact types, the `ancestor:example-category.name` candidate filter and the category translations in the installed release. Tariff File: 9,747 records and 19,919 relationships, 0 rejected; 58,696 cells, 37,633 empty, 19,729 converted, 1,334 resolved, 0 refused or not found; both sheets loaded. AP11's separate cell-by-cell comparison with the change set was not repeated; the figures are the load's own report.
-- **Three sessions were killed** ("The worker stopped while the session ran"): the dev server runs `uvicorn --reload`, and another session saved `static_site.py` and its tests at 11:49, 11:51 and 12:11. Each task went on in a new session with a new start, and the killed session's draft was removed; the figures above are the sessions that finished. The load times (141 and 159 s, AP11 60 s) were not looked into.
+- **The start worked as built:** the session had its draft seconds after the task started, and the dry run read every row of the sheets it reads.
+- **Both sessions removed it.** Each said the draft now matched the workspace model, with the generated import types removed, and then built its own model and profile as in AP11, after the turns spent reading the start and undoing it. Where the words ask for a structure the file's columns do not give, or the start lacked a sheet, the start was not what the session needed. The session's rounds of dry runs fell, but the reading turns did not.
+- **The results hold:** 0 rejected, every cell of the load's report resolved or converted, 0 refused or not found; the types, the candidate filter and the category translations the words asked for were in the installed release. AP11's separate cell-by-cell comparison with the change set was not repeated; the figures are the load's own report.
+- **Three sessions were killed** ("The worker stopped while the session ran"): the dev server runs `uvicorn --reload`, and another session saved files during the runs. Each task went on in a new session with a new start, and the killed session's draft was removed; the load times were not looked into.
 - **No further runs**, as planned. What to keep is the user's decision: the dry run reading a draft's own profile (item 3) is an API fix that stands alone; the start (items 1 and 2) made both tries slower.
 
-**Decided by the user (2026-11-08):** the start (items 1 and 2) is removed and the session starts as before (`agent/10`'s prompt); the dry run reading a draft's own profile (item 3) stays. **The timings are accepted** as these tries measured them (the example model 793 + 141 s, Tariff File 606 + 159 s).
+**Decided by the user (2026-11-08):** the start (items 1 and 2) is removed and the session starts as before (`agent/10`'s prompt); the dry run reading a draft's own profile (item 3) stays. **The timings are accepted** as these tries measured them.
 
 **Start removed (2026-11-08).** Items 1 and 2 are out: `tasks/engine_start.py` is deleted; `agent.py` lost `_engine_reading` (and its call in `start`), `_engine_start`, `_propose_prompt`'s `start=`, `_drop_unused_start`, the `design.startDraft` handling and the `_turn` checklist change; the prompt is `agent/10`'s text again and `PROMPT_VERSION = "agent/10"`. `infer_now` and `_inference_job` (`inference/run.py`) and `store_source_file(profile=…)` (`store.py`) had no other user and are back as before AT. J50.61 and the stand-in's `startDraft` are removed, and the two test adjustments (`test_a_job_the_session_queues…`, `Way.stop`) are back. The number J50.61 stays unused in `USER_JOURNEYS.md`; `API_JOURNEYS.md`, the CHANGELOG and `assistant-tasks.md` no longer mention the start. **Stays:** item 3 (`DryRunRequest.profile` optional with its `before` validator, `submit_dry_run` reading the draft's own profile, `422 INVALID_IMPORT_PROFILE`) and J50.62. `profile_export.py` stays: `draft_profile` imports `dry_run`, so `dry_run` cannot import `definition` back from `draft_profile` without a cycle. Checks: `test_j50_ai_workbook_load` 62 passed; `test_j50_ai_way_out`, `test_j50_ai_reshape`, `tests/unit/engine/tasks` and `test_openapi_contract` 95 passed (the lock hash unchanged); Ruff check passes on the changed files (`store.py` and `inference/run.py` were not formatted before and are not now); `cd guide && npm run verify` passes.
 
 ## AQ: The assistant loads a laid-out workbook and asks only what a person decides
 
+**Status:** Found 2026-11-08 by the user, testing three workbooks laid out for people; placed in 0.13 and ordered for delivery by the user the same day ("can you please then fix the above. also add it as a workpackage for 0.13").
 
-**Why (read 2026-11-08 from the tasks, their jobs and the session logs; no new AI run).** The files are simple lists laid out side by side for people: a title, a group row (4), a header row (6), a blank shaded row, data from row 8, empty spacer columns between the blocks. The session read them correctly in its first commands, and so did the engine's profile (header row 6, the blocks). The time, the cost and the questions came from the engine:
+**Why (read 2026-11-08 from the tasks, their jobs and the session logs; no new AI run).** The files are simple lists laid out side by side for people: a title, a group row, a header row, a blank shaded row, data below, empty spacer columns between the blocks. The session read them correctly in its first commands, and so did the engine's profile. The time, the cost and the questions came from the engine:
 
-- **Operation names guessed.** `openapi.json` gives `POST /model-drafts/{id}/operations` an untyped list (`ModelDraftOperationsRequest.operations: list[dict]`), so both sessions tried names until one passed (`setProfile`/`setImportProfile`/`replaceProfile`, `bindColumn`/`mapColumn`, `removeValueMap`/`deleteValueMap`/`dropValueMap`, `layOut`/`layout`…). The kinds and their parameters exist only in `authoring/kinds.py` and `mapping.py` and as prose in `docs/API.md`.
-- **A tested profile replayed step by step.** `setProfile` takes `key` and `name` only. After a clean inline dry run, task 94 replayed its profile as about 220 operations (draft version 1 to 224, about 8 minutes); task 95 reached version 370 and was still replaying when it hit the session limit.
-- **The session limit ends as a crash.** `TIMEOUT_SECONDS = 1800` (`agent.py`) raises `TimeoutError`, which nothing catches: the worker's generic branch logs a traceback and the task says "internal error … report the correlation ID" (task 95, 16:32:16, exactly 30 minutes after it started). The limit is not a setting.
-- **Questions the prompt asks for.** Task 94's check returned nine questions; two are a person's decision (pairs or exact result–reason–sub-reason combinations; exposing the lists in a consumer API). Three prompt rules say "raise that as a question" (two names for one thing, no key column, a repetition kept flat), so keep-as-is points became questions, and two came from the binding limits above.
+- **Operation names guessed.** `openapi.json` gives `POST /model-drafts/{id}/operations` an untyped list (`ModelDraftOperationsRequest.operations: list[dict]`), so sessions tried names until one passed. The kinds and their parameters exist only in `authoring/kinds.py` and `mapping.py` and as prose in `docs/API.md`.
+- **A tested profile replayed step by step.** `setProfile` takes `key` and `name` only. After a clean inline dry run, a session replayed its profile as hundreds of operations, several minutes of work, and one still replaying hit the session limit.
+- **Columns the load cannot address.** A binding names its column by header text only (`ColumnBinding.column`). A column whose header cell is empty cannot be named at all. The reader names repeated headers `Checklist #2`, `#3` (`imports/readers.py`), but the draft's own column check (`authoring/mapping.py` `_column`) refuses that name, so those columns were not loaded. Both became questions to the person.
+- **The session limit ends as a crash.** `TIMEOUT_SECONDS = 1800` (`agent.py`) raises `TimeoutError`, which nothing catches: the worker's generic branch logs a traceback and the task says "internal error … report the correlation ID". The limit is not a setting.
+- **Questions the prompt asks for.** A task's check returned many questions, few of them a person's decision. Three prompt rules say "raise that as a question" (two names for one thing, no key column, a repetition kept flat), so keep-as-is points became questions, and two came from the binding limits above.
 - **Answering costs a turn.** `queue_answers` (`design_job.py`) always queues a new session turn, also when every answer is the `assumed` default the draft already holds.
-- **A waiting task says it is working.** The task's state is written when its job is queued (`reading`, `checking`); with one assistant worker per process the second and third tasks waited 25 minutes while the page said "Checking every row".
-- **Undoing a value map drops later ones.** `setValueMap` writes the whole `valueMaps` object (`mapping.py`), so its inverse restores every map as it was; undoing an earlier step while later ones stay removes the later maps (task 94 saw it).
+- **A waiting task says it is working.** The task's state is written when its job is queued (`reading`, `checking`); with one assistant worker per process later tasks waited a long time while the page said "Checking every row".
+- **Undoing a value map drops later ones.** `setValueMap` writes the whole `valueMaps` object (`mapping.py`), so its inverse restores every map as it was; undoing an earlier step while later ones stay removes the later maps.
 
 **What changes.**
 
@@ -1070,17 +1064,17 @@ that is a model-language change outside RL.
 6. **Answers that keep the defaults cost nothing.** When every answer equals its question's `assumed` option, `POST /ai/tasks/{id}/answers` records them and the task stays `checked`; no turn is queued. Any other answer queues the turn as today.
 7. **A waiting task says it waits.** `AiTaskResponse` carries `ahead`: while the task's job is queued, the number of assistant jobs before it (queued or running, lower `sequence_id`); `null` once it runs. The task page and the journey bar say "Waiting for the assistant: 2 tasks ahead" (one: "1 task ahead"; zero: "Starting…") instead of "Reading the workbook" or "Checking every row" while `ahead` is not null.
 8. **A value map's undo restores that map only.** `setValueMap` records its change at `valueMaps/<name>`, so undoing it restores or removes that map and leaves the others.
-9. **Model-only requests end in a migration with no type mappings (`agent/12`).** Found in task 99 (`stops`, "add relation matrixes for languages in the lead application…"): nine valid `relationMatrix` views, no questions, no moves; the session installed release 0.2.9 and made an empty change set, and `accepted()` failed the task as "nothing was loaded". The accepted prompt now tells the session that when the words ask nothing of the stored records it installs one release, activates none, makes no change set and ends with `RELEASE: <id>`; `accepted()` lands such a task as `loaded` with `{"migration": {"releaseId", "typeMappings": []}}` after the same contract and landing checks, and discards an empty change set the session made. The task page offers the migration as "Move the workspace to the new model" (no record moves). J50.66.
-10. **A question reaches the person whole (`agent/13`).** Found in task 98: the engine kept a question's first 500 characters, and the session had written its reason first and its ask last, so the page showed the reason ending mid-word ("…Run load-profile") with the ask gone. The engine keeps the session's text whole (a runaway one over 2,000 characters is shortened at a word, with an ellipsis), and the prompt asks for the question itself first, in at most three short sentences. J50.30 proposes a 700-character question and finds it whole.
-11. **The session's scratch folder is inside its own folder (`agent/14`).** Found in task 95: the session kept its helper files in the machine's scratch folder (`$TMPDIR`), and on the accept turn it wrote that path out in a command; Claude Code's read block refuses reading outside the working folder, in don't-ask mode nobody is asked, the session gave up and the task failed, a paid turn with nothing done. The engine now sets `TMPDIR` to `<folder>/tmp`, and the prompt says to keep every file in the folder by a relative path and to run a refused command again that way rather than end the turn. A resumed session keeps its earlier turns' habits (task 95's next turn named the old path again, $6.97 for 14 s with nothing done), so every later turn's prompt ends with the folder rule and the folder's and `$TMPDIR`'s paths. Unit tests in `test_agent.py`.
-12. **One key is one record across the load's sources (D69).** Found in task 95: two sources of `iso-country`, both `upsert` keyed by name, gave 487 records for 200 codes, each code two half-records (one with the name and numbers, one with the relation). `binding._KEY_GROUP` grouped upsert rows by source and key, so only a name under a parent (D142) was one key across sources; it now groups upsert rows by type, key kind, key attribute and key value whichever source they come from, so `_duplicates` merges the rows of two sheets with the same rule (equal values and relations add up, an empty cell agrees, a field filled differently refuses every such row), the preview and the draft dry run included (one binding). `DUPLICATE_KEY_IN_FILE` names the rows with their sheet (`details.refs`, `Sheet!2`) beside `details.rows`. Two sheets that listed one new number with different values no longer load the later sheet's value over the first (0.16 AP6): they are refused, as one sheet's rows are.
+9. **Model-only requests end in a migration with no type mappings (`agent/12`).** Found on a request to add relation matrices: valid `relationMatrix` views, no questions, no moves; the session installed release 0.2.9 and made an empty change set, and `accepted()` failed the task as "nothing was loaded". The accepted prompt now tells the session that when the words ask nothing of the stored records it installs one release, activates none, makes no change set and ends with `RELEASE: <id>`; `accepted()` lands such a task as `loaded` with `{"migration": {"releaseId", "typeMappings": []}}` after the same contract and landing checks, and discards an empty change set the session made. The task page offers the migration as "Move the workspace to the new model" (no record moves). J50.66.
+10. **A question reaches the person whole (`agent/13`).** Found on a task: the engine kept a question's first 500 characters, and the session had written its reason first and its ask last, so the page showed the reason ending mid-word ("…Run load-profile") with the ask gone. The engine keeps the session's text whole (a runaway one over 2,000 characters is shortened at a word, with an ellipsis), and the prompt asks for the question itself first, in at most three short sentences. J50.30 proposes a 700-character question and finds it whole.
+11. **The session's scratch folder is inside its own folder (`agent/14`).** Found on a task: the session kept its helper files in the machine's scratch folder (`$TMPDIR`), and on the accept turn it wrote that path out in a command; Claude Code's read block refuses reading outside the working folder, in don't-ask mode nobody is asked, the session gave up and the task failed, a paid turn with nothing done. The engine now sets `TMPDIR` to `<folder>/tmp`, and the prompt says to keep every file in the folder by a relative path and to run a refused command again that way rather than end the turn. A resumed session keeps its earlier turns' habits (a later turn named the old path again, a paid turn with nothing done), so every later turn's prompt ends with the folder rule and the folder's and `$TMPDIR`'s paths. Unit tests in `test_agent.py`.
+12. **One key is one record across the load's sources (D69).** Found on a task: two sources of one type, both `upsert` keyed by name, gave twice the records, each two half-records (one with the name and numbers, one with the relation). `binding._KEY_GROUP` grouped upsert rows by source and key, so only a name under a parent (D142) was one key across sources; it now groups upsert rows by type, key kind, key attribute and key value whichever source they come from, so `_duplicates` merges the rows of two sheets with the same rule (equal values and relations add up, an empty cell agrees, a field filled differently refuses every such row), the preview and the draft dry run included (one binding). `DUPLICATE_KEY_IN_FILE` names the rows with their sheet (`details.refs`, `Sheet!2`) beside `details.rows`. Two sheets that listed one new number with different values no longer load the later sheet's value over the first (0.16 AP6): they are refused, as one sheet's rows are.
 - **The answers card (same day).** Answers that are all the assumed ones start no design round (AQ-D4); the card now says the draft is already built on them and shows "Answer and design again" only once a choice differs.
 
-**Not in AQ.** More than one assistant worker per process (`WEB_CONCURRENCY` gives one per process today); a source with `record: existing` not finding records made earlier in the same load (task 94 kept a second result list for it); the session's model and effort.
+**Not in AQ.** More than one assistant worker per process (`WEB_CONCURRENCY` gives one per process today); a source with `record: existing` not finding records made earlier in the same load; the session's model and effort.
 
 **Decisions (my recommendations, recorded under the user's order to deliver).**
 
-- **AQ-D1: The limit stays 30 minutes by default.** Items 2 to 4 remove the work that made task 95 run over; an operator can raise it.
+- **AQ-D1: The limit stays 30 minutes by default.** Items 2 to 4 remove the work that made a long task run over; an operator can raise it.
 - **AQ-D2: `setProfile` takes the whole profile,** rather than a new kind: it is the name sessions tried first, and the shape is the one `GET …/profile` answers.
 - **AQ-D3: `letter` beside `column`,** rather than renaming empty headers: a letter is stable whatever the header says, and `Block` already speaks letters.
 - **AQ-D4: Defaults-only answers queue nothing.** The draft already holds the assumed answers; the person goes on to accept.
@@ -1089,6 +1083,7 @@ that is a model-language change outside RL.
 **Mock-up (task page while waiting).**
 
 ```
+ Stops workbook                                    ● Waiting
  ───────────────────────────────────────────────────────────
  Waiting for the assistant: 1 task ahead. You can leave this page.
  [ Stop ]
@@ -1098,21 +1093,26 @@ that is a model-language change outside RL.
 
 **Checks.** J50 (`test_j50_ai_workbook_load`, `_reshape`, `_way_out`, `tests/unit/engine/tasks`), J34, the draft-operation journeys, `contract` with the OpenAPI lock (re-baselined if the locked document changes), `test_boundaries`, Ruff on the changed files only, frontend tests of the task page and the production build. **Migration:** none. **Docs:** `docs/API.md` (operation schemas, `setProfile`'s profile, `letter`, `ahead`, answers), `docs/OPERATIONS.md` (`AI_AGENT_TIMEOUT_SECONDS`), CHANGELOG, the guide sentences the change touches, and a guide rebuild.
 
+**Try (one, after the checks).** A fresh scratch workspace, a laid-out workbook, Sonnet as configured, nothing published: every column of the sheet loaded (the order numbers and the checklist names included), at most the questions a person decides, no traceback in the log; tokens, cost and time reported against the earlier task's.
 
 **Built (2026-11-08).** All eight items, the journey cases, the checks and the docs; the try is not run (below).
 
+- **Small choices (by recommendation).** (1) The limit is `SessionTimedOut(JobCancelled)`, raised by `_turn` and `_await_its_jobs`; the turn's `finally` writes `design.timedOut` (the limit) and one WARNING line, and `store.stopped` words the note from it, so the worker's existing `JobCancelled` path ends the job `cancelled`. The limit is read by `agent.timeout_seconds()` from `Settings.ai_agent_timeout_seconds`. (2) `@kind(name, params=…)` now declares each kind's parameter names in the registry; `apply_operation` checks them before the kind runs (the kinds no longer repeat the tuple; `setLabel` keeps its narrower per-element check), every public kind got a one-line docstring, and `management/schemas/model_operations.py` builds one `<Kind>Operation` schema per public kind. `operations` stays open objects at runtime (`SkipValidation`), so the engine's `INVALID_OPERATION` refusals are unchanged; parameters are described by name only (no types). (3) `setProfile` with `sources` replaces the draft's sources and clears its unmapped entries; `valueMaps` replaces the value maps; a source's `id` is made from its sheet and type; its key is accepted in every form the import profile has; the step queues the draft's dry run (`runs_dry_run`). (4) `letter` is stored in the draft as `{"letter": "AJ", …}`; the import resolves it per source from the table (`_lettered`, `Table.first_column`) to the header the letter holds, or `Column AJ` for an empty header cell; a flag binding (`columns`) and the places that name a column by header (a source's `key`, a relation's `idColumn`) do not take a letter. The assistant's check layers (`cell_coverage`, `columns_left_out`, the changes page) read a letter binding; `design_checks` and the key-less-rows check skip it. (5) `GET /source-files/{id}/profile/sheets/{sheet}/columns` already listed a column with data under an empty header with its `letter` and `header: null`; checked on a sample, nothing changed there. (6) The OpenAPI lock was re-baselined.
+- **Checks.** J50 (`test_j50_ai_workbook_load`, `_reshape`, `_way_out`; J50.63 to J50.65 are new) 112 passed in 3 min 45 s (4 workers, over the 3-minute ceiling); `test_j34_onboard` and `test_j33_operations` 150 passed (J34.11 and J33.18 are new); `tests/unit/engine/model/authoring`, `tests/unit/engine/tasks`, `test_boundaries`, `test_api_journeys` 4,303 passed; `tests/unit/engine/imports`, `tests/unit/engine/sources`, J35 and J27 import 301 passed; `test_openapi_contract` 12 passed (the lock re-baselined, with a test that every public kind has its schema); `test_config` and the settings template tests passed (`.env.example` regenerated for the new setting). Ruff passes on the changed files; Vitest of the task page and the journey bar 38 passed, `npm run build` passes; `cd guide && npm run verify` passes. Manual evidence on a sample: a laid-out workbook, profiled and mapped through the draft's operations, accepts a `letter` for an empty-header column and `Checklist #2`, and its dry run reads them.
+- **The try (2026-11-08, run by the main session with a temporary client the user approved, deleted afterwards).** A laid-out workbook with the earlier task's words, `agent/11`, to `checked`, nothing installed or published: it took about half the time and cost of the earlier task, with fewer commands and no questions. No operation name was guessed. The draft's profile bound the order numbers and the checklist names by `letter`; the dry run rejected no row. The keep-as-is points (two names for one result, likely typos, no code column) are one-line notes. Logged in the 0.16 usage log.
 
 ## JG: Related jobs grouped on the Jobs page
 
 **Status:** Asked by the user on 2026-11-08 ("add a groupping layer, so the tasks which are connected are groupped together and you can dig in … also add a navigation for this … much more better thing than just standard hyperlinks"). Planned in 0.13; the plan and its HTML mock-up (https://claude.ai/artifact/Lko7rRVeqCdz27AweJFHFa) **approved by the user on 2026-11-08** ("yes this is good"), with JG-D1 to JG-D3 as recommended.
 
-**Why.** Settings › Data operations › Jobs lists every job flat, newest first. An assistant task's session queues dry runs, profiles and inferences one after another: on the dev database 663 of 1,191 jobs other than `aiTask` were requested by a task's session client, and a single task makes dozens (task 94: 11 dry runs; task 95: more). A person's model draft adds its own dry runs (144 jobs on drafts with no task). The jobs a person came for are buried.
+**Why.** Settings › Data operations › Jobs lists every job flat, newest first. An assistant task's session queues dry runs, profiles and inferences one after another: on the dev database most jobs other than `aiTask` were requested by a task's session client, and a single task makes dozens. A person's model draft adds its own dry runs. The jobs a person came for are buried.
 
 **What changes.**
 
 1. **A job says where it comes from.** The job response gets `origin`: `{"kind": "aiTask", "id", "name"}` for a task's jobs (the `aiTask` jobs, whose parameters name the task, and every job its session client requested), else `{"kind": "modelDraft", "id", "name"}` for a job on a draft (`parameters.draftId`), else `null`. Worked out in the query (a join on `ai_tasks.client_id` and `model_drafts`), not per row in Python.
 2. **The list can be grouped (API).** `GET /jobs?grouped=true` answers one row per origin and one per job without one, newest activity first, with the same cursor paging: a group row has `origin`, `jobs` (count), `states` (count per state), `latestAt` and its newest job; a single row is the job as today. `GET /jobs?origin=aiTask:<id>` (or `modelDraft:<id>`) lists that group's jobs, newest first. Without these parameters `GET /jobs` is unchanged.
 3. **The Jobs page shows groups.** The table lists groups and single jobs. A group row shows its name and kind ("Assistant task", "Model draft"), its job count, a summary of states (pills: 1 running, 2 failed, 8 completed), the workspace and the latest activity. A row's chevron and the row itself open the group; a single job opens its page as today. A **Grouped / All jobs** switch above the table shows the flat list as before; the choice is remembered in the browser.
+4. **Drilling in stays in the same view.** Opening a group replaces the table with the group's jobs, under the shared `TrailBar` (one component, as Workspaces and Model use it): **‹ Jobs** back button, and the trail "Jobs › Assistant task: Stops workbook". Above the table, a summary card: what the group is, its state counts as filter chips (All, Running, Failed, Completed; clicking one filters the table), and **Open the task** (or **Open the draft**) when the person may open it. A job opened from a group keeps the trail: "Jobs › Assistant task: Stops workbook › Dry run 0cf1…", each part a button back up. Esc goes up one level. The group and its filter are in the address (`/settings/jobs/groups/aiTask/<id>?state=failed`), so the browser's back button, a reload and a shared link land in the same place.
 5. **Cancel stays where it is**: on each job row while it may be cancelled; a group row has no cancel (stopping a task is the task's own action).
 
 **Decisions (my recommendations).**
@@ -1126,13 +1126,17 @@ that is a model-language change outside RL.
 ```
  Jobs                                        [ Grouped | All jobs ]   [Refresh]
  ─────────────────────────────────────────────────────────────────────────────
- ▸ Model draft · Example v3            at-example 4 jobs ✓ 4                  12:05
+ ▸ Assistant task · Stops workbook          stops   12 jobs  ● 1 running  ✓ 11   16:34
+ ▸ Assistant task · Lines workbook  stops   23 jobs  ✕ 1 failed   ✓ 22   16:32
+ ▸ Model draft · Example v3            draft-1 4 jobs ✓ 4                  12:05
    Export · 7c1e…                           stops            ✓ Completed          11:20
  ─────────────────────────────────────────────────────────────────────────────
 
  After a click on the first row:
 
+ [‹ Jobs]   Jobs › Assistant task: Stops workbook
  ┌───────────────────────────────────────────────────────────────────────────┐
+ │ Assistant task · Stops workbook · stops                    [Open the task]  │
  │ ( All 12 )  ( Running 1 )  ( Failed 0 )  ( Completed 11 )                │
  └───────────────────────────────────────────────────────────────────────────┘
    Job                 State        Items                       Created  Finished
@@ -1160,6 +1164,7 @@ that is a model-language change outside RL.
 
 **Status:** Asked by the user on 2026-11-09 ("I expect the llm to understand: file, model, capabilities and propose a solution … whatever you propose, this has to work"); placed in 0.13 by the user ("yes its part of 0.13"). The plan and its HTML mock-up **approved by the user on 2026-11-09** ("mock accepted, the ab can be delivered too"), with AB-D1 to AB-D6 as recommended.
 
+**Why.** A laid-out workbook took many paid design rounds, two failed load turns and ended with duplicate records. Each round was the assistant finding a limit of the import language by hitting it: one binding per column, no two-column key in a saved load, the same key from two sheets not merged in one load (item 12 of AQ), a dry run blind to earlier parts. Then it asked the person about the engine's limits in the engine's terms. Claude Code in an ordinary session loads such a file in one pass because it reads the file and writes what it needs. The engine already takes that: the batch API (records and relationships, created or updated, matched by ID or a unique field, in order so a later item sees an earlier one, up to 1,000,000 items in the background) and the draft dry run, which previews **every** item against the draft's model in a transaction it rolls back (D67). What the assistant lacked was permission to use them: its prompt and the task page are built around a load profile.
 
 **What changes.**
 
@@ -1178,8 +1183,9 @@ that is a model-language change outside RL.
 - **AB-D5: Findings are shown, not asked.** A name twice in one type (the engine's) and what the assistant noticed in the data are listed on the proposal with what the load does about them. The person acts on them if they want to; they are not questions.
 - **AB-D6: Done means the acceptance files load.** See below.
 
+**Acceptance.** The package is done when each acceptance file loads in **one design pass** to its written expectation, with no question about the engine and no refused item: the sample workbooks. For each I write the expectation from the file before the run (records per type, what is matched to which existing records, relationships, nothing twice), and the user looks it over. Each real run is announced and reported with its time and cost in the 0.16 usage log. The journey tests use the stand-in session (J50) for the items dry run, the findings, accept-runs-the-items and a refusal at accept.
 
-**Mock-up:** https://claude.ai/artifact/P8QgsMLZ29C7xGdGB7JQ6f (task 95's workbook with the numbers a correct load gives).
+**Mock-up:** https://claude.ai/artifact/P8QgsMLZ29C7xGdGB7JQ6f (a sample workbook with the numbers a correct load gives).
 
 **Built (2026-11-09), AB.** All five items; the acceptance files run on 2026-11-10 (below).
 
@@ -1190,6 +1196,8 @@ that is a model-language change outside RL.
 - **Prompt (item 4).** `agent/15`: `_KEYS` and the profile guidance of `_QUESTIONS` are gone, `_ITEMS` and a shorter `_QUESTIONS` replace them; `_SHAPE` stays (it is model design, not a profile instruction); the correction prompt says to send the items to the dry run again.
 - **Page (item 6).** `DesignLoad` (Card, SettingsTable, Disclosure, Notice) in `ModelProposal` after the model change, and in `DesignView` in place of `DesignSheets`, which stays for designs that hold a profile. Rows with examples open with Enter, Space and click. The proposal's accept is the bottom bar of the mock-up ("Accept and load to change set", "Give the assistant other words", which focuses the words box); the header's model accept is not offered for an items proposal. A check from before the draft's last change is said inside the card.
 - **Tests.** J50.67 to J50.70 in `tests/journeys/test_j50_ai_items_load.py` (`test_a_session_sends_items_to_its_drafts_dry_run_and_the_proposal_shows_what_they_do`, `test_accepting_runs_the_previewed_items_with_no_assistant_turn`, `test_an_item_the_data_has_moved_away_from_fails_the_accept_and_writes_nothing`, `test_a_draft_changed_after_the_check_is_checked_again_before_anything_is_installed`, `test_an_items_dry_run_refuses_an_item_with_its_cells_and_takes_exactly_one_form`), a unit test of `items_check`, `DesignLoad.test.tsx`. The OpenAPI lock is re-baselined to `2a7b406009eb3574b6489924f11179c51b0377d7a423f97a1c2aa397e4b87442` for the working tree (it includes other sessions' uncommitted schema changes).
+- **Acceptance runs (2026-11-10, accepted by the user).** Against written expectations, each through the API with the user's original words: two workbooks loaded in one design pass to `checked`, 0 refused, no question about the engine; a third failed, as the session sent no dry run for a file already stored (fixed below), and after the fix matched all its items with nothing new. Two were then corrected in words and accepted to `loaded` with no assistant turn. Nothing activated or published. Noted, not tried: two accepts installed sibling releases, so taking both live in turn needs the second draft rebuilt on the first. Cost and times in the 0.16 usage log.
+- **A file already in the workspace (2026-11-10).** A task failed because the session decided "already there" and sent no dry run: `agent/19` says the items dry run and the proposal are always sent; accept ends `loaded` with zero counts (matched records as `unchanged`, no release, the empty change set kept for the loaded page to discard) instead of failing; J50.71.
 - **Guide pages (updated 2026-11-10).** The pages that described the check of every row, the saved profile after a session load and "Where each sheet goes" were rewritten by the wave `AB-GUIDE` (2026-11-09: ten pages, among them `use/load-a-workbook-with-the-assistant`, `model/review-an-assistants-workbook-design`, `integrate/assistant-tasks`, `use/loading-with-the-assistant`, `model/ai-model-changes`, `journeys/work-with-an-assistant`; notes in `guide/_coverage/notes/AB-GUIDE`, progress in `guide/_waves/progress/AB-GUIDE.md`) and corrected a second time by the fix wave `C11-FIX3` (twelve pages, `guide/_coverage/notes/C11-FIX3/report.md`: the publication handoff, the relationship counts, the "Accept and load to change set" label, the saved-profile statement). What `AB-GUIDE` reported as contradictions is closed: `docs/API.md` states that an items load saves no profile (the accept entry, `profileKey` absent) and the task bar's "Accept the model" matches the page (checked by `C11-FIX3`). Six pictures still show the earlier flow ([open item 2](#open-for-013)).
 
 ## CP: Completeness from the code
@@ -1247,7 +1255,7 @@ journeys up to the other sections), with their shared rules in `guide/_waves/DEP
 with ED.
 
 **Done when** the coverage check passes with an empty uncovered list, each depth wave is finished with no open notes,
-and the build, terms, operator and link checks pass.
+and the build, terms, brand and link checks pass.
 
 **Delivered 2026-11-10.** The record of the closing check, with the notes of every depth wave
 (`guide/_coverage/notes/D-RUN`, `D-ADMIN`, `D-MODEL`, `D-USE`, `D-INTEGRATE`, `D-ABOUT`, `D-DF`) read and classified:
@@ -1413,7 +1421,7 @@ hand. Moving a type to another application is the first case the user needs.
 another application's top level, installed, the migration proposed, previewed, confirmed and the records found
 there; a type key renamed and a merge, installed with no hand mapping; a split and a conversion with their new
 records and relationships counted; a tightened rule listing its refused records. Targeted groups only. Before and
-after on the user's model: the move the user asked for, with an inventory diff of records, values and
+after on a model: the move the user asked for, with an inventory diff of records, values and
 relationships before and after. One browser try on the reference instance through the editor, the install dialog
 and the migration page. The guide pages that say these changes are refused (Model section) are rewritten by Codex
 in a wave; the CHANGELOG entry and a guide rebuild finish the package. The 1.0 scope line in [ROADMAP](ROADMAP.md) moved here on approval.
@@ -1454,13 +1462,12 @@ migration page opened with the proposed rows: https://claude.ai/artifact/Jt2yhJa
   `test_j36_workspace_resources`), the unit tests for the kinds and the application target, Vitest for the dialogs, the
   page and the history, and the browser runner `test:browser:authoring-mg` (both designer models, axe, 390px). The older
   `test:browser:authoring-a4a` case that expected a refusal now expects the mark.
-- **Before and after on the user's model**, in a scratch copy of the dev database (never the dev data): an active workspace
-  on the user's own model (4,657 records, 13,169 values, 11,921 relationships), a type with a type under it moved out of one
-  application to the top level of another. 20 records left their parents, 47 records changed application, 0 lost, 0 refused. The
-  record IDs, names and all 13,169 values are identical by fingerprint before and after; the 20 containment relationships to
-  the old parents are gone (11,921 to 11,901 relationships, 3,860 to 3,840 records under a parent). The first run found a defect the
+- **Before and after**, in a scratch copy of the dev database (never the dev data): an active workspace, a type with a type under it moved out of one
+  application to the top level of another. Some records left their parents and some changed application, 0 lost, 0 refused. The
+  record IDs, names and all values are identical by fingerprint before and after; the containment relationships to
+  the old parents are gone. The first run found a defect the
   tests had not: a type the target still lists in other applications was derived with no application, so its records would have
-  been lost (4,387 items); the draft now names the application the type gained (`application_target`, with a unit test).
+  been lost; the draft now names the application the type gained (`application_target`, with a unit test).
 
 **Decided by recommendation while delivering (not asks).**
 
@@ -1523,7 +1530,7 @@ are in `guide/_waves/progress/MG.md` and its report.
 **Follow-up (2026-11-09): the migration that loses nothing, and the assistant's use of it.** Recorded 2026-11-10 from the
 working tree, the CHANGELOG and the tests; the product rule and its two consequences are stated above (the guard, the
 `removals`, the amendment of 0.11 D68). Four things were built after the package's first delivery, all found by trying it
-on the user's own model, none a package of its own:
+on a model, none a package of its own:
 
 1. **A migration never loses the records of a type the target still has** (`engine/model/migrations.py`).
    `plan_migration` sends a record to its own application, to the mapping's `toApplicationKey`, to the one application
@@ -1548,7 +1555,7 @@ on the user's own model, none a package of its own:
    (`authoring/draft_migration.derive`: application moves with `toApplicationKey`, relation type mappings, splits and list
    conversions), joined with the assistant's moves, one mapping per type; the landing check, the proposal and the task's
    `result.migration` (`TaskMigration`, now with `relationTypeMappings`, `splits` and `listConversions`) use that set. The
-   task page words such a move ("moves to Reference lists", `ProposalMoves.tsx`, `moveWords`). Test:
+   task page words such a move ("moves to the other application", `ProposalMoves.tsx`, `moveWords`). Test:
    `test_types_moved_to_another_application_are_handed_to_the_migration_with_it`.
 4. **The assistant's counts say what they count** (`agent.py`, the prompt's voice rules and the workspace sentence;
    `ProposalMoves.tsx`). A summary counts the records of the types or lists the change touches, named, and states the rest
@@ -1560,15 +1567,15 @@ These four are the part of the CHANGELOG's 0.13 MG section that was written unde
 there on 2026-11-10. Open: none.
 
 **Follow-up (2026-11-10): an old address of a moved collection** (committed as `43f5be29`). Reported by the user after an AI task's migration
-moved the Person group's types from Person and passenger lists to Reference lists in workspace stops (release 0.3.10), and
-added to the 0.13 build by the user. The old address `/apps/person-lists/views/person-type-tree` showed "person-type-tree
-is not in this workspace's model" although the model has it, under the other application, with all 46 records. Cause:
+moved a group's types from one application to another, and
+added to the 0.13 build by the user. The old address `/apps/old-application/views/a-view` showed "the view
+is not in this workspace's model" although the model has it, under the other application. Cause:
 `missingElement` (`routing/routes.ts`) looked only at the application the path names. `relocatedPath` now finds the one
 other application of the same model holding the view, kind of record or navigation group key and rewrites only the
 `/apps/<key>` segment, keeping the rest of the path and the query. The router replaces the history entry, so Back does
 not loop. Home's remembered "continue" address moves the same way. A key held by none or by several applications still
 shows the page. Frontend only. Checks: Vitest for `relocatedPath` and one router case; `npm run build`; the helper run
-against stops's 0.3.10 model gives `/apps/reference-lists/views/person-type-tree`. The guide page
+against a model with a moved view gives the new application's address. The guide page
 `use/open-a-retired-or-unavailable-workspace.md` stays correct for a missing element; a sentence on the relocation is
 left for Codex.
 
@@ -1807,7 +1814,7 @@ model's draft list shows the same cut-off sentence. A workbook task is titled by
    tasks say so (guide text through Codex).
 
 **Checks.** One journey in `test_j50_ai_reshape.py`'s group: a words task gets a title, its draft carries it, a
-task stopped early keeps the words. One real try on the user's model with the provider `.dev/settings.env` names,
+task stopped early keeps the words. One real try on a model with the provider `.dev/settings.env` names,
 tokens and cost reported. Frontend build.
 
 **Delivered (2026-11-10).**
@@ -1816,7 +1823,7 @@ tokens and cost reported. Frontend build.
 - **API.** `AiTaskResponse.title` (null until written), `docs/API.md` "The task"; the OpenAPI lock re-baselined to `65a51db0…` (the working tree, other sessions' uncommitted schema changes included).
 - **Where the task is named.** `taskTitle` (file name, else `title`, else the words cut at a word boundary with "…" within 80 characters, `cutAtWord`) names the task page heading and the confirm bar (`DesignCheckView`); the Jobs page group name is the same rule in SQL (`engine/jobs/origins.py` `_tasks`). "You said: …" stays uncut. **Left as they are:** the journey bar label and the trail's "Change this model" / "Change records" / "Change with the assistant" (`wordsTaskName`) name the journey, as "Import with the assistant" does for a file, not the task; there is no separate task list component.
 - **Tests.** J50.72 `test_a_words_task_is_titled_by_its_session_and_its_draft_carries_the_title` in `test_j50_ai_reshape.py` (the group: 38 passed), `test_j24_job_groups.py` (4 passed), `test_openapi_contract.py` (12 passed), `aiTaskText.test.ts` and the `ai-tasks` and `jobs` frontend tests (157 passed), `npm run build`.
-- **Try.** Task 105's words in `stops` (task 116, `agent/20`, Claude Code `sonnet`): title "Move the passenger lists under the People group", draft "Assistant: Move the passenger lists under the People group"; 1 turn, 778,678 tokens in, 11,403 out, 119 s, $0.44. Discarded afterwards.
+- **Try.** A request to move lists under another group (`agent/20`, Claude Code `sonnet`): the session titled the task by what it asks, and the draft carried the same title; 1 turn, $0.44 at API prices. Discarded afterwards.
 - **Guide.** Wave brief `guide/_waves/TN.md` (Codex writes the prose and the guide is rebuilt after it); `CHANGELOG.md` entry "Changed (an AI task is named by what it asks, 0.13 TN)"; `USER_JOURNEYS.md` J50.72.
 
 ## NG: Relation matrices in navigation groups
@@ -1921,7 +1928,7 @@ consumer `match` or mapping coverage change.
 pointer, followed to the active model, taken away with its attribute), the J33 journeys, `test_model`, the OpenAPI lock (re-baselined:
 `TableViewConfig.availabilityField`), `ExplorerFind.test`, `CollectionView.test`, `layout.test`, the frontend production build, and the
 browser runner `e2e/lb-list-browsing.mjs` (screenshots of the sidebar search, a group-only match, an inactive row, the switch and a matrix with its empty columns hidden). **Not
-tried:** the stops model on the dev instance (the sign-in for it was withdrawn during the work); the user sets `availabilityField` on its
+tried:** a model on the dev instance (the sign-in for it was withdrawn during the work); the user sets `availabilityField` on its
 tables. **Docs:** `APPLICATION_MODEL.md` (Table view), `MODEL_AUTHORING.md`, `CURRENT_FUNCTIONALITY.md`, `USER_JOURNEYS.md` J33.10,
 `UI_ACCEPTANCE.md`, `EXECUTION_GUIDE.md`, CHANGELOG; guide pages: Codex wrote them in the waves `LB-GUIDE`, `LB-GUIDE-MATRIX` and `LB-GUIDE-NE` (briefs in `guide/_waves/`; `use/applications`,
 `use/lists-and-filters`, `use/relation-matrices`, `model/record-pages-and-tables`, `guide/use/find-records`, `guide/use/fill-in-a-relation-matrix` and
@@ -1980,7 +1987,7 @@ in Exchange to use refiroo's mail at all. This package extends D419 with a secon
 **What is there now** (read 2026-11-10). The outbox and the sender thread (`engine/mail/sender.py`, `outbox.py`) queue,
 lease, retry with a growing delay, give up after 24 hours and share a server-wide failure across the leased messages;
 none of that depends on SMTP. The protocol is all in `engine/mail/smtp.py`: `build` makes the MIME message (text, HTML,
-inline `cid:` operator images), `deliver` sends it and turns a failure into a `MailError` with a kind (`connection`,
+inline `cid:` brand images), `deliver` sends it and turns a failure into a `MailError` with a kind (`connection`,
 `tls`, `login` server-wide; `recipient`, `sender`, `rejected` per message). The settings are one row
 (`mail_settings`, `engine/mail/settings.py`: host, port, security, user, sealed password, from address, application
 address), set through `GET/PUT/DELETE /mail-settings` and `POST /mail-settings/test` on Settings › Mail
@@ -2090,7 +2097,7 @@ named by a package in the table above (checked with `git log --oneline v0.16.1-a
 | A tall Display popover of a relationship or collection panel looked cut off, and no popover opened with no height on a scrolled page | not recorded in the CHANGELOG | `frontend/src/ui/ControlPopover.tsx`, `styles/layout.css`; uncommitted; CHANGELOG "a tall Display popover looks cut off, 0.13 FX" |
 | The assistant re-checked a stale copy of its own corrected draft (sessions keep loaded rows after a commit), so the task failed after the session had fixed the draft | the user's AI task `cbd71b4b`, 2026-11-10 | `app/engine/tasks/agent.py` (`_proposal_landed`, `_run_turn`), `tasks/store.py` (`load_task`), `tests/journeys/test_j50_ai_reshape.py`; commit of 2026-11-10; CHANGELOG "the assistant re-checked an outdated copy of its draft, 0.13 FX" |
 | On a change set page the pinned band held the whole change set bar, the submit comment and the model-mismatch notice (the bar's `BelowContextBand` sat outside the slot provider), covering about half the window | reported by the user on a change set page, 2026-11-10 | `frontend/src/app/AppShell.tsx`, `features/workspaces/ChangeSets.tsx`, `styles/components.css`, `app/App.test.tsx`; commit of 2026-11-10; CHANGELOG "the change set band stays compact, 0.13 FX" |
-| Apply, Install and Load ended in "Release '…@0.3.17' is already installed with different content" with no step forward: the editor proposed the base's next version without knowing which versions the assistant's drafts had installed, and the draft then kept the taken version | reported by the user on the stops workspace's Apply, 2026-11-10 | `engine/model/releases.py` (`next_free_version`), `model/authoring/outline.py` (`suggestedReleaseVersion`), `tasks/design_job.py`, `routers/model_management.py` (409 `freeVersion`), `features/model-editor/ReleaseVersionConflict.tsx` and the Apply, Install, Load dialogs and `ModelDraftEditor.tsx`, `tests/journeys/test_j36_12_workspace_draft.py`; commit of 2026-11-10; CHANGELOG "a taken release version has a way forward, 0.13 FX" |
+| Apply, Install and Load ended in "Release '…@0.3.17' is already installed with different content" with no step forward: the editor proposed the base's next version without knowing which versions the assistant's drafts had installed, and the draft then kept the taken version | reported by the user on a workspace's Apply, 2026-11-10 | `engine/model/releases.py` (`next_free_version`), `model/authoring/outline.py` (`suggestedReleaseVersion`), `tasks/design_job.py`, `routers/model_management.py` (409 `freeVersion`), `features/model-editor/ReleaseVersionConflict.tsx` and the Apply, Install, Load dialogs and `ModelDraftEditor.tsx`, `tests/journeys/test_j36_12_workspace_draft.py`; commit of 2026-11-10; CHANGELOG "a taken release version has a way forward, 0.13 FX" |
 | The assistant's note under "The engine's dry run" showed a markdown table as plain text (its pipe and dash lines) | found while retaking the assistant pictures (DOC10), 2026-11-10 | `frontend/src/ui/AssistantText.tsx` (the shared note renderer reads a table), `AssistantText.test.tsx`; the pictures `use-assistant-proposal` and `model-assistant-workbook-proposal` retaken (DOC10); CHANGELOG "the assistant's note shows a table as a table, 0.13 FX" |
 | A words task had no neutral name before its proposal said what it changes | the fresh reader (DOC11 assistant journey, finding 7, 2026-11-09) | package DOC11 (`aiTaskText.wordsTaskName`), not FX: its CHANGELOG bullet stays in the DOC11 assistant entry |
 | Jobs named the workspace by its key; the client's webhook panel showed "Not Found" with webhooks off; a cancel confirmation repeated its button; the assistant's closing note named commands and ids | not recorded; commit of 2026-11-06 | `41fc9e44` (`JobPage.tsx`, `JobsPage.tsx`, `ClientsPage.tsx`, `tasks/agent.py`); CHANGELOG "jobs, client webhooks, the assistant's note, 0.13 FX" |
@@ -2113,7 +2120,7 @@ These go into `guide/AGENTS.md` in DOC1; they are the contract between the brief
    fill the gap from memory of how such systems usually work.
 2. **One reader, one purpose per page**, in the page kind's template; kinds are not mixed.
 3. **Plain language, product terms.** "refiroo" for the application and anything a person sees; "the
-   engine" in technical text ([OPERATORING](OPERATORING.md)). The glossary's words, one term per concept. Short
+   engine" in technical text ([BRANDING](BRANDING.md)). The glossary's words, one term per concept. Short
    sentences. No package IDs, decision IDs, delivery history or "since 0.x" except on release and upgrade
    pages. Do not rename a setting, a package or an error code.
 4. **Examples are copied, not composed.** Every request, response, command and model fragment comes from
@@ -2127,7 +2134,7 @@ These go into `guide/AGENTS.md` in DOC1; they are the contract between the brief
    Never put a real secret in an example; use the placeholders the brief gives.
 8. **Domain names come from the running example only.** Examples come from the guide's reference domain
    ([DOC-D17](#decisions)) in `guide/samples/`; the bundled starter model appears only on the page that
-   tours it. Never use, quote or hint at a private model or a source export; never name another
+   tours it. Never name another
    organisation's system, except the reference domain's sources as its brief cites them.
 9. **Describe what exists.** No future feature, no "will". A planned capability appears only in "What it
    does not do", with no date.
@@ -2162,10 +2169,10 @@ approving the recommendations, and DOC-D13 by choosing the recommended option.
 | DOC-D11 | Does 0.13 include the foundation? | **Decided by the user 2026-10-26: yes.** The earlier packages DOC1–DOC3 were never built, so 0.13 delivers the whole guide: foundation, generated reference, concepts, tutorials, how-tos, operating, security, screenshots, the fresh-reader check and publication |
 | DOC-D12 | What about the management API reference? | **Decided by the user 2026-10-26: no double writing.** 0.14's Track V writes the management API reference on `/docs`. The guide's pages (API conventions, the integration how-tos) link to it for every operation and state the conventions and the sequences in prose only |
 | DOC-D13 | Who writes the error catalogue? | **Decided by the user 2026-10-26: the recommendation.** The catalogue is written once, in 0.13's DOC2, and 0.14 reuses it. 0.14's V-D5 plans one catalogue entry for every error code, shown on `/docs`; DOC2 plans an error-code reference in the guide. Writing both is double writing. Write it once, in 0.13's DOC2, in the location 0.14's V-D1 recommends (`backend/app/management/reference/content/errors.md`, shipped with the engine; V-D1 is still open in 0.14, so DOC2 asks the user to confirm the location before writing it), so the guide renders it and 0.14's `/docs` merges the same file. 0.14's V3 then keeps its other parts (the per-operation error listing, the completeness check) and drops the catalogue text. Cost: about 286 codes are written in 0.13, work 0.14 would have done anyway. Not chosen: leaving the catalogue to 0.14 and listing only status and message in the guide |
-| DOC-D14 | What is the product called? | **Approved 2026-10-26.** "refiroo" for the application and everything a reader sees, "the engine" in technical text, per [OPERATORING](OPERATORING.md). DOCUMENTATION_PLAN's older wording ("RDM Engine") is corrected. Settings, packages and codes keep their names |
+| DOC-D14 | What is the product called? | **Approved 2026-10-26.** "refiroo" for the application and everything a reader sees, "the engine" in technical text, per [BRANDING](BRANDING.md). DOCUMENTATION_PLAN's older wording ("RDM Engine") is corrected. Settings, packages and codes keep their names |
 | DOC-D15 | Who writes? | **Decided by the user 2026-10-26: Codex writes the pages and the descriptions;** the primary agent builds the mechanism, writes every brief, runs the checks and the fact-check. Why: the user judges Codex the better writer. Cost: the page quality depends on the briefs, which is why DOC3 is the largest piece of the primary agent's work |
 | DOC-D16 | Are installation, deployment, configuration, security and architecture in scope? | **Decided by the user 2026-10-26: yes, all of them, and Codex writes them too.** The sections "How refiroo works", "Run refiroo" and "Administer access and security" hold them; the earlier plan covered them only in part |
-| DOC-D17 | The running example | **Revised and decided by the user 2026-11-02** (was: the bundled starter model plus small samples, and countries, regions, cities for tutorial 2). The guide's running example is one researched reference domain built from open data: the public transport stops of Graubünden, Switzerland (the Didok service-point register of opentransportdata.swiss, attribution; municipality names in five languages and second-system codes from Wikidata, CC0; a fictional ticketing system's codes and a fictional messy operator workbook, labelled fictional). Three applications: Network (canton > district > municipality > stop, operators, modes), Systems (code mappings), Names (translations). Two sizes from the same data: about 480 records for the `docs` group and tutorials, about 3,200 for a Docker reference instance that also serves DOC10's screenshots and DOC11's reader. Loaded through the public API only. Tutorial 2 builds the Network part from an empty model. GTFS route types are not used (licence unverified). The engine still ships the starter model; the guide has one page touring it. Proven by a prototype on 2026-11-02 (`prototypes/guide-reference-swiss/`: model valid, full load 18 s through the API). Open: the publisher's answer on whether a dated snapshot meets the terms' "update at the same frequency" clause (e-mail drafted 2026-11-02); if not, the repository ships the fetch script and no snapshot. No private model or export is ever used |
+| DOC-D17 | The running example | **Revised and decided by the user 2026-11-02** (was: the bundled starter model plus small samples, and countries, regions, cities for tutorial 2). The guide's running example is one researched reference domain built from open data: the public transport stops of Graubünden, Switzerland (the Didok service-point register of opentransportdata.swiss, attribution; municipality names in five languages and second-system codes from Wikidata, CC0; a fictional ticketing system's codes and a fictional messy operator workbook, labelled fictional). Three applications: Network (canton > district > municipality > stop, operators, modes), Systems (code mappings), Names (translations). Two sizes from the same data: about 480 records for the `docs` group and tutorials, about 3,200 for a Docker reference instance that also serves DOC10's screenshots and DOC11's reader. Loaded through the public API only. Tutorial 2 builds the Network part from an empty model. GTFS route types are not used (licence unverified). The engine still ships the starter model; the guide has one page touring it. Proven by a prototype on 2026-11-02 (`prototypes/guide-reference-swiss/`: model valid, full load 18 s through the API). Open: the publisher's answer on whether a dated snapshot meets the terms' "update at the same frequency" clause (e-mail drafted 2026-11-02); if not, the repository ships the fetch script and no snapshot. |
 | DOC-D18 | The site generator | **Approved 2026-10-26.** The primary agent compares generators in DOC1 against the listed criteria, with evidence, and reports the choice before the layout is committed. **Decided by the user 2026-11-02: Starlight (Astro).** Compared with Zensical, Docusaurus, VitePress, Sphinx with MyST, and MkDocs with Material (ruled out: Material in maintenance mode, end of life 5 May 2027; MkDocs core unreleased since August 2024). Starlight has static search (Pagefind), sub-path serving (`base`), custom front matter validated by its content schema (the stub refusal), MIT, active releases. Cost: a Node project in `guide/` used only to build; the engine image carries the built files, not Node. No built-in versioning: the public site holds one build per release in its own directory; the engine serves the one build of the version it runs. Offline loading and accessibility are checked on DOC1's first page |
 | DOC-D19 | Is a non-Docker installation documented? | **Approved 2026-10-26.** Document only what is supported and tested. The Docker Compose reference installation is. If installing from source for production is not supported, the page says so and points to the developer instance, which OPERATIONS already describes as a development setup. Confirmed in DOC1: the page states what is supported after checking it |
 | DOC-D20 | Sizing figures | **Approved 2026-10-26.** The sizing page states only measured figures (0.11's volume measurements, POSTGRESQL_BUDGETS), each with the measurement's date and conditions. Where nothing was measured, the page says "not measured" rather than advise. A sizing guess in a guide is read as a promise |
@@ -2173,7 +2180,7 @@ approving the recommendations, and DOC-D13 by choosing the recommended option.
 | DOC-D22 | Where does the error catalogue live? (DOC-D13 asked DOC2 to confirm) | **Decided by the user 2026-11-02: the recommendation.** `backend/app/management/reference/content/errors.md`, shipped with the engine; the guide renders it and 0.14's `/docs` merges the same file (0.14's V-D1 location for this file) |
 | DOC-D23 | When does Codex edit files 0.16 also edits? | **Decided by the user 2026-11-02: the recommendation.** DOC2's description batches run in a window the user names when no 0.16 session runs, and each batch is committed before the window closes. Guide pages need no window |
 | DOC-D24 | Licences of the guide's shipped libraries | **Decided by the user 2026-11-02: the recommendation.** Python-2.0, BlueOak-1.0.0 and CC0-1.0 join the notices script's allowed list (all permissive, compatible with AGPL distribution) |
-| DOC-D25 | The private-model names for the banned-terms check | **Decided by the user 2026-11-02: the recommendation.** The list stays empty: Codex works only from the reference domain and never sees a private model. Names can be added at any time with `node tools/check.mjs hash-term` |
+| DOC-D25 | _Withdrawn._ | The banned-terms check holds package, decision, journey and capability IDs and delivery history only. |
 | DOC-D26 | AI in the reference instance | **Decided by the user 2026-11-10: the current dev key.** The reference instance has an optional, off-by-default AI setup: the Claude Code subscription token in the git-ignored `guide/reference/.env` (`guide/reference/README.md`, "Switch on AI with a Claude subscription"), each try reported with tokens and cost in the 0.16 usage log; the `docs` group uses the engine's offline provider. (Recommendation 2026-11-02 was: not now, an optional setup at DOC9A.) |
 
 ## DF: Findings of the depth waves
@@ -2243,9 +2250,9 @@ user on 2026-11-10 ("looks fine now").
 
 **What is wrong.** The model editor's tree lists a type under every application that holds it, and each row knows
 its application, but the selection keeps only the type (`{ show: "type", key }`), so the URL carries no
-application. `TypePreview` then takes the first application that lists the type. In the user's draft Countries
-sits in System codes, Reference lists and Translations; its two table views are in Reference lists, the preview
-opened System codes and said "The draft declares no table view for Countries", and Edit layout could not reach them.
+application. `TypePreview` then takes the first application that lists the type. In a draft a type
+sits in three applications; its two table views are in one of them, the preview
+opened another and said "The draft declares no table view for" the type, and Edit layout could not reach them.
 Every type in more than one application is affected.
 
 **What changes.** The type selection carries the application (`application`, in the selection and the URL); each
@@ -2261,12 +2268,12 @@ highlight matches type plus application. One helper, `applicationForType` (`feat
 resolves the application (named, else first with a detail page or table view, else first listing it); `TypePreview`
 takes `applicationKey` and uses it, and the record page, layout editor and table views follow from its place.
 Issues links pass the detail element's application. Guide: one sentence in `guide/model/preview-a-type.md`. Checks:
-Vitest for the helper (the user's draft shape: Countries in Reference lists gives both table views), the URL round
+Vitest for the helper (a draft shape where the type's table views are in one of its applications gives both table views), the URL round
 trip, the ModelPane selection and ModelEditor/routes; `npm run build`; guide build. 
 
 **Follow-up (2026-11-09).** The user's draft showed the first resolution was not enough: with no `application` in
-the address the preview picked System codes (first of three applications with a country page) while every country
-record of workspace stops belongs to Reference lists, so the Record page tab refused the record ("belongs to another
+the address the preview picked the first of three applications with a country page while every country
+record of the workspace belongs to another one, so the Record page tab refused the record ("belongs to another
 application") and layout edits went to a page no record uses. Resolution is now: named, else the application owning
 the workspace's records of the type (read from the first record's `applicationKey`), else first with a table view or
 detail page, else first listing it, all in `applicationForType` (fourth argument). `TypePreview` reads records with
@@ -2307,11 +2314,6 @@ API reference left out about 70 operations and the coverage check counted every 
 F26). The real coverage check found 18 uncovered capabilities; Codex wrote 17 pages (F34) and one is a reasoned exclusion.
 
 **Decided by the user in R.**
-- Private development data committed in `prototypes/ux-refinement-dev-data/` (in tags alpha.1 to alpha.4) was removed
-  from the whole history; `main` and every tag were rewritten and force-pushed on 2026-11-10, the commit IDs cited in
-  the repository's documents were rewritten to the new ones (68 citations; the old-to-new map is kept outside git in
-  (confirmed 2026-11-11: `gh api repos/refiroo/refiroo/commits/627318843cec86e44b85518c711ad33c3f9f897f` answers
-  "No commit found").
 - Assistant sessions in a container run as one `assistant` user and can read each other's task folders and a
   concurrent session's token: a known limit for 0.13 (docs/OPERATIONS.md, `AI_AGENT_SANDBOX`); a user per session later.
 - A run slowed by the laptop is reported once and never rerun for a cleaner time.

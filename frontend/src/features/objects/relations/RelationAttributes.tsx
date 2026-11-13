@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import type { AttributeTypeDefinition, EngineModel, RelationRecord } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";

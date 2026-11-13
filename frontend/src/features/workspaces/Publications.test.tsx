@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import type { ChangeSet, Publication } from "@/types";
 import { permissionsFixture } from "@/test/permissions";
-import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import * as workspaceContext from "@/state/WorkspaceDataContext";
 import { Publications } from "./Publications";
 
 const current: Publication = {

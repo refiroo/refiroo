@@ -143,10 +143,10 @@ export const codelistObject: ObjectItem = {
   ...domainObject,
   id: "22222222-2222-4222-8222-222222222222",
   objectTypeKey: "codelist",
-  name: "Timetable types",
+  name: "Means of transport",
   path: [
     { id: "11111111-1111-4111-8111-111111111111", name: "Connections", objectTypeKey: "domain" },
-    { id: "22222222-2222-4222-8222-222222222222", name: "Timetable types", objectTypeKey: "codelist" },
+    { id: "22222222-2222-4222-8222-222222222222", name: "Means of transport", objectTypeKey: "codelist" },
   ],
   attributes: [
     {

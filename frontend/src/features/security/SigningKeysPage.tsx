@@ -19,7 +19,7 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { signingKeyState } from "./securityText";
 
 const TONE = { current: "success", verifying: "warning", retired: "neutral" } as const;

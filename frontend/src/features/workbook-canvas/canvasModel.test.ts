@@ -16,7 +16,6 @@ import {
   cardHeight,
   cardsOf,
   chosenColumns,
-  columnDropOperations,
   containOperations,
   filterOperations,
   groupOperations,
@@ -26,7 +25,6 @@ import {
   linesOf,
   loadFigures,
   nameColumnOf,
-  niceName,
   nudged,
   pickJoin,
   placed,
@@ -46,6 +44,7 @@ import {
   dropPlace,
   BOARD_EDGE,
 } from "./canvasModel";
+import { columnDropOperations, niceName } from "@/features/model-editor/columnDrop";
 import {
   addedColumns,
   commonValueType,
@@ -319,7 +318,7 @@ describe("a column dropped on a list or a field", () => {
 
   it("names a header as a field's name", () => {
     expect(niceName("COUNTRY_CODE")).toBe("Country code");
-    expect(niceName("RBTimetableCategory")).toBe("Fl timetable category");
+    expect(niceName("RBStopCategory")).toBe("Rb stop category");
     expect(niceName("Shelf depth")).toBe("Shelf depth");
   });
 });

@@ -38,7 +38,7 @@ import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
 import { NewClientDialog, SecretDialog, type Made } from "@/features/security/ClientsPage";
 import { clientAccessLine } from "@/features/security/securityText";
-import { settingsHead } from "./navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 
 const number = (value: number) => value.toLocaleString("en");
 

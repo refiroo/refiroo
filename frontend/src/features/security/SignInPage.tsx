@@ -29,7 +29,7 @@ import { StatusPill } from "@/ui/StatusPill";
 import { Switch } from "@/ui/Switch";
 import { useToast } from "@/ui/Toast";
 import { Trail } from "@/ui/Trail";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { routePath } from "@/routing/routes";
 import { localSignInLine, providerUseLine, turnOffSentence } from "./securityText";
 

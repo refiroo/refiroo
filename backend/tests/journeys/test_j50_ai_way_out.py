@@ -161,14 +161,14 @@ def _kept(world, task):
     from sqlalchemy import select
 
     from app.db import SessionLocal
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import files as agent_files
     from app.models.database import AiTask, OAuthClient
 
     with SessionLocal() as db:
         row = db.scalar(select(AiTask).where(AiTask.public_id == task["id"]))
         client = db.get(OAuthClient, row.client_id)
         files = world.api.client.app.state.job_files
-        return agent.folder_of(files, row).exists(), client.active
+        return agent_files.folder_of(files, row).exists(), client.active
 
 
 def _loaded(world, way, ledgers, **request):
@@ -319,9 +319,9 @@ def test_a_session_over_the_limit_ends_as_a_stop_with_its_own_note_and_no_traceb
     Stop is: before any proposal the task is stopped and takes words; after a proposal it is back at
     that proposal, its draft kept; the note says the session took longer than the limit; the job is
     cancelled, never failed; the log has one warning line and no traceback."""
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import run as agent_run
 
-    monkeypatch.setattr(agent, "timeout_seconds", lambda: 3)
+    monkeypatch.setattr(agent_run, "timeout_seconds", lambda: 3)
     ledgers = Ledgers(world)
     way = Way(world, tmp_path, monkeypatch, ledgers)
 
@@ -525,7 +525,7 @@ def test_a_loaded_task_whose_folder_went_at_its_load_takes_no_words_and_can_be_d
     from sqlalchemy import select
 
     from app.db import SessionLocal
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import files as agent_files
     from app.models.database import AiTask
 
     monkeypatch.setenv("AI_AGENT_API_URL", served)
@@ -535,7 +535,7 @@ def test_a_loaded_task_whose_folder_went_at_its_load_takes_no_words_and_can_be_d
     assert task["canTell"] is True
     with SessionLocal() as db:
         row = db.scalar(select(AiTask).where(AiTask.public_id == task["id"]))
-        shutil.rmtree(agent.folder_of(world.api.client.app.state.job_files, row))
+        shutil.rmtree(agent_files.folder_of(world.api.client.app.state.job_files, row))
     read = _task(world, task)
     assert read["state"] == "loaded" and read["canTell"] is False
     ok(world.api.get(f"/change-sets/{read['result']['changeSetId']}"))

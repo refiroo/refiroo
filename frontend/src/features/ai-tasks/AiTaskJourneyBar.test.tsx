@@ -15,12 +15,12 @@ vi.mock("@/api/client", async (importOriginal) => ({
   api: { workspace: vi.fn(), job: vi.fn(), model: vi.fn() },
 }));
 vi.mock("./useAssistantOffers", () => ({ useAssistantOffers: () => ({ changeModel: true, askRecords: true }) }));
-vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({
+vi.mock("@/state/useWorkspaceAiOffer", () => ({
   useAssistantOfferIn: () => ({ assistant: true }),
 }));
-vi.mock("@/features/jobs/useJobStream", () => ({ useJobStream: vi.fn() }));
-vi.mock("@/features/security/permissions", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/security/permissions")>()),
+vi.mock("@/state/useJobStream", () => ({ useJobStream: vi.fn() }));
+vi.mock("@/state/permissions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/state/permissions")>()),
   useHeldAnywhere: () => [{ key: "model-release", name: "Model release", instance: true, workspaces: [] }],
   useWorkspacePermissions: () => ({
     workspaceKey: "west",

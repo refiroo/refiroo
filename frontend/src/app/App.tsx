@@ -18,11 +18,11 @@ import type { ApplicationDefinition, ApplicationRoute, CollectionQueryState, Obj
 import { AppShell } from "./AppShell";
 import { useRouter, type Router } from "./useRouter";
 import { InstanceProductContext, useLoadInstanceProduct } from "./instanceProduct";
-import { WorkspaceDataProvider, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { WorkspaceDataProvider, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { ProposeDialog, ownChangeSetText, useOwnChangeSet } from "@/features/workspaces/Proposal";
-import { holds, recordWrites } from "@/features/security/permissions";
+import { holds, recordWrites } from "@/state/permissions";
 import { RETIRED_BAND_TEXT } from "./DataContextBand";
-import { permissionLine } from "@/features/security/permissionText";
+import { permissionLine } from "@/state/permissionText";
 import { useMe } from "./useMe";
 import { NoWorkspace } from "./NoWorkspace";
 import { HomePage } from "@/features/home/HomePage";
@@ -40,14 +40,15 @@ import { ToastProvider, useToast } from "@/ui/Toast";
 import { onModelReleaseChanged } from "@/api/expectedRelease";
 import { api } from "@/api/client";
 import type { ApiError } from "@/api/errors";
-import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/features/jobs/JobNotifications";
-import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
+import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/ui/JobNotifications";
+import { ExportDialog } from "@/features/jobs/ExportDialog";
+import type { ExportStart } from "@/model/exportRequest";
 import { ImportDialog, type ImportStart } from "@/features/jobs/ImportDialog";
 import { LoadWorkbookDialog, type LoadWorkbookStart } from "@/features/ai-tasks/LoadWorkbookDialog";
 import { useAssistantOffers } from "@/features/ai-tasks/useAssistantOffers";
-import { useWorkspaceAssistantOffer } from "@/features/settings/useWorkspaceAiOffer";
+import { useWorkspaceAssistantOffer } from "@/state/useWorkspaceAiOffer";
 import { BrandMascot } from "@/ui/ProductMark";
-import { useCapabilities } from "@/features/settings/useSystem";
+import { useCapabilities } from "@/state/useSystem";
 import { Skeleton } from "@/ui/Skeleton";
 
 // Pages load when they are opened (0.17 RF3): each route that is not the first screen is its own

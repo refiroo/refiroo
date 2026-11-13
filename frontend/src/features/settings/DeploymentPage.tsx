@@ -15,9 +15,9 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
-import { bytes, count, feedRetentionItem, jobLimitItems } from "./limits";
-import { settingsHead } from "./navigation";
-import { useCapabilities, useSystemConfiguration } from "./useSystem";
+import { bytes, count, feedRetentionItem, jobLimitItems } from "@/ui/limits";
+import { settingsHead } from "@/ui/settingsNavigation";
+import { useCapabilities, useSystemConfiguration } from "@/state/useSystem";
 
 const GROUPS: { group: SystemSetting["group"]; title: string; scope?: string }[] = [
   { group: "runtime", title: "Runtime" },

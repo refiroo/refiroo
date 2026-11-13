@@ -15,7 +15,7 @@ Every test runs on generated A, and on the example model where it holds the test
 otherwise on generated B: two configurations each (H4c, decided 2026-10-02).
 
 - **parity** is the consumer API's parity fixture (Base 0.9 C8, C-D72): the starter with locations,
-  availability, durations and a single-valued self relation, and CONSUMER_API's reference definition.
+  availability, frequencies and a single-valued self relation, and CONSUMER_API's reference definition.
   It is fixture content, not product scope, and only the parity tests use it; no structure maps to it.
 
 Structures:
@@ -972,7 +972,7 @@ def example() -> Configuration:
 
 
 def parity() -> Configuration:
-    """The starter extended as the reference deployment's model is, with CONSUMER_API's definition
+    """The starter extended as the example deployment's model is, with CONSUMER_API's definition
     ("Definition shape") written out: the parity fixture (C8). ``Capi`` is its key, so the consumer
     helpers of ``scenario`` read it."""
     model = json.loads(STARTER.read_text())
@@ -1019,10 +1019,10 @@ def parity() -> Configuration:
             "features": {"searchable": True},
         },
         {
-            "key": "has-duration",
-            "reverseKey": "duration-of",
-            "name": "Has duration",
-            "reverseName": "Duration of",
+            "key": "has-frequency",
+            "reverseKey": "frequency-of",
+            "name": "Has frequency",
+            "reverseName": "Frequency of",
             "features": {"searchable": True},
         },
         {
@@ -1047,12 +1047,12 @@ def parity() -> Configuration:
             "cardinality": "many-to-many",
         },
         {
-            "relationTypeKey": "has-duration",
+            "relationTypeKey": "has-frequency",
             "fromObjectTypeKey": "master-value",
             "toObjectTypeKey": "master-value",
             "cardinality": "many-to-many",
         },
-        # One slot type per value: the reference's alternative is an object or null.
+        # One alternative per value: the reference's alternative is an object or null.
         {
             "relationTypeKey": "alternative-for",
             "fromObjectTypeKey": "master-value",
@@ -1075,7 +1075,7 @@ def parity() -> Configuration:
 def _reference_definition() -> dict[str, Any]:
     """CONSUMER_API "Definition shape", its ``…`` written out: ``domain`` exposed, the ``values`` and
     ``all-values`` lists, ``alternative`` with the related record's ``objectType`` (C-D73) and
-    ``duration`` as the reference object has them, ``language`` crosswalked to a translation, and its
+    ``frequency`` as the reference object has them, ``language`` crosswalked to a translation, and its
     event (C9)."""
     return {
         "key": "rdm",
@@ -1134,12 +1134,12 @@ def _reference_definition() -> dict[str, Any]:
                         "locationValueName": "value-name",
                     },
                 },
-                "duration": {
-                    "via": "has-duration",
+                "frequency": {
+                    "via": "has-frequency",
                     "fields": {
-                        "durationId": "id",
-                        "durationCode": "value-code",
-                        "durationName": "name",
+                        "frequencyId": "id",
+                        "frequencyCode": "value-code",
+                        "frequencyName": "name",
                     },
                 },
                 "alternative": {

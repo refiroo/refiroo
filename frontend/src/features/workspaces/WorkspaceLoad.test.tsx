@@ -5,8 +5,8 @@ import { forgetWorkspaceLoad, rememberWorkspaceLoad } from "@/features/workspace
 import { WorkspaceLoad } from "@/features/workspaces/WorkspaceLoad";
 import type { Job } from "@/types";
 
-vi.mock("@/features/jobs/useJobStream", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/jobs/useJobStream")>()),
+vi.mock("@/state/useJobStream", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/state/useJobStream")>()),
   useJobStream: () => undefined,
 }));
 

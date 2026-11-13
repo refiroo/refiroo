@@ -2,7 +2,8 @@
 
 import json
 
-from app.engine.tasks import agent, design_job
+from app.engine.tasks import design_job
+from app.engine.tasks.agent import run as agent_run
 
 
 def test_the_release_the_assistant_installs_is_numbered_after_the_newest():
@@ -26,7 +27,7 @@ def test_a_session_event_whose_message_is_text_does_not_stop_the_reading(tmp_pat
     }
     refused = {"type": "system", "subtype": "permission_denied", "message": "outside the folder"}
     log.write_text("".join(json.dumps(line) + "\n" for line in (refused, [1], turn)))
-    progress = agent._Progress(log)
+    progress = agent_run.Progress(log)
     assert progress.read() is True
     progress.close()
     assert progress.now == "Going on" and progress.tokens()[0] == 3

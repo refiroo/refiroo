@@ -1,6 +1,6 @@
 // 0.17 PL3b: the workbook canvas against a real backend (J58).
 //
-// A real sample workbook (Regions, Offices, Sales: a flat sheet with a region column twice, a wide sheet
+// a sample workbook (Regions, Offices, Sales: a flat sheet with a region column twice, a wide sheet
 // of years, a cell that is not a number) from drops to the dry run's count, on the starter model's draft:
 //   - a sheet dropped on the empty board makes a list, and the count of rows follows every step;
 //   - a column dropped on a list and on a field; a column on a list's Filters;
@@ -21,7 +21,7 @@
 // Brought up to date (0.14 + 0.17 release review): the sheet tabs sit beside their actions menus (PP-D75) and the
 // tablist owns its tabs by aria-owns (axe); the 390px part waits for the workbook pane before it measures.
 //
-// Real-file mode (optional, skipped when PL3B_REAL_FILE is unset): the path of one workbook in PL3B_REAL_FILE, and
+// sample-file mode (optional, skipped when PL3B_REAL_FILE is unset): the path of one workbook in PL3B_REAL_FILE, and
 // optionally the path of a JSON list of gestures in PL3B_REAL_PLAN, drive the whole journey on that file in the
 // isolated harness: New workspace from a workbook, what the dialog says, Adjust, the canvas, the gestures, the
 // count of rows, Create workspace…, the load's result. Each step prints what happened and every refusal in the
@@ -723,7 +723,7 @@ async function synthetic() {
   );
 }
 
-/** The journey on one real workbook (see the header): the page's own words for every step, nothing stored. */
+/** The journey on one workbook (see the header): the page's own words for every step, nothing stored. */
 async function realFile() {
   const say = (line) => console.log(`[real] ${line}`);
   const flat = (text) => text.replace(/\s+/g, " ").trim();

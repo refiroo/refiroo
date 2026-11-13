@@ -4,7 +4,7 @@
  * the backup rehearsals recorded with `app.cli.restore_check`.
  */
 
-import type { PageNavigation } from "@/types/runtime";
+import type { PageNavigation } from "@/types/pagination";
 
 export type DatabaseReason = "poolExhausted" | "tooManyConnections" | "transactionEnded" | "unreachable" | "error";
 export type UnavailableReason = "unsupportedSchema" | "invalid" | "notLoaded";

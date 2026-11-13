@@ -7,8 +7,10 @@
 
 export type * from "@/types/model";
 export type * from "@/types/runtime";
+export type * from "@/types/pagination";
 export type * from "@/types/modelAdmin";
 export type * from "@/types/integration";
+export type * from "@/types/exportCriterion";
 export type * from "@/types/sources";
 export type * from "@/types/moves";
 export type * from "@/types/operations";

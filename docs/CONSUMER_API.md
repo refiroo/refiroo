@@ -200,7 +200,7 @@ Each item below is observed in the reference policies. The engine either fixes i
 ### Principle
 
 The engine gets **no runtime knowledge** of sites, units, slots, site groups, system
-values or translations (AGENTS.md). In this document they are examples from the reference deployment,
+values or translations (AGENTS.md). In this document they are examples from an example deployment,
 not requirements. Everything the reference policies hard-code (attribute and relation IDs, type
 names, scoring weights, filter behavior, output field names) becomes a **consumer API definition** in
 the model. The reference response must be reproducible from a definition alone. That is the
@@ -283,7 +283,7 @@ Examples:
 
 | `consumerApi` | What it is | Example request |
 | --- | --- | --- |
-| `rdm` | The reference deployment's API: XREF over codelist values, sites and system variants | `GET /api/consumer/rdm/v1/xref?query=CHF&system=SAP&expect=one` |
+| `rdm` | The example deployment's API: XREF over codelist values, sites and system variants | `GET /api/consumer/rdm/v1/xref?query=CHF&system=SAP&expect=one` |
 | `rdm` | The same API after a breaking change | `GET /api/consumer/rdm/v2/objects/7f3c…` |
 | `sites` | A second definition on the same model exposing only sites and their availability, for a scheduling system | `GET /api/consumer/sites/v1/lists/group-sites?site group=NORTH` |
 | `catalogue` | A product catalogue model's API (COMPOSABLE_DOMAINS) | `GET /api/consumer/catalogue/v1/lists/products?category=tools&position=40` |
@@ -392,7 +392,7 @@ this one at the end of the section._
 }]
 ```
 
-The example is the reference deployment's definition. Every key, related block and filter name in it
+The example is a complete definition. Every key, related block and filter name in it
 is that deployment's choice, not something the engine requires. Keys missing from `rdm-starter.json`
 (`available-at-site`, `has-unit`, `slot-for`, `site`, `owner-code`,
 `internal-only`) come from a model that extends the starter, as the source deployment's does. The

@@ -4,10 +4,11 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import { viewComponentRegistry } from "./registry";
 import type { ViewComponentProps } from "./types";
-import { useViewExport, type ExportViewExtra } from "./useViewExport";
+import { useViewExport } from "./useViewExport";
+import type { ExportViewExtra } from "./types";
 import { collectionGroups, viewSourceObjectTypeKey } from "@/model/collections";
 import type { ViewDefinition } from "@/types";
 import { Icon, type IconName } from "@/ui/Icon";

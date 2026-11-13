@@ -38,14 +38,14 @@ import { DraftPreview } from "@/features/model-editor/DraftPreview";
 import { DraftViewSwitch, draftViewRoute } from "@/features/model-editor/DraftViewSwitch";
 import { useInference } from "@/features/model-editor/useInference";
 import { ProposeDialog } from "@/features/model-editor/ProposeDialog";
-import { ProposedBecause } from "@/features/model-editor/ProposedBecause";
+import { ProposedBecause } from "@/ui/ProposedBecause";
 import {
   columnElements,
   elementOfSelection,
   hasWaitingProposal,
   stillProposed,
   takeWaitingProposal,
-} from "@/features/model-editor/proposing";
+} from "@/model/proposing";
 import { useDraftHistory } from "@/features/model-editor/useDraftHistory";
 import { useLocalNumberPreference } from "@/lib/localPreference";
 import { PageHeader } from "@/ui/PageHeader";
@@ -69,13 +69,7 @@ import { IssuesDrawer, issueCountOf, useIssuesDrawer } from "@/features/model-ed
 import { droppedColumn, ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
 import { topOf, typeIn } from "@/features/model-editor/MoveToDialog";
 import { refusalText } from "@/features/model-editor/OperationDialog";
-import {
-  applicationOf,
-  attributeTypeOf,
-  consumerApiOf,
-  relationTypeOf,
-  typeName,
-} from "@/features/model-editor/outline";
+import { applicationOf, attributeTypeOf, consumerApiOf, relationTypeOf, typeName } from "@/model/outline";
 import { ConsumerApiPane, ConsumerApiPanel } from "@/features/model-editor/ConsumerApis";
 import { RelationshipMatrix } from "@/features/model-editor/RelationshipMatrix";
 import { AddMenu } from "@/features/model-editor/AddMenu";

@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { openWorkspace } from "@/features/home/openWorkspace";
+import { openWorkspace } from "@/state/openWorkspace";
 import { DraftEditingDialogs, DraftEditingNotices } from "@/features/model-editor/DraftEditingDialogs";
 import { DraftPreview } from "@/features/model-editor/DraftPreview";
 import { DraftViewSwitch, draftViewRoute } from "@/features/model-editor/DraftViewSwitch";
@@ -22,7 +22,7 @@ import { DryRunRowsDialog, type DryRunRows } from "@/features/model-editor/DryRu
 import { usesOf } from "@/features/model-editor/mapping";
 import { refusalText } from "@/features/model-editor/OperationDialog";
 import { ProposeDialog } from "@/features/model-editor/ProposeDialog";
-import { stillProposed } from "@/features/model-editor/proposing";
+import { stillProposed } from "@/model/proposing";
 import { useDraftActions } from "@/features/model-editor/useDraftActions";
 import { useDraftEditing } from "@/features/model-editor/useDraftEditing";
 import { useDraftHistory } from "@/features/model-editor/useDraftHistory";
@@ -32,8 +32,8 @@ import { useInference } from "@/features/model-editor/useInference";
 import { useSourceDialogs } from "@/features/model-editor/useSourceDialogs";
 import { ValueMapDialog } from "@/features/model-editor/ValueMapDialog";
 import { AddMenu } from "@/features/model-editor/AddMenu";
-import { useHeldAnywhere } from "@/features/security/permissions";
-import { useCapabilities } from "@/features/settings/useSystem";
+import { useHeldAnywhere } from "@/state/permissions";
+import { useCapabilities } from "@/state/useSystem";
 import { startsFromWorkbook } from "@/features/workspaces/fromWorkbook";
 import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 import { PHONE_WIDTH, useMediaQuery } from "@/lib/hooks/useMediaQuery";
@@ -59,7 +59,6 @@ import { WorkbookPane } from "./WorkbookPane";
 import {
   SCOPES,
   cardsOf,
-  columnDropOperations,
   containOperations,
   defaultScope,
   filterOperations,
@@ -70,7 +69,6 @@ import {
   linesOf,
   loadFigures,
   nameColumnOf,
-  nameOfType,
   pickJoin,
   placed,
   closeUp,
@@ -86,10 +84,10 @@ import {
   type CanvasCard,
   type CanvasField,
   type CanvasLine,
-  type ColumnDrop,
   type Position,
   type WrongValues,
 } from "./canvasModel";
+import { columnDropOperations, nameOfType, type ColumnDrop } from "@/features/model-editor/columnDrop";
 import {
   addedColumns,
   fillDownOperations,

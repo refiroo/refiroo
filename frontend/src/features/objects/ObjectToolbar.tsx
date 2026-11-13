@@ -5,9 +5,9 @@ import { errorMessage } from "@/api/errors";
 import { FilterBar, FilterPill, filterFields, filterPills, pillText } from "@/features/objects/filters/FilterBar";
 import { attributeName, unavailableWord } from "@/model/fields";
 import { relationshipFilterFields } from "@/model/lookup";
-import { useRelationFilterNames } from "@/features/objects/RelationFilter";
-import { useQueryTranslationOffer } from "@/features/settings/useWorkspaceAiOffer";
-import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useRelationFilterNames } from "@/ui/relationFilterNames";
+import { useQueryTranslationOffer } from "@/state/useWorkspaceAiOffer";
+import { useWorkspaceData } from "@/state/WorkspaceDataContext";
 import type {
   CollectionFilter,
   CollectionQueryState,

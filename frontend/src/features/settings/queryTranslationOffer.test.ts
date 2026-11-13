@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { queryTranslationOffer } from "@/features/settings/useWorkspaceAiOffer";
+import { queryTranslationOffer } from "@/state/useWorkspaceAiOffer";
 import type { AiSystemInfo, MyPermissions } from "@/types";
 
 const provider = (more: Partial<AiSystemInfo> = {}): AiSystemInfo => ({

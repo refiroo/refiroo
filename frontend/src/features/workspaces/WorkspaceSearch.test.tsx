@@ -21,14 +21,14 @@ const record = (id: string, name: string, objectTypeKey: string, path: ObjectIte
   }) as ObjectItem;
 
 const found = [
-  record("d1", "Connections consult", "domain"),
-  record("c1", "Consult codes", "codelist", [{ id: "d1", name: "Connections consult", objectTypeKey: "domain" }]),
-  record("c2", "Tariff consult", "codelist"),
+  record("d1", "Connections hub", "domain"),
+  record("c1", "Hub codes", "codelist", [{ id: "d1", name: "Connections hub", objectTypeKey: "domain" }]),
+  record("c2", "Tariff hub", "codelist"),
 ];
 
 async function typeHub() {
   const box = screen.getByRole("combobox", { name: "Find a record" });
-  fireEvent.change(box, { target: { value: "consult" } });
+  fireEvent.change(box, { target: { value: "hub" } });
   await act(async () => {
     await vi.advanceTimersByTimeAsync(250);
   });
@@ -61,13 +61,13 @@ describe("WorkspaceSearch (0.17 SH1)", () => {
   it("searches every type of the workspace and groups what it finds by type, with where each stands", async () => {
     render(<WorkspaceSearch workspaceKey="stops" model={testModel} onOpen={vi.fn()} />);
     await typeHub();
-    expect(api.findRecords).toHaveBeenCalledWith("stops", "consult");
+    expect(api.findRecords).toHaveBeenCalledWith("stops", "hub");
     const results = within(screen.getByRole("listbox"));
     expect(results.getAllByRole("option")).toHaveLength(3);
     expect(screen.getByText("Domains")).toBeInTheDocument();
     expect(screen.getByText("Codelists")).toBeInTheDocument();
-    const second = results.getByRole("option", { name: "Consult codes, Codelists" });
-    expect(second).toHaveTextContent("Test App · Connections consult");
+    const second = results.getByRole("option", { name: "Hub codes, Codelists" });
+    expect(second).toHaveTextContent("Test App · Connections hub");
     expect(screen.getByRole("status")).toHaveTextContent("3 records found");
   });
 
@@ -89,7 +89,7 @@ describe("WorkspaceSearch (0.17 SH1)", () => {
     const box = await typeHub();
     fireEvent.keyDown(box, { key: "Escape" });
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-    fireEvent.change(box, { target: { value: "consult " } });
+    fireEvent.change(box, { target: { value: "hub " } });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(250);
     });
@@ -101,7 +101,7 @@ describe("WorkspaceSearch (0.17 SH1)", () => {
     const onOpen = vi.fn();
     render(<WorkspaceSearch workspaceKey="stops" model={testModel} onOpen={onOpen} variant="page" />);
     await typeHub();
-    fireEvent.click(screen.getByRole("option", { name: "Tariff consult, Codelists" }));
+    fireEvent.click(screen.getByRole("option", { name: "Tariff hub, Codelists" }));
     expect(onOpen).toHaveBeenCalledWith(found[2]);
   });
 
@@ -109,7 +109,7 @@ describe("WorkspaceSearch (0.17 SH1)", () => {
     vi.spyOn(api, "findRecords").mockResolvedValue({ items: [], nextCursor: null });
     render(<WorkspaceSearch workspaceKey="stops" model={testModel} onOpen={vi.fn()} />);
     await typeHub();
-    expect(screen.getByText("No record’s name contains “consult”.")).toBeInTheDocument();
+    expect(screen.getByText("No record’s name contains “hub”.")).toBeInTheDocument();
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
@@ -213,7 +213,9 @@ describe("WorkspaceSearch (0.17 SH1)", () => {
 
     it("shows no place that the typed text does not name", async () => {
       vi.spyOn(api, "findRecords").mockResolvedValue({ items: [], nextCursor: null });
-      render(<WorkspaceSearch workspaceKey="stops" model={testModel} onOpen={vi.fn()} destinations={places(vi.fn())} />);
+      render(
+        <WorkspaceSearch workspaceKey="stops" model={testModel} onOpen={vi.fn()} destinations={places(vi.fn())} />,
+      );
       await typeText("zzz");
       expect(screen.queryByRole("group", { name: "Go to" })).not.toBeInTheDocument();
     });

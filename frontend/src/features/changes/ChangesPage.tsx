@@ -14,7 +14,7 @@ import { useMe } from "@/app/useMe";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { emptyModel } from "@/model/emptyModel";
 import type { Hue } from "@/model/hues";
-import { HOME, routePath } from "@/routing/routes";
+import { HOME } from "@/routing/routes";
 import type {
   ChangeEntry,
   ChangeEntryKind,
@@ -25,7 +25,7 @@ import type {
   RouteState,
 } from "@/types";
 import { InlineError } from "@/ui/InlineError";
-import { RouteLink } from "@/ui/RouteLink";
+import { ChangeTitle } from "@/ui/ChangeTitle";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import {
   hueOf,
@@ -45,15 +45,13 @@ import {
   PERIOD_LABELS,
   byDay,
   changeSummary,
-  changeTarget,
-  changeTitle,
   changeWhere,
   changesHeading,
   draftStepsTitle,
   groupDraftSteps,
   changesSubtitle,
   periodSince,
-} from "./changeText";
+} from "@/ui/changeText";
 
 type Navigate = (route: RouteState) => void;
 
@@ -249,26 +247,6 @@ export function ChangesPage({
         </SettingsLayout>
       </div>
     </ShellFrame>
-  );
-}
-
-/** An entry's title, a link to what it changed while that can be opened. */
-export function ChangeTitle({
-  entry,
-  application,
-  onNavigate,
-}: {
-  entry: ChangeEntry;
-  application: string | undefined;
-  onNavigate: Navigate;
-}) {
-  const title = changeTitle(entry);
-  const target = changeTarget(entry, application);
-  if (!target) return <>{title}</>;
-  return (
-    <RouteLink className="changes-link" href={routePath(target)} onNavigate={() => onNavigate(target)}>
-      {title}
-    </RouteLink>
   );
 }
 

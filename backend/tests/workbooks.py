@@ -1,8 +1,8 @@
 """The acceptance workbooks W1, W1′, W2 and W3 (BASE_0_10_IMPLEMENTATION_PLAN, acceptance
 workbooks; 0.10 A3).
 
-Synthetic workbooks with the shapes of the private samples, generated from a seed and a size, so a
-fixture is deterministic and holds no client data. Headers are plain words of an invented
+Synthetic workbooks with the shapes of workbooks, generated from a seed and a size, so a
+fixture is deterministic and holds only invented data. Headers are plain words of an invented
 office-supplies catalogue; tests name the **structures** (``K``, ``N``, ``P``, …) and read the
 header a structure has from the generated workbook, never a header text.
 
@@ -451,7 +451,7 @@ def _third_band(
 
 @dataclass
 class W4:
-    """The shapes of real workbooks (0.10 A6b, D99–D103): sheet ``Kinds`` keyed by ``Kind Code``,
+    """The shapes of workbooks (0.10 A6b, D99–D103): sheet ``Kinds`` keyed by ``Kind Code``,
     named by a repeating ``Customer Name``; a ``Category`` with its ``Category ID`` and ``Sort
     Order`` empty on some rows, translated value for value by ``Categoría`` and ``Kategorie``; a
     ``Slot_Name`` with its ``Slot hours``; yes/no columns ``North`` and ``South`` apart; a repeated
@@ -464,16 +464,16 @@ class W4:
 
 
 W4_CATEGORIES = {
-    "Night tram": ("Tranvía nocturno", "Noční tramvaj", 1),
-    "Admin timetable": ("Tren regional", "Osobní vlak", 2),
-    "Train train": ("Tren de cercanías", "Rychlík se sestrou", 3),
-    "Boat": ("Imagen", "Zobrazování", 4),
-    "Massage": ("Autobús", "Autobus", 5),
+    "Bus line": ("Línea de autobús", "Autobusová linka", 1),
+    "Tram line": ("Línea de tranvía", "Tramvajová linka", 2),
+    "Train line": ("Línea de tren", "Vlaková linka", 3),
+    "Boat line": ("Línea de barco", "Lodní linka", 4),
+    "Cable car": ("Teleférico", "Lanovka", 5),
 }
 W4_DEFINITIONS = (
-    "Use this kind when the caller asks for a first conversation before any treatment is planned",
-    "Use this kind when results arrived and a clinician needs to talk them through with the passenger",
-    "Use this kind for internal planning only; it is never offered to the people booking online",
+    "Use this kind when the line runs only on request and is not shown in the printed timetable",
+    "Use this kind when a line is replaced for works and the operator needs to tell the passengers",
+    "Use this kind for depot runs only; it is never offered to passengers in the journey planner",
 )
 
 
@@ -492,7 +492,7 @@ def w4(seed: int = 1, rows: int = 120) -> W4:
             "Slot_Name",
             "Slot hours",
             "North",
-            "Duration",
+            "Headway",
             "South",
             "Definition",
             "Categoría",
@@ -529,7 +529,7 @@ def w4(seed: int = 1, rows: int = 120) -> W4:
     statuses = book.create_sheet("Statuses")
     statuses.append(["Id", "Name"])
     for index, name in enumerate(
-        ("Booked and confirmed", "Waiting for payment", "No show", "Cancelled by station", "Arrived")
+        ("In service", "Waiting for approval", "Out of service", "Cancelled by operator", "Planned")
     ):
         statuses.append([str(uuid.UUID(int=1000 + index)), name])
     return W4(_save(book), rows, blank)

@@ -21,7 +21,7 @@ Code takes precedence over historical wording. Each row records the heading read
 | BASE_0_16_IMPLEMENTATION_PLAN.md — AP12 in detail | Read targeted reshaping decisions. Whole-type migration can load without a changeSetId. Equal final and change-set releases require no removal activation. |
 | BASE_0_16_IMPLEMENTATION_PLAN.md — AP13 in detail | Read targeted continuation decisions; confirmed in current task and session code. Loaded is not session-end: cleanup follows publication/discard/confirmed migration or expiry. |
 | BASE_0_16_IMPLEMENTATION_PLAN.md — AG2 in detail / AG3 in detail | Read targeted scope and decision excerpts; superseded read-audit promise corrected: reads in calls, writes in audit with channel. Tool list and version semantics verified in code. |
-| guide/samples — README / SOURCES | Read reference-domain definition and sources; no private model or source exports used. Only stops reference model named. |
+| guide/samples — README / SOURCES | Read reference-domain definition and sources. Only the stops reference model named. |
 | API.md — AI proposals | Read base contract; feature requests use configured provider and permissions, system discovery distinguishes assistant from provider. Link each feature to AI reference instead of repeating schemas. |
 | API.md — Mapping targets | Read full heading and checked mapping_job.py selection, tallies and writes. writing-in-bulk covers candidate limits, half-context sizing, cancellation, proposed filter, provenance and refusals. |
 | USER_JOURNEYS.md — J49 | Read full heading and variants; only candidate targets proposed, version-changed sources left alone, corrections reviewed before publication. |

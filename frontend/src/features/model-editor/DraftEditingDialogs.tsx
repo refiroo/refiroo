@@ -9,7 +9,7 @@ import { DependantsDialog } from "@/features/model-editor/DependantsDialog";
 import { describeOperation } from "@/features/model-editor/history";
 import { MoveToDialog } from "@/features/model-editor/MoveToDialog";
 import { OperationDialog } from "@/features/model-editor/OperationDialog";
-import { applicationOf, nameOf } from "@/features/model-editor/outline";
+import { applicationOf, nameOf } from "@/model/outline";
 import type { DraftEditing } from "@/features/model-editor/useDraftEditing";
 import { Notice } from "@/ui/Notice";
 

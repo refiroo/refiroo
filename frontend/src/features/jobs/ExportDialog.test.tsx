@@ -4,8 +4,8 @@ import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { testModel, testWorkspaceModel, testAvailability } from "@/test/fixtures";
 import type { EngineModel, Job } from "@/types";
-import { ExportDialog, type ExportStart } from "./ExportDialog";
-import type { ExportViewStart } from "./exportRequest";
+import { ExportDialog } from "./ExportDialog";
+import type { ExportStart, ExportViewStart } from "@/model/exportRequest";
 
 vi.mock("@/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/client")>()),
@@ -329,9 +329,9 @@ describe("ExportDialog (0.9 J1u)", () => {
     });
 
     it("says what the view's file holds, from the page's own counts, only for this view", () => {
-      open(fromView(shown(), { size: { rows: 200, columns: 8 }, changeSetName: "Spring" }));
+      open(fromView(shown(), { size: { rows: 120, columns: 6 }, changeSetName: "Spring" }));
       expect(screen.getByTestId("export-count")).toHaveTextContent(
-        "200 rows \u00d7 8 columns, from change set \u201cSpring\u201d",
+        "120 rows \u00d7 6 columns, from change set \u201cSpring\u201d",
       );
       fireEvent.click(screen.getByRole("radio", { name: "The type: Domains" }));
       expect(screen.queryByTestId("export-count")).not.toBeInTheDocument();

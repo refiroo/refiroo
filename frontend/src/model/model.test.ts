@@ -203,7 +203,7 @@ describe("fieldValue", () => {
   });
 
   it("joins path parts into a breadcrumb string", () => {
-    expect(fieldValue(codelistObject, "path", testModel)).toBe("Connections / Timetable types");
+    expect(fieldValue(codelistObject, "path", testModel)).toBe("Connections / Means of transport");
   });
 });
 

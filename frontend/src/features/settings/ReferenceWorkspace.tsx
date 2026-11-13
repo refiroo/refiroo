@@ -5,7 +5,7 @@
  */
 
 import { useState } from "react";
-import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
+import { WorkspaceField } from "@/ui/WorkspaceField";
 import { Notice } from "@/ui/Notice";
 import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 

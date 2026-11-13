@@ -14,7 +14,7 @@ import {
   groupDraftSteps,
   periodSince,
   readsChanges,
-} from "./changeText";
+} from "@/ui/changeText";
 
 function entry(overrides: Partial<ChangeEntry>): ChangeEntry {
   return {

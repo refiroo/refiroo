@@ -9,9 +9,9 @@
 
 import { useState, type ReactNode } from "react";
 import { useHoldsGroup } from "@/app/useMe";
-import { count } from "@/features/settings/limits";
-import { MoveRowsTable, type MoveRowsFilter } from "@/features/moves/MoveRowsTable";
-import { modeWords, reasonText } from "@/features/moves/moveRun";
+import { count } from "@/ui/limits";
+import { MoveRowsTable, type MoveRowsFilter } from "@/ui/MoveRowsTable";
+import { modeWords, reasonText } from "@/model/moveRun";
 import { useWorkspaceModel } from "@/model/workspaceModels";
 import { routePath } from "@/routing/routes";
 import type { EngineModel, Job, MoveCounts, MoveOutcome as Outcome, MoveReason, MoveRow, MoveSummary } from "@/types";

@@ -11,10 +11,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { Noun } from "@/features/jobs/BatchOutcome";
-import { count } from "@/features/settings/limits";
-import { useCapabilities } from "@/features/settings/useSystem";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import type { Noun } from "@/ui/BatchOutcome";
+import { count } from "@/ui/limits";
+import { useCapabilities } from "@/state/useSystem";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import { candidateHint, candidateScope, ownEndReason } from "@/model/candidates";
 import { bulkRelationChoices, objectTypeFor, type BulkRelationChoice } from "@/model/lookup";

@@ -182,7 +182,7 @@ def test_the_header_is_the_shared_one_and_the_theme_is_the_applications_choice(m
     client = _client(monkeypatch, None)
 
     page = client.get("/docs/api").text
-    assert '<link rel="stylesheet" href="/operator/refiroo-header.css" />' in page
+    assert '<link rel="stylesheet" href="/brand/refiroo-header.css" />' in page
     assert _configuration(page)["hideDarkModeToggle"] is True
     assert "rdm:theme:v1" in page and "forceDarkModeState" in page and '"storage"' in page
     # TH: the colour theme is a second, independent key; Website purple sets data-scheme, Normal sets nothing.
@@ -191,10 +191,10 @@ def test_the_header_is_the_shared_one_and_the_theme_is_the_applications_choice(m
         and 'dataset.scheme = "purple"' in page
         and "theme.schemeKey" in page
     )
-    css = client.get("/operator/refiroo-header.css")
+    css = client.get("/brand/refiroo-header.css")
     assert css.status_code == 200 and css.headers["content-type"].startswith("text/css")
     shared = (
-        Path(__file__).resolve().parents[2] / "frontend" / "public" / "operator" / "refiroo-header.css"
+        Path(__file__).resolve().parents[2] / "frontend" / "public" / "brand" / "refiroo-header.css"
     )
     assert css.content == shared.read_bytes()
 
@@ -204,11 +204,11 @@ def test_docs_page_carries_the_refiroo_mark_from_the_engine(monkeypatch):
 
     page = client.get("/docs/api")
     assert "<title>refiroo API reference</title>" in page.text
-    assert "/operator/refiroo-mascot.png" in page.text and "/operator/favicon.png" in page.text
+    assert "/brand/refiroo-mascot.png" in page.text and "/brand/favicon.png" in page.text
     for name in ("favicon.png", "refiroo-mascot.png", "refiroo-wordmark.png"):
-        image = client.get(f"/operator/{name}")
+        image = client.get(f"/brand/{name}")
         assert image.status_code == 200 and image.headers["content-type"] == "image/png"
-    assert client.get("/operator/secret.png").status_code == 404
+    assert client.get("/brand/secret.png").status_code == 404
 
 
 def test_the_public_build_page_leads_home_flies_and_names_its_version():

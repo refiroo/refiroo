@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { DraftProfile, DryRun, SourceColumn, SourceFile, SourceSheet } from "@/types";
-import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
+import { isFinal, useJobStream } from "@/state/useJobStream";
 
 export interface DraftSource {
   /** The draft's profile and its file; undefined until first read. */

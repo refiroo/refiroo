@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
-import { useJobStream } from "@/features/jobs/useJobStream";
+import { useJobStream } from "@/state/useJobStream";
 import { outlineFixture } from "@/test/draftOutline";
-import { useHeldAnywhere } from "@/features/security/permissions";
-import { useCapabilities } from "@/features/settings/useSystem";
+import { useHeldAnywhere } from "@/state/permissions";
+import { useCapabilities } from "@/state/useSystem";
 import { ToastProvider } from "@/ui/Toast";
 import type { DraftProfile, JoinCandidates, SourceColumn } from "@/types/sources";
 import { DRAG_COLUMN, DRAG_COLUMNS } from "./CanvasBoard";
@@ -14,18 +14,18 @@ vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
 });
-vi.mock("@/features/jobs/useJobStream", async (load) => ({
-  ...(await load<typeof import("@/features/jobs/useJobStream")>()),
+vi.mock("@/state/useJobStream", async (load) => ({
+  ...(await load<typeof import("@/state/useJobStream")>()),
   useJobStream: vi.fn(),
 }));
 
 // Who may do what is not under test here, except that the one-step finish is left out for a person who may not.
-vi.mock("@/features/security/permissions", async (load) => ({
-  ...(await load<typeof import("@/features/security/permissions")>()),
+vi.mock("@/state/permissions", async (load) => ({
+  ...(await load<typeof import("@/state/permissions")>()),
   useHeldAnywhere: vi.fn(),
 }));
-vi.mock("@/features/settings/useSystem", async (load) => ({
-  ...(await load<typeof import("@/features/settings/useSystem")>()),
+vi.mock("@/state/useSystem", async (load) => ({
+  ...(await load<typeof import("@/state/useSystem")>()),
   useCapabilities: vi.fn(),
 }));
 

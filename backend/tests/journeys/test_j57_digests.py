@@ -33,7 +33,7 @@ ZONE = "Europe/Budapest"
 FOLLOWED = "/me/followed-workspaces"
 SECRET_NAME = "Quarterly pricing rework"
 SECRET_COMMENT = "Please look at the Berlin numbers"
-SECRET_FILE = "operators-Q3-final.xlsx"
+SECRET_FILE = "stops-Q3-final.xlsx"
 DIGEST = {"every": "daily", "timeZone": ZONE}
 
 

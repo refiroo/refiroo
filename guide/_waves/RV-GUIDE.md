@@ -10,8 +10,7 @@ between a person and a site: "since", "role there", "primary"). 0.13 makes them 
 everywhere relationships appear, and readable through consumer APIs. This is one of the product's strongest
 features; document it fully, at working depth, for each reader, in the pages' own style.
 
-**Never name the example model of the development data** (its operators, timetables, locations, drivers or
-its types). Use only the guide's own example data and examples already on the pages, or neutral ones.
+Use only the guide's own example data and examples already on the pages, or neutral ones.
 
 ## What to document (check every statement in the sources)
 

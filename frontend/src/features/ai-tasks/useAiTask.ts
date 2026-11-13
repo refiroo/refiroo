@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ai } from "@/api/aiClient";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useJobStream } from "@/features/jobs/useJobStream";
+import { useJobStream } from "@/state/useJobStream";
 import type { AiTask } from "@/types";
 import { running } from "./aiTaskText";
 

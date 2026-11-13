@@ -9,9 +9,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { Job, MappingProblem, MoveRequest } from "@/types";
-import { isFinal, isResting, useJobStream } from "@/features/jobs/useJobStream";
-import { figuresOf, jobRunKey, runKey, type Figures } from "./moveRun";
-import { useSubjectSeen } from "@/features/inbox/useInbox";
+import { isFinal, isResting, useJobStream } from "@/state/useJobStream";
+import { figuresOf, jobRunKey, runKey, type Figures } from "@/model/moveRun";
+import { useSubjectSeen } from "@/state/useInbox";
 
 export interface MoveDryRun {
   /** The run asked for the current state; it may still be checking. */

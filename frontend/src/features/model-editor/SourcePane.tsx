@@ -40,7 +40,7 @@ import {
   statisticsWords,
   type ColumnStatus,
 } from "@/features/model-editor/mapping";
-import { columnElements } from "@/features/model-editor/proposing";
+import { columnElements } from "@/model/proposing";
 import {
   columnNumber,
   LIST_STATUS_LABELS,

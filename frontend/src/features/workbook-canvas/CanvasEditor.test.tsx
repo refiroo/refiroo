@@ -2,9 +2,9 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import { useJobStream } from "@/features/jobs/useJobStream";
-import { useHeldAnywhere } from "@/features/security/permissions";
-import { useCapabilities } from "@/features/settings/useSystem";
+import { useJobStream } from "@/state/useJobStream";
+import { useHeldAnywhere } from "@/state/permissions";
+import { useCapabilities } from "@/state/useSystem";
 import { outlineFixture } from "@/test/draftOutline";
 import type { CanvasSelection, ModelDraftOperationEntry } from "@/types";
 import type { DraftProfile } from "@/types/sources";
@@ -16,16 +16,16 @@ vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
 });
-vi.mock("@/features/jobs/useJobStream", async (load) => ({
-  ...(await load<typeof import("@/features/jobs/useJobStream")>()),
+vi.mock("@/state/useJobStream", async (load) => ({
+  ...(await load<typeof import("@/state/useJobStream")>()),
   useJobStream: vi.fn(),
 }));
-vi.mock("@/features/security/permissions", async (load) => ({
-  ...(await load<typeof import("@/features/security/permissions")>()),
+vi.mock("@/state/permissions", async (load) => ({
+  ...(await load<typeof import("@/state/permissions")>()),
   useHeldAnywhere: vi.fn(),
 }));
-vi.mock("@/features/settings/useSystem", async (load) => ({
-  ...(await load<typeof import("@/features/settings/useSystem")>()),
+vi.mock("@/state/useSystem", async (load) => ({
+  ...(await load<typeof import("@/state/useSystem")>()),
   useCapabilities: vi.fn(),
 }));
 

@@ -9,8 +9,8 @@
 
 import { useEffect, useState } from "react";
 import { errorMessage } from "@/api/errors";
-import { newIdempotencyKey } from "@/features/jobs/importRequest";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { newIdempotencyKey } from "@/model/importRequest";
+import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { candidateHint, candidateScope } from "@/model/candidates";
 import type { RelatedCellEdit } from "@/model/lookup";
 import type { EngineModel, ObjectItem } from "@/types";

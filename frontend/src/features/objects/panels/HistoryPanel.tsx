@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { periodLabel, WhatChanged, type ShownFact } from "@/features/changes/WhatChanged";
-import { NarrowedBanner } from "@/features/objects/CollectionScope";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { periodLabel, WhatChanged, type ShownFact } from "@/ui/WhatChanged";
+import { NarrowedBanner } from "@/ui/CollectionScope";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { attributeName } from "@/model/fields";
 import type { Hue } from "@/model/hues";

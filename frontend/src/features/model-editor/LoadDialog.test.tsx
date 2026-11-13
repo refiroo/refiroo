@@ -17,7 +17,7 @@ const profile: DraftProfile = {
   definition: null,
   valid: false,
   diagnostics: [],
-  sourceFile: { id: "f1", name: "timetables.xlsx", profile: "completed" },
+  sourceFile: { id: "f1", name: "stops.xlsx", profile: "completed" },
 };
 
 beforeEach(() => vi.clearAllMocks());

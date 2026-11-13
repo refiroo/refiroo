@@ -3,7 +3,7 @@
  * columns each end and the relationship offer, and only what the model's validation accepts
  * (`application_rules._check_relation_table_view`). Filters and sorts follow from the columns.
  */
-import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/features/model-editor/outline";
+import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/model/outline";
 import type { DraftOperation, ModelDraftOutline, OutlineApplication } from "@/types";
 
 type Values = Record<string, unknown>;

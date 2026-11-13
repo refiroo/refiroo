@@ -1,7 +1,7 @@
 /** Words for the assistant's load of a workbook (0.16 AP6a): its phases, a check's figures and what a load leaves out. */
 
 import type { AiTask, AiTaskPhase } from "@/types";
-import { count } from "@/features/settings/limits";
+import { count } from "@/ui/limits";
 
 export const PHASE: Record<AiTaskPhase, string> = {
   profiling: "Reading the workbook",

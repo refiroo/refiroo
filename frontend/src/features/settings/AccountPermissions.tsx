@@ -8,8 +8,8 @@
  */
 
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
-import { workspaceHue } from "@/features/home/homeText";
-import { appPath, openApplication, openWorkspace, workspacePathOf, type Navigate } from "@/features/home/openWorkspace";
+import { workspaceHue } from "@/model/workspaceTile";
+import { appPath, openApplication, openWorkspace, workspacePathOf, type Navigate } from "@/state/openWorkspace";
 import { RoleChip } from "@/features/security/RoleChip";
 import { grantHeld } from "@/features/security/securityText";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";

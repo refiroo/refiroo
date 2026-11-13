@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ActionMenu } from "@/ui/ActionMenu";
-import { useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { routePath } from "@/routing/routes";
 import type { ObjectItem } from "@/types";
 

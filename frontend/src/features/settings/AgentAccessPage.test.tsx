@@ -4,7 +4,7 @@ import { agentAccess } from "@/api/agentAccessClient";
 import { ApiError } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import { AgentAccessPage } from "@/features/settings/AgentAccessPage";
-import { navigationFor } from "@/features/settings/navigation";
+import { navigationFor } from "@/ui/settingsNavigation";
 import type { AgentAccessStatus, AgentApplication, AgentCall, AgentClient, ClientWithSecret } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 

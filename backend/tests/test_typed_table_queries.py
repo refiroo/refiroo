@@ -38,7 +38,7 @@ def _domain(client: TestClient, token: str, name: str, code: str, *, description
 def test_typed_text_boolean_null_and_unset_filters_are_distinct():
     token = f"WP3_{uuid4().hex[:8]}"
     with TestClient(app) as client:
-        explicit_null = _domain(client, token, "Connections", "A", description=None)
+        explicit_null = _domain(client, token, "Regional", "A", description=None)
         unset = _domain(client, token, "station archive", "B")
         matching = client.get(
             "/api/v1/objects/domain",

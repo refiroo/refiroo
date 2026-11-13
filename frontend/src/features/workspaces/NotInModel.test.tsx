@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
-import { resetPermissionsForTests } from "@/features/security/permissions";
+import { resetPermissionsForTests } from "@/state/permissions";
 import { NotInModel } from "@/features/workspaces/NotInModel";
 import { defaultRoute } from "@/routing/routes";
 import { testModel, testWorkspaceModel } from "@/test/fixtures";

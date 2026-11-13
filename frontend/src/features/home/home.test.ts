@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { testModel } from "@/test/fixtures";
 import type { Grant, HeldAnywhere, OwnWorkspace } from "@/types";
 import { continueAddressFor, continueLines, readContinueAddress, rememberContinueAddress } from "./continueAddress";
-import { greeting, quietNote, rolePills, roleLine, roleSummary, summary, tileLetters, workspaceHue } from "./homeText";
+import { tileLetters, workspaceHue } from "@/model/workspaceTile";
+import { greeting, quietNote, rolePills, roleLine, roleSummary, summary } from "./homeText";
 
 const application = testModel.applications[0];
 

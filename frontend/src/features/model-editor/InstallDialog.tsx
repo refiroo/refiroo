@@ -32,9 +32,9 @@ import type {
   ModelRelease,
   Workspace,
 } from "@/types";
-import { useCapabilities } from "@/features/settings/useSystem";
-import { NewWorkspaceFields, useNewWorkspaceIdentity } from "@/features/workspaces/NewWorkspaceFields";
-import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
+import { useCapabilities } from "@/state/useSystem";
+import { NewWorkspaceFields, useNewWorkspaceIdentity } from "@/ui/NewWorkspaceFields";
+import { workspaceModelLabel } from "@/ui/WorkspaceSelector";
 import { SelectField } from "@/ui/Selection";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
@@ -42,7 +42,7 @@ import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
 import { DraftMigrationNotice, proposalOf, useDraftMigration } from "@/features/model-editor/DraftMigration";
 import type { RunStep } from "@/features/model-editor/OperationDialog";
-import { suggestedVersion, typeName } from "@/features/model-editor/outline";
+import { suggestedVersion, typeName } from "@/model/outline";
 
 const COLLECTIONS: Record<string, string> = {
   objectTypes: "Object types",

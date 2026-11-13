@@ -10,7 +10,7 @@ import { IconButton } from "@/ui/IconButton";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { refusalText, type RunStep } from "@/features/model-editor/OperationDialog";
-import { keyFromLabel } from "@/features/model-editor/outline";
+import { keyFromLabel } from "@/model/outline";
 
 type Entry = { text: string; value: string };
 

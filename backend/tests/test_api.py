@@ -325,8 +325,8 @@ def test_model_object_hierarchy_and_relation_vertical_slice():
             json={
                 "applicationKey": "rdm-master",
                 "objectTypeKey": "domain",
-                "name": f"Connections {suffix}",
-                "attributes": [_attr("domain-code", f"CONNECTIONS_{suffix}")],
+                "name": f"Transport {suffix}",
+                "attributes": [_attr("domain-code", f"TRANSPORT_{suffix}")],
             },
         )
         assert domain_response.status_code == 201
@@ -339,7 +339,7 @@ def test_model_object_hierarchy_and_relation_vertical_slice():
                 "applicationKey": "rdm-master",
                 "objectTypeKey": "codelist",
                 "parentObjectId": domain["id"],
-                "name": f"Timetable type {suffix}",
+                "name": f"Means of transport {suffix}",
                 "attributes": [_attr("codelist-code", f"MOT_{suffix}")],
             },
         )
@@ -363,8 +363,8 @@ def test_model_object_hierarchy_and_relation_vertical_slice():
             json={
                 "applicationKey": "rdm-master",
                 "objectTypeKey": "domain",
-                "name": f"Connections second {suffix}",
-                "attributes": [_attr("domain-code", f"CONNECTIONS_SECOND_{suffix}")],
+                "name": f"Transport second {suffix}",
+                "attributes": [_attr("domain-code", f"TRANSPORT_SECOND_{suffix}")],
             },
         )
         assert second_domain_response.status_code == 201

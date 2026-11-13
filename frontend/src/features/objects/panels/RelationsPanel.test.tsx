@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
-import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import * as workspaceContext from "@/state/WorkspaceDataContext";
 import type { EngineModel, RelationsPanelDefinition, ChangeSet } from "@/types";
 import { unfoldPanelTool } from "@/test/panelTools";
 import { ToastProvider } from "@/ui/Toast";
@@ -187,10 +187,10 @@ describe("RelationsPanel", () => {
       />,
     );
 
-    expect(await screen.findByText("Timetable types")).toBeInTheDocument();
+    expect(await screen.findByText("Means of transport")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Domain/ })).toBeInTheDocument();
     expect(screen.getByText("Connections")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Timetable types" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Means of transport" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Connections" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: /^Relationship/ })).not.toBeInTheDocument();
     expect(screen.queryByText("Contains")).not.toBeInTheDocument();
@@ -286,9 +286,9 @@ describe("RelationsPanel", () => {
         nextCursor: null,
       });
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
-    fireEvent.keyDown(await screen.findByRole("button", { name: "Timetable types" }), { key: "ArrowDown" });
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Means of transport" }), { key: "ArrowDown" });
     expect(await screen.findByText("Procedures")).toBeInTheDocument();
-    expect(screen.getByText("Timetable types")).toBeInTheDocument();
+    expect(screen.getByText("Means of transport")).toBeInTheDocument();
     await waitFor(() =>
       expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, {
         workspaceKey: "default",
@@ -329,7 +329,7 @@ describe("RelationsPanel", () => {
         nextCursor: null,
       });
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
-    fireEvent.keyDown(await screen.findByRole("button", { name: "Timetable types" }), { key: "ArrowDown" });
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Means of transport" }), { key: "ArrowDown" });
     fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Procedures")).toBeInTheDocument();
     expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, {
@@ -391,7 +391,7 @@ describe("RelationsPanel", () => {
           onOpen={vi.fn()}
         />,
       );
-      await screen.findByText("Timetable types");
+      await screen.findByText("Means of transport");
       expect(lastSort()).toBe("name");
       expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");
       // Active is not flagged sortable in the model, yet as a data column it sorts.
@@ -408,7 +408,7 @@ describe("RelationsPanel", () => {
 
     it("sorts by the panel's declared default and toggles from the shared headers", async () => {
       render(<RelationsPanel model={testModel} object={domainObject} panel={sorted} onOpen={vi.fn()} />);
-      await screen.findByText("Timetable types");
+      await screen.findByText("Means of transport");
       expect(lastSort()).toBe("-code");
       expect(screen.getByRole("columnheader", { name: /Code/ })).toHaveAttribute("aria-sort", "descending");
       fireEvent.click(screen.getByRole("button", { name: "Code, sorted descending" }));
@@ -430,7 +430,7 @@ describe("RelationsPanel", () => {
           onOpen={vi.fn()}
         />,
       );
-      await screen.findByText("Timetable types");
+      await screen.findByText("Means of transport");
       await unfoldPanelTool("Sort");
       fireEvent.click(screen.getByRole("button", { name: "Sort: Code, descending" }));
       fireEvent.click(await screen.findByRole("menuitemradio", { name: "Ascending" }));
@@ -459,7 +459,7 @@ describe("RelationsPanel", () => {
           onOpen={vi.fn()}
         />,
       );
-      await screen.findByText("Timetable types");
+      await screen.findByText("Means of transport");
       expect(lastSort()).toBe("name");
       expect(within(screen.getByRole("columnheader", { name: /^Updated/ })).queryByRole("button")).toBeNull();
       expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");

@@ -9,8 +9,8 @@ import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
-import { LeftBehindChangeSets, MigrationReasons, openChangeSets } from "@/features/model-admin/ActivateDialog";
-import { ImpactSummary } from "@/features/model-admin/ImpactSummary";
+import { LeftBehindChangeSets, MigrationReasons, openChangeSets } from "@/ui/ActivationParts";
+import { ImpactSummary } from "@/ui/ImpactSummary";
 import {
   activationRefusal,
   ConsumerContracts,
@@ -28,8 +28,8 @@ import {
   versionTakenText,
   type FreeVersion,
 } from "@/features/model-editor/ReleaseVersionConflict";
-import { useCapabilities } from "@/features/settings/useSystem";
-import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
+import { useCapabilities } from "@/state/useSystem";
+import { workspaceModelLabel } from "@/ui/WorkspaceSelector";
 import type { ChangeSet, ModelCompilation, ModelDraftOutline, ModelRelease, Workspace } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";

@@ -12,9 +12,9 @@ import { errorMessage } from "@/api/errors";
 import { TopBar } from "@/app/TopBar";
 import { ShellFrame } from "@/app/ShellFrame";
 import { useMe } from "@/app/useMe";
-import { ChangeTitle } from "@/features/changes/ChangesPage";
-import { changeWhere, draftStepsTitle, groupDraftSteps, type ChangeItem } from "@/features/changes/changeText";
-import { useHeldAnywhere } from "@/features/security/permissions";
+import { ChangeTitle } from "@/ui/ChangeTitle";
+import { changeWhere, draftStepsTitle, groupDraftSteps, type ChangeItem } from "@/ui/changeText";
+import { useHeldAnywhere } from "@/state/permissions";
 import { formatServerAgo } from "@/lib/dates";
 import { emptyModel } from "@/model/emptyModel";
 import { changeReviewFor, missingElement, parseRoute, relocatedPath, routePath } from "@/routing/routes";
@@ -38,7 +38,7 @@ import { principalName } from "@/ui/ActorName";
 import { RouteLink } from "@/ui/RouteLink";
 import { BrandMascot } from "@/ui/ProductMark";
 import { Skeleton } from "@/ui/Skeleton";
-import { appPath, openApplication, openIn, openWorkspace, workspacePathOf, type Navigate } from "./openWorkspace";
+import { appPath, openApplication, openIn, openWorkspace, workspacePathOf, type Navigate } from "@/state/openWorkspace";
 import {
   continueLines,
   forgetContinueAddress,

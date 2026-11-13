@@ -8,7 +8,7 @@ import { ConsumerApisPage } from "@/features/settings/ConsumerApisPage";
 import { JobsPage } from "@/features/settings/JobsPage";
 import { capabilitiesFixture } from "@/test/capabilities";
 import { testModel } from "@/test/fixtures";
-import { JobNotificationsProvider } from "@/features/jobs/JobNotifications";
+import { JobNotificationsProvider } from "@/ui/JobNotifications";
 import { ToastProvider } from "@/ui/Toast";
 import type {
   ConsumerApiDocument,
@@ -317,7 +317,7 @@ describe("A chosen workspace (the API reference and Consumer APIs)", () => {
   const twoWorkspaces = () =>
     vi.mocked(api.workspaces).mockResolvedValue({
       items: [
-        { key: "stops", label: "STOPS" },
+        { key: "stops", label: "Stops" },
         { key: "rdm", label: "RDM" },
       ],
       nextCursor: null,

@@ -21,8 +21,8 @@ import { ObjectDetail } from "@/features/objects/ObjectDetail";
 import { ObjectCollectionView } from "@/features/objects/CollectionView";
 import { panelComponentRegistry } from "@/features/objects/panels/registry";
 import type { PanelProps } from "@/features/objects/panels/types";
-import { PreviewDataProvider } from "@/features/workspaces/WorkspaceDataContext";
-import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
+import { PreviewDataProvider } from "@/state/WorkspaceDataContext";
+import { WorkspaceSelector } from "@/ui/WorkspaceSelector";
 import { attributeName, fieldValue } from "@/model/fields";
 import type {
   ApplicationDefinition,

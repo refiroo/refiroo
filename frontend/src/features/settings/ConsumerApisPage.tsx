@@ -21,9 +21,9 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { allConsumerApis, baseUrl, consumerSlug, openapiUrl, operationUrl } from "./consumerAddresses";
 import { ReferenceWorkspace } from "./ReferenceWorkspace";
-import { count } from "./limits";
-import { settingsHead } from "./navigation";
-import { useCapabilities, useSettingsRead } from "./useSystem";
+import { count } from "@/ui/limits";
+import { settingsHead } from "@/ui/settingsNavigation";
+import { useCapabilities, useSettingsRead } from "@/state/useSystem";
 
 async function loadApis(workspaceKey: string) {
   const entries = await allConsumerApis(workspaceKey);

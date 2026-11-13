@@ -29,7 +29,7 @@ import type {
   Workspace,
 } from "@/types";
 import { canRedo, historySteps, undoable } from "@/features/model-editor/history";
-import { useCapabilities } from "@/features/settings/useSystem";
+import { useCapabilities } from "@/state/useSystem";
 import { Trail } from "@/ui/Trail";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -52,8 +52,8 @@ import {
   reasonCards,
   selectionFor,
   type Figures,
-} from "./moveRun";
-import { moveAbility } from "./moveAbility";
+} from "@/model/moveRun";
+import { moveAbility } from "@/lib/moveAbility";
 import { useMoveDryRun } from "./useMoveDryRun";
 
 const MOVES: RouteState = { kind: "settings", page: "moves" };

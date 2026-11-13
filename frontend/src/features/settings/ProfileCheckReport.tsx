@@ -14,8 +14,8 @@ import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { Modal } from "@/ui/Modal";
 import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { StatusPill } from "@/ui/StatusPill";
-import { JobRowsTable } from "@/features/jobs/ImportOutcome";
-import { count } from "./limits";
+import { JobRowsTable } from "@/ui/ImportOutcome";
+import { count } from "@/ui/limits";
 
 export type CheckList = "new-values" | "drift" | "missing-records";
 

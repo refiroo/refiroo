@@ -4,7 +4,7 @@ import { ApiError } from "@/api/errors";
 import { mailTemplate } from "@/api/mailTemplateClient";
 import { MailTemplatePage } from "@/features/settings/MailTemplatePage";
 import { allowNavigation } from "@/routing/navigationGuard";
-import { navigationFor } from "@/features/settings/navigation";
+import { navigationFor } from "@/ui/settingsNavigation";
 import type { MailTemplate } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 

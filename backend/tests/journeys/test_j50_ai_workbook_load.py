@@ -421,7 +421,7 @@ def test_a_task_and_its_workbook_go_once_the_retention_is_over(world, tmp_path, 
 # --- J50.18, J50.19: who may change the model, and when the person may answer ---------------------
 
 
-# --- the revision (0.16 AP6a): real workbooks read well ------------------------------------------
+# --- the revision (0.16 AP6a): workbooks read well ------------------------------------------
 
 
 def _cells_book(sheets):
@@ -464,7 +464,7 @@ def test_a_column_the_followed_profile_always_left_out_needs_no_decision(
     """Given a saved profile that does not read a 'Remarks' column, and the file it read before had
     that column too, when the next file of the layout (with 'Remarks' and a new 'Comment' column) is
     given to the assistant, then both are listed left out, only 'Comment' needs the person, and a
-    reading with nothing else to decide says nothing needs them. Found on the user's real workbook,
+    reading with nothing else to decide says nothing needs them. Found on a workbook,
     where 22 lists 'needed' them for columns their profile had always left out."""
     from test_j34_onboard import _profiled
 
@@ -638,13 +638,13 @@ def _trust_stand_in(monkeypatch):
     own that do not)."""
     from sqlalchemy import select
 
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import outcome as agent_outcome
     from app.models.database import ChangeSet
 
-    monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
-    monkeypatch.setattr(agent, "_drafted_by", lambda session, task, draft: True)
+    monkeypatch.setattr(agent_outcome, "openapi", lambda url: b"{}")
+    monkeypatch.setattr(agent_outcome, "_drafted_by", lambda session, task, draft: True)
     monkeypatch.setattr(
-        agent,
+        agent_outcome,
         "_change_set_of",
         lambda session, task, change_set_id: (
             session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
@@ -660,7 +660,7 @@ def _assistant(
     """``script`` as the assistant's command, with a draft of its own for the proposal and a change
     set of its own for the load; ``config.json`` is what the script reads, so a test changes it
     between tasks. Returns the settings written, with the ``log`` of what the script was asked."""
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import outcome as agent_outcome
 
     path = tmp_path / "stand_in.py"
     path.write_text(script)
@@ -683,7 +683,7 @@ def _assistant(
     (tmp_path / "config.json").write_text(json.dumps(found))
     monkeypatch.setenv("AI_AGENT_COMMAND", str(path))
     if verified:
-        monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
+        monkeypatch.setattr(agent_outcome, "openapi", lambda url: b"{}")
     else:
         _trust_stand_in(monkeypatch)
     return found
@@ -911,7 +911,7 @@ def test_a_job_the_session_queues_runs_under_its_grants_even_when_the_session_ha
     from sqlalchemy import select
 
     from app.db import SessionLocal
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import run as agent_run
     from app.models.database import AiTask, Job
 
     ledgers = Ledgers(world)
@@ -949,7 +949,9 @@ def test_a_job_the_session_queues_runs_under_its_grants_even_when_the_session_ha
             client = db.scalar(select(AiTask.client_id).where(AiTask.public_id == task["id"]))
             done = lambda: {
                 step["key"]: step["done"]
-                for step in agent._reached(db, client, False, False, ledgers.workspace, since)[0]
+                for step in agent_run._reached(db, client, False, False, ledgers.workspace, since)[
+                    0
+                ]
             }
             assert done() == {"draft": False, "operations": False, "check": False}
             created = world.api.client.post(
@@ -991,7 +993,9 @@ def test_a_session_cannot_publish_activate_or_reach_another_workspace(world, mon
     from sqlalchemy import select
 
     from app.db import SessionLocal
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import run as agent_run
+    from app.engine.tasks.agent import sandbox as agent_sandbox
+    from app.engine.tasks.store import load_task
     from app.models.database import Job
 
     ledgers = Ledgers(world)
@@ -1006,7 +1010,7 @@ def test_a_session_cannot_publish_activate_or_reach_another_workspace(world, mon
     task = ok(_create(world, ledgers.workspace, ledgers.book()), 202)
     with SessionLocal() as session:
         job = session.scalar(select(Job).where(Job.id == task["jobId"]))
-        token, _, grants = agent._access(session, job, agent.load_task(session, task["id"]))
+        token, _, grants = agent_sandbox.access(session, job, load_task(session, task["id"]))
         session.commit()
     headers = {"Authorization": f"Bearer {token}"}
     client = world.api.client
@@ -1033,7 +1037,7 @@ def test_a_session_cannot_publish_activate_or_reach_another_workspace(world, mon
         == 403
     )
     with SessionLocal() as session:
-        agent._end(session, grants)
+        agent_run._end(session, grants)
         session.commit()
     assert (
         client.get(f"/api/v1/workspaces/{ledgers.workspace}/model", headers=headers).status_code
@@ -1051,12 +1055,13 @@ def _session_of(world, task):
     from test_j40_authorization import _as
 
     from app.db import SessionLocal
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import sandbox as agent_sandbox
+    from app.engine.tasks.store import load_task
     from app.models.database import Job
 
     with SessionLocal() as session:
         job = session.scalar(select(Job).where(Job.id == task["jobId"]))
-        token, client, grants = agent._access(session, job, agent.load_task(session, task["id"]))
+        token, client, grants = agent_sandbox.access(session, job, load_task(session, task["id"]))
         session.commit()
     return _as(world, token), client, grants
 
@@ -1178,7 +1183,7 @@ def test_two_tasks_at_once_each_have_a_client_of_their_own_and_reach_only_their_
     from sqlalchemy import select
 
     from app.db import SessionLocal
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import run as agent_run
     from app.models.database import AiTask, Job, OAuthClient
 
     one, two = Ledgers(world, 2), Ledgers(world, 2)
@@ -1226,12 +1231,14 @@ def test_two_tasks_at_once_each_have_a_client_of_their_own_and_reach_only_their_
         assert queued
         steps = lambda client, workspace: {
             step["key"]: step["done"]
-            for step in agent._reached(session, client, False, False, workspace, since)[0]
+            for step in agent_run._reached(session, client, False, False, workspace, since)[0]
         }
         assert steps(client_a, one.workspace)["draft"] is False
         assert steps(client_b, two.workspace)["draft"] is True
         began = time.monotonic()
-        agent._await_its_jobs(session, types.SimpleNamespace(check=lambda: None), began, client_a)
+        agent_run._await_its_jobs(
+            session, types.SimpleNamespace(check=lambda: None), began, client_a
+        )
         assert time.monotonic() - began < 1.5
 
     listed = {item["id"] for item in _all(world, "/clients")}
@@ -1393,8 +1400,10 @@ def test_every_turn_of_a_session_leaves_one_call_with_its_tokens_and_cost(
     and the totals carry the cost."""
     from sqlalchemy import select
 
+    from app.config import get_settings
     from app.db import SessionLocal
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import run as agent_run
+    from app.engine.tasks.store import load_task
     from app.models.database import AiTask
 
     ledgers = Ledgers(world)
@@ -1452,7 +1461,7 @@ def test_every_turn_of_a_session_leaves_one_call_with_its_tokens_and_cost(
         + "\n"
     )
     with SessionLocal() as session:
-        row = agent.load_task(session, task["id"], for_update=True)
+        row = load_task(session, task["id"], for_update=True)
         row.design = {
             **row.design,
             "agentProcess": {
@@ -1472,14 +1481,14 @@ def test_every_turn_of_a_session_leaves_one_call_with_its_tokens_and_cost(
     assert latest["outcome"] == "answered" and latest["costUsd"] == 0.24
 
     # A turn a person cancelled, with the content kept as the setting says.
-    content_on = agent.get_settings().model_copy(update={"ai_log_content": True})
-    monkeypatch.setattr(agent, "get_settings", lambda: content_on)
+    content_on = get_settings().model_copy(update={"ai_log_content": True})
+    monkeypatch.setattr(agent_run, "get_settings", lambda: content_on)
     with SessionLocal() as session:
-        agent._record_turn(
+        agent_run._record_turn(
             session,
             task["id"],
             None,
-            agent._Progress(tmp_path / "none.log"),
+            agent_run.Progress(tmp_path / "none.log"),
             datetime.now(UTC),
             "Why?",
             ("cancelled", "Cancelled by a person."),
@@ -1511,7 +1520,8 @@ def test_a_tasks_folder_and_transcript_go_with_it_and_the_sweep_removes_what_no_
     its folder and transcript go and the other's stay; the sweep removes a folder no task holds and
     a transcript of this instance's folders whose folder is gone, and leaves another path's."""
     from app.db import SessionLocal
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import files as agent_files
+    from app.engine.tasks.store import load_task
 
     ledgers = Ledgers(world, 2)
     config_dir = tmp_path / "claude"
@@ -1523,27 +1533,27 @@ def test_a_tasks_folder_and_transcript_go_with_it_and_the_sweep_removes_what_no_
     def keep(folder):
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "workbook.xlsx").write_bytes(b"x")
-        transcript = projects / agent._transcript_name(folder)
+        transcript = projects / agent_files._transcript_name(folder)
         transcript.mkdir(parents=True, exist_ok=True)
         (transcript / "session.jsonl").write_text("{}")
         return folder, transcript
 
     with SessionLocal() as session:
-        held = [agent.load_task(session, task["id"]) for task in tasks]
-        mine, theirs = [keep(agent.folder_of(files, task)) for task in held]
-        agent.remove_folder(files, held[0])
+        held = [load_task(session, task["id"]) for task in tasks]
+        mine, theirs = [keep(agent_files.folder_of(files, task)) for task in held]
+        agent_files.remove_folder(files, held[0])
     assert not mine[0].exists() and not mine[1].exists()
     assert theirs[0].is_dir() and theirs[1].is_dir()
 
     root = Path(files.directory) / "agent"
     stray = root / str(uuid4())
     stray.mkdir()
-    orphan = projects / f"{agent._transcript_name(root)}-{uuid4()}"
+    orphan = projects / f"{agent_files._transcript_name(root)}-{uuid4()}"
     orphan.mkdir()
     foreign = projects / f"-somewhere-else-{uuid4()}"
     foreign.mkdir()
     with SessionLocal() as session:
-        agent.sweep(session, files)
+        agent_files.sweep(session, files)
     assert not stray.exists() and not orphan.exists()
     assert foreign.is_dir() and theirs[0].is_dir() and theirs[1].is_dir()
 
@@ -1642,7 +1652,7 @@ def test_a_sheet_the_profile_left_out_does_not_ask_the_assistant_again_and_a_new
 ):
     """Given a load of a workbook with a helper sheet its profile does not read, when the same file
     comes again, then no session is asked; when a sheet the earlier file did not have comes, one is.
-    Found on a real workbook, whose helper sheets kept every repeat from the saved layout's path."""
+    Found on a workbook, whose helper sheets kept every repeat from the saved layout's path."""
     monkeypatch.setenv("AI_AGENT_API_URL", served)
     ledgers = Ledgers(world)
 
@@ -1950,7 +1960,7 @@ def test_a_load_that_fails_after_writing_a_change_set_keeps_it_and_a_read_under_
     the rules of the day accept, when the task is read, then it is loaded."""
     from sqlalchemy import select
 
-    from app.engine.tasks import agent
+    from app.engine.tasks.agent import outcome as agent_outcome
     from app.models.database import ChangeSet
 
     monkeypatch.setenv("AI_AGENT_API_URL", served)
@@ -1970,7 +1980,9 @@ def test_a_load_that_fails_after_writing_a_change_set_keeps_it_and_a_read_under_
     found = _assistant(world, tmp_path, monkeypatch, ledgers.workspace, api=True, batch=batch)
     still_open = lambda: world.api.get(f"/change-sets/{found['changeSet']}").status_code == 200
     with monkeypatch.context() as broken:
-        broken.setattr(agent, "_then_release", lambda session, task, words, change_set=None: None)
+        broken.setattr(
+            agent_outcome, "_then_release", lambda session, task, words, change_set=None: None
+        )
         task = _accept(world, _read(world, ledgers, accept=False))
     assert task["state"] == "failed", task["notes"]
     assert task["result"]["changeSetId"] == found["changeSet"]
@@ -1986,11 +1998,13 @@ def test_a_load_that_fails_after_writing_a_change_set_keeps_it_and_a_read_under_
     later.mkdir()
     found = _assistant(world, later, monkeypatch, ledgers.workspace, api=True, batch=batch)
     with monkeypatch.context() as broken:
-        broken.setattr(agent, "_then_release", lambda session, task, words, change_set=None: None)
+        broken.setattr(
+            agent_outcome, "_then_release", lambda session, task, words, change_set=None: None
+        )
         task = _accept(world, _read(world, ledgers, accept=False))
     assert task["state"] == "failed" and task["notes"]
     monkeypatch.setattr(
-        agent,
+        agent_outcome,
         "_session_change_sets",
         lambda session, current: list(
             session.scalars(select(ChangeSet).where(ChangeSet.id == found["changeSet"]))
@@ -2040,7 +2054,7 @@ def test_a_turn_a_worker_stopped_in_is_recorded_from_its_log_in_the_new_place(
     """Given a worker stopped during a turn, when the job comes back, then the turn is recorded as
     interrupted from its log, which lies beside the session's folder."""
     from app.db import SessionLocal
-    from app.engine.tasks import agent
+    from app.engine.tasks.store import load_task
 
     ledgers = Ledgers(world)
     _assistant(world, tmp_path, monkeypatch, ledgers.workspace)
@@ -2061,7 +2075,7 @@ def test_a_turn_a_worker_stopped_in_is_recorded_from_its_log_in_the_new_place(
         + "\n"
     )
     with SessionLocal() as session:
-        row = agent.load_task(session, task["id"], for_update=True)
+        row = load_task(session, task["id"], for_update=True)
         row.design = {
             **row.design,
             "agentProcess": {

@@ -7,7 +7,7 @@ import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { findTreeItem, openFoldedGroups } from "@/test/tree";
 import { applicationPlacements } from "@/test/placements";
-import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import * as workspaceContext from "@/state/WorkspaceDataContext";
 import type { EngineModel, Job, ObjectItem, ObjectPage, Publication } from "@/types";
 
 const values = new Map<string, string>();
@@ -90,13 +90,13 @@ const record = (base: ObjectItem, id: string, name: string, parent?: ObjectItem)
 
 const connections = domainObject;
 const finance = record(domainObject, "finance", "Finance");
-const timetables = record(codelistObject, codelistObject.id, "Timetable types", connections);
+const means = record(codelistObject, codelistObject.id, "Means of transport", connections);
 const tariffs = record(codelistObject, "tariffs", "Tariffs", connections);
-const urgent = record(codelistObject, "urgent", "Urgent tariffs", tariffs);
+const night = record(codelistObject, "night", "Night tariffs", tariffs);
 const unit = record({ ...codelistObject, objectTypeKey: "unit" }, "unit", "Rail", connections);
 
 /** Answers object reads from the records above, by the query's scope. */
-function serve(records: ObjectItem[] = [connections, finance, timetables, tariffs, urgent, unit]) {
+function serve(records: ObjectItem[] = [connections, finance, means, tariffs, night, unit]) {
   return vi.spyOn(api, "objects").mockImplementation(async (type: string, query: ObjectQuery) => {
     const items = records.filter(
       (item) =>
@@ -169,7 +169,7 @@ describe("Explorer", () => {
       within(group)
         .getAllByRole("treeitem")
         .map((node) => node.getAttribute("aria-label")),
-    ).toEqual(["Timetable types", "Tariffs"]);
+    ).toEqual(["Means of transport", "Tariffs"]);
     const second = screen.getByRole("treeitem", { name: "Tariffs" });
     // Records sit one level below their type group's heading, which no longer counts in their set.
     expect(["aria-level", "aria-posinset", "aria-setsize"].map((name) => second.getAttribute(name))).toEqual([
@@ -199,11 +199,11 @@ describe("Explorer", () => {
     const view = render(explorer());
     toggle(await item("Connections"));
     toggle(await item("Tariffs"));
-    await item("Urgent tariffs");
+    await item("Night tariffs");
     view.unmount();
 
     const again = render(explorer());
-    expect(await item("Urgent tariffs")).toBeInTheDocument();
+    expect(await item("Night tariffs")).toBeInTheDocument();
     expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "true");
     const model = treeModel();
     again.rerender(explorer({ model, workspaceKey: "east" }));
@@ -226,13 +226,13 @@ describe("Explorer", () => {
 
   it("opens the branches that lead to the active record", async () => {
     serve();
-    vi.spyOn(api, "object").mockResolvedValue(urgent);
-    render(explorer({ activeObjectId: urgent.id, activeObjectTypeKey: "codelist" }));
-    const active = await item("Urgent tariffs");
+    vi.spyOn(api, "object").mockResolvedValue(night);
+    render(explorer({ activeObjectId: night.id, activeObjectTypeKey: "codelist" }));
+    const active = await item("Night tariffs");
     expect(active).toHaveAttribute("aria-current", "page");
-    expect(api.object).toHaveBeenCalledWith("codelist", urgent.id, "west");
+    expect(api.object).toHaveBeenCalledWith("codelist", night.id, "west");
     toggle(screen.getByRole("treeitem", { name: "Connections" }));
-    expect(screen.queryByRole("treeitem", { name: "Urgent tariffs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: "Night tariffs" })).not.toBeInTheDocument();
   });
 
   // Requested by the user (2026-10-19): expanding opens a sole collapsed child, one level only.
@@ -240,7 +240,7 @@ describe("Explorer", () => {
     const tariffsOnly = record(codelistObject, "tariffs", "Tariffs", connections);
     const budgets = record(codelistObject, "budgets", "Budgets", finance);
     const costs = record(codelistObject, "costs", "Cost centres", finance);
-    serve([connections, finance, tariffsOnly, urgent, budgets, costs]);
+    serve([connections, finance, tariffsOnly, night, budgets, costs]);
     render(explorer());
     const expanded = (name: string | RegExp) =>
       waitFor(() => expect(screen.getByRole("treeitem", { name })).toHaveAttribute("aria-expanded", "true"));
@@ -255,14 +255,14 @@ describe("Explorer", () => {
     await expanded(/^Codelists within Connections/);
     expect(tariffsItem).toHaveAttribute("aria-expanded", "false");
     toggle(tariffsItem);
-    const urgentItem = await screen.findByRole("treeitem", { name: "Urgent tariffs" });
+    const urgentItem = await screen.findByRole("treeitem", { name: "Night tariffs" });
     await expanded(/^Codelists within Tariffs/);
     expect(urgentItem).toHaveAttribute("aria-expanded", "false");
 
     // A heading expanded by hand opens its only record.
     toggle(screen.getByRole("treeitem", { name: /^Codelists within Tariffs/ }));
     toggle(screen.getByRole("treeitem", { name: /^Codelists within Tariffs/ }));
-    await expanded("Urgent tariffs");
+    await expanded("Night tariffs");
 
     // Collapsed by hand, the heading opens again with the next expansion of its record.
     toggle(screen.getByRole("treeitem", { name: /^Codelists within Connections/ }));
@@ -283,18 +283,18 @@ describe("Explorer", () => {
   // active record's branches, a reload) scrolled the rail to itself, so it jumped as lists arrived.
   it("moves the rail only for the keyboard, never because a list loaded", async () => {
     serve();
-    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    vi.spyOn(api, "object").mockResolvedValue(night);
     const scrolled = vi.fn();
     Element.prototype.scrollIntoView = scrolled;
-    const { rerender } = render(explorer({ activeObjectId: urgent.id, activeObjectTypeKey: "codelist" }));
-    await item("Urgent tariffs");
+    const { rerender } = render(explorer({ activeObjectId: night.id, activeObjectTypeKey: "codelist" }));
+    await item("Night tariffs");
     const reads = vi.mocked(api.objects).mock.calls.length;
     // A write elsewhere reloads every list the tree holds.
-    rerender(explorer({ activeObjectId: urgent.id, activeObjectTypeKey: "codelist", refreshToken: 1 }));
+    rerender(explorer({ activeObjectId: night.id, activeObjectTypeKey: "codelist", refreshToken: 1 }));
     await waitFor(() => expect(api.objects).toHaveBeenCalledTimes(reads * 2));
     expect(scrolled).not.toHaveBeenCalled();
 
-    act(() => screen.getByRole("treeitem", { name: "Urgent tariffs" }).focus());
+    act(() => screen.getByRole("treeitem", { name: "Night tariffs" }).focus());
     fireEvent.keyDown(document.activeElement!, { key: "ArrowUp" });
     expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: /^Codelists within Tariffs/ }));
     expect(scrolled).toHaveBeenCalledTimes(1);
@@ -306,10 +306,10 @@ describe("Explorer", () => {
     const read = serve();
     let release: (item: ObjectItem) => void = () => undefined;
     vi.spyOn(api, "object")
-      .mockResolvedValueOnce(urgent)
+      .mockResolvedValueOnce(night)
       .mockImplementationOnce(() => new Promise<ObjectItem>((resolve) => (release = resolve)));
-    const view = render(explorer({ activeObjectId: urgent.id, activeObjectTypeKey: "codelist" }));
-    await item("Urgent tariffs");
+    const view = render(explorer({ activeObjectId: night.id, activeObjectTypeKey: "codelist" }));
+    await item("Night tariffs");
     const connectionsItem = screen.getByRole("treeitem", { name: "Connections" });
     const tariffsItem = screen.getByRole("treeitem", { name: "Tariffs" });
     expect([connectionsItem, tariffsItem].map((element) => element.getAttribute("aria-expanded"))).toEqual([
@@ -319,25 +319,25 @@ describe("Explorer", () => {
     const readsBefore = read.mock.calls.length;
 
     // Another record under the same branch becomes active; its path has not arrived yet.
-    view.rerender(explorer({ activeObjectId: timetables.id, activeObjectTypeKey: "codelist" }));
+    view.rerender(explorer({ activeObjectId: means.id, activeObjectTypeKey: "codelist" }));
     expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("treeitem", { name: "Tariffs" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
     expect(read.mock.calls.length).toBe(readsBefore);
 
-    await act(async () => release(timetables));
-    expect(await item("Timetable types")).toHaveAttribute("aria-current", "page");
+    await act(async () => release(means));
+    expect(await item("Means of transport")).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "true");
   });
 
   it("draws each record in its type's hue and a type group as a label, never like a record", async () => {
     serve();
-    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    vi.spyOn(api, "object").mockResolvedValue(night);
     const model = treeModel();
-    render(explorer({ model, activeObjectId: urgent.id, activeObjectTypeKey: "codelist" }));
+    render(explorer({ model, activeObjectId: night.id, activeObjectTypeKey: "codelist" }));
     const slot = (key: string) => String(model.objectTypes.findIndex((type) => type.key === key) + 1);
 
-    const active = await item("Urgent tariffs");
+    const active = await item("Night tariffs");
     const connectionsRow = screen.getByRole("treeitem", { name: "Connections" }).querySelector(".tree-row")!;
     expect(connectionsRow.querySelector(".hue-tile")).toHaveAttribute("data-hue", slot("domain"));
     expect(active.querySelector(".hue-tile")).toHaveAttribute("data-hue", slot("codelist"));
@@ -369,8 +369,7 @@ describe("Explorer", () => {
   it("walks the tree by keyboard with one tab stop and loads across a page edge", async () => {
     const onOpen = vi.fn();
     const read = vi.spyOn(api, "objects").mockImplementation(async (type, query) => {
-      if (type === "codelist")
-        return { items: [timetables, tariffs], nextCursor: null, totalCount: 2, startIndex: 0 };
+      if (type === "codelist") return { items: [means, tariffs], nextCursor: null, totalCount: 2, startIndex: 0 };
       if (type !== "domain") return { items: [], nextCursor: null, totalCount: 0, startIndex: 0 };
       return query.cursor === "second"
         ? { items: [finance], nextCursor: null, prevCursor: "first", startIndex: 1 }
@@ -411,7 +410,7 @@ describe("Explorer", () => {
     // Connections's only heading opened with it; its two records stay collapsed (2026-10-19).
     await waitFor(() => expect(firstChild).toHaveAttribute("aria-expanded", "true"));
     press("ArrowDown");
-    expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: "Timetable types" }));
+    expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: "Means of transport" }));
     // Left returns to the record's type group heading; Left again folds the heading (UA9, headings
     // fold again), and once more goes to the record above.
     press("ArrowLeft");
@@ -491,7 +490,7 @@ describe("Explorer", () => {
 
     // Shift selects the range within one group, from the last record clicked.
     toggle(connectionsItem);
-    const first = await item("Timetable types");
+    const first = await item("Means of transport");
     const second = await item("Tariffs");
     fireEvent.click(node(first), { metaKey: true });
     // Shift or Cmd with the press selects records, not the text between them.
@@ -499,7 +498,7 @@ describe("Explorer", () => {
     expect(fireEvent.mouseDown(node(second), { metaKey: true })).toBe(false);
     expect(fireEvent.mouseDown(node(second))).toBe(true);
     fireEvent.click(node(second), { shiftKey: true });
-    expect(selected()).toEqual(["Timetable types", "Tariffs"]);
+    expect(selected()).toEqual(["Means of transport", "Tariffs"]);
     expect(onOpen).toHaveBeenCalledTimes(1);
 
     // By keyboard: Shift+↓ extends, Ctrl+Space toggles, Escape clears.
@@ -508,7 +507,7 @@ describe("Explorer", () => {
     expect(selected()).toEqual(["Tariffs"]);
     act(() => first.focus());
     fireEvent.keyDown(first, { key: "ArrowDown", shiftKey: true });
-    expect(selected()).toEqual(["Timetable types", "Tariffs"]);
+    expect(selected()).toEqual(["Means of transport", "Tariffs"]);
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     expect(selected()).toEqual([]);
     expect(onOpen).toHaveBeenCalledTimes(1);
@@ -539,7 +538,7 @@ describe("Explorer", () => {
     const onChanged = vi.fn();
     render(explorer({ onChanged }));
     toggle(await item("Connections"));
-    const first = await item("Timetable types");
+    const first = await item("Means of transport");
     const second = await item("Tariffs");
     const target = screen.getByRole("treeitem", { name: "Finance" });
     let hit: Element | null = null;
@@ -576,7 +575,7 @@ describe("Explorer", () => {
         workspaceKey: "west",
         policy: "atomic",
         run: "inline",
-        items: [timetables, tariffs].map((record) =>
+        items: [means, tariffs].map((record) =>
           expect.objectContaining({ target: { id: record.id }, parent: { id: finance.id } }),
         ),
       }),
@@ -590,7 +589,7 @@ describe("Explorer", () => {
     const onOpen = vi.fn();
     render(explorer({ onOpen }));
     toggle(await item("Connections"));
-    const first = await item("Timetable types");
+    const first = await item("Means of transport");
     vi.useFakeTimers();
     try {
       const pointer = { pointerId: 1, pointerType: "touch", button: 0 };
@@ -616,7 +615,7 @@ describe("Explorer", () => {
     });
     const view = render(explorer());
     toggle(await item("Connections"));
-    const node = await item("Timetable types");
+    const node = await item("Means of transport");
     Object.defineProperty(document, "elementFromPoint", {
       configurable: true,
       value: () => screen.getByRole("treeitem", { name: "Finance" }).querySelector(".tree-node"),
@@ -634,7 +633,7 @@ describe("Explorer", () => {
 
     // Live again: Connections's branch is still open, as the browser remembered it.
     render(explorer());
-    fireEvent.keyDown(await item("Timetable types"), { key: "F10", shiftKey: true });
+    fireEvent.keyDown(await item("Means of transport"), { key: "F10", shiftKey: true });
     const menu = await screen.findByRole("menu");
     expect(
       within(menu)

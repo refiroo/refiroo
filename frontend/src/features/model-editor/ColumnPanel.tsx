@@ -9,10 +9,10 @@ import { useEffect, type ReactNode } from "react";
 import type { DraftOperation, DryRun, ModelDraftOutline, SourceColumn } from "@/types";
 import type { DraftSource } from "@/features/model-editor/useDraftSource";
 import { StatusPill } from "@/ui/StatusPill";
-import { ProposedPill } from "@/features/model-editor/ProposedBecause";
+import { ProposedPill } from "@/ui/ProposedBecause";
 import { ColumnReadings, ReadingMarks } from "@/features/model-editor/ReadingEntries";
 import { sourceOfColumn } from "@/features/model-editor/readings";
-import { typeName, attributeTypeOf } from "@/features/model-editor/outline";
+import { typeName, attributeTypeOf } from "@/model/outline";
 import {
   columnState,
   delimiterLabel,

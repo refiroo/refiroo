@@ -2,9 +2,9 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
 import { outlineFixture } from "@/test/draftOutline";
-import { useJobStream } from "@/features/jobs/useJobStream";
+import { useJobStream } from "@/state/useJobStream";
 import { ModelEditor } from "@/features/model-editor/ModelEditor";
-import { proposeWhenProfiled, takeWaitingProposal } from "@/features/model-editor/proposing";
+import { proposeWhenProfiled, takeWaitingProposal } from "@/model/proposing";
 import { ToastProvider } from "@/ui/Toast";
 import type { DraftProfile, EngineModel, Inference } from "@/types";
 
@@ -13,8 +13,8 @@ vi.mock("@/api/client", async (load) => {
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
 });
 // The job's event stream is not under test; the run stays where the test leaves it.
-vi.mock("@/features/jobs/useJobStream", async (load) => ({
-  ...(await load<typeof import("@/features/jobs/useJobStream")>()),
+vi.mock("@/state/useJobStream", async (load) => ({
+  ...(await load<typeof import("@/state/useJobStream")>()),
   useJobStream: vi.fn(),
 }));
 

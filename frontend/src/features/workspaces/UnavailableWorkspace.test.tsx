@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
-import { resetPermissionsForTests } from "@/features/security/permissions";
+import { resetPermissionsForTests } from "@/state/permissions";
 import { UnavailableWorkspace } from "@/features/workspaces/UnavailableWorkspace";
 import { testAvailability, testModel, testWorkspaceModel } from "@/test/fixtures";
 import { heldAnywhereFixture } from "@/test/permissions";

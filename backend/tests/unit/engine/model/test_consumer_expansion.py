@@ -110,7 +110,7 @@ def test_every_default_is_written_out():
     assert all(
         definition.offers(name) for name in ("objects", "xref", "resolve", "lists", "events")
     )
-    assert public_name("timetable-type") == "TimetableType"
+    assert public_name("stop-type") == "StopType"
 
 
 def test_code_stands_for_each_code_source_in_place():

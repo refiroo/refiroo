@@ -6,7 +6,7 @@ import { capabilitiesFixture } from "@/test/capabilities";
 import { testModel } from "@/test/fixtures";
 import type { ChangeSet, ImportProfile, Job } from "@/types";
 import { ImportDialog, type ImportStart } from "./ImportDialog";
-import { ImportFacts } from "./ImportOutcome";
+import { ImportFacts } from "@/ui/ImportOutcome";
 
 vi.mock("@/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/client")>()),

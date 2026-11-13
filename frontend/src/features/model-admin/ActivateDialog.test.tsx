@@ -14,7 +14,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 // No provider here: the account of the change is not drawn (ImpactSummary.test.tsx draws it).
-vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({ useImpactSummaryOffer: () => undefined }));
+vi.mock("@/state/useWorkspaceAiOffer", () => ({ useImpactSummaryOffer: () => undefined }));
 
 const release = (key: string, name: string, version: string, day: number): ModelReleaseSummary =>
   ({

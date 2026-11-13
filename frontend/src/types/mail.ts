@@ -1,6 +1,6 @@
 /** Mail settings and the outbox (0.12 M1, D419). */
 
-import type { PageNavigation } from "@/types/runtime";
+import type { PageNavigation } from "@/types/pagination";
 
 export type MailSecurity = "tls" | "starttls" | "none";
 export type MailStatus = "pending" | "sent" | "failed";

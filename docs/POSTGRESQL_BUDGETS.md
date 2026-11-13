@@ -760,7 +760,7 @@ writing and rolling back every checked item, D115) and the page 0.3–0.5 s.
 
 ## 14. A list read with relation columns (0.11 X6, 2026-10-19)
 
-Reported by the user: a table of 200 records with six relation columns, one an ancestor's value
+Reported by the user: a table of a few hundred records with six relation columns, one an ancestor's value
 (`related:<relation>.ancestor:<type>.<attribute>`), took 2.2 s to show its rows in the dev browser.
 The 200-row read with those columns was 813 KB in 294 ms, 250 ms of it the ancestor column: every
 related record built whole (values, path, a Pydantic model per value) to keep one value.

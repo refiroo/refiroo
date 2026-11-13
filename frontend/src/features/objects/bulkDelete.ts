@@ -8,8 +8,8 @@
  * it removed leave a hand selection (D125).
  */
 
-import type { TypeName } from "@/features/jobs/BatchOutcome";
-import { count } from "@/features/settings/limits";
+import type { TypeName } from "@/ui/BatchOutcome";
+import { count } from "@/ui/limits";
 import type { SelectableRow } from "@/lib/recordSelection";
 import type { BatchDeleteItem, DeletionTotals, Job, JobItemOutcome } from "@/types";
 import { refFor } from "./bulkChange";

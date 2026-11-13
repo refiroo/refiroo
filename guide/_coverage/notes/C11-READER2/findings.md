@@ -1,6 +1,6 @@
 # C11 reader 2 — findings
 
-Fresh-reader execution started 2026-11-08. Reading is limited to built HTML in `guide/dist/`, its pictures and the running installation. No source, previous-wave notes or private model was consulted. Viewport is 1280 × 900 unless recorded otherwise. Findings distinguish a broken step from a branch not exercised. Secrets are neither recorded nor photographed.
+Fresh-reader execution started 2026-11-08. Reading is limited to built HTML in `guide/dist/`, its pictures and the running installation. No source or previous-wave notes were consulted. Viewport is 1280 × 900 unless recorded otherwise. Findings distinguish a broken step from a branch not exercised. Secrets are neither recorded nor photographed.
 
 ## Quick start — completed browser portion
 

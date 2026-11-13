@@ -16,7 +16,7 @@ import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
 import { emptyModel } from "@/model/emptyModel";
-import { appPath, openIn } from "@/features/home/openWorkspace";
+import { appPath, openIn } from "@/state/openWorkspace";
 import { applicationFor } from "@/model/lookup";
 import { HOME, routePath, viewRoute } from "@/routing/routes";
 import type { EngineModel, Notification, NotificationKind, OwnWorkspace, RouteState } from "@/types";
@@ -28,7 +28,7 @@ import { SearchField } from "@/ui/SearchField";
 import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
 import { NoticeButton } from "./InboxPanel";
 import { KIND_LABELS, noticeRoute, noticeText } from "./inboxText";
-import { setUnreadCount, touchSubject, useInbox } from "./useInbox";
+import { setUnreadCount, touchSubject, useInbox } from "@/state/useInbox";
 
 const PAGE_SIZE = 50;
 /** The most notices one mark or delete names (the API's limit). */

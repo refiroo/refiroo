@@ -5,7 +5,7 @@ import type { ReactElement } from "react";
 import type { AiTask, AiTaskMove } from "@/types";
 import { Card } from "@/ui/Card";
 import { SettingsTable } from "@/ui/SettingsTable";
-import { count } from "@/features/settings/limits";
+import { count } from "@/ui/limits";
 
 /** A move that only changes the application of a type, which keeps its key. */
 function onlyApplication(move: AiTaskMove): boolean {

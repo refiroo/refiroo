@@ -1905,7 +1905,7 @@ C6a); XREF is J29 (0.9 C4); the rest follows in C6b and C16 ([CONSUMER_API.md](.
 `400 CONFLICTING_PAGE_PARAMETERS`, `400 INVALID_POSITION`, `400 INVALID_SEEK`,
 `404 PUBLICATION_NOT_FOUND`, `409 PUBLICATION_CONTRACT_MISMATCH`, `400 UNKNOWN_INCLUDE`.
 
-**Evidence today:** the J28 journey tests; on a model shaped like the reference deployment's, the
+**Evidence today:** the J28 journey tests; on a model shaped like the example deployment's, the
 parity tests (`test_j28_j29_parity`, 0.9 C8).
 
 ### J29 — Resolve a business object through a consumer API
@@ -1991,7 +1991,7 @@ term matching more than 10,000 records does not refuse it.
 J28's API, workspace and paging refusals; batch resolve adds `400 REQUEST_VALIDATION_ERROR` (a body
 of the wrong shape), `QUERY_OR_ID_REQUIRED` (an item's outcome) and `413 BATCH_TOO_LARGE`.
 
-**Evidence today:** the J29 journey tests and, on a model shaped like the reference deployment's,
+**Evidence today:** the J29 journey tests and, on a model shaped like the example deployment's,
 the parity tests (`test_j28_j29_parity`, 0.9 C8); `QUERY_TOO_BROAD`, the exact-first rule and batch
 statements in `test_consumer_xref_volume`.
 
@@ -2972,8 +2972,8 @@ parameters, including `filter.related:<key>.under` and `.notUnder`). **Status:**
    with their labels. The fields are every relationship the listed type has (in either direction,
    declared by the view or not), the view's filter fields and, live, the two stamps. At send level
    `samples` or `values` it is also sent the record names of a relationship's types when they hold at
-   most 50 records in the list's context, so it can choose records by meaning ("above 30 minutes" from
-   "45 min"); at `structure`, or for a longer list, no record value. The engine finds a record the
+   most 50 records in the list's context, so it can choose records by meaning ("above 100 km" from
+   "120 km"); at `structure`, or for a longer list, no record value. The engine finds a record the
    question names in words in the database, in the list's context, and builds the answer from the list's
    own filters.
 3. When every part was expressed, the list shows the filters as ordinary pills (and the search words)

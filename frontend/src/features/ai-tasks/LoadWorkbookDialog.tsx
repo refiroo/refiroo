@@ -8,8 +8,8 @@
 import { useState, type FormEvent } from "react";
 import { ai } from "@/api/aiClient";
 import { errorMessage, isApiError } from "@/api/errors";
-import { bytes } from "@/features/settings/limits";
-import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
+import { bytes } from "@/ui/limits";
+import { WorkspaceField } from "@/ui/WorkspaceField";
 import type { AiTask } from "@/types";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";

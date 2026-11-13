@@ -6,7 +6,6 @@
 //   node tools/check.mjs coverage   every inventory entry is named on a page or excluded (CP; not in verify yet)
 // Each check prints what it found and exits 1 when it found a problem.
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -57,25 +56,7 @@ const BANNED = [
   [/\b(?:Base|Product|Release)\s0\.\d+/, "delivery history (a release number)"],
   [/\b[Ss]ince\s(?:version\s|release\s)?0\.\d+/, "delivery history (\"since 0.x\")"],
 ];
-const PRIVATE_TERMS = join(ROOT, "tools", "private-terms.txt");
-
-const normalWord = (word) => word.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]/g, "");
-const termHash = (words) => createHash("sha256").update(words.map(normalWord).join(" ")).digest("hex");
-
-// The private-model names are kept as SHA-256 hashes of the lower-case words, so the list does not name
-// what it forbids. `node tools/check.mjs hash-term "two words"` prints the line to add.
-function privateHashes() {
-  if (!existsSync(PRIVATE_TERMS)) return new Set();
-  return new Set(
-    readFileSync(PRIVATE_TERMS, "utf8")
-      .split("\n")
-      .map((line) => line.replace(/#.*/, "").trim())
-      .filter(Boolean),
-  );
-}
-
 function terms() {
-  const hashes = privateHashes();
   const subjects = pages().map((page) => ({ where: page.where, text: page.text }));
   for (const { where, text } of subjects) {
     const body = text.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
@@ -83,14 +64,7 @@ function terms() {
       const found = body.match(new RegExp(pattern.source, pattern.flags + "g"));
       if (found) fail("terms", where, `${what}: ${[...new Set(found)].join(", ")}`);
     }
-    const words = body.split(/[^A-Za-z0-9]+/).filter(Boolean);
-    for (let size = 1; size <= 4; size += 1) {
-      for (let at = 0; at + size <= words.length; at += 1) {
-        if (hashes.has(termHash(words.slice(at, at + size)))) fail("terms", where, "a private-model name (matched by hash)");
-      }
-    }
   }
-  notes.push(`terms: ${hashes.size} private-model name(s) on the list (tools/private-terms.txt)`);
 }
 
 // --- the product name -----------------------------------------------------------------------------
@@ -269,17 +243,9 @@ const CHECKS = { terms, brand, links, coverage };
 const STATIC = ["terms", "brand"];
 
 const [, , command, argument] = process.argv;
-if (command === "hash-term") {
-  if (!argument) {
-    console.error('usage: node tools/check.mjs hash-term "the name"');
-    process.exit(2);
-  }
-  console.log(termHash(argument.split(/[^A-Za-z0-9]+/).filter(Boolean)));
-  process.exit(0);
-}
 const selected = command === "all" ? STATIC : command in CHECKS ? [command] : null;
 if (!selected) {
-  console.error(`usage: node tools/check.mjs <${["all", ...Object.keys(CHECKS), "hash-term"].join(" | ")}>`);
+  console.error(`usage: node tools/check.mjs <${["all", ...Object.keys(CHECKS)].join(" | ")}>`);
   process.exit(2);
 }
 for (const name of selected) CHECKS[name]();

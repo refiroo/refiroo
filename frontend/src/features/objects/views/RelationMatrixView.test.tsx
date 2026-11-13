@@ -198,7 +198,11 @@ function row(
 const notesPage: RelationMatrixPage = {
   items: [
     row("d1", "domain", "Connections", [
-      cell("c-east", "one", { recordCount: 1, matchingCount: 1, records: [noteRecord("n1", "Connections EA", "CL-EA")] }),
+      cell("c-east", "one", {
+        recordCount: 1,
+        matchingCount: 1,
+        records: [noteRecord("n1", "Connections EA", "CL-EA")],
+      }),
       cell("c-west", "none"),
     ]),
     row("d2", "domain", "Finance", [
@@ -472,7 +476,11 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(within(dialog).getByRole("textbox", { name: "Name" })).toHaveValue("Connections WE");
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
     const refreshed = row("d1", "domain", "Connections", [
-      cell("c-west", "one", { recordCount: 1, matchingCount: 1, records: [noteRecord("n9", "Connections WE", "CL-WE")] }),
+      cell("c-west", "one", {
+        recordCount: 1,
+        matchingCount: 1,
+        records: [noteRecord("n9", "Connections WE", "CL-WE")],
+      }),
     ]);
     vi.mocked(api.relationMatrix).mockClear();
     vi.mocked(api.relationMatrix).mockResolvedValueOnce({ ...notesPage, items: [refreshed], columns: [columns[1]] });
@@ -503,7 +511,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       items: [],
       nextCursor: null,
       defaultContainerId: null,
-      derivedPlace: { objectTypeKey: "region", name: "Booked group", attributes: {}, willBeCreated: true },
+      derivedPlace: { objectTypeKey: "region", name: "New group", attributes: {}, willBeCreated: true },
       totalCount: 0,
       startIndex: 0,
     });
@@ -514,7 +522,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
     expect(await within(dialog).findByText("(will be created)")).toBeInTheDocument();
-    expect(within(dialog).getByText(/Booked group/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/New group/)).toBeInTheDocument();
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(api.createObjectInNewPlace).toHaveBeenCalled());
@@ -524,7 +532,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(payload).not.toHaveProperty("parentObjectId");
     expect(place).toMatchObject({
       objectTypeKey: "region",
-      name: "Booked group",
+      name: "New group",
       attributes: [],
       parentObjectId: "c-west",
     });

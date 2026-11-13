@@ -1,6 +1,6 @@
 import type { OutlineMark } from "@/types";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
-import { MARK_LABELS } from "@/features/model-editor/outline";
+import { MARK_LABELS } from "@/model/outline";
 
 const TONES: Record<OutlineMark, StatusTone> = { new: "success", changed: "warning", released: "neutral" };
 

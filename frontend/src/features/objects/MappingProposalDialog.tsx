@@ -9,12 +9,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import { ai } from "@/api/aiClient";
-import { useJobNotifications } from "@/features/jobs/JobNotifications";
-import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
-import { cancellable } from "@/features/jobs/jobText";
-import { sentForMappingTargets } from "@/features/settings/aiText";
-import { count } from "@/features/settings/limits";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useJobNotifications } from "@/ui/JobNotifications";
+import { isFinal, useJobStream } from "@/state/useJobStream";
+import { cancellable } from "@/ui/jobText";
+import { sentForMappingTargets } from "@/lib/aiText";
+import { count } from "@/ui/limits";
+import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import type { AiSystemInfo, Job, MappingProposalRequest } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import * as workspaceContext from "@/state/WorkspaceDataContext";
 import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
 import { ChangeSetActions } from "@/features/workspaces/ChangeSets";
 import { objectTypeHue } from "@/model/hues";

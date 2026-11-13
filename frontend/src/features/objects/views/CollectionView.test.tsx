@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
-import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import * as workspaceContext from "@/state/WorkspaceDataContext";
 import type { ChangeSet, ObjectItem, Publication } from "@/types";
 
 /** A list's cells edited in place say where a save went in a toast (0.10 A9), as the app's provider shows it. */

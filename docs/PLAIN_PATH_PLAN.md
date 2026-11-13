@@ -158,7 +158,7 @@ the workspace and the load job), so integrators get it too. **Door check (ADR-03
 identity and history are reused unchanged; no door affected. **Tests:** journeys (J36.4, J34.8 variants)
 on two configurations: a workbook becomes a workspace with its records; a profile-key clash doesn't refuse;
 refused rows are reported and the rest load; other workspaces unchanged; a caller without the groups is
-refused by code. Browser: the real sample workbook end to end, including an invalid draft's dialogs;
+refused by code. Browser: a sample workbook end to end, including an invalid draft's dialogs;
 keyboard; 390px; no 5xx.
 
 **State (delivered 2026-11-12, PP-D44 to PP-D47).** The route is `POST /api/v1/workspaces/from-workbook`. The side sheet

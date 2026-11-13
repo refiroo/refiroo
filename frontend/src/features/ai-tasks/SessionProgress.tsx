@@ -4,7 +4,7 @@
  */
 
 import { StatusPill } from "@/ui/StatusPill";
-import { count } from "@/features/settings/limits";
+import { count } from "@/ui/limits";
 import type { AiTaskDesign } from "@/types";
 
 export function SessionProgress({ progress }: { progress: NonNullable<AiTaskDesign["progress"]> }) {

@@ -1719,8 +1719,8 @@ ordinary filters: pills the person edits or removes, and the line "Your question
 Change or remove any of them." The provider is sent the question, today's date and the list's field
 names, every relationship of the type included whether the list offers it in + Filter or not; where the
 instance allows values to be sent (not at the lowest send level) it is also sent the names of a
-relationship's records when there are at most 50, so "above 30 minutes" can pick "45 min", "60 min" and
-"180 min" by their meaning. The records a question names ("under Webshop") are found by refiroo, by exact
+relationship's records when there are at most 50, so "above 100 km" can pick "120 km", "150 km" and
+"300 km" by their meaning. The records a question names ("under Webshop") are found by refiroo, by exact
 name first and otherwise a single partial match. A part the list cannot express (an order, who changed a record, a record
 not found or named by several) is named, nothing is applied, and the filters that could be built are shown
 as dashed pills with **Use these filters**; a failed question is one sentence and the words stay. It works
@@ -1754,7 +1754,7 @@ The page then shows the proposal: two sentences on what it understood, one line 
 changes, with its attributes and the records it would write, the check of every row, and the questions with
 the answer assumed meanwhile. Under **Checks** it also warns of what it finds on its own: a type that
 already holds records and that the model leaves out, and new records beside records of the same type
-already held ("667 new Items beside the 667 held. If this is an update, the rows did not find their
+already held ("40 new Stops beside the 40 held. If this is an update, the rows did not find their
 records."). The person can answer, say in words what to change, open the draft in the model editor and
 edit it, or discard the proposal with its draft; the same session goes on, and reads the draft again in case
 it was edited. If the engine cannot apply the proposal, the page says why and the person tells the assistant what to change. **Accept the model**
@@ -1840,7 +1840,7 @@ Limits:
 - **What changed in a period.** Where a provider is set and the person may browse a workspace and holds Use AI proposals there, the workspace's Activity opens with "What changed", and a record's History with the same section for the record. The person picks a period (the last 7 days on a workspace, the last 30 on a record, or dates) and presses Explain this period; nothing is sent before, and the line says what goes. The engine counts, over every change to live data in the period, the records created, changed, moved and deleted per type, the fields changed, the relationships, where the changes came from (a job, a publication with the people and the job that prepared it and who published it, or made directly), who made them, what happened to change sets, withdrawn publications and model activations. The provider words them in a few statements, each followed by numbers that lead to the facts it rests on; a note says it was written by AI and can be wrong. Names of records, people, change sets and files go to the provider only at send level `values`; the person's own lines always show them. A fact leads to the changes it counted (Show them narrows the Activity, or the record's timeline, in place), to a change set, or to a job; a job removed after its retention days has no link. A period with no change says so and sends nothing; when the provider fails the facts stand alone. Edits still sitting in an open change set are not counted, only that the set exists and what happened to it; a deleted record has no name. An assistant with Browse reads the same facts, without the words, through the `history_facts` tool (a workspace's or one record's, over a period); it calls no provider. Not available in German yet.
 - **An account of a model change.** Where a provider is set and the person may activate releases and holds Use AI proposals in the workspace, the activation dialog and Apply show a section "What this change does". Nothing is sent until the person presses Explain this change; the line beside it says what goes: the model's changes and record counts, no record value. The engine writes the facts (each difference, each rule the workspace's data would break with its count, what the consumer APIs would notice, whether activation is refused, the workspace's records per touched type); the provider words them in short statements, each followed by numbers that lead to the facts it rests on. A note under says it was written by AI and can be wrong; it never says a change is safe. A statement with no source is dropped and counted; when the provider fails the facts stand alone with one sentence and Try again. The same facts asked again within the hour are answered without a second call. Limits: English only until the interface is translated; not on the migration page (which lists every conversion itself) or in the install dialog; an account is not kept beyond the hour or attached to a release; there is no follow-up question.
 - Proposals for mapping targets have been tried only with a stand-in provider. The design was tried
-  with Claude Sonnet on real workbooks: an update of a known layout, a new model in an empty
+  with Claude Sonnet on workbooks: an update of a known layout, a new model in an empty
   workspace, and a relationship from words alone.
 
 Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPERATIONS.md#ai-proposals),

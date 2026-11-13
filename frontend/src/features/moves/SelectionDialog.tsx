@@ -9,7 +9,7 @@ import { filterFields, FilterBar } from "@/features/objects/filters/FilterBar";
 import type { CollectionFilter, EngineModel, MoveChoice, ObjectItem } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
-import { modeWords } from "./moveRun";
+import { modeWords } from "@/model/moveRun";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
 type Kind = "mapped" | "all" | "types" | "subtree";

@@ -5,7 +5,7 @@ import { useAiTask } from "./useAiTask";
 import { designTask } from "./designFixture";
 
 vi.mock("@/api/aiClient", () => ({ ai: { task: vi.fn() } }));
-vi.mock("@/features/jobs/useJobStream", () => ({ useJobStream: vi.fn() }));
+vi.mock("@/state/useJobStream", () => ({ useJobStream: vi.fn() }));
 
 describe("useAiTask", () => {
   it("gives the page and the journey bar one copy: a write's answer reaches both", async () => {

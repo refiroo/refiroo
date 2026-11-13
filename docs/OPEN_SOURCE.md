@@ -21,7 +21,7 @@ example model and data are synthetic.
 
 **Project identity.** Name: refiroo. Domains: refiroo.com (the website), refiroo.org, refiroo.dev.
 Repository: <https://github.com/refiroo/refiroo> (the Python distribution and directories keep the name
-`rdm-engine`, [OPERATORING](OPERATORING.md)). Contact: krisztian.toth@refiroo.org; security reports:
+`rdm-engine`, [BRANDING](BRANDING.md)). Contact: krisztian.toth@refiroo.org; security reports:
 security@refiroo.org ([SECURITY.md](../SECURITY.md)).
 
 **Policies.** [CONTRIBUTING](../CONTRIBUTING.md) (no outside code until a counsel-reviewed contributor
@@ -51,7 +51,6 @@ bundling them with software; the font files are not modified. To upgrade: change
 ## Before the first public release
 
 - Finish the licensing work in [LICENSING_TODO](LICENSING_TODO.md).
-- Replace STOPS-oriented seed terminology if the repository should be entirely generic.
 - Add a code of conduct (with the contributor agreement).
 - Run the secret scan over the whole history (`gitleaks`) once, before the first push.
 - Confirm that all committed examples are synthetic.

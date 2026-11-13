@@ -1,7 +1,7 @@
 """The lists of a sheet laid out for reading (``engine/sources/layout.py``, 0.10 A8a, D115, D119).
 
 A sheet is given as a grid of the cells written into it; each case names the shape it holds, as the
-user's reading-layout workbooks do: lists side by side and stacked, a header with an empty row under
+reading-layout workbooks do: lists side by side and stacked, a header with an empty row under
 it, titles over several lists, a note under a header and prose.
 """
 

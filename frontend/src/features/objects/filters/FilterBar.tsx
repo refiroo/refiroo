@@ -14,12 +14,8 @@
 import { keyScope } from "@/model/candidates";
 import { useEffect, useState } from "react";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
-import {
-  relationFilterEntries,
-  relationFilterMode,
-  type NamedRecord,
-  type RelationMode,
-} from "@/features/objects/RelationFilter";
+import { relationFilterEntries, relationFilterMode, type RelationMode } from "@/features/objects/RelationFilter";
+import type { NamedRecord } from "@/ui/relationFilterNames";
 import { attributeName } from "@/model/fields";
 import { RELATED_FIELD_PREFIX, relatedAncestorTypes, relatedTargetTypes } from "@/model/lookup";
 import type { CollectionFilter, EngineModel, ValueType } from "@/types";

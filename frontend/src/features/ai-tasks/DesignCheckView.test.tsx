@@ -71,7 +71,7 @@ describe("DesignCheckView", () => {
     const table = screen.getByRole("group", { name: "Check per sheet" });
     expect(within(table).getByText("Records the structure needs")).toBeInTheDocument();
     expect(within(table).queryByText("Structure Topic")).not.toBeInTheDocument();
-    expect(screen.getByText(/Row 14: No category named Walk-in/)).toBeInTheDocument();
+    expect(screen.getByText(/Row 14: No category named Extra run/)).toBeInTheDocument();
     expect(screen.getByText(/Installs the model change and activates it in West/)).toBeInTheDocument();
   });
 
@@ -80,8 +80,8 @@ describe("DesignCheckView", () => {
     show(true, onLoad);
     fireEvent.click(screen.getByRole("button", { name: "Activate the model and load" }));
     expect(onLoad).toHaveBeenCalledWith({
-      changeSetName: "Load of scheduling",
-      saveProfile: { key: "scheduling", name: "scheduling" },
+      changeSetName: "Load of timetable",
+      saveProfile: { key: "timetable", name: "timetable" },
     });
   });
 

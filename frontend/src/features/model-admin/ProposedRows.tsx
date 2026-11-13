@@ -6,7 +6,7 @@
  * conversion and a relation type's new key follow as lines.
  */
 
-import { ProposedPill } from "@/features/model-editor/ProposedBecause";
+import { ProposedPill } from "@/ui/ProposedBecause";
 import type { DraftMigration, DraftMigrationRow, EngineModel } from "@/types";
 
 const NOT_KEPT = "";

@@ -25,10 +25,10 @@ vi.mock("@/api/client", async (importOriginal) => ({
   api: { workspace: vi.fn(), job: vi.fn(), model: vi.fn() },
 }));
 vi.mock("./useAssistantOffers", () => ({ useAssistantOffers: () => ({ changeModel: true, askRecords: true }) }));
-vi.mock("@/features/jobs/useJobStream", () => ({ useJobStream: vi.fn() }));
+vi.mock("@/state/useJobStream", () => ({ useJobStream: vi.fn() }));
 const groups = vi.hoisted(() => ({ held: ["change-sets", "model-release"] as string[] }));
-vi.mock("@/features/security/permissions", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/security/permissions")>()),
+vi.mock("@/state/permissions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/state/permissions")>()),
   useHeldAnywhere: () => [{ key: "model-release", name: "Model release", instance: true, workspaces: [] }],
   useWorkspacePermissions: () => ({
     workspaceKey: "west",
@@ -136,7 +136,7 @@ describe("The assistant task page (0.16 AP6a, AP10)", () => {
     await waitFor(() =>
       expect(ai.runTask).toHaveBeenCalledWith("task-1", {
         expectedVersion: 4,
-        changeSetName: "Load of scheduling",
+        changeSetName: "Load of timetable",
         saveProfile: { key: "supplier-systems", name: "Supplier Systems" },
       }),
     );

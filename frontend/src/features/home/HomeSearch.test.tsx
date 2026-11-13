@@ -6,7 +6,7 @@ import { testModel } from "@/test/fixtures";
 import type { ObjectItem, OwnWorkspace } from "@/types";
 
 const openIn = vi.fn();
-vi.mock("@/features/home/openWorkspace", () => ({
+vi.mock("@/state/openWorkspace", () => ({
   openIn: (...args: unknown[]) => openIn(...args),
 }));
 vi.mock("@/model/workspaceModels", () => ({
@@ -15,7 +15,7 @@ vi.mock("@/model/workspaceModels", () => ({
 }));
 
 const workspace = (key: string, label: string) => ({ key, label }) as OwnWorkspace;
-const workspaces = [workspace("stops", "STOPS Reference Data"), workspace("timetables", "Timetables")];
+const workspaces = [workspace("stops", "Graubünden stops"), workspace("operators", "Operators")];
 
 const record = (id: string, name: string, workspaceKey: string): ObjectItem =>
   ({
@@ -35,7 +35,7 @@ const record = (id: string, name: string, workspaceKey: string): ObjectItem =>
 const found = [
   record("a1", "Station alpha", "stops"),
   record("a2", "Station beta", "stops"),
-  record("b1", "Station gamma", "timetables"),
+  record("b1", "Station gamma", "operators"),
 ];
 
 async function typeStation() {
@@ -61,14 +61,14 @@ describe("HomeSearch (0.17 UX1)", () => {
   it("asks every workspace and groups the results by workspace label", async () => {
     render(<HomeSearch workspaces={workspaces} onNavigate={vi.fn()} />);
     await typeStation();
-    expect(api.findRecordsAcross).toHaveBeenCalledWith(["stops", "timetables"], "station");
+    expect(api.findRecordsAcross).toHaveBeenCalledWith(["stops", "operators"], "station");
     const results = within(screen.getByRole("listbox"));
-    expect(results.getByText("STOPS Reference Data")).toBeInTheDocument();
-    expect(results.getByText("Timetables")).toBeInTheDocument();
+    expect(results.getByText("Graubünden stops")).toBeInTheDocument();
+    expect(results.getByText("Operators")).toBeInTheDocument();
     expect(results.getAllByRole("option").map((option) => option.getAttribute("aria-label"))).toEqual([
-      "Station alpha, STOPS Reference Data",
-      "Station beta, STOPS Reference Data",
-      "Station gamma, Timetables",
+      "Station alpha, Graubünden stops",
+      "Station beta, Graubünden stops",
+      "Station gamma, Operators",
     ]);
     expect(screen.getByRole("status")).toHaveTextContent("3 records found");
   });
@@ -84,16 +84,16 @@ describe("HomeSearch (0.17 UX1)", () => {
     fireEvent.keyDown(box, { key: "Enter" });
     expect(openIn).toHaveBeenCalledTimes(1);
     const [workspaceKey, path, navigate, route] = openIn.mock.calls[0];
-    expect(workspaceKey).toBe("timetables");
+    expect(workspaceKey).toBe("operators");
     expect(path).toContain("/apps/test-app/objects/domain/b1");
-    expect(path).toContain("workspaceKey=timetables");
+    expect(path).toContain("workspaceKey=operators");
     expect(navigate).toBe(onNavigate);
     expect(route(testModel)).toEqual({
       kind: "detail",
       applicationKey: "test-app",
       objectTypeKey: "domain",
       objectId: "b1",
-      workspaceKey: "timetables",
+      workspaceKey: "operators",
     });
 
     openIn.mockClear();
@@ -108,7 +108,7 @@ describe("HomeSearch (0.17 UX1)", () => {
   it("opens a record on a click", async () => {
     render(<HomeSearch workspaces={workspaces} onNavigate={vi.fn()} />);
     await typeStation();
-    fireEvent.click(screen.getByRole("option", { name: "Station beta, STOPS Reference Data" }));
+    fireEvent.click(screen.getByRole("option", { name: "Station beta, Graubünden stops" }));
     expect(openIn.mock.calls[0][1]).toContain("/a2?");
   });
 

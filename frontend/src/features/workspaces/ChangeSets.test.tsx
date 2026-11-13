@@ -4,7 +4,7 @@ import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import type { ModelReleaseSummary, ChangeSet, PublicationRequest } from "@/types";
 import { permissionsFixture } from "@/test/permissions";
-import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import * as workspaceContext from "@/state/WorkspaceDataContext";
 import { ChangeSetActions, ChangeSetDiagnostics, ChangeSets } from "@/features/workspaces/ChangeSets";
 
 // The real hook keeps the person for the page load, so a test would see the first one read.

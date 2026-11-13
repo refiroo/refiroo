@@ -3,7 +3,7 @@ import { readLocalPreference, useLocalNumberPreference, writeLocalPreference } f
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { EditableField, fieldEditing, type FieldLayout } from "@/features/objects/EditableField";
-import { useWorkspaceData, useDataApi, useRecordWrites } from "@/features/workspaces/WorkspaceDataContext";
+import { useWorkspaceData, useDataApi, useRecordWrites } from "@/state/WorkspaceDataContext";
 import { changedObjectType, errorMessage } from "@/api/errors";
 import { fallbackDetail } from "@/model/defaults";
 import { fieldValue } from "@/model/fields";

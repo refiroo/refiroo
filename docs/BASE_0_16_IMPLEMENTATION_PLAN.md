@@ -51,7 +51,7 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
   > and import, or map it to the current model and import, or extend. the current model, etc.
   > or as per your example: change the values of x based on the xls column y, add this translation,
   > add this system variant, add a new business
-  > add a new relationship between duration and stations but only if driver assigned, etc."
+  > add a new relationship between frequency and stations but only if driver assigned, etc."
 
   > "of course it is an instruction driven assistant. people already got used that they just use even
   > a loosely formulated english to describe what they would like to and they give it as a prompt,
@@ -134,7 +134,7 @@ keeps the reasoning.
 | AP-D19 One set of tools, two drivers | **Dropped** | The two drivers share the API instead. Track A is unaffected: AG-D4 calls the routes' service functions |
 | AP-D20 What the person sees | Changed | A proposal, its check, the questions and the draft in the editor. Not a plan of steps |
 | AP-D21 Providers that cannot do this | Changed | What it needs is a session command; without it `POST /ai/tasks` is `409 AI_NOT_CONFIGURED` (AP10, AP-D38) |
-| AP-D22 Real-file try | Kept | AP13 |
+| AP-D22 sample-file try | Kept | AP13 |
 | AP-D23 Who sees a task | Kept | |
 | AP-D24 Retention | Kept | Met by AP9 |
 | AP-D25 Files per task | Changed | One file is built; up to three is not. Kept to one unless a real case asks |
@@ -172,7 +172,7 @@ keeps the reasoning.
 | AP-D19 | One set of tools, two drivers | **Approved by the user 2026-10-27. The planning tools of AP-D15 are the engine's own capabilities, exposed in-process to the built-in assistant and, in Track A, over MCP to an outside assistant.** Same authorization, same validation, one implementation. The cost is that file upload is not an MCP tool (binary): an outside assistant works on files already uploaded in the browser or by API. |
 | AP-D20 | What the person sees | **Approved by the user 2026-10-27. The editor, extended by one panel.** A task page (reachable from home and from a workspace) with the attachment, the instruction, the assistant's reading of the file (sheets, blocks, columns and what it thinks each is, editable), the plan as steps marked Proposed in the editors people know, and the dry run beside it in plain counts ("412 rows: 380 new, 20 changed, 12 refused", each refusal with its reason and row). A workbook attached with no instruction offers three or four likely tasks. A mock-up goes with AP6's detailed plan for approval before any build (the user's rule). |
 | AP-D21 | Providers that cannot do this | **Approved by the user 2026-10-27. AP6 needs a provider that supports tool use and structured answers.** The Claude adapter does; an OpenAI-compatible endpoint does if the model behind it supports tool calls, which a small local model may not. Settings › AI reports per feature whether the configured provider can do it, and the task page is hidden when it cannot. No quality promise for small models. |
-| AP-D22 | How is it tested? | **Approved by the user 2026-10-27. Scripted journeys with the fake provider, which returns a prepared plan for a prepared instruction.** They prove the engine's side: the plan is applied exactly, refused rows are reported, follow-ups revise, nothing runs unconfirmed, the file is not sent beyond the level. They cannot prove the assistant understands loose English; that needs **a real-file try**: the user's own complex workbooks, the five task kinds of AP6, run with a real provider on the user's go-ahead, cost stated first, results judged by the user. This is a package acceptance step, not left to R. |
+| AP-D22 | How is it tested? | **Approved by the user 2026-10-27. Scripted journeys with the fake provider, which returns a prepared plan for a prepared instruction.** They prove the engine's side: the plan is applied exactly, refused rows are reported, follow-ups revise, nothing runs unconfirmed, the file is not sent beyond the level. They cannot prove the assistant understands loose English; that needs **a sample-file try**: the user's own complex workbooks, the five task kinds of AP6, run with a real provider on the user's go-ahead, cost stated first, results judged by the user. This is a package acceptance step, not left to R. |
 | AP-D23 | Who sees a task? | **Approved by the user 2026-10-27. Its owner, and a person with the permission to administer the workspace it targets.** A task holds the person's instructions and the assistant's replies, which can name records. Not shared by default; handing a task to a colleague is out of scope for this release. |
 | AP-D24 | What is stored, for how long? | **Approved by the user 2026-10-27. The instructions, the assistant's replies, the plan versions and the dry-run summaries, for `AI_TASK_RETENTION_DAYS` (default 90) after the task finishes or is abandoned; never the rows or samples sent to the provider** (AP-D4: content is not kept unless `AI_LOG_CONTENT` is on). The source file follows the existing source-file retention. A saved profile and the change set are ordinary resources and outlive the task. |
 | AP-D25 | How many files and how large? | **Approved by the user 2026-10-27. Up to three files per task (`AI_TASK_MAX_FILES`), each within `IMPORT_MAX_BYTES`;** XLSX and CSV only, as source files accept today. A task over a limit is refused when attached, not when it runs. |
@@ -385,26 +385,19 @@ were approved. Backend and frontend were built by Sonnet agents from briefs, rev
   leaves out a field that repeats its name or holds a UUID.
 - The reason must name records, never the references (prompt `mapping-targets/2`).
 
-**Found by the user on realistic data (2026-10-28) and fixed:** the mapping grid listed every record of
+**Found on realistic data (2026-10-28) and fixed:** the mapping grid listed every record of
 the source type as a source of every mapping view, ignoring the binding's criteria at the source end
 (0.9 K7, D171), so its "unmapped" rows, counts and the proposals included records that may never be
 mapped there. `MappingScope.source_clauses`: a source meets the source-end criteria or already holds an
 edge of the binding (D175); coverage, its counts and filters and the proposal job's selection all use
-it (J10.12, J49.3). The user's development model was given the criteria through the API (release
-`rdm-operators-timetables` 0.9.13 in `default`, `candidates.from` = `ancestor:system-group.name` per
-target; before/after inventory: only those five and the release version changed); in `default` both
-timetable views then have 0 unmapped values, where they showed 200 and 14. The example model file is
+it (J10.12, J49.3). The example model file is
 unchanged: 31 older test modules and runners map system values without groups. The relation matrix's
 row side may have the same gap; not checked.
 
-**Real-model try** (the user's local `qwen3.5:9b-mlx`, `.dev/settings.env`, one transaction rolled back, tool
-`scratchpad/ap2-try/try_mapping_targets.py`). The first three calls, before the sizing, ran back to back
-without being announced: 19 s with no candidates (the workspace has none of the target type), 82 s not
-answering in shape, 133 s ending in Ollama's `500` with a prompt of about 6,100 tokens against the 4,096
-window Ollama serves the model with. They loaded the user's laptop for about four minutes. After the
-fixes, one announced call with the window set to 4,096: 14 sources and 15 candidates (about 940 tokens),
-answered in 54 s in shape; 7 sensible targets (98%, 95%, 90%), 7 left unmapped, among them sources whose
-code prefix names a candidate; the reasons named the references, fixed in `mapping-targets/2` (not tried
+**Real-model try** (a local `qwen3.5:9b-mlx`, `.dev/settings.env`, one transaction rolled back). The first three calls, before the sizing, ran back to back
+without being announced: one with no candidates, one not answering in shape, one ending in Ollama's `500` with a prompt of about 6,100 tokens against the 4,096
+window Ollama serves the model with. They loaded the laptop for about four minutes. After the
+fixes, one announced call with the window set to 4,096 answered in shape in under a minute with mostly sensible targets; the reasons named the references, fixed in `mapping-targets/2` (not tried
 again).
 
 **Checks:** J49 (30 cases, two configurations), the proposal unit tests, `test_config`, J48, J31 and the
@@ -449,15 +442,7 @@ Words without a workbook work the same way. A file whose saved profile still fit
 **What stays from the earlier designs:** the task, its page and journey bar, the draft, the dry run, the guards on
 the session, and every fix they made to the import engine (listed in the AP6 progress notes in the history).
 
-**Where the user's cases stand on real files (from the [usage log](#ai-usage-log-for-hosting-cost-planning)):**
-
-| Case | Under AP8 |
-| --- | --- |
-| A, an update | Words only: works (185 records). "Update from this file": works since AP10, by a key of two columns: 0 new, and a changed price changes that price alone, no AI on a saved layout. The acceptance workbook: not tried |
-| B, C, additions and new relations | Not tried; recorded as untried (the user, 2026-11-02, AP13). They worked on the earlier design only |
-| D, E, new or related application | Loaded on two workbooks, nothing refused. Over the time limits, and the same words gave very different models (AP11) |
-| Reshaping | One try: 6,816 created, 667 changed. Values not checked by a before/after count, and it took 922 s (AP12) |
-| Scenarios as worded: translations, system variants, a new business | Not tried; recorded as untried (the user, 2026-11-02, AP13) |
+**Where the user's cases stand on sample files:** an update works with words only, and "Update from this file" works since AP10 by a key of several columns (no new records, a changed value changes that value alone, no AI on a saved layout); additions and new relations are not tried under AP8 (recorded as untried by the user, 2026-11-02, AP13); a new or related application loaded on two workbooks with nothing refused, over the time limits, and the same words gave very different models (AP11); reshaping had one try, values not checked by a before/after count and slow (AP12); the scenarios as worded are not tried.
 
 **The open work, every item with one package:**
 
@@ -525,7 +510,7 @@ The scripted session (`helpers/session-stand-in.py`, and J50.30's command) gains
 
 **One measurement:** a 2,000-record load into a change set, timed before and after the stamp (the basics rule). Nothing larger, as the stamp is one more value in existing statements.
 
-**The real try:** one real Claude Code session in a scratch workspace on the Timetables workbook, up to publication there, as a person. It confirms what was taken from memory (the stream's message IDs and usage, the result's `usage` and cost, the session's model in its first line, the transcript's path) and compares the recorded tokens and cost with what the session reported, logged in the [usage log](#ai-usage-log-for-hosting-cost-planning).
+**The real try:** one real Claude Code session in a scratch workspace on a small workbook, up to publication there, as a person. It confirms what was taken from memory (the stream's message IDs and usage, the result's `usage` and cost, the session's model in its first line, the transcript's path) and compares the recorded tokens and cost with what the session reported, logged in the [usage log](#ai-usage-log-for-hosting-cost-planning).
 
 **Working beside other sessions:** AG2 is being delivered in this checkout. Its code files do not overlap with these, and AG2 adds no migration. Several documents do overlap, so commits hold AP9's hunks only.
 
@@ -547,7 +532,7 @@ Built as planned, with three changes found in the work:
 
 **One measurement,** a 2,000-record batch into a change set: 1.77 and 1.79 s as a person, 1.89 and 1.83 s as a session, about 4%. 200 records: 0.20 to 0.34 s.
 
-**The user's own try, task `e5f1f1e2`, first turn (2026-10-31):** one call row, `claude-sonnet-5-5`, $1.113 equal to the session's figure, 2,330,341 tokens in equal to its result line. Tokens out read 939 against its 27,542, as the stream holds a message's output before it is written; fixed, the result line's figure now stands.
+**A first real turn (2026-10-31)** showed that tokens out were read from the stream before a message was complete; fixed, the result line's figure now stands.
 
 **Not done: the rest of the real try.** Still unseen with real Claude Code: whether cost and tokens out are running totals over turns, the marks after a real load and publication, and the transcript's removal. A person's token needs a real sign-in, and creating a client with instance roles for the try was refused by the permission check. **It waits for the user.** Until then AP-D36's figures and AP-D37's transcript removal hold only against a scripted session.
 
@@ -564,7 +549,7 @@ Built as planned, with three changes found in the work:
 - **Repeating next month (AP-D13).** The session is not asked to save a profile, so the no-AI path may never apply to
   its loads. A load leaves a saved profile.
 - **Updating from a file.** A key may span several columns (AP-D43).
-- **The session's leftovers.** Unused releases (0.10.3, 0.10.5), and sessions reusing another task's draft (tasks 53, 57).
+- **The session's leftovers.** Unused releases, and sessions reusing another task's draft.
 - **The proposal page** looked at in a browser, and journeys only where the tries showed a need. J50 is 9 tests, 3 on
   sessions.
 - **Documents:** `API.md` and `USER_JOURNEYS.md` J50 still describe the turns, `ARCHITECTURE.md` both designs.
@@ -576,9 +561,9 @@ Built as planned, with three changes found in the work:
 - **The switches.** `POST /ai/tasks` needs `AI_PROVIDER` (`ai_requested`, `409 AI_NOT_CONFIGURED`), and Settings › AI shows "No AI provider" without it, though a session uses no provider. With only `AI_PROVIDER`, words alone reach `_propose`, which reads a saved profile from a reading the task does not have, so it looks set to fail; not run.
 - **The old design is mostly gone already.** Nothing writes `links`, `derived`, `sheets`, `records` or `explains` into a task's design any more, but `design_job.py`, `draft_plan.py` and the page still read them. Reading the imports alone calls most of this code reachable, so each removal is confirmed by its field having no writer.
 - **The rules-only path has no configuration left.** It runs only when `AI_AGENT_COMMAND` is empty and `AI_PROVIDER` is set. With one switch, nothing reaches it. This differs from the list above, which keeps it: see AP-D39.
-- **A session's profile can be recovered.** Every import job holds its profile in `parameters.profile.definition`, and all the sessions' import jobs in tasks 53 to 67 loaded a file of the workbook's name and size. A saved profile is checked against the workspace's running release, which a session's new model is not yet, so it must be checked against the change set's release.
-- **Most session loads would not repeat as they are.** Of the 9 tasks from 53 to 67 with a completed import, 6 have an `upsert` source with no key (56, 57, 62, 63, 64, 66), so a second run would create those rows again.
-- **Leftovers.** Tasks 52 and 53 share draft 103, and tasks 56 and 57 share draft 106. Releases 0.10.3 and 0.10.5 are on no workspace and no change set.
+- **A session's profile can be recovered.** Every import job holds its profile in `parameters.profile.definition`, and a session's import jobs loaded a file of the workbook's name and size. A saved profile is checked against the workspace's running release, which a session's new model is not yet, so it must be checked against the change set's release.
+- **Most session loads would not repeat as they are.** Sources of a session's loads were an `upsert` with no key, so a second run would create those rows again.
+- **Leftovers.** Two tasks could share one draft, and releases installed by failed sessions could stay on no workspace and no change set.
 
 | # | Decision | Why |
 | --- | --- | --- |
@@ -586,7 +571,8 @@ Built as planned, with three changes found in the work:
 | AP-D39 | **Approved by the user 2026-10-31. The rules-only task path is removed: it overrides "the rules-only path keeps what it uses" above.** `POST /ai/tasks/{id}/plan`, `queue_plan`, `queue_run`, `run_plan` and their helpers, and the Reading and Check views go. The ordinary import and its profile dialog are not touched. | No configuration reaches it under AP-D38. It is removed because nothing can run it, not because the UI does not use it, which the API-first rule forbids. Cost: a client that called `/plan` gets 404; before 1.0 that is allowed. |
 | AP-D40 | **The old design goes.** All of `links.py` and `turns.py` (its one constant moves or goes with its reader), `design.py` and the unreached parts of `design_job.py`, `draft_plan.py`, `design_checks.py`, `matching.py`, `plan.py`, `job.py`; `workbookLoad` as a provider purpose and the fake's answer for it; `AI_MAX_STEPS`; `DesignLinks`, `DesignRecords` and what only they use. What J50.12's saved-layout path and J50.30's session run stays. Old rows in `ai_calls` stay readable. | The list above. A dead branch here reads as design and has already misled plans. |
 | AP-D41 | **The engine saves a profile from the load,** in `accepted`, after the non-empty check. It reads the change set's completed import jobs whose file's hash is the task's workbook, joins their sources and value maps, checks them against the change set's release, and stores `checked_release_id` as that release. The same key next time is the next version. The session is not asked to save it. **No profile is saved, and the task says why, when:** the change came only through batches, another file was loaded, or a source has no key. | It holds whatever route the session took (AP-D29). A keyless source would create its rows again next month, so saving it would promise a repeat that duplicates. |
-| AP-D42 | **The session is told each source needs a key** that finds its records on the next file, several columns if needed, and to raise it as a question if none exists. **The proposal warns** when a type the workspace holds records of would get new ones: "667 new Products beside the 667 held: if this is an update, the rows did not find their records." Accept stays available. | A prompt alone does not hold, so task 57's mistake also shows before anything is installed. Whole-set figures come from the dry run. |
+| AP-D42 | **The session is told each source needs a key** that finds its records on the next file, several columns if needed, and to raise it as a question if none exists. **The proposal warns** when a type the workspace holds records of would get new ones: "40 new Stops beside the 40 held: if this is an update, the rows did not find their records." Accept stays available. | A prompt alone does not hold, so a session's mistake of loading an update as new records also shows before anything is installed. Whole-set figures come from the dry run. |
+| AP-D43 | **Approved by the user 2026-10-31. A key may span several columns.** `SourceKey.attributeTypeKeys`, two or more, each bound by a column in the source. The combination must identify one stored record or the row is refused, as `storedUnique` does; an empty cell in any of them is a row without a key, under `rowsWithoutKey`. Matching is in SQL over the import's temporary tables, in live data and in a change set, and `missing` follows. No model change. The session chooses the columns, and the saved-layout fit (`profile_reading`) and the reading's figures understand it. Batch `upsert` keys are not changed, as no journey asks. | The waiting decision above. The alternative, refusing re-import matching, leaves a file whose identifier repeats unable to update from a re-import. Cost: a changed value in a key column reads as a new record, shown by AP-D42's warning and the dry run. The file's values are kept as they are; a repeated identifier is not corrected. |
 | AP-D44 | **A session may not write a draft another task holds:** `409 AI_TASK_DRAFT_HELD` on its model-draft writes, by AP-D30's client and `ai_tasks.draft_id`, and the same check when a proposal lands. The session then makes a draft of its own. A person's draft that no task holds stays open to it. | Enforced by the engine, as a prompt would not hold. Otherwise one task's session can change a draft another person is reviewing, and one task's expiry deletes the other's draft. |
 | AP-D45 | **When a task ends, a release its client installed that no workspace or change set uses is retired,** not deleted, as history may name it. Existing ones are left. | "Exactly one release" is only a prompt. A retry or a failed load must not leave a release behind. |
 
@@ -608,14 +594,14 @@ Settings › AI
 
 Proposal
   Two sentences · shape per type · questions · Accept | Say what to change
-  ! 667 new Products beside the 667 held. If this is an update,   <- new
+  ! 40 new Stops beside the 40 held. If this is an update,   <- new
     the rows did not find their records.
 
 Loaded
-  Change set "…": 667 updated
+  Change set "…": 40 updated
   Saved the profile "…": the next file of this layout loads       <- exists
   without the assistant.
-  Not saved as a profile: sheet "Packages" has no key, so         <- new
+  Not saved as a profile: sheet "Lines" has no key, so         <- new
   a second load would create its rows again.
 ```
 
@@ -634,7 +620,7 @@ Unit tests for the key's validation in `check_profile`. `AiTaskPage.test` and `A
 
 **The proposal page in a browser:** the `ap1-ai` runner with the stand-in session on two models, covering the proposal with its warning, the loaded page with and without a profile, keyboard and 390px, with screenshots inspected. Reference: the existing proposal page.
 
-**The real try, before and after on the real model:** in a scratch workspace, Tariff File with few words through a session to publication, recording records, values and relationships. Then the same file with "Update from this file", which must give no new products. Then a copy with one price changed, which must take the no-AI path and change only that. Logged in the [usage log](#ai-usage-log-for-hosting-cost-planning) with tokens and cost.
+**The real try, before and after:** in a scratch workspace, a workbook with few words through a session to publication, recording records, values and relationships. Then the same file with "Update from this file", which must give no new records. Then a copy with one value changed, which must take the no-AI path and change only that. Logged in the [usage log](#ai-usage-log-for-hosting-cost-planning) with tokens and cost.
 
 **Working beside other sessions:** needs AP9's `ai_tasks.client_id` and `session` kind, so the build starts once those are saved in the checkout. AP9 holds `_access`, `_end`, `_await_its_jobs`, `_reached`, `_run_turn`, `_Progress`, `_retention` and `remove_folder` in `agent.py`, `store.expire`, the worker's sweep and `AiPage`; AP10 adds to `AiPage` after it, and keeps the line AP9 adds to `accepted` and `discard` that retires the task's client. AG2 is being delivered too, and backend `pytest` runs go one at a time across AG2, AP9 and AP10, in agreed windows. Commits hold AP10's hunks only. AP11 reads the same prompts.
 
@@ -644,57 +630,41 @@ Unit tests for the key's validation in `check_profile`. `AiTaskPage.test` and `A
 
 #### AP10 record (2026-10-31)
 
+**A real try, as in the [usage log](#ai-usage-log-for-hosting-cost-planning).** A session keyed a type on two columns, as one identifier repeats, and kept the repeat as a question; every row was checked, none refused, the records were created in a change set, a saved profile was left, and a person activated and published. Before and after the repeats, an inventory of records per type with their names, relationships and values (with a hash of all of them) was identical. The same file again, with no AI, gave 0 created, 0 updated and all rows unchanged; a copy with one value changed gave 1 updated and the rest unchanged, on that value alone.
 
-| The same words again | AI | Result |
-| --- | --- | --- |
-| The same file, before the fit fix | one session, $1.52, 6 min | Every row unchanged, no duplicates; the saved layout was not taken |
-| The same file | none, 11 s to the proposal | 0 created, 0 updated, 19,919 unchanged; live data identical |
-| A copy with one price changed (200 to 201) | none | 1 updated, 19,910 unchanged: `price-amount` on that price alone |
-
-**What the try found, each fixed with its test:** the fit refused any workbook with a sheet its profile left out; a session's direct upload left the next file nothing to compare with; the page's summary gave the generic matcher's figures ("8 are new") in place of the profile's; rows skipped for an empty key read as refused, and a check from before the draft's last change read as current (both found in the user's try, task e5f1f1e2). **An earlier try is not evidence:** task 2e5867a6 ran on the dev server's old code, as its reloader had stopped; the server was restarted by the user.
+**What the try found, each fixed with its test:** the fit refused any workbook with a sheet its profile left out; a session's direct upload left the next file nothing to compare with; the page's summary gave the generic matcher's figures in place of the profile's; rows skipped for an empty key read as refused, and a check from before the draft's last change read as current. **An earlier try is not evidence:** one ran on the dev server's old code, as its reloader had stopped.
 
 **Checks exercised:** J48, J49, J50 (with J50.31, J50.37 to J50.42), J27, J34, J35, J36, boundaries, error codes, API journeys and the OpenAPI lock, passing; `ap1-ai` on two object types, 1440px and 390px, light and dark, keyboard, axe 70 states with 0 violations, screenshots of Settings › AI, the proposal's warning and the loaded page inspected; Vitest for `features/ai-tasks` and `AiPage`, lint 0 errors, the production build. The 2,000-record basics: an update by two columns 2.18 s, by one 1.91 s. **Deferred to R:** the full suites. **Failing without AP10, for R:** `test_batch_statements` (8), `test_j38_1_model_mapping::test_a_mapping_proposed_with_evidence` (2), `test_export_volume::test_an_export_holds_its_statements_as_the_data_grows`; the cause is not known. The jobs and contract groups took 3 min 56 s, over the 3-minute ceiling, as they include the several-process journeys.
 
-**Not exercised:** Timetables or another workbook under this path; a session on a workspace where the key is already declared unique. A session's model is not always the same, so the key it chooses may differ (AP11). The saved layout still asks the file's own conflicting values as questions on each repeat; they are kept as asked (the user's rule), and a person answering them each month may want that changed.
+**Not exercised:** a session on a workspace where the key is already declared unique. A session's model is not always the same, so the key it chooses may differ (AP11). The saved layout still asks the file's own conflicting values as questions on each repeat; they are kept as asked (the user's rule), and a person answering them each month may want that changed.
 
 ### AP11: Good models, in time
 
-- **Model shape. Built 2026-10-31, the user's decisions.** The same words gave five types on one run and one type of 87
-  attributes on another, and both pass the dry run. **Separated by default:** one generic sentence in the prompt makes what
+- **Model shape. Built 2026-10-31, the user's decisions.** The same words gave five types on one run and one wide type
+  on another, and both pass the dry run. **Separated by default:** one generic sentence in the prompt makes what
   a file repeats into types of their own, and a session keeping a repetition flat raises it as a question. **What the
   workspace holds decides the start:** with records the session adds to the model; with none, words asking for a model may
   get a new one. The proposal shows the shape from the engine's figures (attributes and records per type, relationships
   apart from records), and warns when a model leaves out types the workspace holds records of; Accept stays available.
-  **Tried on real files, three runs each, from the same words:** all six separated and loaded with 0 rejected. Price
-  Catalogue: the same 9,746 records each time; run 1's prices, VAT, enabled flags and ledgers match task 56's flat load
-  value for value. Timetables: 1,964, 1,966 and 400 records; the third keeps its 1,500 translations on relationships
-  rather than as records, and every workbook value is found in all three. **Still varies, by design:** names and details
-  of the structure (Station or Operator; translations as records or on relationships). A run may start from the workspace's
+  **Tried three times from the same words on workbooks with repeated groups and translations:** all separated and loaded with 0 rejected; the records were the same each time where the file had no translations, and translations were kept on relationships in one run and as records in others. **Still varies, by design:** names and details
+  of the structure (which level names a type; translations as records or on relationships). A run may start from the workspace's
   model and still replace it, which labels same-keyed types "Changed".
-- **Speed** against the time limits: 1 to 2 minutes for a workbook like Timetables, 5 at most for a complex one. Runs
-  take about 5 and over 5. Includes whether the session sends set work row by row. Open: the separated runs took 200 to
-  348 s on Timetables and 497 to 633 s on Tariff File, proposal and load, without a person's wait. Tariff File's
-  atomic import is refused at the 10,000-item limit, so the session falls back to row-by-row success, and pays for the
-  failed try.
+- **Speed** against the time limits: 1 to 2 minutes for a small workbook, 5 at most for a complex one. Runs
+  took longer than the limits. Includes whether the session sends set work row by row. Open: the separated runs took several
+  minutes, proposal and load, without a person's wait. An atomic import above the 10,000-item limit is refused, so the session falls back
+  to row-by-row success, and pays for the failed try.
 
 #### AP11 in detail (planned 2026-11-01, for approval)
 
-Model shape is built; this plan is the rest: the time limits. **Requirement served:** "a few words + workbook → the model and the import", within 1 to 2 minutes for a workbook like Timetables and 5 at most for a complex one, without the person's wait. Reached from the existing task page; no other capability calls it. No screen changes, so no mock-up.
+Model shape is built; this plan is the rest: the time limits. **Requirement served:** "a few words + workbook → the model and the import", within 1 to 2 minutes for a small workbook and 5 at most for a complex one, without the person's wait. Reached from the existing task page; no other capability calls it. No screen changes, so no mock-up.
 
 **Where the time goes (read from the session logs still on disk and `ai_calls`, `jobs`; no new AI run):**
 
-| Run | Total | Model generating | Engine jobs | Output tokens |
-| --- | --- | --- | --- | --- |
-| Timetables, `agent/2`, task 6dbb584b | 660 s | 550 s | not summed for this run; all commands 95 s | 68,438 |
-| Tariff File update, `agent/2`, task a2108859 | 351 s | 314 s | 7 s dry run; all commands 38 s | 41,008 |
-| Timetables, `agent/3`, `ap-full-2`, proposal | 818 s | log removed by the load | 33 s, 13 dry runs | 81,394 |
-| The same, load | 81 s | log removed | 14 s | 5,778 |
-
-- **The engine is not the bottleneck, and set work is not sent row by row.** Every load was one import job: Timetables 14 to 16 s, Tariff File 20,039 items 21 s. The `atomic` refusal at 10,000 items cost 1 s each, twice, then `independent`. **Decided:** no engine change to imports or the limit.
-- **Time follows output tokens,** at 124 to 130 tokens a second. So 120 s is about 15,000 tokens, against 41,000 to 81,000 now. In run 6dbb584b about 20,000 tokens are visible (estimated from 66,000 characters), so most are likely thinking, which the stream does not show. That is inferred, not measured.
-- **The API does not describe the model language.** `ModelDocumentRequest.model` is an open object in the OpenAPI document, though `EngineModel` has a 31 KB schema in the code. Run 6dbb584b searched the OpenAPI text and probed the validator from 142 s to 376 s (234 s, 35% of the run), including a binding feature named `bogus` that came back valid. It concluded the filter "could not be expressed", which the engine can do. Under the API-first invariant this is a defect, whatever the assistant.
-- **Walls in the session's environment.** Python cannot open a socket in the sandbox, only curl can: in run 6dbb584b one probe waited 40.7 s and the session then moved to curl; the other two logs do not show it. Two of the three logs start by reading the session's own log file in the folder. Another session tried to read the engine's source and the sandbox refused it, as it should.
-- **Not known:** how much of this `agent/3` removed, as it names the filter's syntax, yet its run was slower and its log is gone.
+- **The engine is not the bottleneck, and set work is not sent row by row.** Every load was one import job taking seconds. The `atomic` refusal at 10,000 items cost about a second, then `independent`. **Decided:** no engine change to imports or the limit.
+- **Time follows output tokens,** at about 125 tokens a second. Most tokens are likely thinking, which the stream does not show. That is inferred, not measured.
+- **The API does not describe the model language.** `ModelDocumentRequest.model` is an open object in the OpenAPI document, though `EngineModel` has a 31 KB schema in the code. A session searched the OpenAPI text and probed the validator for over a third of its run, and concluded a filter "could not be expressed", which the engine can do. Under the API-first invariant this is a defect, whatever the assistant.
+- **Walls in the session's environment.** Python cannot open a socket in the sandbox, only curl can, so a session lost time on a probe before moving to curl. Sessions also start by reading the session's own log file in the folder. A session that tried to read the engine's source was refused by the sandbox, as it should be.
+- **Not known:** how much of this the later prompt removed, as it names the filter's syntax, yet its run was slower and its log is gone.
 
 **The work:**
 
@@ -703,14 +673,9 @@ Model shape is built; this plan is the rest: the time limits. **Requirement serv
 3. **Each turn's split.** The worker logs one line per turn: total, model (`duration_api_ms`) and jobs seconds. No migration and no API change. The figures go in the usage log, as a load removes the folder and its log.
 4. **Tries, each announced and run without a stop.** Fresh scratch workspaces, the user's words, none published, each logged. `ai_calls.prompt_version = agent/4` is the proof the server runs the new code (AP10's old-code mistake).
 
-| Try | File | Command | Why |
-| --- | --- | --- | --- |
-| 1 | Timetables | as now, `claude --model sonnet` | The 1 to 2 minute limit |
-| 2 | Tariff File | as now | The 5-minute limit |
+Two sessions with their loads. **Lower effort or a smaller model is not tried (the user, 2026-11-01):** they trade the result's quality for speed. **Higher effort is not used either (the user, 2026-11-01):** sessions run at Sonnet 5.5's default, medium, as restricted mode ignores settings files. One `--effort high` try with the same words was stopped, having written its first model later than the medium run; one run, so not proof, and no second one is planned.
 
-Two sessions with their loads, about $6 at API prices going by the runs so far. **Lower effort or a smaller model is not tried (the user, 2026-11-01):** they trade the result's quality for speed. **Higher effort is not used either (the user, 2026-11-01):** sessions run at Sonnet 5.5's default, medium, as restricted mode ignores settings files. One `--effort high` try with the same words on Timetables was stopped at 706 s, having written its first model at 693 s, before any dry run; the medium run 6dbb584b wrote its model at 397 s. One run, so not proof, and no second one is planned.
-
-**A try counts only if the result holds:** 0 rejected; every filled cell compared with the change set, 0 wrong; Timetables has the station and driver types, the filter the words ask for, and category translations on the categories; Tariff File finds its next file by its key. A faster run that loses these is reported as such, not used.
+**A try counts only if the result holds:** 0 rejected; every filled cell compared with the change set, 0 wrong; the model has the types and the filter the words ask for, and category translations on the categories; a file finds its next file by its key. A faster run that loses these is reported as such, not used.
 
 **If no try meets the limits:** AP11 stops there and is recorded as not met, with the figures and the cause, and the user decides. No further runs (one measure, then ask). The fixes above remove at most about 235 s of a 660 s run, so **they are not expected to meet the limits alone**. The report then says where the remaining tokens went, from the tries' logs (the rounds of dry-run fixes took about 235 s of that run), and what could shorten them without lowering the model.
 
@@ -732,16 +697,13 @@ Unit tests: none beyond these; the split's line has no edge cases that are not c
 
 **The time limits are not met.** The fixes are built and the results hold, but the time did not move. **Accepted and closed by the user on 2026-11-01 with the limits unmet.** Sonnet at medium, prompt `agent/4`, the user's words, fresh workspaces, none published.
 
-| Try | Proposal + load | Limit | Model generating, proposal | Engine jobs | Output tokens, proposal | Cost at API prices | Earlier run |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Timetables, `ap11-mot` | 821 + 66 = 887 s | 120 s | 699 of 811 s | 26 + 13 s | 86,395 | $2.79 + $0.43 | 817 + 80 s, `agent/3` |
-| Tariff File, `ap11-price` | 384 + 66 = 450 s | 300 s | 321 of 378 s | 33 + 22 s | 39,065 | $1.22 + $0.26 | 324 + 76 s, `agent/2` |
+The tries ran on two workbooks, one with translations and one large with repeated groups.
 
-**Where Timetables' time went:** the first model at 334 s (397 s in run 6dbb584b, an older prompt), compiled at 394 s; then 14 dry runs to 789 s, about 395 s, 9 of them with rejected rows, as it added the sources sheet by sheet. **So the time moved from working out the syntax to the rounds of fixing a load,** and these are mostly the model's own generation: the jobs took 26 s. One run each, and such runs vary.
+**Where the time went:** the first model at about 5 minutes, then a dozen dry runs, about half the total, many with rejected rows, as the session added the sources sheet by sheet. **So the time moved from working out the syntax to the rounds of fixing a load,** and these are mostly the model's own generation: the jobs took seconds. One run each, and such runs vary.
 
-**The results:** 0 rejected on both. Timetables: 2,138 records and 2,466 relationships; 107 category translations on the categories and 1,500 on the types. Tariff File: 10,386 records and 9,670 relationships, profile saved. Every filled cell of the columns each profile reads was looked for in the change set: Timetables 10,429, Tariff File 12,180, 0 not found. **That check is weaker than the plan's:** it finds a value in the change set, not on its own record, and on Tariff File it misses repeated headings such as `Currency #2`, so those columns are not compared.
+**The results:** 0 rejected on both; every filled cell of the columns each profile reads was looked for in the change set, 0 not found. **That check is weaker than the plan's:** it finds a value in the change set, not on its own record, and it misses repeated headings such as `Currency #2`, so those columns are not compared.
 
-**Not met from the words on Timetables:** the field filter is fixed to the reserved slots group and does not narrow to the slot's own category, raised as a question; stations and drivers have relations and filters, but their groups were not created, so the filters name groups that do not exist, also raised. The earlier run had built them as empty types. **Not exercised:** Tariff File finding its next file by its key, which needs publishing; the per-turn log line in a real run's output.
+**Not met from the words:** a field filter was fixed to one group and did not narrow to a record's own category, raised as a question; some types had relations and filters, but their groups were not created, so the filters named groups that do not exist, also raised. The earlier run had built them as empty types. **Not exercised:** a file finding its next file by its key, which needs publishing; the per-turn log line in a real run's output.
 
 **Decided:** both try workspaces stay as unpublished scratch, as earlier tries' do.
 
@@ -783,7 +745,7 @@ Mock-up: [AP12 Change this model](https://claude.ai/artifact/9U4YPasLC7NZADihz9r
 - **The restructuring is per record.** One operation changes at most 500 records (`RECORD_LIMIT`). `changeTypeUnder` needs a parent, so records at the top level change type one operation at a time, each a preview and an apply. A batch cannot change a record's type. For a whole type this is row by row through the API.
 - **The migration is set work.** `typeMappings` moves a whole type to another in PostgreSQL. Records keep their IDs; a preview lists every conversion, loss and refusal; the data and the release switch in one transaction. It has no per-record condition, and containment the target has no place for is refused. Its code does not forbid two types mapping to one, but no test covers that merge.
 - **The way from a change set to activation exists:** a change set on a release its workspace does not run offers **Move ‹workspace› to ‹release› and publish…**, refused where the workspace requires approval (`require_direct_publication`). Activating a release that fits, then publishing as usual, also works, approval included.
-- **Task 61 (the one reshaping try) created 6,816 records.** Its log is gone, so whether anything kept its ID is not known. Nothing tells a session that a record can change type and keep its ID.
+- **The one reshaping try created every record again.** Its log is gone, so whether anything kept its ID is not known. Nothing tells a session that a record can change type and keep its ID.
 
 **Decisions (recommended, approved with this plan):**
 
@@ -816,9 +778,10 @@ Unit tests: the `moves` check, `_left_out` with a mapped type, reading `THEN_REL
 
 | Try | Data | Words | Holds only if |
 | --- | --- | --- | --- |
-| 1 | A copy of `default` (2,141 records) | Two of its types made one | The migration moves all, 0 lost, every ID kept |
+| 1 | A copy of a scratch workspace | Two of its types made one | The migration moves all, 0 lost, every ID kept |
+| 2 | A copy of a scratch workspace | A split by a value in the records | All three steps through the UI; 0 lost, every ID kept; the time recorded for AP-D53 |
 
-Two sessions with their loads, about $3 to $6 at API prices going by task 61 and AP11. Each is logged.
+Two sessions with their loads, about $3 to $6 at API prices going by AP11. Each is logged.
 
 **Browser:** one runner on two configurations with a stand-in session: the menu, the dialog, the proposal's moves, the migration page and back, the three steps, by keyboard at 1440px and 390px, light and dark, axe, no 5xx. Screenshots inspected.
 
@@ -841,11 +804,10 @@ before any change, as the grants and AP-D45 already hold them; they stay as guar
 **The unverified points.**
 
 - **J50.46, two types mapped to one: held, no engine change.** The migration merges two types into a new one with IDs, values,
-  relationships and history kept (the journey on both configurations). On a scratch copy of the dev database `duration`
-  (6 records) merged into `role` (10): 16 records, 0 IDs lost, 0 names changed, the values of 4 attributes hashed record by
-  record before and after, 0 differing, 4,562 relationships of the workspace before and after, all kept. **What the first
-  attempt showed:** with a final model that only drops `duration`, the preview refused its 6 records
-  (`PARENT_RELATION_SEMANTICS_CHANGED`) and listed 208 relationships as lost (`RELATION_PAIR_IN_USE`), and so could not be confirmed. The
+  relationships and history kept (the journey on both configurations). On a scratch copy of a workspace, merging two small types
+  lost no ID, changed no name, and kept the values of the attributes (hashed record by record before and after) and every relationship.
+  **What the first attempt showed:** with a final model that only drops one type, the preview refused its records
+  (`PARENT_RELATION_SEMANTICS_CHANGED`) and listed relationships as lost (`RELATION_PAIR_IN_USE`), and so could not be confirmed. The
   engine is right: the target type had no place for them. A merged model must give the target type the places of the type it
   absorbs. A consumer API that exposes a removed type needs its `contractVersion` raised
   (`CONSUMER_CONTRACT_VERSION_REQUIRED`), and a draft's `removeObjectType` on a type data holds is refused with
@@ -875,7 +837,7 @@ before any change, as the grants and AP-D45 already hold them; they stay as guar
   back, and shows the next step. No second activation dialog was built.
 - **The change set's own Review button is shown at step 2, not above,** so the review is not offered before step 1.
 
-**Tries (engine side, scratch copy of the dev database restored into its own database and dropped afterwards; the
+**Tries (engine side, generated records in a scratch database dropped afterwards).**
 
 | Try | Before | After | Time |
 | --- | --- | --- | --- |
@@ -883,35 +845,11 @@ before any change, as the grants and AP-D45 already hold them; they stay as guar
 | Basics, 2,000 records, two types into one | 2,000 | 2,000, 0 lost, 0 values changed | preview 0.5 s, confirm 1.0 s |
 | Basics, 200 records split by a value, one restructuring each | 200 | 200 under two types, 0 lost, 0 changed | 15.7 s (79 ms a record), publish 0.5 s |
 | Basics, 2,000 records split | 2,000 | 2,000, 0 lost, 0 changed | 186.5 s (93 ms a record), publish 3.9 s |
-| Copy of `default`: `duration` into `role` | 10 + 6 records | 16 `role`, 0 lost, 0 names or values changed, 4,562 relationships kept | preview 0.5 s, confirm 0.5 s |
 
 AP-D53's figure: a split goes one record at a time at about 80 to 140 ms each, so 2,000 records take about 3 minutes and 10,000 about
 13 to 23 minutes; the migration moves the same records in about a second. Reported, not built.
 
-**The two tries with a Claude Code session (2026-11-02, prompt `agent/6`; stopped after try 1's preview).** Run through the
-API by a client with owner, model-admin and workspace-admin (a client cannot follow the browser journey; the steps are the
-same routes), on the running dev server with its real `AI_AGENT_COMMAND`. Scratch copies were made through the API: a workspace
-on the same release, an inference mapping applied, a move in copy mode, a publish. `ai_calls.prompt_version` of the first session
-reads `agent/6`.
-
-- **Try 1, a copy of `default` (`ap12-merge-2`), "Durations and roles are really the same kind of thing: make them one type."**
-  *The copy:* 2,141 records, as `default` (same count per type, same names; values 7,035 against 7,034: the copy's target
-  model filled `active=true` on one record, "Administrative - Other", that `default` leaves empty); relationships 4,554 against
-  4,562: 8 `alternative-for` relationships were refused by the move (`RELATION_CANDIDATE_REFUSED`: the model's own candidate
-  rule is not met by `default`'s data), so the job page said "Partly applied". *The session (proposal, 200 s, 1,355,857 tokens
-  in and 17,846 out, $0.72):* it landed with the consumer API `rdm` raised 2 to 3 in `design.consumerChanges` (the fix works: the
-  list names the two types, two lists and two events no longer exposed), the two moves `duration` (6) and `role` (10) into a new
-  type `timetable-list-value`, and no left-out warning. It also added a group type `timetable-list` with records "Durations"
-  and "Roles" and changed the containment, which was not asked. *Accept (38 s, 478,616 in and 2,219 out, $0.13; $0.85 for the
-  whole session, 238 s):* task `loaded`, `result.migration` with the two mappings. *The preview answered 202 in 1.1 s but cannot be
-  confirmed:* 16 reclassified, 0 loss, **16 refused, all `PARENT_RELATION_SEMANTICS_CHANGED`** ("The target release has no place
-  for this record under its parent"): the records sit under the catalogue and the session's final model gives
-  `timetable-list-value` a place only under `timetable-list`, a type with no records, which a migration does not create. The
-  confirmation answered `409 MIGRATION_HAS_REFUSALS`. Nothing moved: the workspace still holds 2,141 records, the 6 and 10 under
-  their old types, 0 IDs lost, every ID kept (no change). Cause: the session's model, not the engine; the move check at landing
-  (`plan_migration`) did not catch it, since it runs on the draft and the refusal comes from the preview against the live records.
-  Not fixed or worked around by hand. The session also read `default` once by mistake (no workspace named on a records read, and
-  an impact summary), both refused by the grants.
+**Two tries with a Claude Code session (2026-11-02, prompts `agent/6` and `agent/7`).** Run through the API by a client with owner, model-admin and workspace-admin roles (a client cannot follow the browser journey; the steps are the same routes), on the running dev server with its real `AI_AGENT_COMMAND`, on scratch copies of workspaces. The first run merged two types and could not be confirmed: the session's final model gave the merged type a place only under a new group type that holds no records, so the preview refused every record (`PARENT_RELATION_SEMANTICS_CHANGED`), and the move check at landing (`plan_migration`) did not catch it, since it runs on the draft while the refusal comes from the preview against the live records. The causes were the session's model and a missing check, both fixed below. A split of one type by a value was not run in that round.
 
 **Checks run.** J50, J37 and J15 journeys: 168 passed (14 of them AP12's, on two configurations). `test_boundaries`,
 `test_openapi_contract` and `test_api_journeys`: 20 passed; the lock already holds AP12's schema additions, as AO1's commit was made with AP12's
@@ -924,9 +862,9 @@ configurations, the menu by keyboard and by pointer, the dialog, the proposal, t
 
 **What stays manual:** the real sessions above; nothing else.
 
-**Fixed after the real try (2026-11-02).** On a copy of `default`, the assistant merged `duration` and `role` into one type; accepting
-installed a release and the task ended `loaded`, but "Preview the migration" answered `409 CONSUMER_CONTRACT_VERSION_REQUIRED`: the
-consumer API `rdm` no longer exposed the types, their lists and events. The session's checks ran `plan_migration` only, never the
+**Fixed after the real try (2026-11-02).** On a scratch copy, the assistant merged two types into one; accepting
+installed a release and the task ended `loaded`, but "Preview the migration" answered `409 CONSUMER_CONTRACT_VERSION_REQUIRED`: a
+consumer API no longer exposed the types, their lists and events. The session's checks ran `plan_migration` only, never the
 contract check that the preview and activation apply, so nothing told the session. Now `_proposal_landed` runs
 `contract_diagnostics(workspace model, draft)` when the proposal moves types or the draft is based on a release; its errors go back
 to the session in a further turn (up to two), which raises the `contractVersion` and makes the definition expose the new type; a
@@ -949,45 +887,11 @@ what each moved type would lose (`design.moves[].lost`: records, values, relatio
 merged type must give its records the places they have now and that a migration creates no records. Tests: J50 gains two cases (the
 refusal sent back, the corrected draft previewing with 0 refusals and the records moved with their IDs; a session that never corrects fails).
 
-**The two tries, third run (2026-11-02, prompt `agent/7`, both through the API by a client with owner, model-admin, workspace-admin
-and security-admin; the browser journey's steps are the same routes, driven through the API; running dev server, real
-`AI_AGENT_COMMAND`).** `ai_calls.prompt_version` of the first session reads `agent/7`. Copies were made through the API as before
-(a workspace on the same release, an inference mapping applied, a move in copy mode, a publish): `ap12-merge-3` from `default`
-(2,141 records and 4,554 relationships, the 8 `alternative-for` relationships refused as known; `default` holds 4,562) and
-every row (per type: record count, ID set, one value hash per record, relationships by type, from and to), taken after the copy was
-published and after the last step.
+**The two tries, third run (2026-11-02, prompt `agent/7`).** Both ran through the API by a client with owner, model-admin, workspace-admin and security-admin roles, on scratch copies of workspaces, with before/after inventories in SQL over every row (per type: record count, ID set, one value hash per record, relationships by type, from and to).
 
-- **Try 1, `ap12-merge-3`: "Durations and roles are really the same kind of thing: make them one type."** *Proposal* (147 s of
-  session, 1,435,916 tokens in and 15,274 out, $0.77): two moves, `duration` (6 records) and `role` (10) into a new type
-  `timetable-option` that keeps the six attributes they share and both places under the timetable catalogue; the 208
-  `has-duration` and 199 `requires-role` relationships kept; `design.consumerChanges` names `rdm`, 2 to 3, with the six lines (the
-  two types, two lists and two events no longer exposed); `design.moves[].lost` empty for both; no left-out warning; three
-  questions with assumed answers (unfiltered pickers, the two other empty duration types left alone, one list
-  `timetable-options`). *Accept* (22 s of session, 482,522 in and 1,832 out, $0.13): task `loaded`, `result.migration` with the
-  two mappings; the session raised the release version to `0.9.25` itself after a `RELEASE_IDENTITY_CONFLICT`. *Migration
-  preview:* 202 in 1.1 s, 16 reclassified, 0 conversions, **0 losses, 0 refusals** (the second run refused all 16);
-  confirmed without `acceptLoss` (the proposal had shown no loss), 1.1 s, 16 applied, job completed, the workspace runs
-  `0.9.25`. *Before/after:* 2,141 records before and after, **0 IDs lost**, 0 new, every ID kept; the 16 records changed type and no
-  other record did; `timetable-option` holds 16 = the 6 durations and 10 roles (the union), `duration` and `role` hold none; 0 names
-  changed, 0 parents changed, 0 value hashes differing, 0 value counts differing; 4,554 relationships before and 4,554 after, 0 lost
-  (by ID, and by type, from, to and attributes), 0 new. Against `default` minus the 8 refused: 4,562 less 8 is 4,554, as in the copy.
-  Nothing lost, so nothing the proposal had to show. *Time:* proposal 141 s to "checked", accept 24 s, preview 1.1 s, confirmation 1.1 s.
-  Session cost $0.91 at API prices. A second preview was started by mistake of the scratch tool and cancelled; it moved nothing.
-  `madrid-transport-product` with all of Product's attributes and a table view, `moves` empty on purpose, no consumer API, two
-  questions (change the type after activation; keep all attributes). *Accept* (87 s, 533,796 in and 4,712 out, $0.23; 89 s of task time):
-  `loaded`, `result.changeSetId` and `thenReleaseId`, 100 records updated, 0 rejected. *The three steps:* (1) activating the
-  release with both answered 200 in 0.1 s, nothing moved; (2) publishing the change set answered 200 in 4.7 s; (3) activating
-  `result.thenReleaseId` answered 200 in 0.05 s. **A point to know:** the final release the session installed is the same release as
-  the change set's (`thenReleaseId` equals `modelReleaseId`), because the proposal kept Product beside the new type; so step 3 is a
-  re-activation of the running release (it also answered 200 when run before the publication, which the planned refusal cannot
-  cover where no type is removed). I ran that re-activation once before publishing by the scratch tool's mistake; it changed
-  nothing. *Before/after:* 600 records before and after, **0 IDs lost**, every ID kept; 100 changed type (to
-  `madrid-transport-product`) and 469 stayed `product`, matching `transport-madrid-enabled` true and false exactly (0 in the wrong
-  type); 0 names, 0 parents, 0 value hashes and 0 value counts differing across all 600 records; no relationships exist. Nothing
-  lost, so nothing to show. *Time:* proposal 57 s, accept 89 s, steps 0.1 s, 4.7 s and 0.05 s: about 151 s from the words to the
-  third step. Session cost $0.51.
-- **Both tries:** 2 sessions each, 4 calls, 2,890,944 tokens in and 27,635 out, $1.41 at API prices. Both reached the end with
-  nothing refused and nothing lost. Not changed or edited by hand: the proposals, drafts and releases are the session's own.
+- **Try 1, merging two types into one:** the proposal landed with the consumer API's version raised and the moves listed; accepting installed the release; the migration preview showed 0 losses and 0 refusals (the second run had refused every record); the confirmation applied them. *Before/after:* every record kept, 0 IDs lost, only the merged records changed type, 0 names, parents, value hashes or relationships differing.
+- **Try 2, splitting one type by a value:** the proposal added a new type with all the attributes, accepting loaded the change set with 0 rejected, and the three steps (activate, publish, activate the final release) all answered 200. **A point to know:** the final release the session installed is the same as the change set's, because the proposal kept the original type beside the new one; so step 3 is a re-activation of the running release. *Before/after:* every record kept, the moved ones matching the value exactly, 0 names, parents or value hashes differing.
+- **Both tries** reached the end with nothing refused and nothing lost. Not changed or edited by hand: the proposals, drafts and releases are the session's own.
 
 ### AP13: Always a way out (AP-D22)
 
@@ -1009,7 +913,7 @@ longer fits, and its conflict questions on each repeat; an expired task; a missi
 a request the API cannot do. Each dead end found is fixed in AP13, or written down as a limit of 0.16 with the package
 that removes it, the user deciding which.
 
-**One real walk-through, run once.** `Lines & Routes v2.0.xlsx` in the browser with a Claude Code session, from
+**One real walk-through, run once.** A large workbook in the browser with a Claude Code session, from
 the person's words to a published change set, using the ways out where the result is not what the person wants. Judged
 by the user. It is not rerun: a loss of data is fixed and checked with a test, not a second session; anything else
 (the model's shape, wording, speed) is recorded as a known limit.
@@ -1115,7 +1019,7 @@ session says so; rely on a small local model.
 - **`accept` needs Work in change sets** (a proposal that only moves whole types loads no change set and needs none), so a person without it is told, not sent into a turn the session cannot finish; the same rule hides the offers. The offers (`useAssistantOffers`) now also need Work in change sets; they replace `useChangeModelOffer` and serve the workspace menu and the published page.
 - **AP-D56's timing is built as written:** `accepted()` no longer removes the folder or retires the client. `end_session` does it at the next read of the task after a publication (no release retired: the publication ran on one), a discard elsewhere (the task becomes `cancelled`), a confirmed migration, or Discard. J50.41 and J50.52 asserted the retiring at the load and now assert it at the session's end.
 - **Discard on a loaded task goes through the task** (`POST /discard`), so a discarded task says so; the page no longer discards the change set behind the task's back. A discarded task has no words box: Discard ends the session (AP-D56), and "Discard and load again" is the way with words (AP-D58 read so).
-- **A column no source reads is said before the person accepts** (found by the walk-through, not in the plan): the new check `cellsLeftOut` (`cell_coverage.py`), computed when the proposal lands; the 12 cells are why.
+- **A column no source reads is said before the person accepts** (found by the walk-through, not in the plan): the new check `cellsLeftOut` (`cell_coverage.py`), computed when the proposal lands.
 - **Stop does not undo the draft.** A turn that was stopped after it changed the draft leaves the draft as it stands; the task says so in a warning and the person checks it in the editor (a draft's steps cannot be rewound safely mid-turn). The proposal text is the last the engine recorded.
 - **"Names who can" is a sentence, not names:** the engine lists no holders of a group, so the page says it needs Work in change sets and gives the task's link to copy.
 - **The refused activation of the three steps is read from the engine, not recorded.** The task page reads the activation check the release page reads (`GET /model-releases/{id}/diff` against the workspace's release) for the next step that activates a release, and shows the engine's own reasons under "The engine would refuse the next step", above the words box of the loaded view (`ReshapeSteps`, `activationRefusals`). Nothing is stored on the task, as a migration's refusal is read from its preview job.
@@ -1128,22 +1032,21 @@ session says so; rely on a small local model.
 
 **Checks after the three gaps and the walk-through's fix:** the way-out, workbook-load and reshape journeys with `test_boundaries`: 98 passed (the new cases: a loaded task whose folder went at its load, and the unread filled column); Vitest `features/ai-tasks`, `features/workspaces`, `routing`: 303 passed; lint 0 errors; build; `ap13-way-out` 58 checks (run before the walk-through's fix, which changed no page); `ap12-change-model` 29 checks. No schema changed after the lock was re-baselined.
 
+**The one real walk-through (2026-11-02, run once, through the dev server's API as a client the user made; prompt `agent/7`; provider Claude Code, `sonnet`).** A large workbook of several sheets, with a few words asking for a model and its data.
 
-- **Proposal:** 1,312 s from the words to a proposal (an interrupted first turn of 311 s, a worker restart the dev server made when I saved backend files, then the session's second turn of 993 s; the engine recorded the first as interrupted and the job came back). 14 types (Area, Section, Note, List, Entry, Sub-entry, Timetable category, Timetable type, Performer, Market, and four empty ones, Episode, Person, Timetable, Treatment), 826 records and 100 relationships to create, 0 refused, 9 questions (the name as key, a repeated test written twice, two spellings of one team, tests with two names, what N means in the availability columns, lists as one type, the empty types, a copied Spanish heading, a note awaiting a list). It is over the time limit (5 minutes for a complex workbook) and is recorded as a known limit.
-- **Accept (51 s) and publication:** `loaded`, 826 created, 0 updated, 0 rejected, a profile saved (`activities-procedures-v2-0-transport-station`); the release activated and the change set published by the client.
-- **Before and after.** Counts per type, in the published data: timetable-category 16, timetable-type 99, area 4, entry 468, list 66, market 2, note 11, performer 6, section 11, sub-entry 143 (826). Every filled cell of the workbook looked for as a record's name or text value: 1,234 filled cells, 1,042 found, 100 are the Y and N cells of the availability columns (they became relationships, not compared cell by cell), **11 not found**, all in "Calendar & Agenda", column C, rows 41 to 47 and 51 to 56 (the Spanish names of the entries of Timetable Resources and Timetable Department; C56 "IT" shares its text with a name and was found, so the engine counts 12 cells).
-- **What a person would judge.** The model is a reading of a specification, not a catalogue: lists and entries as records under areas and sections, the Spanish names as a field; the questions are fair and none blocks. The 12 unloaded cells are a data loss the page did not say: the session read each of those two lists' entries from a block with no header over column C (a profile names a column by its header, so it cannot bind one), and `leftOut` matched headers per sheet, so the header "Recursos para viaje" read in the list's own block made column C look loaded.
-- **The loss is fixed and covered by a test, not rerun.** `engine/tasks/cell_coverage.py` reads the file's staged cells in PostgreSQL and says, before the person accepts, the filled cells of the tables the design reads that no source covers (rows below its header row, to its block's last row, in the columns whose header it binds or ignores): a check `cellsLeftOut` in the proposal ("12 filled cells of “Calendar & Agenda” are read by no source of this design (for example C41, C42, C43): what they hold is not loaded"). Run over this walk-through's own design it names exactly those 12 cells and nothing else (no false cell on the other 3 sheets). Covered by `test_a_filled_column_no_source_reads_is_said_before_the_person_accepts` (J50.39, two configurations).
-- **The way onward, used once:** "Ask about these records…" on the workspace (words only) to set the 13 entries' Spanish names. The task failed twice and went on by words each time (the session made the change set in its proposal turn and wrote no proposal; then it proposed the draft the first task still holds, `AI_TASK_DRAFT_HELD`'s rule), the third turn proposed a draft of its own, accept loaded a change set of 13 updates, published. Then every filled cell is found (1,234 = 1,053 + 100), 826 records, 0 missing. That task: 4 calls, 1,448,483 tokens in and 15,097 out, 148 s, $0.66. A records task that fails because the session ignores the proposal protocol, or picks another task's draft, is a known limit of the prompt (`agent/7`), not changed here.
-- **Cost (at API prices, logged in the usage log):** the walk-through 3 calls, 9,562,679 tokens in, 121,383 out, $3.73 (the interrupted turn reported none); the way onward $0.66; in all 11,011,162 in, 136,480 out, $4.39.
+- **Proposal:** the proposal took long (an interrupted first turn, a worker restart the dev server made when backend files were saved, then the session's second turn; the engine recorded the first as interrupted and the job came back). It is over the time limit (5 minutes for a complex workbook) and is recorded as a known limit. It came with several questions and none blocked.
+- **Accept and publication:** `loaded`, 0 rejected, a profile saved; the release activated and the change set published by the client.
+- **Before and after.** Every filled cell of the workbook was looked for as a record's name or text value; the cells of yes/no columns became relationships and were not compared cell by cell; a few cells were not found.
+- **What a person would judge.** The model is a reading of a specification, not a catalogue; the questions are fair. The unloaded cells are a data loss the page did not say: the session read some lists' entries from a block with no header over one column (a profile names a column by its header, so it cannot bind one), and `leftOut` matched headers per sheet, so a header read in the list's own block made that column look loaded.
+- **The loss is fixed and covered by a test, not rerun.** `engine/tasks/cell_coverage.py` reads the file's staged cells in PostgreSQL and says, before the person accepts, the filled cells of the tables the design reads that no source covers (rows below its header row, to its block's last row, in the columns whose header it binds or ignores): a check `cellsLeftOut` in the proposal ("N filled cells of “Sheet” are read by no source of this design (for example C4, C5, C6): what they hold is not loaded"). Run over this walk-through's own design it named exactly those cells and nothing else. Covered by `test_a_filled_column_no_source_reads_is_said_before_the_person_accepts` (J50.39, two configurations).
+- **The way onward, used once:** "Ask about these records…" on the workspace (words only) to set a field on some records. The task failed twice and went on by words each time (the session made the change set in its proposal turn and wrote no proposal; then it proposed the draft the first task still holds, `AI_TASK_DRAFT_HELD`'s rule), the third turn proposed a draft of its own, accept loaded a change set, published. Then every filled cell was found. A records task that fails because the session ignores the proposal protocol, or picks another task's draft, is a known limit of the prompt (`agent/7`), not changed here.
+- **Cost:** logged in the usage log.
 
-**The user's judgement (2026-11-02): accepted.** The user opened `ap13-try` and found the model "somewhat funny", with no
-relevance to their own business, and accepted it as a fair output for a workbook neither they nor the session knew the
-domain of. AP13 is closed.
+**The user's judgement (2026-11-02): accepted.** AP13 is closed.
 
-**What is not verified.** The walk-through was run through the API (the steps are the browser's routes), not in the browser; the person who would judge it is the user. The 100 Y and N cells and the 100 relationships were not compared cell by cell. How the assistant behaves when a person tells it to change a real proposal in the same session (not the way onward) was shown by the stand-in only. A saved layout that no longer fits and a permission lost during a task are shown in the browser with the page given the state by a rerouted answer (the stand-in cannot reach them); the engine's side is J50.57 and J50.59. The refused step in a reshape shows the engine's real refusal (the release that drops a type the workspace holds records of), with the task given a final release by a rerouted answer. A stop during a load waits up to a minute for a job the session started to end before it discards the change set, and says so if one is still running. Words after a stopped turn resume the session that was killed, so the assistant's own memory of the stopped turn is whatever Claude Code kept of it.
+**What is not verified.** The walk-through was run through the API (the steps are the browser's routes), not in the browser; the person who would judge it is the user. The yes/no cells and the relationships were not compared cell by cell. How the assistant behaves when a person tells it to change a real proposal in the same session (not the way onward) was shown by the stand-in only. A saved layout that no longer fits and a permission lost during a task are shown in the browser with the page given the state by a rerouted answer (the stand-in cannot reach them); the engine's side is J50.57 and J50.59. The refused step in a reshape shows the engine's real refusal (the release that drops a type the workspace holds records of), with the task given a final release by a rerouted answer. A stop during a load waits up to a minute for a job the session started to end before it discards the change set, and says so if one is still running. Words after a stopped turn resume the session that was killed, so the assistant's own memory of the stopped turn is whatever Claude Code kept of it.
 
-**What the user still cannot do.** Have a proposal for a complex workbook within five minutes (1,312 s here); rely on a records task to follow the proposal protocol on the first turn; hand a task to a colleague who then tells the assistant (the task is visible to administrators, who can; a colleague with no Work in change sets is told who can load); say what to change to a task that was discarded or has expired (a new task starts from the workspace); undo the half of a stopped turn that changed the draft; see why an activation of the three steps was refused anywhere but the release page. 
+**What the user still cannot do.** Have a proposal for a complex workbook within five minutes; rely on a records task to follow the proposal protocol on the first turn; hand a task to a colleague who then tells the assistant (the task is visible to administrators, who can; a colleague with no Work in change sets is told who can load); say what to change to a task that was discarded or has expired (a new task starts from the workspace); undo the half of a stopped turn that changed the draft; see why an activation of the three steps was refused anywhere but the release page. 
 
 ## WM1: Change a workspace's model from the workspace
 
@@ -1225,11 +1128,11 @@ each workspace's check before anything is installed), `installation`, `activatio
 confirmation, and `Install and activate…`, which moves into ⋯ on a draft opened from a workspace.
 
 
-**What the words ask for comes before the file's shape (2026-11-01, prompt `agent/3`).** The shape line of `8ea24e14` made sessions turn what the words placed under a named category into a type of its own, so the requested field filter had nothing to filter and sessions reported it impossible. It was never an engine limit: the fixed `ancestor:` filter does it, as the earlier runs in `harbour` show. The session is now told to build everything the words ask, as they place it, also with no data, and to say a thing cannot be built only after trying it. Real run in `ap-full-2`: proposal 817 s, $2.99 (over the limit, AP11), 0 refused, 0 skipped; accepted, 2,134 records in 80 s, $0.52, 0 rejected; 7,835 cell checks, 0 wrong; station and driver types present and empty; category translations linked to the categories. Not published.
+**What the words ask for comes before the file's shape (2026-11-01, prompt `agent/3`).** The shape line of `8ea24e14` made sessions turn what the words placed under a named category into a type of its own, so the requested field filter had nothing to filter and sessions reported it impossible. It was never an engine limit: the fixed `ancestor:` filter does it, as earlier runs show. The session is now told to build everything the words ask, as they place it, also with no data, and to say a thing cannot be built only after trying it. A real run then had 0 refused, 0 skipped, loaded with 0 rejected, every cell check right, the types the words ask for present and empty, and category translations linked to the categories; it was over the time limit (AP11). Not published.
 
-**A session stopped by its own log, and the file then loaded (2026-11-01).** A session in `harbour-2` failed with an internal error after 284 s: a refused write comes as a system event whose `message` is text, and the log reader expected an object. The reader has done so since 31 October, before AP9 and AP10. It now leaves any line it cannot read. A real run with the same words and the Timetables workbook in the scratch workspace `ap-full-1`, on `harbour-2`'s model: proposal in 661 s ($2.37, over the limit, AP11), 0 refused, 0 skipped; accepted, 3,540 records created in 62 s ($0.41), 0 rejected, profile saved; not published. Every filled cell compared with the change set, 7,817 checks, 0 wrong. Not met from the words: no station and driver types, category translations linked to the types rather than the categories, slot picker unfiltered. Each was raised as a question with an assumption.
+**A session stopped by its own log, and the file then loaded (2026-11-01).** A session failed with an internal error after about 5 minutes: a refused write comes as a system event whose `message` is text, and the log reader expected an object. The reader has done so since 31 October, before AP9 and AP10. It now leaves any line it cannot read. A real run with the same words afterwards loaded with 0 rejected and a saved profile, not published, every filled cell compared with the change set, 0 wrong. Not met from the words: some types missing, category translations linked to the types rather than the categories, a picker unfiltered. Each was raised as a question with an assumption.
 
-**Empty cells read as skipped rows, found on a real try (2026-11-01).** A workbook that imports whole reported 100 rows skipped and 3,024 unchanged on a new model. The check counted per source, so a row with no value in one list's column read as skipped although other sources wrote it, and links written with their translation read as unchanged records. A row now counts only when a value a source reads there is held by no other source, or no source reads anything on it; `unchanged` counts records only. The same dry run recomputed: 0 skipped, 0 refused, 0 unchanged, 4,244 created (3,537 records, 707 links). The session's prompt says an empty cell is no skipped row. A `unchanged` figure above that predates this also counts links.
+**Empty cells read as skipped rows, found on a real try (2026-11-01).** A workbook that imports whole reported rows as skipped and others as unchanged on a new model. The check counted per source, so a row with no value in one list's column read as skipped although other sources wrote it, and links written with their translation read as unchanged records. A row now counts only when a value a source reads there is held by no other source, or no source reads anything on it; `unchanged` counts records only. The same dry run recomputed: 0 skipped, 0 refused, 0 unchanged. The session's prompt says an empty cell is no skipped row. A `unchanged` figure above that predates this also counts links.
 
 #### Decisions (recommended, approved with this plan)
 
@@ -1479,8 +1382,7 @@ to the consumer API's own access.
 
 Groups to run: J51, J52, the consumer API's journeys, `contract`, `startup`, `test_boundaries`. No browser runner, as no screen changes.
 
-**The real try:** one Claude Code session through the dev server, signed in as a person, asks the three journey questions on the user's own
-model. It needs `MCP_ENABLED=true`, which AG1 already set, and the user reconnecting `/mcp` after the dev server reloads. It confirms the two
+**The real try:** one Claude Code session through the dev server, signed in as a person, asks the three journey questions on a model. It needs `MCP_ENABLED=true`, which AG1 already set, and the user reconnecting `/mcp` after the dev server reloads. It confirms the two
 limits taken from memory and that resources are reachable. The bounded R try stays as AG-D10 says.
 
 **Working beside other sessions:** other sessions have uncommitted changes in this checkout, so commits hold AG2's hunks only. J52 is
@@ -1508,8 +1410,8 @@ publication through it (not planned, the consumer API does this); ask in words i
 
 | Try | Result | Tokens | API price |
 | --- | --- | --- | --- |
-| Tool list, `describe_model`, a lookup, `mapping_coverage`, resources | All worked, no tool error. `lookup_timetables` gave a value's code. Two keys differing across workspaces got hashed names. `mapping_coverage` with `state=unmapped` found 0 on the view it chose, so a non-empty list was seen only in J52 | 10 in, 1,596 out, 224,698 cache read | $0.197 |
-| The resource list after the change | 15 entries, whole | 8 in, 200 out, 114594 cache read | $0.114 |
+| Tool list, `describe_model`, a lookup, `mapping_coverage`, resources | All worked, no tool error. A lookup gave a value's code. Two keys differing across workspaces got hashed names. `mapping_coverage` with `state=unmapped` found nothing on the view it chose, so a non-empty list was seen only in J52 | about 225,000 tokens in, 1,596 out | $0.197 |
+| The resource list after the change | the entries, whole | 8 in, 212 out, 114594 cache read | $0.114 |
 
 **The two limits taken from memory:** Claude Code did not refuse a long answer: it saved the 98.5 KB model resource to a file and showed the first 2 KB, so AG-D23's reason is weaker than written. The cap stays, as a page that fits is still what an assistant can use. No tool answer reached it in the try. Claude's refusal of a top-level `oneOf` was not tested, as the schemas are flat.
 
@@ -1677,7 +1579,7 @@ The answer's filters are the list's own, so the UI applies them as `query.filter
 
 **Checks:** J54: 20 passed (eight cases on generated A and B). J48 and J49 with the new feature count, and the unit tests of `engine/proposals` (including the request that carries no record value): 119 passed. The `queries` and `change_sets` groups: 643 and the serial part's 2 passed (4 min 13 s on a loaded machine, over the 3-minute ceiling). The K6, K7 and export journeys the guide names for `list_relation_filters` and the candidate walk (J01.10, J01.11, J08.12, J13.9, J13.10, J03.9, J10.11, J27.6): passed. `contract` 82 passed (its serial part selects nothing), `test_boundaries`, `test_error_codes`, `test_api_reference`, `test_api_journeys`, the harness layout check and `tests/unit/test_config.py`: 200 passed. `ruff check` on the changed files. The OpenAPI lock re-baselined last and diffed against HEAD: additive (the new route and four schemas, the purpose on two schemas, the list's filter description). Frontend: `tsc -b`, `npm run lint` (0 errors), `npm run format` on the changed files, `npm run build`; Vitest for `src/features/objects`, `jobs`, `model`, `routing`, `settings`, `ui`, `api` and `vitest related` for the changed files (839 passed; one workspace test failed once under load and passed on rerun); `test:browser:ag4`: 43 checks, axe 0 violations on each state, two object types, 1440px by keyboard and 390px, the screenshots inspected against the mock-up (the phone's pill text wraps instead of being cut after the first run). Not run: the full suites, `test:a11y`, `test:visual` and the other browser runners (build acceptance). `test:browser:k6` (the filter bar's runner, named by the guide) passed, 8 checks, after its one selector for Has none was made exact (Has none under made it ambiguous); `k1`, `k2`, `k2b`, `k3` and `k5`, which the guide also names for the filter bar, then passed unchanged with axe clean (light and dark). `test:browser:ag4` was rerun on the final CSS (43 checks) and its 390px screenshots viewed: the wrapped pill text and the not-applied panel read whole and fit the width.
 
-**Real try (2026-11-01):** `harbour`'s master values, the configured Claude Code provider, `sonnet`, two calls through the route's own `prepare` and `finish` on the dev database, not over HTTP. "values changed last month without a CRM mapping" (3.8 s by the provider's record) became the month's dates and `notUnder` the CRM record's ID, applied. "active values changed by Anna last month, newest first" (4.5 s) applied nothing, named "changed by Anna" and "newest first", and returned the three filters it could make. Two calls, $0.026 at API prices, logged below. Nothing was written but the call records.
+**Real try (2026-11-01):** a scratch workspace's master values, the configured Claude Code provider, `sonnet`, two calls through the route's own `prepare` and `finish` on the dev database, not over HTTP. "values changed last month without a mapping to a system" became the month's dates and `notUnder` the system record's ID, applied. A question naming a person and a sort order applied nothing, named both as not expressed, and returned the filters it could make. Two calls, $0.026 at API prices, logged below. Nothing was written but the call records.
 
 **Not verified:** a question typed in the browser on the dev server with the real provider (the browser runner covers that path with a stand-in; the dev server answers the route, 401 without a sign-in); a person's own wording on a real model.
 
@@ -1687,16 +1589,16 @@ The answer's filters are the list's own, so the UI applies them as `query.filter
 
 **Closed by the user on 2026-11-01.**
 
-The user tried the question "show me all the trains types which are above 30 minute duration" on the `default` workspace's Timetable types and was refused ("above 30 minute duration": Duration is a relationship to records named 10 min, 15 min, 30 min, 45 min, 60 min and 180 min); "values changed last month without a CRM mapping" was refused because the view does not declare the relationship to mappings. His words: "I did not expect comparison, I expect AI help ... being an AI, understand that 45, 60 and 100 are above, and add them to the filter ... Humans are working with human data." The user decided the following; it revises two decisions.
+The user tried a comparison with a number ("above 100 km") on a relationship whose records are named by a number and a unit, and was refused; a question about records without a mapping to a system was refused because the view does not declare the relationship to mappings. The expectation: the assistant reads the record names, understands which of them are above the number, and adds those records to the filter, as a person reading the list would. The user decided the following; it revises two decisions.
 
 - **AG-D35 revised: names of short lists.** At send level `samples` or `values` the context also carries, for each relationship field, the record names of the types it reaches (`recordNames`) and of the types they can sit under (`ancestorNames`) when that type set holds at most 50 records in the context asked about (live, change set or publication); a longer set sends none, and at `structure` none is sent, as before. Ask stays offered at every level; `FEATURE_LEVELS` is unchanged. The names are read in one set statement per type set (`query_translation.with_names`), in the route's transaction before the provider is called, which is released before the call (J48.8 holds). The call record's `sendLevel` is the level in force, so it says whether names could have been sent. `AI_SAMPLE_VALUES` does not apply (the user's rule is the 50). No record ID is sent. J54.1, which asserts that no record value is sent, now runs at `AI_SEND_LEVEL=structure`.
-- **Instructions (`query-translation/2`).** The model may choose records by understanding their names, also by meaning, with one `eq` filter per chosen record with the exact name; several `eq` on a relationship mean any of them; it chooses from the names given and never invents one. Found by the real tries and fixed in the instructions: a word naming the kind of record asked for ("trains") must not be dropped (a filter or the search), and "without" a named record a relationship's records stand under is `notUnder` with its name, not `isNull`. "Never approximate" stays for what neither fields nor names can answer. `_resolve` is unchanged: a name that several records match is still refused; no engine rule turns several matches into any-of (the user accepts how "train" then behaves; the model may choose several records from the names it was sent).
+- **Instructions (`query-translation/2`).** The model may choose records by understanding their names, also by meaning, with one `eq` filter per chosen record with the exact name; several `eq` on a relationship mean any of them; it chooses from the names given and never invents one. Found by the real tries and fixed in the instructions: a word naming the kind of record asked for (the plural of the type's name) must not be dropped (a filter or the search), and "without" a named record a relationship's records stand under is `notUnder` with its name, not `isNull`. "Never approximate" stays for what neither fields nor names can answer. `_resolve` is unchanged: a name that several records match is still refused; no engine rule turns several matches into any-of (the user accepts how a shared word then behaves; the model may choose several records from the names it was sent).
 - **AG-D38 revised: every relationship.** The fields an answer may use are every relationship the listed type has in either direction (the relation's key where the type is at the `from` end of a binding, its reverse key at the `to` end; `query_translation.relationship_fields`), the view's `filterFields` and, live, the two stamps. `list_relation_filters` already accepted any relationship of the type. In the browser the address kept only declared fields, which would have dropped such a filter on reload; `parseRoute` now keeps a relationship of the listed type (`relationshipFilterFields` in `model/lookup`), and `ObjectToolbar` draws an undeclared relationship's filter, or its proposed filter, as an ordinary pill (same editor, label and remove control as a declared one) while it stands. + Filter still offers the view's declared fields. Export reads `query.filters`, which now carry it. Attributes the view does not declare stay out of scope.
 - **What the user cannot do after this revision:** compare with a value that is not a record's name; ask about a relationship whose types hold more than 50 records by meaning (only an exact or partial name answers there); a relationship not declared by the view is not offered in + Filter until a question has used it.
 
 Tests: J54.9 (names at `values`, none at `structure` or above 50, an undeclared relationship asked and filtered), a unit test of `list_fields`, `routes.test` and `CollectionView.test` for the pill and the address. Written after the backend change in this pass, not before it, so "seen failing first" was not shown.
 
-**Real tries (2026-11-01, `default`, view `timetable-types`, `rdm-master`, send level `values`, Claude Code provider `sonnet`, through the route's own `with_names` and `finish` on the dev database):** (1) "show me all the trains types which are above 30 minute duration": `Has duration` is 45 min, 60 min and 180 min and `Belongs to category` is Follow-Up Train, Initial Train and Train Train; applied, 18 rows, which a hand query over the data confirms (200 timetable types, 42 with those durations, 18 in those categories). (2) "show me the trains types which are above 30 minute duration": the same filters, 18 rows. (3) "values changed last month without a CRM mapping": updated on or after 2026-10-01 and on or before 2026-10-31, and `Is represented by system value` has none under CRM; applied, 14 rows; the hand query agrees (200 changed last month, 200 mapped under CRM, 14 not). The first prompt left "trains" out of (1) (42 rows) and answered (3) with `isNull` (the right 14 here only because every mapped type is under CRM); both fixed in the instructions, 12 calls in all, about $0.146 at API prices, logged below. Nothing was written but the call records.
+**Real tries (2026-11-01, a mapped list view, send level `values`, Claude Code provider `sonnet`, through the route's own `with_names` and `finish` on the dev database):** (1) the comparison by meaning over the relationship: the filters were the records whose names are above the number and the category relationship; applied, and a hand query over the data confirmed the rows. (2) the same question worded differently: the same filters. (3) "values changed last month without a mapping to a system": the month's dates and the relationship to mappings has none under that system; applied, and the hand query agrees. The first prompt left a word naming the kind of record asked for out of (1) and answered (3) with `isNull` (right only by the data's shape); both fixed in the instructions, 12 calls in all, about $0.146 at API prices, logged below. Nothing was written but the call records.
 
 ## Track O: operations
 
@@ -1787,6 +1689,7 @@ Unit tests: no record value in the context at `structure` (a stored value plante
 
 **The 200 and 2,000-record basics.** On generated A and B, with 0, 200 and 2,000 more records of the touched type (created through `POST /batches`), the whole route with the fake provider (the diff, the check of the data, the contract check, the grouped count and the facts) took 17 to 25 ms at 200 and at 2,000 records, 18 to 43 ms with none: the counts are set statements, so the time does not follow the records. The record fact equalled the number added each time, and the check's counts equalled it for the release that made an attribute required.
 
+**Real try (2026-11-01)**, the Claude Code provider (`.dev/settings.env`, `sonnet`), three calls through the route's own steps on the dev database, no HTTP, on existing pairs of releases (read only; the call records and cache rows were all it wrote, the cache rows removed after): a compatible release, a migration, and a migration with so many data facts that the 40-per-kind bound applied, one statement citing `more-change` and one `more-data`. **Read by me:** no statement said a change is safe, risky or advisable; every number a statement gave is in a fact. **Not carried by the facts or wrong:** one statement counted "seven attribute types … (eight in total)" while naming eight; two said facts were "not shown" (the provider's view); one linked the record counts to a removed key in a way the facts do not state. The first two were fixed in the prompt (`/2`), not the third. No statement was unsupported by a fact. About 25,000 tokens in, 2,570 out, $0.121 at API prices, logged below.
 
 **Not verified:** an account in the browser on the dev server with the real provider (the runner uses a stand-in; the dev server answers the route behind a sign-in); a person's wording of a German account (0.15 is not built); the prompt `/2` on the real provider.
 
@@ -1811,12 +1714,12 @@ Mock-up: [AO2 What changed](https://claude.ai/artifact/J1cg6aHNt4YNqGoJiKd1Fj) (
 
 **What the code and the dev database hold today (read 2026-11-01, read-only queries, no server started):**
 
-- **The audit holds staged and live work side by side.** On the dev database, of 261,417 entries, staged record entries (`change-set-object`) number 116,940 and live record entries with a feed position 22,556. A published record has both, so counting every entry counts it twice. `GET /changes` returns both under the `record` kind, so the Activity list mixes them too.
-- **Most bulk work reaches live data as a publication, not a job.** Live record entries by cause: 20,012 `publication`, 2,499 `job`, 45 direct. A publication's entries name who published; who prepared it stands only on the staged entries, whose job is in `cause_id` and whose change set is in `changes->>'changeSetId'`.
+- **The audit holds staged and live work side by side.** A published record has both a staged entry (`change-set-object`) and a live entry with a feed position, so counting every entry counts it twice. `GET /changes` returns both under the `record` kind, so the Activity list mixes them too.
+- **Most bulk work reaches live data as a publication, not a job.** A publication's entries name who published; who prepared it stands only on the staged entries, whose job is in `cause_id` and whose change set is in `changes->>'changeSetId'`.
 - **Deleted records keep no name, and attributes are named in two shapes.** A record's name is read now from `rdm_objects`, so a deleted one has none. An entry names attributes by `attributeTypeKeys` or by the keys of `attributes`; the latter holds values, so the facts read only its keys.
-- **Reads are per workspace (ADR-044).** AO-D5's "filtered by what they may read" is therefore Browse in that workspace; no narrower read exists to filter by. The dev database holds only two `updated` entries caused by a publication, both naming only `name`, so how a published attribute change is recorded is checked by J56.1, not by this data.
+- **Reads are per workspace (ADR-044).** AO-D5's "filtered by what they may read" is therefore Browse in that workspace; no narrower read exists to filter by. How a published attribute change is recorded is checked by J56.1, not by dev data.
 - **Jobs are removed after `JOB_RETENTION_DAYS` (7 by default);** the audit is not. An import's parameters hold its `file`. A job older than that has only its ID left in the audit.
-- **Grouping is fast.** The largest workspace's 40,085 entries, grouped by aggregate, action, type, cause, actor and day: 100 ms, once, on the existing workspace index. It does not yet unpack attribute keys.
+- **Grouping is fast.** Grouping a large workspace's entries by aggregate, action, type, cause, actor and day took about 100 ms, once, on the existing workspace index. It does not yet unpack attribute keys.
 - **`impact_summary.py` holds what AO2 needs,** `explain`, `checked`, `Fact`, `Statement`, `Summary`, tied to its purpose. `summaries.py` holds the cache, as AO-D15 foresaw.
 
 **Decisions (recommended, approved with this plan):**
@@ -1848,7 +1751,7 @@ Mock-up: [AO2 What changed](https://claude.ai/artifact/J1cg6aHNt4YNqGoJiKd1Fj) (
 
 Unit tests: both attribute shapes give the same field count with no value read; fact IDs stable between two runs. Vitest: the section in each state, hidden without the offer, a citation landing on its fact, the period reset clearing the account.
 
-**Real try, announced and run without a stop.** Claude Code (`sonnet`, `.dev/settings.env`), three calls through the route's own steps on the dev database, read only but for the call records: a large workspace with publications, one with jobs, one record. Read by me for statements the facts do not carry; tokens and cost in the usage log. The 200 and 2,000-record basics are timed for the fact set, and the largest dev workspace once.
+**Real try, announced and run without a stop.** Claude Code (`sonnet`, `.dev/settings.env`), three calls through the route's own steps on the dev database, read only but for the call records: a workspace with publications, one with jobs, one record. Read by me for statements the facts do not carry; tokens and cost in the usage log. The 200 and 2,000-record basics are timed for the fact set.
 
 **Browser:** `test:browser:ao2`, the stand-in of AO1's runner, on two configurations: asking, citation to fact, **Show them** and its banner, failure and Try again, an empty period, the record's panel; 1440px by keyboard and 390px, light and dark, axe, no 5xx. Screenshots inspected against the mock-up.
 
@@ -1878,11 +1781,11 @@ Unit tests: both attribute shapes give the same field count with no value read; 
 
 **Checks:** J56: 20 passed (nine cases on generated A and B, plus the no-provider case); J55, J44 (`test_j44_changes`), J07, J49 and `tests/unit/engine/proposals` (with `test_history_account`, 7 cases): 157 passed in one run with J56; J48: 12 passed after its list was corrected; `test_j52_assistant_reads` passed in an earlier run. `contract` (OpenAPI lock, `test_boundaries`, `test_error_codes`, `test_api_reference`, `test_api_journeys`): 30 passed. The OpenAPI lock was re-baselined last (hash `d300fde6…`), diffed against HEAD in a worktree: AO2's routes, the four schemas, `historyAccount` in two enums, the new filters; the lock carried none of AP12's schemas at this time (they stand in HEAD). Ruff on the changed files (two other files, `presenters.py` and `schemas/records.py`, are unsorted and not mine). Frontend: Vitest for `features/workspaces`, `features/objects`, `features/changes`, `features/model-admin` and `features/settings`: 610 passed; `npm run lint` 0 errors, `npm run build`, prettier on the changed files. Browser: `test:browser:ao2`, 43 checks on the starter (send level `values`) and generated-b (`structure`): axe 0 violations on each state, light and dark, 1440px by keyboard and 390px, no console error or 4xx/5xx; screenshots inspected against the mock-up (the facts, the narrowing banner and the 390px layout match; the banner's text is cut to the fact's line without its names). Not run: the full suites, `test:a11y`, `test:visual`, the other runners. **The tool (2026-11-02):** J56: 22 passed (the new case: offered with Browse; the facts equal the route's for a workspace and for a record in a time zone; a workspace it cannot read, a missing record, a reversed period and an unknown zone refused; no provider call, call row or audit entry added); `test_j52_assistant_reads`: 14 passed; `contract`: 82 passed, the OpenAPI lock unchanged. Ruff on the changed files.
 
-**The 200 and 2,000-record basics.** On generated A and B, a batch job creating 200 or 2,000 records, and a change set of the same size loaded by a second job and published, then the whole route with the fake provider (every fact, including the preparation read of the publication, the grouped counts and the response): 16 to 19 ms at 200 and 63 to 83 ms at 2,000 records. The `records` fact counted exactly 400 and 4,000. **The largest dev workspace** (`ap10-run`, 40,085 entries, 20,040 live, the whole of 2026): the facts in 204 ms, once; `another-2` in 161 ms. AO-D24's "no job" holds.
+**The 200 and 2,000-record basics.** On generated A and B, a batch job creating 200 or 2,000 records, and a change set of the same size loaded by a second job and published, then the whole route with the fake provider (every fact, including the preparation read of the publication, the grouped counts and the response): 16 to 19 ms at 200 and 63 to 83 ms at 2,000 records. The `records` fact counted exactly 400 and 4,000. AO-D24's "no job" holds.
 
-**Real try (2026-11-01)**, the Claude Code provider (`.dev/settings.env`, `sonnet`, send level `values`), three calls through the route's own steps on the dev database, no HTTP: (1) `ap10-run` for 2026, 20 facts, 6 statements in 5.9 s; (2) `another-2` (jobs: a move job and batch jobs), 37 facts, 6 statements in 8.3 s; (3) one record of `default`, 3 facts, 3 statements in 3.9 s. Cache rows removed after. **Read by me:** no statement judged; every number is in a fact. **Wrong or not carried by the facts:** (2) said the publication was "prepared by one job (Move job) from the change set 'Move from default'", while the facts name two change sets and the publication's is "Move from default (9b9b…)"; it also said records "were created and also deleted in matching numbers", which the equal counts show but no fact states; (1) said "all 20039 changes were made by 1 person", reading the people fact's preparer count as authorship. Not changed in the prompt (one try, no loop). Tokens in 10,929 (6 plain, 8,467 cache write, 2,456 cache read), out 1,541, $0.051 at API prices, logged above.
+**Real try (2026-11-01)**, the Claude Code provider (`.dev/settings.env`, `sonnet`, send level `values`), three calls through the route's own steps on the dev database, no HTTP, over a workspace with publications, one with jobs and one record; cache rows removed after. **Read by me:** no statement judged; every number is in a fact. **Wrong or not carried by the facts:** one said a publication was prepared by one job from a change set while the facts name two change sets; one said records "were created and also deleted in matching numbers", which the equal counts show but no fact states; one said all changes were made by one person, reading the people fact's preparer count as authorship. Not changed in the prompt (one try, no loop). About 11,000 tokens in, 1,541 out, $0.051 at API prices, logged above.
 
-**Not verified:** an account in the browser on the dev server with the real provider (the runner uses a stand-in; the dev server answers behind a sign-in); an account in German (0.15 is not built); the prompt `history-account/1` beyond the three calls; a period of a published attribute change on the dev data (the dev data holds none: the cases J56.1 and J56.2 cover it).
+**Not verified:** an account in the browser on the dev server with the real provider (the runner uses a stand-in; the dev server answers behind a sign-in); an account in German (0.15 is not built); the prompt `history-account/1` beyond the three calls; a period of a published attribute change on the dev data (the cases J56.1 and J56.2 cover it).
 
 **What the user still cannot do:** as under "What the user cannot do after AO2" above, and have the provider word an account through an assistant's tool: `history_facts` gives an assistant the facts and the assistant words them (AO-D28 as revised).
 
@@ -2057,6 +1960,7 @@ published prices, and the date of those prices is given.
 
 | Date | Package, what was tried | Provider, model | Calls | Tokens in (plain / cache write / cache read) | Tokens out | Time | Cost at API prices | Note |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-28 | AP2, mapping targets for one view | openai-compatible, `qwen3.5:9b-mlx` (local) | 4 (3 before the sizing fix) | not recorded | not recorded | 54 s for the kept call | none (local) | see the AP2 record |
 | 2026-10-31 | AG3, first attempt: an assistant asked to prepare a change, before the dev server had reloaded | Claude Code session, `sonnet` | 1 session | 10 / 47,340 / 177,087 | 942 | not recorded | $0.234 | saw read tools only, changed nothing and said so |
 | 2026-10-31 | AG3 after the restart: the same words; five records prepared, validated and submitted | Claude Code session, `sonnet` | 1 session, 27 turns | 34 / 39,963 / 915,472 | 4,142 | 47 s | $0.385 | published by the user; see the AG3 record |
 | 2026-11-02 | R, a check that real Claude Code takes the person's words after `--` (R-F9): a prompt beginning `--add-dir=/etc` | Claude Code CLI, `haiku`, no tools | 1 | not recorded | not recorded | not recorded | $0.177 | answered "OK"; the words were read as the prompt, not as an option |
@@ -2143,7 +2047,7 @@ groups, the release's runners, the upgrade from the previous release, the gates)
 ## Exit gate
 
 - A few words and a workbook give the model and the import, with as many applications, types and
-  relations (across applications too) as the workbook needs; tried on the user's own workbooks (AP-D22).
+  relations (across applications too) as the workbook needs; tried on sample workbooks (AP-D22).
 - With no provider and MCP off, no screen shows an AI action, no request leaves the instance, `/mcp`
   does not exist, the existing inference behaves as before, and digests are the plain list.
 - No value above the configured send level reaches a provider (the context builder's tests).
@@ -2162,9 +2066,9 @@ groups, the release's runners, the upgrade from the previous release, the gates)
 - A session's every run is in the call record, with its tokens and cost (AP9).
 - **Always a way out** (AP13, the user, 2026-11-02): at every state of a task a person has a way forward on the page
   itself, easy to find, without starting again or doing the step by hand elsewhere; or the state is a recorded limit.
-- **The acceptance workbook** (the user, 2026-10-28): `Lines & Routes v2.0.xlsx`, a data dictionary laid
-  out for reading (lists side by side, group headings above list headings, English and Spanish column pairs, `Y`
-  flags, notes). The rules alone made one application of 101 types and 31 relation types of it. One walk-through in the
+- **The acceptance workbook** (the user, 2026-10-28): a large workbook, a data dictionary laid
+  out for reading (lists side by side, group headings above list headings, paired language columns, `Y`
+  flags, notes). The rules alone made one application with many types and relation types of it. One walk-through in the
   browser (AP13), run once: the person and the assistant reach a model and its import together, judged by the user.
 - **Reshaping a workspace's model is an instruction too** (AP12): from the workspace, "reorganise this model" (or a
   narrower change) becomes a proposal like a new workbook's, so a person never needs the model editor's draft, install
@@ -2175,7 +2079,7 @@ groups, the release's runners, the upgrade from the previous release, the gates)
   by the 0.8 restructuring (`changeType`, `changeTypeUnder`, `move`, `insertLevel`, `removeLevel` in a change set,
   records keeping their IDs, previewed first), in three phases: a model version with the target types beside the
   old, a change set restructuring the records into them, a version without the emptied types. A before/after count
-  on the real model shows nothing lost.
+  shows nothing lost.
 
 ## History of the assistant
 
@@ -2222,7 +2126,7 @@ produce the same plan from a sentence, and AP4 is the one-click form of it.
 **Removed from 0.16 by the user 2026-10-31.** Never built; the text is kept as history.
 
 **Journey:** after a dry run of a 40,000-row file with 3,100 failures, the person asks for a
-summary and sees eight groups ("200 rows: trailing spaces in `code`"), each with a count, three
+summary and sees eight groups ("40 rows: trailing spaces in `code`"), each with a count, three
 example rows and, where one exists, a suggested step (a trim rule, a value map entry).
 
 **Scope.** The dry run already checks every row (D67, checks cover the whole set). The grouping is
@@ -2265,7 +2169,7 @@ by a sentence, with every step visible and nothing run until the person confirms
 5. *Translations and variants.* "Add the German names in column F and the webshop codes in G."
    Related records and relations with the missing language or target created, as the profile already
    does.
-6. *A conditional relationship.* "Link every duration to the stations, but only stations with a
+6. *A conditional relationship.* "Link every frequency to the stations, but only stations with a
    driver assigned." The model gets the relation (steps), the preview counts the pairs the query
    matched, and a condition the query cannot say is refused with its reason.
 7. *Next month.* The same file layout arrives; the saved profile runs it without the assistant, and the
@@ -2287,7 +2191,7 @@ the assistant.
 **Risks, said plainly.** (1) Loose English is ambiguous, so the plan's reading is shown before any
 number, and it asks when the answer changes the outcome. (2) A confident wrong plan is the main danger;
 the controls are the dry run of every row, the change set, the approval, and the origin on every step.
-(3) The first plans on a messy workbook will be wrong sometimes; the real-file try (AP-D22) is how we
+(3) The first plans on a messy workbook will be wrong sometimes; the sample-file try (AP-D22) is how we
 find out how often, before release. (4) Provider cost grows with the thread; AP-D14 keeps each call
 small and `AI_MAX_STEPS` bounds the loop.
 
@@ -2458,7 +2362,7 @@ Claude Sonnet through the developer's Claude Code sign-in (`AI_PROVIDER=devtools
 and in the image, `AI_PROVIDER=claude-code`; `backend/devtools/` is removed, and a call's cost is in
 `ai_calls.cost_usd` instead of `usage.jsonl`.
 
-**Slices, each usable end to end in the browser on a real file** *(superseded 2026-10-29: the user rejected splitting the cases; AP6a stays as delivered, AP6b–AP6e are replaced by [one package](#ap6-the-assistant-designs-and-loads-one-package-replacing-slices-ap6bap6e-planned-2026-10-29))*:
+**Slices, each usable end to end in the browser on a file** *(superseded 2026-10-29: the user rejected splitting the cases; AP6a stays as delivered, AP6b–AP6e are replaced by [one package](#ap6-the-assistant-designs-and-loads-one-package-replacing-slices-ap6bap6e-planned-2026-10-29))*:
 
 | Slice | Delivers | With |
 | --- | --- | --- |
@@ -2466,7 +2370,7 @@ and in the image, `AI_PROVIDER=claude-code`; `backend/devtools/` is removed, and
 | AP6b | Cases B and C: model extension, installed and activated before the load | Translations and variants, a system's codes as mappings |
 | AP6c | Cases D and E: new applications and new models | Restructuring of existing records and models |
 | AP6d | The free-text chat on the same plan (questions answered, actions planned) | The task page and the editor's pane |
-| AP6e | Conditional relations; the real-file close-out | AP-D17, AP-D18; the acceptance workbook |
+| AP6e | Conditional relations; the sample-file close-out | AP-D17, AP-D18; the acceptance workbook |
 
 Each slice's plan lists its journey cases and its mock-up for one approval.
 
@@ -2482,7 +2386,7 @@ language model gets narrow turns to correct them, against the model as it is. Th
 opposite: the language model **designs** (which concepts become new applications, types, attributes
 and relations, which are plain lists, what are translations and mappings to other systems) and the
 engine **carries out and checks** the design. Evidence (AI usage log, 2026-10-29): one call with the
-file's profile and the model, asked to design, gave the user's Timetables workbook a new
+file's profile and the model, asked to design, gave a sample workbook a new
 application and object type, codelists for the plain lists, the external system's IDs as mappings and
 the translations under the model's translation types, with four real questions. AP6a's parts are
 kept as tools: profiling over every row, the reading per table and its evidence, matching by key,
@@ -2547,17 +2451,17 @@ operation for is answered "I can't do this because…", never approximated (AP-D
   destinations, the questions), "Open in the model editor", the activation step; the reading, check and
   loaded views of AP6a reused.
 
-**Acceptance (each with a real provider on the user's own files, usage logged; done only when all
+**Acceptance (each with a real provider on sample files, usage logged; done only when all
 pass):**
 
 | Case | Try |
 | --- | --- |
-| A An update | Lines & Routes into the workspace whose model and records came from it |
+| A An update | a workbook into the workspace whose model and records came from it |
 | B Additions | The same workbook with new columns, into that workspace |
-| C A new relation to existing data | A sheet of new records pointing to existing ones (a workbook the user names, or the Timetables workbook's categories into a workspace holding them) |
-| D Something new but related | The Timetables workbook into a workspace holding the master data: a new application linked to it |
-| E Something totally new | The Timetables workbook into an empty workspace, and into a new one |
-| Scenarios | Each of the eight instructions on the user's workbooks, as worded by the user |
+| C A new relation to existing data | A sheet of new records pointing to existing ones (a workbook the user names, or a workbook's categories into a workspace holding them) |
+| D Something new but related | A workbook into a workspace holding the master data: a new application linked to it |
+| E Something totally new | A workbook into an empty workspace, and into a new one |
+| Scenarios | Each of the eight instructions on sample workbooks, as worded by the user |
 
 Journey cases J50.18 onward with the fake provider prove the engine's side (each case's draft, the
 activation order, refusals, the waiting task); the quality is judged on the real tries above.
@@ -2567,7 +2471,7 @@ run on a schedule; Track A (the same tools over MCP) is its own package.
 
 #### AP6r: the assistant proposes the model, the steward shapes it, then it loads (planned 2026-10-30)
 
-**Why.** The AP6 loop measured success by "the engine refuses nothing". On the user's samples it
+**Why.** The AP6 loop measured success by "the engine refuses nothing". On the samples it
 loaded cleanly and still built the wrong model: flat lists where the data groups rows, new types
 duplicating records the workspace holds, relationships readable from one end only. Whether a model
 is good is not something a dry run checks, and the steward saw the model only after the load. The
@@ -2603,8 +2507,7 @@ not the engine: every operation it uses is one the editor and the import already
 4. **Full context for the configured model.** The request is sized to the provider's window as
    configured (`AI_CONTEXT_TOKENS`), not to a small local model's: with Sonnet the whole reading,
    the model and the design are sent; compaction stays for small windows only.
-5. **Acceptance by target, not by refusals.** Each sample the user gave has a written target (kept
-   outside the repository: it names the example data). A run is judged against it; new samples get
+5. **Acceptance by target, not by refusals.** Each sample has a written target. A run is judged against it; new samples get
    the same treatment. The code and the prompt never see a target.
 
 **What stays.** The task, the draft, the reads, the working copy, the dry run, the load, the
@@ -2614,21 +2517,11 @@ accepts).
 
 **Tests.** J50 for the two phases with the fake provider (a correction in words starts a new model
 turn; nothing installs before acceptance; each design check fires on a small workbook built to show
-it). Real tries: each sample against its target, Stations first, one run each, usage logged.
+it). Real tries: each sample against its target, one run each, usage logged.
 
 #### AP6 progress (2026-10-29, in delivery)
 
-**The core is built and works on the user's own workbooks** (real tries in the AI usage log):
-
-- **Timetables** into an empty workspace (cases D/E), checked with nothing refused:
-  - a new application, with an timetable type and an timetable category type and their
-    attributes;
-  - the translation join, made required as the model's other translation joins are;
-  - the 7 languages and translation groups the structure needs;
-  - 1,756 records and 1,500 translations;
-  - one real question (category translations).
-- **Lines & Routes** into the workspace built from it (case A): the saved profile kept, no
-  model change, every one of 87 lists checked; one call, 3 s, $0.08.
+**The core is built and works on sample workbooks** (real tries in the AI usage log): a workbook into an empty workspace (cases D/E) was checked with nothing refused, with a new application, its types and attributes, the translation join made required as the model's other translation joins are, the languages and translation groups the structure needs, and its translations loaded; and a workbook into the workspace built from it (case A) kept its saved profile with no model change, in one short call.
 
 **What was built:**
 
@@ -2665,7 +2558,7 @@ it). Real tries: each sample against its target, Stations first, one run each, u
 - refusals went back without their messages;
 - a reused required relationship was not marked required;
 - a shadowed variable sent the model alone;
-- a request of about 236,000 characters for 87 lists;
+- a request that grew with the number of lists to a quarter of a million characters;
 - the loop resending an accepted design;
 - the load reading the workspace's model before the activation committed;
 - the saved profile missing the kept lists.
@@ -2678,26 +2571,16 @@ it). Real tries: each sample against its target, Stations first, one run each, u
   - one batch built by `INSERT … SELECT`, after the import when there is one, queued by the worker;
   - where a record may hold only one, its set is replaced (counted as `replaces`); a rule giving it
     two is refused.
-  - Real try: "Give every timetable type in the Lab category the duration 15 min" gave 15 durations
-    replaced in a change set.
+  - Real try: an instruction setting one value on every record of a category replaced the set in a change set.
 - **The page:** model names instead of keys, the relationships card, "Ask the assistant" without a
   workbook, the spacing and the 390px stacks.
 - **Tests:** J50.21, J50.21b and J50.22; the browser runner on the design flow.
 
-**Where the cases stand on real files (2026-10-29):**
-
-| Case | Status |
-| --- | --- |
-| A, an update | works: Lines & Routes, 87 lists, one call |
-| E/D, new or related application | works: Timetables into an empty workspace, nothing refused |
-| B/C, additions and new relations to existing data | works (2026-10-30, run 6): Timetables into the workspace holding the example model, two attributes added, every row and translation loaded into a change set |
-| Scenario: relationships only where a condition holds | works (Lab durations) |
-| Scenarios as worded by the user (translations, system variants, a new business, values from a column) | not tried yet |
-| The user's further samples (2026-10-30) | Reductions and Tariff File work (new applications, nothing refused); Sponsor Sources loaded by the user (477 new, 54 changed); Stations stopped mid-run, its two refusal causes (empty cells in repeated rows, one key in two sheets) fixed in the import engine since |
+**Where the cases stand on sample files (2026-10-29):** the update, new-application and addition cases work; the conditional relationship scenario works; scenarios as worded by the user (translations, system variants, a new business, values from a column) were not tried yet; further samples loaded or stopped mid-run, the causes of the stops (empty cells in repeated rows, one key in two sheets) fixed in the import engine since.
 
 **Still to do in this package:**
 
-- **Cases B/C on the existing model.** The refusals are about reserved slots matched by name
+- **Cases B/C on the existing model.** The refusals are about records matched by name
   (ambiguous or missing), a cardinality and a required code; the translations sheet is left out.
   The design needs more rounds and a way to look up stored records before matching by name.
 - **Real tries of the remaining scenarios.**
@@ -2713,9 +2596,9 @@ it). Real tries: each sample against its target, Stations first, one run each, u
 
 - the dry run's refusals were lost on a round's later turns: they are kept until the next dry run;
 - each turn was sent the outcome but not the design so far, so a round rebuilt the design instead of
-  fixing it (round 3 went from 1 refused row back to 11): the design so far goes with every turn, and
+  fixing it (a later round went from one refused row back to many): the design so far goes with every turn, and
   a part the answer leaves out is kept (`workbook-design/4`);
-- the working copy dropped the formulas' last values (the Translations sheet's ID column is a
+- the working copy dropped the formulas' last values (a translations sheet's ID column is a
   formula), so every row was skipped for an empty key without a word: the copy keeps the values, and
   the check reports skipped rows (`skipped`, refused as `ROWS_SKIPPED` when most of a source's are);
 - a related record's parent read from a column took no value map, so a language word could not find
@@ -2737,19 +2620,19 @@ the proposal page, the bar's step, the assistant's page operations, `unpivots` (
 **Still to do:** the journey bar the user asked for (2026-10-30: a bar below the top bar following the
 import across the task page, the model editor and the change set, Close returning to the task,
 Stop / Start again / Open the change set) — built 2026-10-30 (`JourneyBar`, `AiTaskJourneyBar`, the
-`journey` route parameter); the proposal page not yet looked at in a browser. Also open: the wide
-price file's load, the update and additions files under AP6r, and the release's docs.
+`journey` route parameter); the proposal page not yet looked at in a browser. Also open: a wide
+file's load, the update and additions files under AP6r, and the release's docs.
 
 #### AP6a record (2026-10-29)
 
-**Delivered 2026-10-29** after the user approved the plan, the mock-up and J50.1–J50.11. After the
-user's first try on their own workbook ("everything looks off": junk records from note rows, a report
+**Delivered 2026-10-29** after the user approved the plan, the mock-up and J50.1–J50.11. After a
+first try on a larger workbook ("everything looks off": junk records from note rows, a report
 hundreds of lines long), the user approved a revision on the same day (mock-up boards 5–7, J50.12–16,
 "its good"). Backend and frontend were built by Sonnet agents from briefs and reviewed by the lead.
 
 - **Removal first:** the naming helper (`inference/assistant.py`, its option, read fields, texts and
-  tests, J48.2/6/7). A call recorded for `modelNames` stays readable: Settings › AI answered 500 on the
-  user's instance because of it. Fixed, with J48.1 *a call made for a feature since removed stays
+  tests, J48.2/6/7). A call recorded for `modelNames` stays readable: Settings › AI answered 500 on a
+  development instance because of it. Fixed, with J48.1 *a call made for a feature since removed stays
   readable*.
 - **Engine** `engine/tasks/`:
   - `store`, `reading`, `matching`, `turns`, `plan`, `job` (the phases read, plan and fix, one job each,
@@ -2780,16 +2663,16 @@ hundreds of lines long), the user approved a revision on the same day (mock-up b
 - Last runs: J50, the `tasks` unit tests and the contract test, 110 passed; J48 and J49 passed; AP6a
   components 29 passed; tsc, eslint and the production build clean.
 - Runner `ap1-ai` with the AP6a screens (a 33-list workbook): passed.
-- Real try (logged in the AI usage log): the user's workbook, read phase in a rolled-back
-  transaction. The stored profile was followed: 87 tables on 4 sheets, 0 to decide, and the assistant
-  confirmed the reading. $0.056 at API prices, against $0.24 for the same turn before the revision.
+- Real try (logged in the AI usage log): a workbook, read phase in a rolled-back
+  transaction. The stored profile was followed, with nothing to decide, and the assistant
+  confirmed the reading, at a fraction of the cost of the same turn before the revision.
 
 **Pre-existing failures, not from AP6a** (both fail at HEAD before AP6a, checked in a worktree):
 - the J47 sweep gives a contributor 422 on AP2's mapping-proposals route;
 - J38.1 fails on 'Bsrc'.
 
 **Not verified:**
-- the plan, check and fix phases with a real provider on the user's workbook (the try covered the
+- the plan, check and fix phases with a real provider (the try covered the
   read phase);
 - matching by meaning and fixes with a real provider on a file whose layout the instance does not
   know.
@@ -2820,7 +2703,7 @@ check and pages are the loop's first tools. The next plan replaces AP6b–d with
 | Add this translation | Only language columns where the model has one fitting structure; not a translations sheet |
 | Add this system variant | No |
 | Add a new business | No |
-| A relationship between duration and stations, only if driver assigned | No |
+| A relationship between frequency and stations, only if driver assigned | No |
 
 The person's words reach the provider only as context: nothing plans from them.
 
@@ -2828,8 +2711,8 @@ The person's words reach the provider only as context: nothing plans from them.
 - the loaded page's "(show)" became a Show/Hide button (`ui/Disclosure`, `link` variant);
 - the list count of a check stored before the revision said "87 of 87": it is now worked out from the
   figures.
-- **The user's second real file** (a code list and its translations, into an empty workspace) loaded
-  nothing in 10 calls ($0.52). Three causes, all fixed (J50.17):
+- **A second real file** (a code list and its translations, into an empty workspace)
+  loaded nothing in ten calls. Three causes, all fixed (J50.17):
   - no operation existed for "these rows are new records of a type": `readTable` `update` now takes
     the key column and its key when no stored record matches, and the table reads "New records of …";
   - the assistant could repeat a refused operation on every turn: an answer that only repeats one now
@@ -2837,9 +2720,9 @@ The person's words reach the provider only as context: nothing plans from them.
   - every turn's note was shown, and refusals named `t1` and column letters: now only the last note is
     kept, and refusals name the sheet and the column's header. Prompt `workbook-read/2`.
 
-  The same file afterwards: 2 calls, $0.106; the list is read as 200 new records. It still cannot load.
-  Its rows need a codelist and a domain that the workspace does not hold, and the translations sheet
-  needs the model's own translation types. That is the assistant deciding the structure: the next plan.
+  The same file afterwards took two calls and the list was read as new records. It still could not load.
+  Its rows needed a codelist and a domain that the workspace did not hold, and the translations sheet
+  needed the model's own translation types. That is the assistant deciding the structure: the next plan.
 
 #### Work packages (as first planned 2026-10-27; superseded by the slices above)
 
@@ -2851,7 +2734,7 @@ The person's words reach the provider only as context: nothing plans from them.
 | **AP6d** The task page and New from a workbook | AP6a–AP6c | New from a workbook's AI path (the workbook, an optional words field, the assistant's steps as progress, the result in the editor; AP1's rename checkbox removed); the page of the mock-up: attachment, thread, question with candidates, reading and plan with steps expandable and editable, the check, the destination, "Run into change set"; the starting suggestions for a file with no instruction; the home page entry | A data task end to end in the browser; the question changes the plan; a follow-up chip; a phone layout; light and dark; the accessibility and visual gates |
 | **AP6e** The editor's side pane | AP6a, AP6b | `ui/SidePane` extracted from SAVED_UI_PATTERNS (frame, fold button, folded strip, resize handle, width and open state remembered); the editor's grid gets a third column (`ModelEditor.tsx` and `model-editor.css`), a tab on a phone; the assistant thread inside it; an assistant step shows in the editor as any step with its mark and "Proposed because" | New model and extend-model journeys in the browser; renaming a Proposed type clears its mark; undo reverses an assistant step; the pane folds and the width is remembered; 390px tabs |
 | **AP6f** A relationship that depends on a condition | AP6b, AP6c | The query conditions (one hop, `not`) into a `batchItems` step with the items built in the database; the refusal of a condition the query cannot say (AP-D17); the measurement at 200 and 2,000 records (AP-D18) | The conditional relationship journey with its count; an inexpressible condition is refused with its reason; a measurement report |
-| **AP6g** Real-file try and close-out | all | The AP-D22 try on the user's own workbooks; the documentation (PRODUCT, CURRENT_FUNCTIONALITY, ARCHITECTURE, OPERATIONS settings `AI_MAX_STEPS`, `AI_TASK_MAX_FILES`, `AI_TASK_RETENTION_DAYS`, API, journeys, CHANGELOG) | The real-file try: five task kinds, each with a real provider, judged by the user |
+| **AP6g** sample-file try and close-out | all | The AP-D22 try with real providers; the documentation (PRODUCT, CURRENT_FUNCTIONALITY, ARCHITECTURE, OPERATIONS settings `AI_MAX_STEPS`, `AI_TASK_MAX_FILES`, `AI_TASK_RETENTION_DAYS`, API, journeys, CHANGELOG) | The sample-file try: five task kinds, each with a real provider, judged by the user |
 
 Order: AP6a, AP6b, AP6c, then AP6d and AP6e (independent of each other), AP6f, AP6g. AP6d is the
 first the user can try in the browser; recommended to show it before AP6e is built.

@@ -8,8 +8,8 @@ export const designCheck: AiTaskDesignCheck = {
   rounds: 1,
   sheets: [
     {
-      sheet: "Timetables",
-      objectTypeKey: "timetable",
+      sheet: "Departures",
+      objectTypeKey: "departure",
       structure: false,
       rows: 120,
       created: 118,
@@ -50,11 +50,11 @@ export const designCheck: AiTaskDesignCheck = {
   ],
   refused: [
     {
-      sheet: "Timetables",
-      objectTypeKey: "timetable",
+      sheet: "Departures",
+      objectTypeKey: "departure",
       code: "REFERENCE_NOT_FOUND",
       rows: 2,
-      examples: [{ row: 14, message: "No category named Walk-in.", details: null }],
+      examples: [{ row: 14, message: "No category named Extra run.", details: null }],
     },
   ],
   summary: { created: 123, updated: 40, unchanged: 0, refused: 2, relationships: 3 },
@@ -63,9 +63,9 @@ export const designCheck: AiTaskDesignCheck = {
 export const designTask = (): AiTask => ({
   id: "task-1",
   workspaceKey: "west",
-  fileName: "scheduling.xlsx",
+  fileName: "timetable.xlsx",
   sourceFileId: "file-1",
-  words: "A scheduling model",
+  words: "A timetable model",
   state: "checked",
   version: 4,
   jobId: null,
@@ -79,35 +79,35 @@ export const designTask = (): AiTask => ({
   notes: [],
   result: null,
   design: {
-    summary: "The workbook lists timetables with a category. The model gets a Scheduling application.",
+    summary: "The workbook lists departures with a category. The model gets a Timetable application.",
     operations: [
-      { kind: "addApplication", key: "scheduling", name: "Scheduling", description: "Timetables" },
+      { kind: "addApplication", key: "timetable", name: "Timetable", description: "Departures" },
       {
         kind: "addObjectType",
-        applicationKey: "scheduling",
-        key: "timetable",
-        name: "Timetable",
-        pluralName: "Timetables",
+        applicationKey: "timetable",
+        key: "departure",
+        name: "Departure",
+        pluralName: "Departures",
         parent: null,
       },
       { kind: "addAttributeType", key: "starts", name: "Starts", valueType: "datetime", features: [] },
-      { kind: "attachAttribute", objectType: "timetable", attributeType: "starts", required: true },
+      { kind: "attachAttribute", objectType: "departure", attributeType: "starts", required: true },
       { kind: "addRelationType", key: "has-category", name: "has category", reverseName: "categorises" },
       {
         kind: "allowRelation",
         relationType: "has-category",
-        from: "timetable",
+        from: "departure",
         to: "category",
         cardinality: "many-to-one",
       },
-      { kind: "setRelease", name: "scheduling" },
+      { kind: "setRelease", name: "timetable" },
     ],
     profile: {
       sources: [
         {
-          sheet: "Timetables",
-          objectTypeKey: "timetable",
-          applicationKey: "scheduling",
+          sheet: "Departures",
+          objectTypeKey: "departure",
+          applicationKey: "timetable",
           key: { attributeTypeKey: "starts" },
           columns: [
             { column: "Starts", attributeTypeKey: "starts" },
@@ -117,7 +117,7 @@ export const designTask = (): AiTask => ({
         {
           sheet: "Translations",
           objectTypeKey: "category",
-          applicationKey: "scheduling",
+          applicationKey: "timetable",
           key: { field: "name" },
           record: "existing",
           columns: [{ column: "German", field: "name" }],
@@ -125,10 +125,10 @@ export const designTask = (): AiTask => ({
       ],
     },
     questions: [
-      { text: "Is a visit one timetable?", options: ["Yes", "No"], assumed: "Yes" },
-      { text: "Keep walk-ins?", options: ["Keep", "Drop"], assumed: null },
+      { text: "Is a run one departure?", options: ["Yes", "No"], assumed: "Yes" },
+      { text: "Keep extra runs?", options: ["Keep", "Drop"], assumed: null },
     ],
-    answers: { "Keep walk-ins?": "Drop" },
+    answers: { "Keep extra runs?": "Drop" },
     rounds: 1,
     origin: null,
     outcome: null,

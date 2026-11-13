@@ -4,7 +4,7 @@ import { RelationGridChangeDialog } from "@/features/objects/RelationGridChangeD
 import type { AttributeTypeDefinition } from "@/types";
 
 const relationGridChange = vi.hoisted(() => vi.fn());
-vi.mock("@/features/workspaces/WorkspaceDataContext", () => ({ useDataApi: () => ({ relationGridChange }) }));
+vi.mock("@/state/WorkspaceDataContext", () => ({ useDataApi: () => ({ relationGridChange }) }));
 
 const attributes = [
   { key: "note", name: "Note", valueType: "json" },

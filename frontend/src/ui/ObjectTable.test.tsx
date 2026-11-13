@@ -36,7 +36,7 @@ describe("ObjectTable", () => {
         onOpen={() => {}}
       />,
     );
-    expect(screen.getByText("Timetable types")).toBeInTheDocument();
+    expect(screen.getByText("Means of transport")).toBeInTheDocument();
     expect(screen.getByText("Codelist")).toBeInTheDocument();
   });
 

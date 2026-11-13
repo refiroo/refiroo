@@ -7,9 +7,9 @@
  */
 
 import { api } from "@/api/client";
-import { emptyModel } from "@/features/model-admin/CreateDraftDialog";
-import { nameOfFile } from "@/features/model-editor/ProposeFields";
-import { holdsAnywhere } from "@/features/security/permissions";
+import { emptyDraftModel } from "@/model/emptyDraftModel";
+import { nameOfFile } from "@/ui/ProposeFields";
+import { holdsAnywhere } from "@/state/permissions";
 import type { CapabilitiesResponse, DryRun, DryRunSource, HeldAnywhere, ModelDraft } from "@/types";
 
 /** The workspace's name a file suggests: "office-supplies.xlsx" becomes "Office supplies". */
@@ -73,7 +73,7 @@ export async function lookAtWorkbook(file: File, name: string, onStage: (stage: 
   onStage("Reading the workbook");
   const created = await api.createModelDraft({
     name,
-    model: emptyModel(name, (await api.system()).schemaLanguages),
+    model: emptyDraftModel(name, (await api.system()).schemaLanguages),
   });
   try {
     const stored = await api.uploadSourceFile(file, { owner: { draftId: created.id } });

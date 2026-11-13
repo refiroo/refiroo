@@ -12,17 +12,11 @@ import { api } from "@/api/client";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
 import { activationRefusal } from "@/features/model-editor/InstallDialog";
-import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
-import { ImpactSummary } from "@/features/model-admin/ImpactSummary";
+import { workspaceModelLabel } from "@/ui/WorkspaceSelector";
+import { ImpactSummary } from "@/ui/ImpactSummary";
+import { LeftBehindChangeSets, MigrationReasons, openChangeSets } from "@/ui/ActivationParts";
 import { releasesByModel } from "@/features/model-admin/modelLines";
-import type {
-  ChangeSet,
-  ModelDiagnostic,
-  ModelReleaseDiff,
-  ModelReleaseSummary,
-  Workspace,
-  WorkspaceModelActivation,
-} from "@/types";
+import type { ChangeSet, ModelReleaseDiff, ModelReleaseSummary, Workspace, WorkspaceModelActivation } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Icon } from "@/ui/Icon";
 import { Notice } from "@/ui/Notice";
@@ -34,19 +28,6 @@ type Check =
   | { key: string; state: "ready"; diff: ModelReleaseDiff; leftBehind: ChangeSet[] }
   | { key: string; state: "error"; message: string };
 
-/** Every open change set of the workspace, page by page (a workspace holds few). */
-export async function openChangeSets(workspaceKey: string): Promise<ChangeSet[]> {
-  const found: ChangeSet[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await api.changeSets(workspaceKey, cursor);
-    found.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return found;
-}
-
-/** The candidate releases by model, the workspace's own model first, each newest first (M6). */
 function groupedCandidates(candidates: ModelReleaseSummary[], ownModelKey: string | undefined) {
   const models = releasesByModel(candidates);
   return [
@@ -364,61 +345,5 @@ export function ActivateDialog({
         </div>
       </form>
     </Modal>
-  );
-}
-
-/** The workspace's open change sets that stay on the release it runs now (D26). */
-export function LeftBehindChangeSets({
-  workspaceLabel,
-  version,
-  changeSets,
-}: {
-  workspaceLabel: string;
-  version: string;
-  changeSets: ChangeSet[];
-}) {
-  return (
-    <section aria-labelledby="activate-left-behind" className="activate-left-behind">
-      <h3 id="activate-left-behind" className="install-heading">
-        Change sets left on {version}
-      </h3>
-      {changeSets.length ? (
-        <>
-          <p className="muted">
-            These open change sets of {workspaceLabel} stay pinned to the release it runs now. They cannot be published
-            until each is moved to the new release or discarded.
-          </p>
-          <ul>
-            {changeSets.map((item) => (
-              <li key={item.id}>
-                {item.name ?? "Unnamed change set"} · version {item.version}
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p className="muted">None: {workspaceLabel} has no open change set.</p>
-      )}
-    </section>
-  );
-}
-
-/** The first reasons the data does not fit, in plain words; the release's page lists every one. */
-const REASONS_SHOWN = 5;
-
-export function MigrationReasons({ diagnostics }: { diagnostics: ModelDiagnostic[] }) {
-  if (!diagnostics.length) return null;
-  const more = diagnostics.length - REASONS_SHOWN;
-  return (
-    <ul className="migration-reasons">
-      {diagnostics.slice(0, REASONS_SHOWN).map((item, index) => (
-        <li key={`${item.path}:${index}`}>{item.message}</li>
-      ))}
-      {more > 0 && (
-        <li>
-          And {more} more {more === 1 ? "reason" : "reasons"}, listed on the release's page.
-        </li>
-      )}
-    </ul>
   );
 }

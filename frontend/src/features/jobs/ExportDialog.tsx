@@ -14,21 +14,13 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import type {
-  CollectionFilter,
-  EngineModel,
-  ExportFormat,
-  ExportLayout,
-  ExportRelations,
-  ExportRequest,
-  Job,
-} from "@/types";
-import { useRelationFilterNames } from "@/features/objects/RelationFilter";
+import type { EngineModel, ExportFormat, ExportLayout, ExportRelations, ExportRequest, Job } from "@/types";
+import { useRelationFilterNames } from "@/ui/relationFilterNames";
 import { attributeName } from "@/model/fields";
 import { RELATED_FIELD_PREFIX } from "@/model/lookup";
 import { Choice } from "@/ui/Choice";
 import { FormField } from "@/ui/FormField";
-import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
+import { WorkspaceField } from "@/ui/WorkspaceField";
 import { Icon } from "@/ui/Icon";
 import { Modal } from "@/ui/Modal";
 import { MultiSelect } from "@/ui/MultiSelect";
@@ -47,39 +39,13 @@ import {
   sheetRelationships,
   ownedType,
   type ExportField,
+  type ExportStart,
   type ExportViewStart,
   type OwnedChoice,
   type PeopleColumn,
-} from "./exportRequest";
-import type { ExportViewSize } from "@/features/objects/views/useViewExport";
+} from "@/model/exportRequest";
 import { parentObjectTypeKeys } from "@/model/placements";
 import { RecordListField } from "@/ui/RecordListField";
-
-export interface ExportStart {
-  /** The workspace; none lets the user choose one. */
-  workspaceKey?: string;
-  changeSetId?: string;
-  publicationId?: string;
-  /** The types offered, in the model's order, and those chosen at first. */
-  objectTypeKeys: readonly string[];
-  selected: readonly string[];
-  /** The collection's filters, for its type. */
-  filters?: { objectTypeKey: string; filters: CollectionFilter[] };
-  search?: string;
-  /** The page's parent scope: records directly below this record, of the filtered type. */
-  parentObjectId?: string;
-  /**
-   * The table's columns as its Display shows them, in order, and those it hides: given, the dialog
-   * offers a workbook for people of the filtered type (0.9 J6).
-   */
-  columns?: { shown: readonly string[]; hidden: readonly string[] };
-  /** The list view the page shows and what it was narrowed to: the dialog's "This view" (EX1). */
-  view?: ExportViewStart;
-  /** What that view held when the dialog opened: the file's size, for the count line (EX1). */
-  size?: ExportViewSize;
-  /** The open change set's name, for "from change set …". */
-  changeSetName?: string;
-}
 
 /** What an export is of: the page's view, its type, its application or the whole workspace. */
 type What = "view" | "type" | "application" | "workspace";

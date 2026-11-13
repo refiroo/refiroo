@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ai } from "@/api/aiClient";
 import { api } from "@/api/client";
 import { openEventStream } from "@/api/eventStream";
-import { JobNotificationsProvider } from "@/features/jobs/JobNotifications";
+import { JobNotificationsProvider } from "@/ui/JobNotifications";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import { permissionsFixture } from "@/test/permissions";
 import { PushedEventSource } from "@/test/jobStream";
@@ -32,7 +32,7 @@ vi.mock("@/api/client", async (importOriginal) => ({
 
 // The page's data: live, or a change set, held by what each test sets.
 const data = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
-vi.mock("@/features/workspaces/WorkspaceDataContext", () => ({
+vi.mock("@/state/WorkspaceDataContext", () => ({
   useWorkspaceData: () => data.value,
   useDataApi: () => data.value.api,
   useRecordWrites: () => ({
@@ -96,7 +96,7 @@ const coverage: MappingCoveragePage = {
         {
           relationId: "r1",
           attributes: {},
-          object: { id: "t1", objectTypeKey: "codelist", name: "Timetable types", fields: {} },
+          object: { id: "t1", objectTypeKey: "codelist", name: "Means of transport", fields: {} },
           origin,
         },
       ],
@@ -192,7 +192,7 @@ describe("Propose targets (0.16 AP2)", () => {
 
   it("marks a target the AI proposed with its confidence and reason, and no other", async () => {
     setUp({});
-    await screen.findByText("Timetable types");
+    await screen.findByText("Means of transport");
     expect(screen.getByText("Proposed by the AI · 86%")).toBeInTheDocument();
     expect(screen.getByText("The name says it is the same thing.")).toBeInTheDocument();
     expect(screen.getAllByText(/Proposed by the AI/)).toHaveLength(1);
@@ -219,7 +219,7 @@ describe("Propose targets (0.16 AP2)", () => {
 
   it("has no Proposed segment in live data", async () => {
     setUp({});
-    await screen.findByText("Timetable types");
+    await screen.findByText("Means of transport");
     expect(screen.queryByRole("button", { name: "Proposed" })).toBeNull();
   });
 
@@ -234,7 +234,7 @@ describe("Propose targets (0.16 AP2)", () => {
     ["the grid is read only", undefined, undefined],
   ])("does not draw the button when %s", async (name, aiInfo, groups) => {
     setUp({ ai: aiInfo, groups, props: name === "the grid is read only" ? { readOnly: true } : {} });
-    await screen.findByText("Timetable types");
+    await screen.findByText("Means of transport");
     await waitFor(() => expect(api.system).toHaveBeenCalled());
     await new Promise((done) => setTimeout(done, 20));
     expect(screen.queryByRole("button", { name: button })).toBeNull();

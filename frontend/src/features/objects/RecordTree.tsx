@@ -48,7 +48,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { collectionGroups, rootObjectTypeKeys } from "@/model/collections";
 import { objectTypeHue } from "@/model/hues";

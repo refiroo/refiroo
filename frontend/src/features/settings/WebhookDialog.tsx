@@ -31,7 +31,7 @@ import { Notice } from "@/ui/Notice";
 import { SearchMenu } from "@/ui/SearchMenu";
 import { TokenField } from "@/ui/TokenField";
 import { sourceName, subscribable } from "./consumerDefinitions";
-import { CONTENT, FORMAT, WORKSPACE_EVENTS, eventDeclaration } from "./webhookText";
+import { CONTENT, FORMAT, WORKSPACE_EVENTS, eventDeclaration } from "@/ui/webhookText";
 
 /** The batch size offered when an operator first chooses to batch. */
 const DEFAULT_BATCH = 100;

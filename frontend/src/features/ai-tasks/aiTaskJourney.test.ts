@@ -41,7 +41,7 @@ describe("the assistant load as a journey", () => {
 
   it("sends the person to the model editor before the load, and names refused rows", () => {
     const task = designTask();
-    task.design!.answers["Is a visit one timetable?"] = "Yes";
+    task.design!.answers["Is a run one departure?"] = "Yes";
     const review = taskJourney(task);
     expect(statuses(task)).toMatchObject({ model: "current", questions: "done", load: "todo" });
     expect(review.sentence).toBe("Review the model change in the editor, then come back here.");

@@ -12,8 +12,8 @@ import { ProductMark } from "@/ui/ProductMark";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingRow, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
-import { settingsHead } from "./navigation";
-import { useSystem } from "./useSystem";
+import { settingsHead } from "@/ui/settingsNavigation";
+import { useSystem } from "@/state/useSystem";
 
 export function AboutPage({ onNavigate }: { onNavigate: (route: SettingsRoute) => void }) {
   const { system, error, retry } = useSystem();

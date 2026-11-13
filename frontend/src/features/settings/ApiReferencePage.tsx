@@ -16,10 +16,10 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
-import { settingsHead } from "./navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { ReferenceWorkspace } from "./ReferenceWorkspace";
 import { allConsumerApis, consumerSlug, openapiUrl, referenceUrl } from "./consumerAddresses";
-import { useSettingsRead, useSystem } from "./useSystem";
+import { useSettingsRead, useSystem } from "@/state/useSystem";
 
 export function ApiReferencePage({
   route,

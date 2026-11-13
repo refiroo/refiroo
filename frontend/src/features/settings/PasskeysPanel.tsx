@@ -20,8 +20,8 @@ import { SettingRow, SettingsEmpty, SettingsGroup, SettingsPanel, SettingsTile }
 import { Skeleton } from "@/ui/Skeleton";
 import { TextInPlace } from "@/ui/TextInPlace";
 import { useToast } from "@/ui/Toast";
-import { settingsHead } from "./navigation";
-import { useSettingsRead } from "./useSystem";
+import { settingsHead } from "@/ui/settingsNavigation";
+import { useSettingsRead } from "@/state/useSystem";
 
 export function PasskeysPanel() {
   const { data: passkeys, error, retry } = useSettingsRead<Passkey[]>(api.myPasskeys);

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
-import { ChangeTitle } from "@/features/changes/ChangesPage";
-import { periodLabel, WhatChanged, type ShownFact } from "@/features/changes/WhatChanged";
-import { NarrowedBanner } from "@/features/objects/CollectionScope";
-import { KIND_LABELS, changeSummary, changeWhere } from "@/features/changes/changeText";
+import { ChangeTitle } from "@/ui/ChangeTitle";
+import { periodLabel, WhatChanged, type ShownFact } from "@/ui/WhatChanged";
+import { NarrowedBanner } from "@/ui/CollectionScope";
+import { KIND_LABELS, changeSummary, changeWhere } from "@/ui/changeText";
 import {
   OUTCOME_PILL,
   groupActivity,

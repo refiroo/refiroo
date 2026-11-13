@@ -4,9 +4,18 @@
  */
 
 import type { MutableRefObject, ReactNode } from "react";
-import type { ExportStart } from "@/features/jobs/ExportDialog";
-import type { ExportViewExtra } from "./useViewExport";
+import type { ExportStart, ExportViewSize } from "@/model/exportRequest";
 import type { ApplicationDefinition, CollectionQueryState, EngineModel, ObjectItem, ViewDefinition } from "@/types";
+
+/** What only one kind of view knows: a table's columns as its Display shows them. */
+export interface ExportViewExtra {
+  columns?: { shown: readonly string[]; hidden: readonly string[] };
+  /**
+   * What the page holds of the file, for the dialog's count line: rows and columns, or records where
+   * the kind has no columns. A part the page does not know yet is absent.
+   */
+  size?: ExportViewSize;
+}
 
 export interface ViewComponentProps {
   model: EngineModel;

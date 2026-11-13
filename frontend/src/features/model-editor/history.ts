@@ -4,7 +4,7 @@
  */
 
 import type { EditorSelection, ModelDraftOperationEntry, RemovedElement } from "@/types";
-import type { ElementKind } from "@/features/model-editor/outline";
+import type { ElementKind } from "@/model/outline";
 import { describeConsumerOperation } from "@/features/model-editor/consumer";
 import { describeMappingOperation } from "@/features/model-editor/mapping";
 

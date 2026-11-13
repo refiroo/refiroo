@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
-import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName, listSortFields, RELATED_EXPAND_LIMIT, relatedKeys } from "@/model/fields";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";

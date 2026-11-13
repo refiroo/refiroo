@@ -1877,3 +1877,41 @@ mandatory review step, because a data owner's daily correction must stay live wh
   row per submission and per decision; a submitted change set refuses writes unless the request
   carries `withdrawSubmission=true`. An approved change set is deleted by its publication, so a
   request keeps no foreign key to it.
+
+## ADR-046 — Frontend import tiers
+
+**Status:** Accepted, 2026-11-13, by the user, recorded with the
+[Base 0.17 SR2 plan](BASE_0_17_IMPLEMENTATION_PLAN.md#sr2-frontend-features-import-shared-state-from-one-layer).
+The counterpart of the backend tiers that `tests/test_boundaries.py` enforces.
+
+### Motivation
+
+The frontend's features imported each other in both directions (settings and security, settings and jobs,
+objects and workspaces) because app-wide modules lived in one feature's folder: the workspace data context was
+imported 40 times from other features, permissions 21 times, the system and limits 14 and 20. `ui/` imported
+features too. Nothing was broken, but the shape invited the next shared part to be copied instead of reused, and
+no check stopped a feature from reaching into another. The backend holds its tiers by a test; the frontend held
+nothing.
+
+### Decision
+
+- **A layer for app-wide state.** `src/state/` holds the state and hooks that belong to no single feature. It
+  imports only `api`, `lib`, `model`, `types`, `routing` and itself; `ui/` may import it.
+- **One test for every other shared part:** a part used by several features moves to the lowest layer its imports
+  allow (`state`, `ui`, `lib`, `model`); a part that is one feature's own and shown by another stays, as a
+  deliberate edge named in `frontend/eslint.config.js` with its reason. The edges are listed in ARCHITECTURE.md.
+- **A lint rule keeps it so.** Per feature, `no-restricted-imports` forbids `@/features/*` except its own folder and
+  its deliberate edges; `ui`, `lib`, `model`, `api`, `types`, `routing` and `state` may import no feature. There is
+  no list of exceptions.
+- **No import cycles:** the contracts in `src/types/` and the export dialog's types were reordered so that
+  dependencies run one way.
+
+### Consequences
+
+- A new shared part has one place to go; a feature-to-feature import fails `npm run lint` until it is moved or
+  added as an edge with a reason.
+- A deliberate edge is a visible, reviewed choice; a feature that gains many edges is a sign it should be split or
+  its shared parts lowered.
+- No behaviour, markup, route or API changes: files moved, and a few shared definitions were taken out of the
+  files that held them (the column-drop operations, the relation filter's names, the export request's types).
+- The duplicated Apply/Install and Bulk dialogs stay for the package that next touches them.

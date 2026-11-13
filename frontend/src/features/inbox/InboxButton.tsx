@@ -8,7 +8,7 @@ import type { RouteState } from "@/types";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { Icon } from "@/ui/Icon";
 import { InboxPanel } from "./InboxPanel";
-import { useInbox } from "./useInbox";
+import { useInbox } from "@/state/useInbox";
 
 const BADGE_CAP = 9;
 

@@ -8,7 +8,7 @@
 
 import type { EditorSelection, ModelDraftOutline, OutlineObjectType, OutlineUse } from "@/types";
 import { StatusPill } from "@/ui/StatusPill";
-import { VIEW_KINDS, applicationOf, placeOf } from "@/features/model-editor/outline";
+import { VIEW_KINDS, applicationOf, placeOf } from "@/model/outline";
 
 const ROLE_WORDS: Record<OutlineUse["role"], string> = {
   rows: "rows",

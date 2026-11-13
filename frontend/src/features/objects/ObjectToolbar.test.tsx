@@ -7,7 +7,7 @@ import { testModel } from "@/test/fixtures";
 import type { CollectionQueryState, QueryTranslation, TableViewDefinition } from "@/types";
 
 const offer = vi.hoisted(() => ({ on: true }));
-vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({
+vi.mock("@/state/useWorkspaceAiOffer", () => ({
   useQueryTranslationOffer: () =>
     offer.on ? { configured: true, provider: "fake", sendLevel: "structure" } : undefined,
 }));

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openEventStream } from "@/api/eventStream";
 import { api } from "@/api/client";
-import { JobNotificationsProvider } from "@/features/jobs/JobNotifications";
+import { JobNotificationsProvider } from "@/ui/JobNotifications";
 import { emptySelection, toggle } from "@/lib/recordSelection";
 import { capabilitiesFixture } from "@/test/capabilities";
 import { domainObject, testModel } from "@/test/fixtures";

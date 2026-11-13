@@ -22,11 +22,11 @@ import type {
 import { Choice } from "@/ui/Choice";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
-import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
+import { WorkspaceField } from "@/ui/WorkspaceField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
-import { bytes } from "@/features/settings/limits";
-import { useCapabilities } from "@/features/settings/useSystem";
+import { bytes } from "@/ui/limits";
+import { useCapabilities } from "@/state/useSystem";
 import {
   defaultOnExisting,
   importField,
@@ -37,7 +37,7 @@ import {
   profileSummary,
   type ImportContext,
   type ImportField,
-} from "./importRequest";
+} from "@/model/importRequest";
 
 export interface ImportStart {
   /** The page's data; none lets the user choose a workspace and its data. */

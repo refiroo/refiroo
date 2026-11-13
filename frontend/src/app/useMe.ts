@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
-import { holdsAnywhere, useHeldAnywhere, useWorkspacePermissions } from "@/features/security/permissions";
+import { holdsAnywhere, useHeldAnywhere, useWorkspacePermissions } from "@/state/permissions";
 import type { Me, MyPermissions, SystemResponse } from "@/types";
 
 // Who is signed in, read once per page load: it changes only by signing in again (0.12 I2).

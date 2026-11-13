@@ -9,9 +9,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
-import type { Noun } from "@/features/jobs/BatchOutcome";
+import type { Noun } from "@/ui/BatchOutcome";
 import { targetText } from "@/features/objects/BulkJobDialog";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import type { RecordSelection } from "@/lib/recordSelection";
 import type {
   AttributeTypeDefinition,

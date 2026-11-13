@@ -11,7 +11,7 @@
 
 import { useState, type FormEvent } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { RELATION_ATTRIBUTES_LABEL, relationAttributeTypes } from "@/features/objects/relations/RelationAttributes";
 import { RelationValueCell } from "@/features/objects/relations/RelationValueCell";
 import { relationAttributeColumn } from "@/features/objects/relations/relationAttributeColumns";

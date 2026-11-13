@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { api } from "@/api/client";
 import { security } from "@/api/securityClient";
 import { useHoldsGroup } from "@/app/useMe";
-import { holds, useWorkspacePermissions } from "@/features/security/permissions";
+import { holds, useWorkspacePermissions } from "@/state/permissions";
 import { GrantsSection } from "@/features/security/GrantsSection";
 import { useEditModel } from "@/features/workspaces/useEditModel";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -36,14 +36,9 @@ import type {
   WorkspaceRuntimeState,
   WorkspaceTab,
 } from "@/types";
-import {
-  installedReleases,
-  ModelChoice,
-  NewWorkspaceFields,
-  useNewWorkspaceIdentity,
-} from "@/features/workspaces/NewWorkspaceFields";
+import { installedReleases, ModelChoice, NewWorkspaceFields, useNewWorkspaceIdentity } from "@/ui/NewWorkspaceFields";
 import { NewFromWorkbookAction } from "@/features/workspaces/NewFromWorkbookAction";
-import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
+import { workspaceModelLabel } from "@/ui/WorkspaceSelector";
 import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
 import { WorkspaceList, resetWorkspaceListCacheForTests } from "@/features/workspaces/WorkspaceList";
 import { Trail } from "@/ui/Trail";
@@ -51,18 +46,18 @@ import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { HueTile } from "@/ui/HueTile";
 import { Skeleton } from "@/ui/Skeleton";
 import { Tabs, type TabDefinition } from "@/ui/Tabs";
-import { urlName } from "@/features/settings/webhookText";
+import { urlName } from "@/ui/webhookText";
 import { routePath } from "@/routing/routes";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-import { NewMoveDialog } from "@/features/moves/NewMoveDialog";
-import { moveAbility } from "@/features/moves/moveAbility";
+import { NewMoveDialog } from "@/ui/NewMoveDialog";
+import { moveAbility } from "@/lib/moveAbility";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { ItemHeader, LogFoot, SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { StatusPill } from "@/ui/StatusPill";
 import { TextInPlace } from "@/ui/TextInPlace";
 import { useToast } from "@/ui/Toast";

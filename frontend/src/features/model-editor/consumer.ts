@@ -8,7 +8,7 @@
  */
 
 import type { ConsumerDefinition, DraftOperation, ModelDraftOutline } from "@/types";
-import { relationTypeOf, typeName } from "@/features/model-editor/outline";
+import { relationTypeOf, typeName } from "@/model/outline";
 
 type Json = Record<string, unknown>;
 

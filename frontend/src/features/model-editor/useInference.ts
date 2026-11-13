@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { Inference, InferenceRequest, Proposal } from "@/types";
-import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
+import { isFinal, useJobStream } from "@/state/useJobStream";
 
 export interface DraftInference {
   inference?: Inference;

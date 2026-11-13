@@ -42,7 +42,7 @@ import {
   signInOf,
   type SignIn,
 } from "./mailText";
-import { settingsHead } from "./navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 
 export function MailPage() {
   const [settings, setSettings] = useState<MailSettings>();

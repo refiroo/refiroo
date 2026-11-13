@@ -44,7 +44,7 @@ import { StatusPill } from "@/ui/StatusPill";
 import { TextInPlace } from "@/ui/TextInPlace";
 import { useToast } from "@/ui/Toast";
 import { Trail } from "@/ui/Trail";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { GrantsSection } from "./GrantsSection";
 import { AddMembersDialog } from "./AddMembersDialog";
 

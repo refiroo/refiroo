@@ -18,11 +18,11 @@ import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
-import { WORKBOOK_ACCEPT } from "@/features/model-editor/AddWorkbookDialog";
-import { proposeWhenProfiled } from "@/features/model-editor/proposing";
-import { nameOfFile, proposeRequest, ProposeFields, type ProposeChoice } from "@/features/model-editor/ProposeFields";
-import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
-import { keyFromLabel } from "@/features/model-editor/outline";
+import { WORKBOOK_ACCEPT } from "@/ui/AddWorkbookDialog";
+import { proposeWhenProfiled } from "@/model/proposing";
+import { nameOfFile, proposeRequest, ProposeFields, type ProposeChoice } from "@/ui/ProposeFields";
+import { WorkspaceField } from "@/ui/WorkspaceField";
+import { emptyDraftModel } from "@/model/emptyDraftModel";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -32,20 +32,6 @@ export interface CreateDraftSeed {
   releaseId: string;
   /** Ask for a workbook to upload to the new draft (0.10 A5b). */
   workbook?: boolean;
-}
-
-/** A model with nothing in it yet, in the newest schema language the deployment reads. */
-export function emptyModel(name: string, schemaLanguages: string[]): Record<string, unknown> {
-  return {
-    schemaVersion: schemaLanguages[schemaLanguages.length - 1],
-    release: { key: keyFromLabel(name, new Set()), name, version: "1.0.0" },
-    product: { name },
-    attributeTypes: [],
-    objectTypes: [],
-    relationTypes: [],
-    objectTypeRelations: [],
-    applications: [],
-  };
 }
 
 export function CreateDraftDialog({
@@ -81,7 +67,7 @@ export function CreateDraftDialog({
     try {
       let model: Record<string, unknown> = {};
       let baseReleaseId: string | undefined;
-      if (source === "empty") model = emptyModel(createName.trim(), (await api.system()).schemaLanguages);
+      if (source === "empty") model = emptyDraftModel(createName.trim(), (await api.system()).schemaLanguages);
       if (source === "release") {
         const release = await api.modelRelease(createReleaseId, true);
         model = release.model ?? {};

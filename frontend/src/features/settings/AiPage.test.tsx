@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ai } from "@/api/aiClient";
 import { AiPage } from "@/features/settings/AiPage";
-import { navigationFor } from "@/features/settings/navigation";
+import { navigationFor } from "@/ui/settingsNavigation";
 import type { AiCall, AiStatus } from "@/types";
 
 vi.mock("@/api/aiClient", () => ({ ai: { status: vi.fn(), calls: vi.fn(), test: vi.fn() } }));

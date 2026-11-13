@@ -37,7 +37,7 @@ import { FilterChip, LogFoot, SettingsEmpty, SettingsGroup, SettingsPanel } from
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
-import { count } from "./limits";
+import { count } from "@/ui/limits";
 
 type WebhooksRoute = Extract<SettingsRoute, { page: "webhooks" }>;
 

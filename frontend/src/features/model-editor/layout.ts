@@ -20,7 +20,7 @@ import {
 import { ancestorObjectTypeKeys } from "@/model/placements";
 import type { DetailViewDefinition, DraftOperation, EngineModel, PanelDefinition, TableViewDefinition } from "@/types";
 import type { ChoiceOption } from "@/features/model-editor/ChoiceListField";
-import { keyFromLabel } from "@/features/model-editor/outline";
+import { keyFromLabel } from "@/model/outline";
 import type { FieldValues, OperationField, OperationSpec } from "@/features/model-editor/operations";
 
 export type Region = "main" | "side";

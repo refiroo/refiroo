@@ -790,7 +790,7 @@ CONFIGURATIONS = {"example": example(), "generated-b": generated("b")}
 def test_a_list_whose_column_reaches_another_application_moves_with_its_type(model_name: str):
     """A list of a moving type was left behind, and dropped, when a column reached a type outside the
     branch: a related record's ancestor in another application (found 2026-10-19 on a model's
-    timetable types, whose language column reached the translations' languages). It moves as
+    means-of-transport list, whose language column reached the translations' languages). It moves as
     authored; the draft stays valid."""
     configuration = CONFIGURATIONS[model_name]
     data = copy.deepcopy(MODELS[model_name])

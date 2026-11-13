@@ -8,7 +8,7 @@ import { domainObject } from "@/test/fixtures";
 vi.mock("@/api/client", () => ({ api: { objectHistory: vi.fn() } }));
 vi.mock("@/api/aiClient", () => ({ ai: { explainRecordHistory: vi.fn() } }));
 const offer = vi.hoisted(() => ({ value: undefined as unknown }));
-vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({ useHistoryAccountOffer: () => offer.value }));
+vi.mock("@/state/useWorkspaceAiOffer", () => ({ useHistoryAccountOffer: () => offer.value }));
 
 describe("HistoryPanel with What changed (0.16 AO2)", () => {
   beforeEach(() => {

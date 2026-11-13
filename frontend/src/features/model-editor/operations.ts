@@ -114,7 +114,7 @@ import {
   sameName,
   typeLabel,
   typeName,
-} from "@/features/model-editor/outline";
+} from "@/model/outline";
 
 /** What an operation acts on, named as operations name elements. */
 export type OperationTarget =

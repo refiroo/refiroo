@@ -13,7 +13,7 @@ import { InlineError } from "@/ui/InlineError";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
-import { settingsHead } from "./navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { FollowedWorkspaces } from "./FollowedWorkspaces";
 import { NoticeMailPanel } from "./NoticeMailPanel";
 

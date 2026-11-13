@@ -7,7 +7,7 @@
  */
 
 import { useHoldsGroup } from "@/app/useMe";
-import { count } from "@/features/settings/limits";
+import { count } from "@/ui/limits";
 import { routePath } from "@/routing/routes";
 import type { Job, RouteState } from "@/types";
 import { RouteLink } from "@/ui/RouteLink";

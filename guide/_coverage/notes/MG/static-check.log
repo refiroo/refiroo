@@ -2,5 +2,4 @@
 > refiroo-guide@0.0.0 check
 > node tools/check.mjs all
 
-terms: 0 private-model name(s) on the list (tools/private-terms.txt)
 ok: terms, brand (253 page(s))

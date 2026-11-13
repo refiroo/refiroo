@@ -28,7 +28,7 @@ import {
   type OperationSpec,
   type OperationTarget,
 } from "@/features/model-editor/operations";
-import { nameOf } from "@/features/model-editor/outline";
+import { nameOf } from "@/model/outline";
 import type { MoveSubject } from "@/features/model-editor/MoveToDialog";
 import { useDraftSteps, type DraftSteps, type StaleStep } from "@/features/model-editor/useDraftSteps";
 import { useOperationAnchor } from "@/features/model-editor/useOperationAnchor";

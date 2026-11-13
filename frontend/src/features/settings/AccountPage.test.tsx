@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { signOut } from "@/api/session";
-import { workspaceHue } from "@/features/home/homeText";
+import { workspaceHue } from "@/model/workspaceTile";
 import { ToastProvider } from "@/ui/Toast";
 import { AccountPage } from "./AccountPage";
 
@@ -120,12 +120,12 @@ describe("Settings › Account (0.12 I2)", () => {
     vi.mocked(api.myGrants).mockResolvedValue([]);
     vi.mocked(api.model).mockResolvedValue({
       applications: [
-        { key: "operators", name: "Operators", defaultView: "all", objectTypeKeys: ["operator", "sub-operator"] },
+        { key: "operators", name: "Operators", defaultView: "all", objectTypeKeys: ["operator", "depot"] },
         { key: "timetables", name: "Timetables", defaultView: "all", objectTypeKeys: ["timetable", "codelist"] },
       ],
       objectTypes: [
         { key: "operator", name: "Operator" },
-        { key: "sub-operator", name: "Sub-operator" },
+        { key: "depot", name: "Depot" },
         { key: "timetable", name: "Timetable" },
         { key: "codelist", name: "Codelist" },
       ],

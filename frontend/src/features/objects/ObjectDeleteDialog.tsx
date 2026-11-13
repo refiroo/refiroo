@@ -1,6 +1,6 @@
 import { useNavigationGuard } from "@/routing/navigationGuard";
 import { useCallback, useEffect, useState } from "react";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { EngineModel, ObjectDeletionImpact, ObjectItem } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";

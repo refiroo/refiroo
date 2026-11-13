@@ -15,4 +15,4 @@ with (ROOT/'_waves/C10.data-changes.md').open('a') as f:f.write('''
 
 Run `use-assistant-proposal,model-assistant-workbook-proposal` together and in file order. Their shared 1440×1500 session is required; the second recipe deliberately has no guessed task URL. A later retake needs the recorded task ID and may be impossible after discard. No extra words-only task, deliberately stopped task or deliberate provider failure is started merely for pictures.
 ''')
-save('single workbook task recipes','Applied fourth-round steering in `_waves/C10.screens.json`: added two cancelled dialogs and one real workbook-task pair, with explicit proposal-only cleanup. `_waves/C10.data-changes.md` records planned calls and retained artifacts; provider output, task duration and row-check availability await external capture.')
+save('single workbook task recipes','Applied fourth-round steering in `_waves/C10.screens.json`: added two cancelled dialogs and one workbook-task pair, with explicit proposal-only cleanup. `_waves/C10.data-changes.md` records planned calls and retained artifacts; provider output, task duration and row-check availability await external capture.')

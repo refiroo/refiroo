@@ -13,7 +13,7 @@ import type {
 } from "@/types";
 import { YES_NO } from "@/features/model-editor/EditableCell";
 import type { Setting } from "@/features/model-editor/SettingsTable";
-import { attributeTypeOf, relationTypeOf } from "@/features/model-editor/outline";
+import { attributeTypeOf, relationTypeOf } from "@/model/outline";
 
 const attributeName = (outline: ModelDraftOutline, key: string) => attributeTypeOf(outline, key)?.name ?? key;
 const names = (values: string[], name: (key: string) => string) =>

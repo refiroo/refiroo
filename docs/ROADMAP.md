@@ -788,7 +788,7 @@ a workspace in one go, and a person shapes its model by dragging on one screen b
 
 ### Exit gate
 
-- A real workbook is shaped on the canvas without a dialog and without AI, every row checked, and becomes a
+- a workbook is shaped on the canvas without a dialog and without AI, every row checked, and becomes a
   workspace in one confirmed step.
 - Every drag has a menu and keyboard path, and each drop is available through the API.
 - No capability is removed.

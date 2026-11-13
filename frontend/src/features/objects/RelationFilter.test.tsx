@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { criteriaFromFilters } from "@/features/jobs/exportRequest";
+import { criteriaFromFilters } from "@/model/exportRequest";
 import { relationFilterEntries, relationFilterMode, relationFilterText } from "@/features/objects/RelationFilter";
 import { testModel } from "@/test/fixtures";
 

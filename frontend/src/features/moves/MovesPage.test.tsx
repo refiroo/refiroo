@@ -9,7 +9,7 @@ vi.mock("@/api/client", async (load) => {
 });
 const holds = vi.hoisted(() => ({ copyMove: true }));
 vi.mock("@/app/useMe", () => ({ useHoldsGroup: () => holds.copyMove }));
-vi.mock("@/features/settings/useSystem", () => ({
+vi.mock("@/state/useSystem", () => ({
   useCapabilities: () => ({
     capabilities: {
       integrationJobs: { createJobs: true, setting: "JOBS" },

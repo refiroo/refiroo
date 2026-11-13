@@ -4,7 +4,7 @@
  */
 
 import { useState, type ReactNode } from "react";
-import { keyFromLabel } from "@/features/model-editor/outline";
+import { keyFromLabel } from "@/model/outline";
 import { FormField } from "@/ui/FormField";
 
 export interface LoadChoice {

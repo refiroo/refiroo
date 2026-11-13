@@ -1,7 +1,7 @@
-"""Consumer API parity (Base 0.9 C8): the reference deployment's answers, reproduced from a definition.
+"""Consumer API parity (Base 0.9 C8): the example deployment's answers, reproduced from a definition.
 
 CONSUMER_API's C8 scenarios on the ``parity`` fixture (``configurations.parity``, C-D72): the starter
-extended as the reference deployment's model is, with CONSUMER_API's printed definition. Each J28 and
+extended as the example deployment's model is, with CONSUMER_API's printed definition. Each J28 and
 J29 mechanism has its own journey test on generated A and B; here the calls are the ones integration
 flows make (XREF with ``system``, take the top result, read a field), and every answer is checked
 against the reference shape: valid against the definition's own OpenAPI document, with the keys of
@@ -9,20 +9,21 @@ CONSUMER_API's "The shared object" as "Behavior the engine does not carry over" 
 
 The dataset is a seed of its own, built once through ``POST /batches`` and reused (seed once):
 
-- Transport (HC) › Timetable types (MOT) › Train (CONS), Follow-up (FUP), Tram
-  (VAC), Standard (STD); › Durations (DUR) › 30 minutes (D30); › Stations (CLIN) › Central Station
-  (CEN, operator BR1), North Station (NOR). Train's alternative is Follow-up; its duration 30
+- Transport (TR) › Means of transport (MOT) › Train (TRN), Bus (BUS), Tram
+  (TRM), Standard (STD); › Frequencies (FRQ) › 30 minutes (F30); › Stations (STAT) › Chur Station
+  (CHU, operator OP1), Davos Station (DAV). Train's alternative is Bus; its frequency 30
   minutes.
 - Finance (FIN) › Currencies (CUR) › Swiss franc (CHF, master ID MV-0001), Euro (EUR), Standard (STD).
-- SAP: CHF (external ID 1001) maps to Swiss franc, LOC-9 (9001) only to North Station, FU-1 to
-  Follow-up and Central Station. Oracle: SFR (O-77) maps to Swiss franc.
-- Train is available at Central Station, Tram at North Station.
-- German: Eisenbahn (Train), Schweizer Franken (Swiss franc). Spanish: Cita médica
+- SAP: CHF (external ID 1001) maps to Swiss franc, LOC-9 (9001) only to Davos Station, BUS-1 to
+  Bus and Chur Station. Oracle: SFR (O-77) maps to Swiss franc.
+- Train is available at Chur Station, Tram at Davos Station.
+- German: Eisenbahn (Train), Schweizer Franken (Swiss franc). Spanish: Tren
   (Train).
 """
 
 import re
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -38,7 +39,7 @@ CONFIGURATION = parity()
 
 # CONSUMER_API "The shared object", as "Behavior the engine does not carry over" maps it: the
 # reference's master ID is the attribute formerId and masterId the object ID (C-D24); description is
-# in XREF too; matchScore only in XREF. The reference's duration and alternative are declared by the
+# in XREF too; matchScore only in XREF. The reference's frequency and alternative are declared by the
 # fixture's definition as they appear there.
 REFERENCE_KEYS = {
     "objectType",
@@ -54,7 +55,7 @@ REFERENCE_KEYS = {
     "systemVariants",
     "translations",
     "availableAt",
-    "duration",
+    "frequency",
     "alternative",
     "path",
     "parent",
@@ -111,30 +112,30 @@ def _dataset(world) -> dict[str, str]:
             parent,
         )
 
-    _record(ids, items, "Transport", master, "domain", {"domain-code": "HC"})
+    _record(ids, items, "Transport", master, "domain", {"domain-code": "TR"})
     _record(
-        ids, items, "Timetable types", master, "codelist", {"codelist-code": "MOT"}, "Transport"
+        ids, items, "Means of transport", master, "codelist", {"codelist-code": "MOT"}, "Transport"
     )
-    value("Train", "CONS", "MV-0101", "Timetable types", **{"sort-order": 1})
-    value("Follow-up", "FUP", "MV-0102", "Timetable types")
-    value("Tram", "VAC", "MV-0103", "Timetable types")
-    value("Standard", "STD", "MV-0104", "Timetable types")
-    _record(ids, items, "Durations", master, "codelist", {"codelist-code": "DUR"}, "Transport")
-    value("30 minutes", "D30", "MV-0201", "Durations")
-    _record(ids, items, "Stations", master, "codelist", {"codelist-code": "CLIN"}, "Transport")
+    value("Train", "TRN", "MV-0101", "Means of transport", **{"sort-order": 1})
+    value("Bus", "BUS", "MV-0102", "Means of transport")
+    value("Tram", "TRM", "MV-0103", "Means of transport")
+    value("Standard", "STD", "MV-0104", "Means of transport")
+    _record(ids, items, "Frequencies", master, "codelist", {"codelist-code": "FRQ"}, "Transport")
+    value("30 minutes", "F30", "MV-0201", "Frequencies")
+    _record(ids, items, "Stations", master, "codelist", {"codelist-code": "STAT"}, "Transport")
     for name, code, master_id in (
-        ("Central Station", "CEN", "LC-0001"),
-        ("North Station", "NOR", "LC-0002"),
+        ("Chur Station", "CHU", "LC-0001"),
+        ("Davos Station", "DAV", "LC-0002"),
     ):
         values = {"master-id": master_id, "value-code": code, "value-name": name}
-        if code == "CEN":
-            values["operator-code"] = "BR1"
+        if code == "CHU":
+            values["operator-code"] = "OP1"
         _record(ids, items, name, master, "location", values, "Stations")
     _record(ids, items, "Finance", master, "domain", {"domain-code": "FIN"})
     _record(ids, items, "Currencies", master, "codelist", {"codelist-code": "CUR"}, "Finance")
     value("Swiss franc", "CHF", "MV-0001", "Currencies")
     value("Euro", "EUR", "MV-0002", "Currencies")
-    ids["Standard (timetable)"] = ids.pop("Standard")
+    ids["Standard (transport)"] = ids.pop("Standard")
     value("Standard", "STD", "MV-0003", "Currencies")
     ids["Standard (currency)"] = ids.pop("Standard")
 
@@ -143,7 +144,7 @@ def _dataset(world) -> dict[str, str]:
     for name, code, external, system in (
         ("CHF", "CHF", "1001", "SAP"),
         ("LOC-9", "LOC9", "9001", "SAP"),
-        ("FU-1", "FU1", "7001", "SAP"),
+        ("BUS-1", "BUS1", "7001", "SAP"),
         ("SFR", "SFR", "O-77", "Oracle"),
     ):
         values = {"value-code": code, "value-name": f"{system} {code}", "external-id": external}
@@ -164,7 +165,7 @@ def _dataset(world) -> dict[str, str]:
     for name, of, group in (
         ("Eisenbahn", "Train", "German values"),
         ("Schweizer Franken", "Swiss franc", "German values"),
-        ("Cita médica", "Train", "Spanish values"),
+        ("Tren", "Train", "Spanish values"),
     ):
         relation = {
             "relationTypeKey": "object-has-translation",
@@ -184,13 +185,13 @@ def _dataset(world) -> dict[str, str]:
 
     _relate(ids, items, "system-value-maps-to-master", "CHF", "Swiss franc")
     _relate(ids, items, "system-value-maps-to-master", "SFR", "Swiss franc")
-    _relate(ids, items, "system-value-maps-to-master", "LOC-9", "North Station")
-    _relate(ids, items, "system-value-maps-to-master", "FU-1", "Follow-up")
-    _relate(ids, items, "system-value-maps-to-master", "FU-1", "Central Station")
-    _relate(ids, items, "available-at-location", "Train", "Central Station")
-    _relate(ids, items, "available-at-location", "Tram", "North Station")
-    _relate(ids, items, "has-duration", "Train", "30 minutes")
-    _relate(ids, items, "alternative-for", "Train", "Follow-up")
+    _relate(ids, items, "system-value-maps-to-master", "LOC-9", "Davos Station")
+    _relate(ids, items, "system-value-maps-to-master", "BUS-1", "Bus")
+    _relate(ids, items, "system-value-maps-to-master", "BUS-1", "Chur Station")
+    _relate(ids, items, "available-at-location", "Train", "Chur Station")
+    _relate(ids, items, "available-at-location", "Tram", "Davos Station")
+    _relate(ids, items, "has-frequency", "Train", "30 minutes")
+    _relate(ids, items, "alternative-for", "Train", "Bus")
 
     body = {"workspaceKey": W1, "policy": "atomic", "run": "inline", "items": items}
     result = ok(world.api.post("/batches", body))
@@ -211,7 +212,7 @@ def _seed() -> str:
         return [
             json.dumps(CONFIGURATION.model, sort_keys=True),
             SOURCE,
-            __file__,
+            Path(__file__).resolve(),
             seeds.APP / "engine" / "model" / "bootstrap.py",
         ]
 
@@ -330,57 +331,57 @@ def test_an_external_id_with_and_without_system(fixture):
 
 @pytest.mark.journey("J29.1")
 def test_a_system_value_mapped_to_a_location(fixture):
-    """Scenario 3. 9001, the external ID of a SAP value mapped only to North Station, answers North
-    Station with expect=one. FU-1, mapped to Central Station and to Follow-up, scores the location only
+    """Scenario 3. 9001, the external ID of a SAP value mapped only to Davos Station, answers North
+    Station with expect=one. BUS-1, mapped to Chur Station and to Bus, scores the location only
     (preferTargetTypes)."""
     found = fixture.top(query="9001")
     assert (found["objectType"], found["name"], found["matchScore"]) == (
         "Location",
-        "North Station",
+        "Davos Station",
         75,
     )
-    assert _scored(fixture.xref(query="FU-1")) == [("Central Station", 80)]
+    assert _scored(fixture.xref(query="BUS-1")) == [("Chur Station", 80)]
 
 
 @pytest.mark.journey("J29.1")
 def test_a_translated_name(fixture):
-    """Scenario 4. Eisenbahn, Train's German name, finds it with 60; Berat with 12."""
+    """Scenario 4. Eisenbahn, Train's German name, finds it with 60; Eisen with 12."""
     assert _scored(fixture.xref(query="Eisenbahn")) == [("Train", 60)]
-    assert _scored(fixture.xref(query="Berat")) == [("Train", 12)]
+    assert _scored(fixture.xref(query="Eisen")) == [("Train", 12)]
 
 
 @pytest.mark.journey("J29.6")
 def test_codelist_and_domain_by_name_and_by_code(fixture):
-    """Scenario 6. STD with codelist=MOT, codelist=Timetable types, domain=HC or domain=Transport
-    keeps the timetable Standard only."""
-    timetable = fixture.ids["Standard (timetable)"]
+    """Scenario 6. STD with codelist=MOT, codelist=Means of transport, domain=TR or domain=Transport
+    keeps the transport Standard only."""
+    transport = fixture.ids["Standard (transport)"]
     for params in (
         {"codelist": "MOT"},
-        {"codelist": "Timetable types"},
-        {"domain": "HC"},
+        {"codelist": "Means of transport"},
+        {"domain": "TR"},
         {"domain": "Transport"},
     ):
         page = fixture.xref(query="STD", **params)
-        assert [item["masterId"] for item in page["results"]] == [timetable], params
+        assert [item["masterId"] for item in page["results"]] == [transport], params
 
 
 @pytest.mark.journey("J28.8", "J29.6")
 def test_location_by_availability_by_itself_and_by_a_shared_system_value(fixture):
-    """Scenarios 7 and 8. On all-values, location=CEN keeps Train (available there) and
-    Follow-up (sharing the SAP value FU-1 with it), not Tram or Standard; location=North Station
-    keeps Tram. XREF for "Station" with location=CEN keeps Central Station itself (self), not
-    North Station or the codelist Stations. With system=SAP added, location=CEN keeps Follow-up only."""
-    assert fixture.listed("all-values", location="CEN") == ["Train", "Follow-up"]
-    assert fixture.listed("all-values", location="North Station") == ["Tram"]
+    """Scenarios 7 and 8. On all-values, location=CHU keeps Train (available there) and
+    Bus (sharing the SAP value BUS-1 with it), not Tram or Standard; location=Davos Station
+    keeps Tram. XREF for "Station" with location=CHU keeps Chur Station itself (self), not
+    Davos Station or the codelist Stations. With system=SAP added, location=CHU keeps Bus only."""
+    assert fixture.listed("all-values", location="CHU") == ["Bus", "Train"]
+    assert fixture.listed("all-values", location="Davos Station") == ["Tram"]
     assert {name for name, _score in _scored(fixture.xref(query="Station"))} >= {
-        "Central Station",
-        "North Station",
+        "Chur Station",
+        "Davos Station",
         "Stations",
     }
-    assert [name for name, _score in _scored(fixture.xref(query="Station", location="CEN"))] == [
-        "Central Station"
+    assert [name for name, _score in _scored(fixture.xref(query="Station", location="CHU"))] == [
+        "Chur Station"
     ]
-    assert fixture.listed("all-values", location="CEN", system="SAP") == ["Follow-up"]
+    assert fixture.listed("all-values", location="CHU", system="SAP") == ["Bus"]
 
 
 @pytest.mark.journey("J29.3", "J29.6")
@@ -388,7 +389,7 @@ def test_a_tie_at_the_top_score(fixture):
     """Scenario 9. STD with expect=one is 409 AMBIGUOUS_MATCH naming both Standards, in the documented
     order (score, public type, name, ID); with codelist=CUR it answers the currency's."""
     error = refused(fixture.get("/xref", query="STD", expect="one"), 409, "AMBIGUOUS_MATCH")
-    both = sorted([fixture.ids["Standard (timetable)"], fixture.ids["Standard (currency)"]])
+    both = sorted([fixture.ids["Standard (transport)"], fixture.ids["Standard (currency)"]])
     assert [item["id"] for item in error["details"]["candidates"]] == both
     found = fixture.top(query="STD", codelist="CUR")
     assert found["masterId"] == fixture.ids["Standard (currency)"]
@@ -396,18 +397,18 @@ def test_a_tie_at_the_top_score(fixture):
 
 @pytest.mark.journey("J28.7", "J28.8")
 def test_a_list_below_a_parent_with_and_without_language(fixture):
-    """Scenario 10. values below Timetable types by its ID holds the four types; with language=de
+    """Scenario 10. values below Means of transport by its ID holds the four types; with language=de
     only Train, its translations limited to German. all-values with codelist=MOT or
-    codelist=Timetable types (an ancestor parameter, C-D28) holds the same four. A code as the
+    codelist=Means of transport (an ancestor parameter, C-D28) holds the same four. A code as the
     parent of values is 404 PARENT_NOT_FOUND."""
-    timetables = fixture.ids["Timetable types"]
-    four = ["Train", "Follow-up", "Standard", "Tram"]
-    assert fixture.listed("values", codelist=timetables) == four
-    page = ok(fixture.get("/lists/values", codelist=timetables, language="de"))
+    transports = fixture.ids["Means of transport"]
+    four = ["Bus", "Standard", "Train", "Tram"]
+    assert fixture.listed("values", codelist=transports) == four
+    page = ok(fixture.get("/lists/values", codelist=transports, language="de"))
     assert [item["name"] for item in page["items"]] == ["Train"]
     assert [item["translatedName"] for item in page["items"][0]["translations"]] == ["Eisenbahn"]
     assert fixture.listed("all-values", codelist="MOT") == four
-    assert fixture.listed("all-values", codelist="Timetable types") == four
+    assert fixture.listed("all-values", codelist="Means of transport") == four
     refused(fixture.get("/lists/values", codelist="MOT"), 404, "PARENT_NOT_FOUND")
 
 
@@ -448,7 +449,7 @@ def test_batch_resolve_of_a_mixed_batch(fixture):
 def test_crosswalk_between_systems_and_to_a_translation(fixture):
     """Scenario 12. CHF in SAP to Oracle answers Swiss franc with target the SFR item; EUR to Oracle,
     which has no value for it, is 404 TARGET_NOT_FOUND; once a second Oracle value maps to Swiss franc
-    the first read is 409 AMBIGUOUS_TARGET. CONS to German answers target the Eisenbahn item."""
+    the first read is 409 AMBIGUOUS_TARGET. TRN to German answers target the Eisenbahn item."""
     found = fixture.top(query="CHF", system="SAP", to__system="Oracle")
     assert found["name"] == "Swiss franc"
     assert found["target"]["value"] == "SFR"
@@ -459,7 +460,7 @@ def test_crosswalk_between_systems_and_to_a_translation(fixture):
         "TARGET_NOT_FOUND",
     )
 
-    translated = fixture.top(query="CONS", to__language="de")
+    translated = fixture.top(query="TRN", to__language="de")
     assert translated["target"]["translatedName"] == "Eisenbahn"
 
     world = fixture.world
@@ -586,9 +587,9 @@ def test_business_dates_on_each_side_of_a_boundary(fixture):
     found = [item["name"] for item in before["results"]]
     assert found[0] == "Swiss franc" and "Swiss franc 2026" not in found
     assert fixture.top(query="CHF", asOf="2026-07-01")["name"] == "Swiss franc 2026"
-    assert fixture.top(query="CEN", asOf="2026-07-01")["name"] == "Central Station"
+    assert fixture.top(query="CHU", asOf="2026-07-01")["name"] == "Chur Station"
     error = refused(
-        fixture.get(f"/objects/{fixture.ids['Central Station']}", asOf="2026-07-01"),
+        fixture.get(f"/objects/{fixture.ids['Chur Station']}", asOf="2026-07-01"),
         400,
         "AS_OF_NOT_SUPPORTED",
     )
@@ -610,8 +611,8 @@ def test_the_api_index_names_the_definition_and_its_document(fixture):
 @pytest.mark.journey("J28", "J29")
 def test_the_reference_shape(fixture):
     """The reference's shared object, as the definition reproduces it. Train has the reference
-    keys; alternative the object of Follow-up with its public type; availableAt an array with Central
-    Station; duration an array; parent the codelist with the reference's parent keys; path and hierarchy
+    keys; alternative the object of Bus with its public type; availableAt an array with Central
+    Station; frequency an array; parent the codelist with the reference's parent keys; path and hierarchy
     from the walk. Swiss franc's alternative is null, Transport's parent null; booleans and dates are
     typed. The XREF result and the list item for Train are the get-by-ID object, with
     matchScore in XREF only."""
@@ -619,15 +620,15 @@ def test_the_reference_shape(fixture):
     assert set(train) == REFERENCE_KEYS
     assert train["alternative"] == {
         "objectType": "CodelistValue",
-        "masterId": fixture.ids["Follow-up"],
-        "code": "FUP",
-        "name": "Follow-up",
+        "masterId": fixture.ids["Bus"],
+        "code": "BUS",
+        "name": "Bus",
     }
-    assert [item["locationName"] for item in train["availableAt"]] == ["Central Station"]
+    assert [item["locationName"] for item in train["availableAt"]] == ["Chur Station"]
     assert train["availableAt"][0]["locationId"] == "LC-0001"
-    assert [item["durationName"] for item in train["duration"]] == ["30 minutes"]
-    assert train["path"] == "Transport/Timetable types"
-    assert train["hierarchy"] == ["Transport", "Timetable types"]
+    assert [item["frequencyName"] for item in train["frequency"]] == ["30 minutes"]
+    assert train["path"] == "Transport/Means of transport"
+    assert train["hierarchy"] == ["Transport", "Means of transport"]
     assert (train["formerId"], train["masterId"]) == (
         "MV-0101",
         fixture.ids["Train"],
@@ -642,12 +643,12 @@ def test_the_reference_shape(fixture):
     assert fixture.object("Swiss franc")["alternative"] is None
     assert fixture.object("Transport")["parent"] is None
 
-    (found,) = fixture.xref(query="CONS")["results"]
+    (found,) = fixture.xref(query="TRN")["results"]
     assert found == {**train, "matchScore": found["matchScore"]}
-    page = ok(fixture.get("/lists/values", codelist=fixture.ids["Timetable types"]))
+    page = ok(fixture.get("/lists/values", codelist=fixture.ids["Means of transport"]))
     assert next(item for item in page["items"] if item["name"] == "Train") == train
     assert set(train["parent"]) == PARENT_KEYS
-    assert train["parent"]["masterId"] == fixture.ids["Timetable types"]
+    assert train["parent"]["masterId"] == fixture.ids["Means of transport"]
     assert (train["parent"]["objectType"], train["parent"]["code"]) == (
         "Codelist",
         "MOT",

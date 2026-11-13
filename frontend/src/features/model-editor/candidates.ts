@@ -7,7 +7,7 @@
  */
 
 import type { ModelDraftOutline } from "@/types";
-import { attributeTypeOf, objectTypeOf } from "@/features/model-editor/outline";
+import { attributeTypeOf, objectTypeOf } from "@/model/outline";
 
 export type Criterion = { field: string; op: string; value: string | number | boolean };
 export type Candidates = { from?: Criterion[]; to?: Criterion[] };

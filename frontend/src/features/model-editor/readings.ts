@@ -6,14 +6,17 @@
  * column and list panels and the workbook canvas send what these return.
  */
 
-import { columnDropOperations, nameOfType, valueTypeOf, type ColumnDrop } from "@/features/workbook-canvas/canvasModel";
-import { keyFromLabel, keysOf } from "@/features/model-editor/outline";
+import {
+  bound,
+  columnDropOperations,
+  nameOfType,
+  valueTypeOf,
+  type ColumnDrop,
+} from "@/features/model-editor/columnDrop";
+import { keyFromLabel, keysOf } from "@/model/outline";
 import { newSourceId, sourceFor, usesOf } from "@/features/model-editor/mapping";
 import type { DraftOperation, ModelDraftOutline } from "@/types/modelAdmin";
-import type { DraftProfileDocument, ProfileBinding, ProfileSource, SourceColumn } from "@/types/sources";
-
-const bound = (binding: ProfileBinding): string[] =>
-  binding.columns?.length ? binding.columns : binding.column ? [binding.column] : [];
+import type { DraftProfileDocument, ProfileSource, SourceColumn } from "@/types/sources";
 
 // --- several columns onto one field (PP-D6) ---
 

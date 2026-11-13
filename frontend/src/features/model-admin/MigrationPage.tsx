@@ -24,18 +24,18 @@ import type {
   ModelReleaseSummary,
   Workspace,
 } from "@/types";
-import { isResting, useJobStream } from "@/features/jobs/useJobStream";
+import { isResting, useJobStream } from "@/state/useJobStream";
 import { routePath } from "@/routing/routes";
 import { Trail, TrailLink, crumbs } from "@/ui/Trail";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { OutcomeCards } from "@/ui/OutcomeCards";
 import { RouteLink } from "@/ui/RouteLink";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
-import { useSubjectSeen } from "@/features/inbox/useInbox";
-import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "./MigrationRows";
+import { useSubjectSeen } from "@/state/useInbox";
+import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "@/ui/MigrationRows";
 import { ProposedRows } from "./ProposedRows";
 
 const NOT_KEPT = "";

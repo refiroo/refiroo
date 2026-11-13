@@ -8,7 +8,7 @@ import { testModel } from "@/test/fixtures";
 vi.mock("@/api/client", () => ({ api: { changes: vi.fn(), model: vi.fn() } }));
 vi.mock("@/api/aiClient", () => ({ ai: { explainWorkspaceHistory: vi.fn() } }));
 const offer = vi.hoisted(() => ({ value: undefined as unknown }));
-vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({ useHistoryAccountOffer: () => offer.value }));
+vi.mock("@/state/useWorkspaceAiOffer", () => ({ useHistoryAccountOffer: () => offer.value }));
 
 describe("WorkspaceActivity with What changed (0.16 AO2)", () => {
   beforeEach(() => {

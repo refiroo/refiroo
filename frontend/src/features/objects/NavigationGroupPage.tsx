@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { VIEW_KINDS } from "@/features/model-editor/outline";
+import { VIEW_KINDS } from "@/model/outline";
 import { navigationEntryKey, navigationSections, viewGlyph } from "@/model/collections";
 import { objectTypeHue } from "@/model/hues";
 import { objectTypeFor } from "@/model/lookup";

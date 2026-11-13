@@ -21,7 +21,7 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 
 // A role's fields by the names its form shows them under.
 const ROLE_FIELDS = { name: "Name", description: "Description", actionGroups: "Action groups" };

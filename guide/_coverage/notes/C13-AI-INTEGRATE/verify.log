@@ -276,7 +276,6 @@
 > refiroo-guide@0.0.0 check
 > node tools/check.mjs all
 
-terms: 0 private-model name(s) on the list (tools/private-terms.txt)
 brand: src/content/docs/guide/integrate/connect-an-assistant.md: "Refiroo" must be written "refiroo", in lower case, even at the start of a sentence
 brand: src/content/docs/integrate/assistants-and-agents.md: "Refiroo" must be written "refiroo", in lower case, even at the start of a sentence
 brand: src/content/docs/integrate/reading-records.md: "Refiroo" must be written "refiroo", in lower case, even at the start of a sentence

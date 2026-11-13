@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/ui/Modal";
-import { nameOfFile, proposeRequest, ProposeFields, type ProposeChoice } from "@/features/model-editor/ProposeFields";
+import { nameOfFile, proposeRequest, ProposeFields, type ProposeChoice } from "@/ui/ProposeFields";
 import type { InferenceRequest } from "@/types";
 
 export function ProposeDialog({

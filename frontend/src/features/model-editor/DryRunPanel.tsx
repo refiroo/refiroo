@@ -13,8 +13,8 @@ import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { StatusPill } from "@/ui/StatusPill";
-import { JobRowsTable } from "@/features/jobs/ImportOutcome";
-import { typeName } from "@/features/model-editor/outline";
+import { JobRowsTable } from "@/ui/ImportOutcome";
+import { typeName } from "@/model/outline";
 
 /** The rows behind a figure: a source's, by status or refusal code. */
 export interface DryRunRows {

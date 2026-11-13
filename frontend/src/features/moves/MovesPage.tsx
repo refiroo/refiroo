@@ -20,13 +20,13 @@ import { LogFoot, SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/Setti
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
-import { STATE } from "@/features/jobs/jobText";
-import { settingsHead } from "@/features/settings/navigation";
-import { useCapabilities } from "@/features/settings/useSystem";
-import { DeleteAction } from "@/features/settings/DeleteAction";
+import { STATE } from "@/ui/jobText";
+import { settingsHead } from "@/ui/settingsNavigation";
+import { useCapabilities } from "@/state/useSystem";
+import { DeleteAction } from "@/ui/DeleteAction";
 import { useHoldsGroup } from "@/app/useMe";
-import { NewMoveDialog } from "./NewMoveDialog";
-import { moveAbility } from "./moveAbility";
+import { NewMoveDialog } from "@/ui/NewMoveDialog";
+import { moveAbility } from "@/lib/moveAbility";
 
 const label = (workspaces: Workspace[], key: string) => workspaces.find((item) => item.key === key)?.label ?? key;
 

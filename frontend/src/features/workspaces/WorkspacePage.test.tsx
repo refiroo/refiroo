@@ -14,7 +14,7 @@ vi.mock("@/app/instanceProduct", () => ({ useInstanceProduct: () => ({ name: "re
 
 const workspace = {
   key: "stops",
-  label: "STOPS Reference Data",
+  label: "Graubünden stops",
   status: "active" as const,
   version: 1,
   createdAt: "2026-09-05T00:00:00Z",
@@ -27,7 +27,7 @@ const waiting = (id: string, name: string, extra: Partial<OwnChangeSet> = {}) =>
   ({
     id,
     workspaceKey: "stops",
-    workspaceLabel: "STOPS Reference Data",
+    workspaceLabel: "Graubünden stops",
     name,
     changeCount: 14,
     updatedAt: "2026-11-12T10:00:00Z",
@@ -61,7 +61,7 @@ function setUp(groups: string[], manages = true, model: EngineModel = testModel,
   vi.spyOn(api, "changes").mockResolvedValue({ items: changes, nextCursor: null });
   vi.spyOn(api, "myChangeSets").mockResolvedValue({
     items: [
-      waiting("cs1", "Didok SYNC", { submission: { state: "submitted" } as never }),
+      waiting("cs1", "Didok sync", { submission: { state: "submitted" } as never }),
       waiting("cs2", "Elsewhere", { workspaceKey: "other" }),
     ],
     nextCursor: null,
@@ -94,17 +94,17 @@ describe("WorkspacePage (0.17 SH1)", () => {
 
   it("shows the workspace, its applications, the person's waiting change sets here and opens each", async () => {
     const onNavigate = setUp(EVERY_GROUP);
-    expect(await screen.findByRole("heading", { name: "STOPS Reference Data", level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Graubünden stops", level: 1 })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("link", { name: /Test App/ }));
     expect(onNavigate).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "list", applicationKey: "test-app", workspaceKey: "stops" }),
     );
     // Only this workspace's change sets, with how much each changes and its state.
     const rows = await screen.findByRole("region", { name: /Needs you/ });
-    expect(within(rows).getByText("Didok SYNC")).toBeInTheDocument();
+    expect(within(rows).getByText("Didok sync")).toBeInTheDocument();
     expect(within(rows).getByText(/14 changes · waits for approval/)).toBeInTheDocument();
     expect(within(rows).queryByText("Elsewhere")).not.toBeInTheDocument();
-    fireEvent.click(within(rows).getByRole("button", { name: "Review Didok SYNC" }));
+    fireEvent.click(within(rows).getByRole("button", { name: "Review Didok sync" }));
     expect(onNavigate).toHaveBeenLastCalledWith(
       expect.objectContaining({ kind: "changeSetChanges", workspaceKey: "stops", changeSetId: "cs1" }),
     );
@@ -126,7 +126,7 @@ describe("WorkspacePage (0.17 SH1)", () => {
 
   it("hides what the person may not do, never disabling it", async () => {
     setUp(["browse"], false);
-    await screen.findByRole("heading", { name: "STOPS Reference Data", level: 1 });
+    await screen.findByRole("heading", { name: "Graubünden stops", level: 1 });
     await waitFor(() => expect(api.myActionGroups).toHaveBeenCalled());
     expect(screen.queryByRole("button", { name: "Edit model" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Workspace actions" })).not.toBeInTheDocument();
@@ -218,7 +218,12 @@ describe("WorkspacePage (0.17 SH1)", () => {
     expect(lists.getAllByRole("link").map((link) => link.textContent)).toEqual(["Domains", "Codelists"]);
     fireEvent.click(lists.getByRole("link", { name: "Codelists" }));
     expect(onNavigate).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: "list", applicationKey: "test-app", viewKey: "codelists", workspaceKey: "stops" }),
+      expect.objectContaining({
+        kind: "list",
+        applicationKey: "test-app",
+        viewKey: "codelists",
+        workspaceKey: "stops",
+      }),
     );
   });
 
@@ -229,7 +234,7 @@ describe("WorkspacePage (0.17 SH1)", () => {
         occurredAt: "2026-11-12T10:00:00Z",
         kind,
         action: "updated",
-        workspace: { key: "stops", label: "STOPS Reference Data" },
+        workspace: { key: "stops", label: "Graubünden stops" },
         changeSet: null,
         subject: { id, name: `Record ${id}`, applicationKey: "test-app", objectTypeKey: "domain" },
         changedFields: [],

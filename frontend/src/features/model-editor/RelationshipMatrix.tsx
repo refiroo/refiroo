@@ -20,7 +20,7 @@ import {
   type OperationSpec,
   type OperationTarget,
 } from "@/features/model-editor/operations";
-import { draftTypeHue, relationTypeOf } from "@/features/model-editor/outline";
+import { draftTypeHue, relationTypeOf } from "@/model/outline";
 import { MarkPill } from "@/features/model-editor/MarkPill";
 
 const SHORT: Record<string, string> = {

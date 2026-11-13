@@ -41,10 +41,10 @@ import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
 import { Trail } from "@/ui/Trail";
-import { count } from "./limits";
-import { settingsHead } from "./navigation";
-import { useCapabilities } from "./useSystem";
-import { useHeldAnywhere } from "@/features/security/permissions";
+import { count } from "@/ui/limits";
+import { settingsHead } from "@/ui/settingsNavigation";
+import { useCapabilities } from "@/state/useSystem";
+import { useHeldAnywhere } from "@/state/permissions";
 import { WebhookDeliveries } from "./WebhookDeliveries";
 import { WebhookDialog } from "./WebhookDialog";
 import { sourceName, subscribable, useConsumerDefinitions } from "./consumerDefinitions";
@@ -58,7 +58,7 @@ import {
   requestsLabel,
   subscriptionState,
   urlName,
-} from "./webhookText";
+} from "@/ui/webhookText";
 
 type WebhooksRoute = Extract<SettingsRoute, { page: "webhooks" }>;
 

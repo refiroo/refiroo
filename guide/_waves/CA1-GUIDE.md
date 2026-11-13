@@ -69,8 +69,7 @@ existing wording.
 - Extend the pages that own each topic; no new pages. Say where each control is, step by step, and why (the integrator wants
   a parent's IDs and its values in one answer; the cost: a parent block repeats on every child row, which is why it can wait
   for `include`).
-- Use neutral examples only (a catalogue with categories and items, a ledger with entries). Never name the example model or
-  its types.
+- Use neutral examples only (a catalogue with categories and items, a ledger with entries).
 - The model-author pages: `src/content/docs/model/consumer-apis.md` and `src/content/docs/guide/model/define-a-consumer-api.md`.
   The integrator pages: `src/content/docs/integrate/consumer-apis.md`, `reading-business-objects.md` and
   `looking-up-and-resolving.md`. The worked example page `src/content/docs/examples/the-consumer-api.md` gets one short,

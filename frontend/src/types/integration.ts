@@ -4,6 +4,7 @@
  */
 
 import type { AiProposalTally } from "@/types/ai";
+import type { ExportCriterion } from "@/types/exportCriterion";
 import type { MoveSummary } from "@/types/moves";
 import type { Principal } from "@/types/security";
 
@@ -537,17 +538,6 @@ export interface PeopleLayout {
   referenceLists?: string[];
 }
 export type ExportRelations = "none" | "withinScope" | "all";
-
-/**
- * One criterion of the model-aware query (`where`), as an export's type carries it: a field's, or a
- * relationship hop (`related`, 0.9 K6) inverted by `not`.
- */
-export type ExportCriterion =
-  | { field: string; op: string; value: unknown }
-  | {
-      related: { relationTypeKey: string; direction: "outgoing" | "incoming"; where: ExportCriterion[] };
-      not?: boolean;
-    };
 
 /** What the page showing a view had narrowed it to (0.17 EX1, PP-D18). */
 export interface ExportViewState {

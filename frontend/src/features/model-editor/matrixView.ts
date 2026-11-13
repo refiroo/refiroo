@@ -2,7 +2,7 @@
  * A relation matrix as the editor's dialog builds it: each choice narrows the next, and only what
  * the model's validation would accept is offered (application_rules._check_relation_matrix_view).
  */
-import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/features/model-editor/outline";
+import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/model/outline";
 import type { DraftOperation, ModelDraftOutline, OutlineApplication, OutlineRelation } from "@/types";
 
 type Values = Record<string, unknown>;

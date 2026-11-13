@@ -925,7 +925,7 @@ runners' API calls (syntax-checked only); Vitest fixtures.
   interrupted run rolled back and refused naming the table, two starts, assignments at version 1,
   unique rows kept, singleton and flag gone, a downgrade) with the two neighbouring migration cases:
   3 passed. **Smoke start** on a copy of the development database (`rdm`, at `20261016_01`, 2
-  workspaces, 2,380 records): migrated to `20261018_01`, both workspaces on the release that was
+  workspaces): migrated to `20261018_01`, both workspaces on the release that was
   active at version 1, `/health` and `/system` 200, unique-value rows 15 before and after; the copy
   dropped and the development server stopped again.
 - Journeys J07, J08, J12, J18, J20, J21, J25, J27, J31, J33, J34 in one parallel run (4 min 31 s,
@@ -2013,7 +2013,7 @@ modules on the confirm and worker paths (J04, J11, J24, J27, J35, `unit/engine/j
 delete, batch statements: 242 passed, J35's 8 failures failing at `0b08e9c` too, TODO), the serial
 part (1 passed). OpenAPI lock re-baselined after diffing the default document against `0b08e9c`
 (three job routes, `JobResponse`, five new schemas). Smoke start on a copy of the development
-database (3 workspaces, 2,380 records): upgraded to `20261019_01`, `/health` and `/system` 200,
+database (3 workspaces): upgraded to `20261019_01`, `/health` and `/system` 200,
 every workspace on its release, unique-value rows 15 before and after; the copy dropped.
 `test_startup`'s profile-check case fails at `0b08e9c` too (TODO). **Not run yet:** the browser
 runner, the gates and Vitest (no screen yet), the budget (D78).
@@ -2712,7 +2712,7 @@ the 32 rerun with `--lf` passed, and the serial part (1) passed. D105's draft si
 history. `contract`: the lock, the paging inventory (41 collections) and API_JOURNEYS' routes,
 parameters and codes updated; 76 passed. A first run of the three groups without `-n auto` ran
 serially and was stopped after 10 minutes (the harness's PostgreSQL stopped with it). **Smoke
-start** on a copy of the development database (3 workspaces, 2,380 records), taken back to
+start** on a copy of the development database (3 workspaces), taken back to
 `20261019_01`: the start upgraded it to `20261020_01`, `/health` and `/system` 200, unique-value
 rows 15 before and after, and a mapping between two of its workspaces created, inferred (61
 proposals) and applied with no problems; the copy dropped. `ruff check app/ tests/` clean.
@@ -2890,13 +2890,12 @@ failed, J12.4 on both configurations (the extension list, above), which then pas
 value, `pgcrypto`, a downgrade). `contract`: the lock, API_JOURNEYS' route line, parameters
 (`outcome`, `reason`) and code (`MOVE_MAPPING_HAS_PROBLEMS`); 76 passed. `volume`: only
 `test_move_statements.py` (2 passed); the group's full-size budgets were not run (nothing they
-measure changed). **Smoke start** on a copy of the development database (3 workspaces, 2,380
-records) taken back to `20261020_01`: the start upgraded it to `20261021_01`, `/health` and
-`/system` 200; a mapping from the default workspace (2,129 records) to another workspace was created,
-inferred and applied without problems, and a whole-workspace dry run completed with 4,562 rows: 4,554
-`create` and 8 `refused` with `RELATION_CANDIDATE_REFUSED`, relationships the source holds although
-its own model's candidate rule no longer admits them (the record's category does not contain
-"reserved"); records and unique-value rows (15) unchanged; the copy dropped. `ruff check` on the
+measure changed). **Smoke start** on a copy of the development database
+taken back to `20261020_01`: the start upgraded it to `20261021_01`, `/health` and
+`/system` 200; a mapping from the default workspace to another workspace was created,
+inferred and applied without problems, and a whole-workspace dry run completed with its rows `create` and a few
+`refused` with `RELATION_CANDIDATE_REFUSED`, relationships the source holds although
+its own model's candidate rule no longer admits them; records and unique-value rows unchanged; the copy dropped. `ruff check` on the
 changed files clean. **Not run:** the full suite, Vitest, the browser runners and the gates (no
 frontend change; build acceptance R).
 
@@ -3067,11 +3066,11 @@ s, the serial part (2) passed. After the rows filter changed: `test_openapi_cont
 52 passed. `volume`: only `test_move_statements.py` (2 passed; the binding's origin step is one
 statement, the counts for 50 and 500 records equal); its full-size budgets were not run. After the
 final formatting: the move tests again, 33 passed. **Smoke start** on a copy of the development
-database (3 workspaces on one model, 2,380 records) at `20261021_01`: the start upgraded it to
-`20261022_01`, `/health` and `/system` 200. A mapping from the default workspace (2,129 records) to
-an empty one, inferred and applied: the whole-workspace dry run waited with 4,554 `create` and 8
-`refused` (`RELATION_CANDIDATE_REFUSED`, as in X2) in 9.8 s; confirmed, it loaded into a change set
-in 10.9 s, which published in 11.4 s. The reverse mapping's dry run found all 2,129 records as
+database (3 workspaces on one model) at `20261021_01`: the start upgraded it to
+`20261022_01`, `/health` and `/system` 200. A mapping from the default workspace to
+an empty one, inferred and applied: the whole-workspace dry run waited with its `create` rows and a few
+`refused` (`RELATION_CANDIDATE_REFUSED`, as in X2) in under 10 s; confirmed, it loaded into a change set
+in about 11 s, which published in about 11 s. The reverse mapping's dry run found all records as
 `updateOriginal` by origin (2.7 s). A second `mode: move` of 20 records: 20 `update` by
 counterpart; the source change set deleted 3 and kept 17 (records with dependants that stay); its
 publication was refused `MOVE_COPY_NOT_PUBLISHED` until the copy was published, then succeeded.
@@ -3099,7 +3098,7 @@ of the move into a change set opened for review.
 **Tests:** browser (`test:browser:workspace-x4`): J38 on `generated-a` → `generated-b`, keyboard alone,
 1440px and 390px.
 
-**Exit:** screenshots approved; one smoke on a real sample including a dialog on an invalid mapping.
+**Exit:** screenshots approved; one smoke on a sample including a dialog on an invalid mapping.
 
 ##### X4 plan (2026-10-18)
 
@@ -3239,10 +3238,10 @@ uncommitted change to `ModelEditor.tsx` (the issues pane's open state held in a 
 that carries from one test to the next), not by X4. `test:browser:workspace-v1` (the migration page
 on `OutcomeCards`): 7 cases passed; `test:browser:authoring-a6` (`ProposalNote`): 18 checks passed.
 `npm run lint`: 0 errors, 7 warnings in files X4 does not touch; `npm run build` passed; Prettier on
-the changed files only. **Smoke** on a copy of the development database (2,389 records, every
+the changed files only. **Smoke** on a copy of the development database (every
 workspace on the example model): New move… from the default workspace to the empty one with a new
-mapping, proposed and opened in 0.7 s, 183 rows marked Proposed; the first dry run 5.3 s (2,138
-created, 2,425 relationships, 8 dropped); a field unmapped by hand, 4.5 s (14 cannot move); a step
+mapping, proposed and opened in 0.7 s, rows marked Proposed; the first dry run 5.3 s (records
+and relationships created, a few dropped); a field unmapped by hand, 4.5 s (some cannot move); a step
 from a second tab, then Start: the stale dialog, nothing moved; Dry run again 8.9 s; the report with
 four reasons (a required value missing, a parent not moving, a relation candidate refused, values
 not carried); the copy loaded into "Smoke copy" in 4.4 s; no page error. Servers stopped, the copy
@@ -3344,7 +3343,7 @@ timed inside the browser walk.** Checked against the code at `c4d80ca`, in the s
   selection cannot be moved (D142, API only).
 - **Deferred by X4 (D148):** X4's surfaces in the accessibility and visual gates; X4's screenshots
   still await the user's approval.
-- **Never measured above 2,389 records:** the inference's stored-records statement (D108), the dry
+- **Never measured above the dev database's records:** the inference's stored-records statement (D108), the dry
   run (D115, D140), the load (D137) and the target change set's publication. X3's smoke on 2,129
   records: dry run 9.8 s, load 10.9 s, publish 11.4 s, about 5 ms a record a step. **Open in TODO:**
   a 20-record `mode: move` that took 13.3 s in the running service after a publication, against
@@ -3418,7 +3417,7 @@ volume runs (D152); Vitest and backend groups only for fixes; `npm run format`, 
 #### X6: List reads within the agreed budget
 
 **Needs:** X5 (order only, the user's 2026-10-19: "next after X5"). **Found:** 2026-10-19, reported by
-the user: a table of 200 records with a few relation columns takes seconds to open.
+the user: a table of a few hundred records with a few relation columns takes seconds to open.
 
 **Scope:** a table's first screen, with its relation columns, read within the 0.8 budgets
 ([POSTGRESQL_BUDGETS §1](POSTGRESQL_BUDGETS.md#1-the-budgets): 100 ms median for a page, statements
@@ -3434,11 +3433,11 @@ D156 restated at the user's request (2026-10-19): a sound design for scrolling, 
 breaks the budget contracts. D161–D164 added with it. D156 and D161–D164 accepted by the user on
 2026-10-19. X6 is delivered whole with no further approval stops (the user: "I do not wish to
 revisit this topic again"); follow-ups are decided by recommendation, recorded and reported.** Checked against the code at `c4d80ca`, measured once on the
-dev database (4,527 records, 9,753 relationships) and profiled once.
+dev database  and profiled once.
 
 **What was found:**
 
-- **The table.** A view of 200 records with six relation columns, one of them a value read from each
+- **The table.** A view of a few hundred records with six relation columns, one of them a value read from each
   related record's ancestor (`related:<relation>.ancestor:<type>.<attribute>`): rows on screen after
   2.2 s in the dev browser. The table reads 200 rows at once (`SCROLL_CHUNK`, since `ad0d19c` on
   2026-10-19; before it, the reader's 20) with every relation column: **813 KB in 294 ms** alone.
@@ -3511,7 +3510,7 @@ dev database (4,527 records, 9,753 relationships) and profiled once.
 today):
 
 ```text
-┌ Timetable types ─────────────────────────────────────────────── Filter  Columns ┐
+┌ Means of transport ─────────────────────────────────────────────── Filter  Columns ┐
 │ Name ▲              │ Code   │ Duration │ Roles            │ Translations       ▲│
 │─────────────────────┼────────┼──────────┼──────────────────┼────────────────────█│ ← the browser's
 │ Regional - RE    │ 06-RE  │ 30 min   │ Driver           │ ar de en fr …      █│   own scrollbar,
@@ -3521,7 +3520,7 @@ today):
 │ ▒▒▒▒▒▒▒▒▒▒          │ ▒▒▒▒   │ ▒▒▒▒     │ ▒▒▒▒▒▒▒▒         │ ▒▒▒▒▒▒             ░│   until their page
 │                                                                                  ▼│   arrives (~0.1 s)
 ├───────────────────────────────────────────────────────────────────────────────────┤
-│ 141–160 of 200 timetable types        Go to name…   Page [8] of 12   ⇤  ⇥      │ ← footer unchanged
+│ 141–160 of 240 stops        Go to name…   Page [8] of 12   ⇤  ⇥      │ ← footer unchanged
 └───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -3949,7 +3948,7 @@ the extensions' creation, which two processes could race on.
   (with J12.7's new case): 49 passed.
 - Frontend: `vitest related` for the three changed files, 542 passed in 55 files; ESLint; the
   production build.
-- Smoke start on an isolated copy of the development database (4,527 records, revision
+- Smoke start on an isolated copy of the development database (revision
   `20261022_01`): two workers started, `/health` ready, model administration offered, no error in
   the log; the copy dropped afterwards.
 - **Not run:** the full suite and the browser runners (R's); `consumer` and `model` as whole groups
@@ -4698,7 +4697,7 @@ drift), `test_move_binding`; the 2,000-record change-set creation timed once bef
   16–18 s in Q1 at load 4), unchanged by Q2.
 - **The 2,000-item volume seed, once, with `ANALYZE`** (a temporary probe, deleted): a change set's
   integer lookup seeks the new index, 9 records read in 0.02 ms (at 1,000 items without the indexes
-  it read and filtered the attribute's 3,231 values, 0.5 ms); the live lookup seeks
+  it read and filtered the attribute's values, 0.5 ms); the live lookup seeks
   `ix_attribute_values_key_integer`; change-set creation 0.66–0.81 s with the indexes and
   0.65–0.76 s without (three each, means 0.74 s and 0.69 s), within the runs' spread, for 7,800
   integer and date values.

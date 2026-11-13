@@ -36,7 +36,7 @@ The code wins over the plan wherever they differ:
 
 **Exporting a view (EX1).**
 - The Export dialog's "What" choice: this view, the type, the application or the whole workspace. "This view" is first on
-  every view, and it shows a count line (for example "200 rows × 8 columns, from change set …"; records for a tree or a
+  every view, and it shows a count line (for example "120 rows × 6 columns, from change set …"; records for a tree or a
   mapping grid). The file kind is "For editing in a spreadsheet" or "Technical". Technical is offered for a table, a type,
   an application or a workspace only.
 - Each view kind has its own file shape: a matrix as rows × columns with hidden IDs; a link matrix with a dropdown per

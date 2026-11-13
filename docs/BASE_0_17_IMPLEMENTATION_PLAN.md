@@ -66,6 +66,26 @@ corrects that result, and the way to import when no provider is configured.
 | [CE1](#ce1-the-canvas-edits-the-whole-model) | PL3b, UX2 | The canvas shows the whole model and does what the model editor does, on the same draft. **Delivered 2026-11-12** (approved the same day; guide screenshots open) |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
+**After 0.17.0 (0.17.x).** Fixes and structure work on the released 0.17, no new capability.
+
+| Package | Needs | Scope in one line |
+| --- | --- | --- |
+| 0.17.1 | R | Export and import fixes found after 0.17.0 (R17-F49, R17-F50 and the export lists). **Released 2026-11-13** (no packages; [CHANGELOG \[0.17.1\]](../CHANGELOG.md), [PROJECT_STATUS](PROJECT_STATUS.md)) |
+| [SR1](#sr1-the-assistant-task-split-by-concern) | 0.17.1 | The assistant task's 3,559-line module split by concern: sandbox and environment, files, process and turns, outcome and wording. Behaviour unchanged **Delivered 2026-11-13** |
+| [SR2](#sr2-frontend-features-import-shared-state-from-one-layer) | 0.17.1 | App-wide frontend state moves out of single features into one layer; a lint rule keeps features from importing each other; two import cycles removed. Behaviour unchanged **Delivered 2026-11-13** |
+| [FX1](#fx1-defects-from-the-code-reviews) | — | The defects of the code reviews of 2026-11-13: AI content kept past its retention, AI retries without waiting, two pages stuck after a stale-version refusal, three initials for one person, behaviour by a message's wording, requests per workspace on Home, a latent send-level check, small storage items |
+| [FX2](#fx2-defects-from-the-full-read-of-the-large-modules) | FX1 | The defects of the full read of the modules both reviews left untraced: a refused import row proposing its record's deletion, the assistant's model right over every draft, import, export, migration, event and canvas defects |
+| [SR3](#sr3-backend-one-version-of-each-step) | SR1 | Backend: one version of each step the reuse review found built several times: stopping a job, submitting a batch, the type's application, event streams, value JSON, hashing, column letters, chunks, task loads, e-mail lookup, counts. One stop behaviour |
+| [SR4](#sr4-frontend-one-version-of-each-helper-and-loader) | SR2 | Frontend logic: one hook to follow a job, one workspace list over every page, one helper each for copying, numbers and plurals (one locale), names of types, relations and fields, dates, newest release, stored preferences; the caches used everywhere |
+| [SR5](#sr5-frontend-one-component-for-each-element) | SR4 | Frontend components: one write-and-conflict block, one discard confirm, one activation verdict, one progress bar, one saved flash, one load dialog, one entity list page, one create-workspace form; hand-made pills, tables, search boxes and selects replaced by the `ui/` ones; one wording for each sentence that differs |
+| [SR6](#sr6-one-stylesheet-rule-for-each-look) | SR5 | CSS: the `.filter-chip` clash fixed; one chip, one popover surface, one empty state; split selectors merged; one font scale; z-index and spacing tokens; dead classes removed |
+| [TS1](#ts1-a-package-leaves-its-screens-checks-passing) | — | A package is finished only when the browser runners, accessibility scenarios and screenshots of the screens it changed pass; one command finds and runs them for a diff |
+| [TS2](#ts2-test-runs-side-by-side-on-one-server) | — | Each test run drops only its own databases; one server and one unsynced place stay; free-space and no-sync guards |
+| [TS3](#ts3-waiting-tests-and-browser-runners-in-parallel) | TS2 | Selections with journey or assistant tests run on workers; browser runners and gates run in lanes |
+| [TS4](#ts4-tests-chosen-by-what-they-import-with-their-expected-time) | — | The tests a change needs, chosen from what each test imports; every run records durations and states a selection's expected time first |
+| [TS5](#ts5-fixed-waits-out-of-the-slowest-tests) | TS4 | The slowest tests wait for the event they need instead of sleeping and polling |
+| [R 0.17.2](#r-0172-review-and-release) | FX1, FX2, SR1–SR6, TS1–TS5 | Full review since `v0.17.1`, the gates, the release |
+
 **Order.** SH1 was added by the user on 2026-11-12 and is delivered next, at their request; PL1, PL2, PL3 and PL5
 then hold only what SH1 leaves them. PL0, PL1, PL2, PL3, NG1, PL3b, PL4, PL5, PL6, SM1, R. EM1 was added by the user on 2026-11-11 and
 delivered first, at their request; nothing else depends on it. NG1 comes before PL3b so the canvas's group drops
@@ -116,7 +136,7 @@ plan for one approval and is then delivered whole.
 | PP-D36 | **A change set opened from the change set list lands on its changes,** with "See the data with these changes" leading to the lists; a person's own open change set still opens on the data from Continue and from the band (SH1). Why: opening one silently switched the whole application into it. Cost: one more click to edit in another person's change set | **Approved by the user 2026-11-12** |
 | PP-D37 | **A page is titled by the selected sidebar entry, and a view is a tab under it** (SH1). A view placed in a navigation group on its own (NG1) is its own sidebar entry and is titled by its own name. Settings opens on an index by task with About last, and an opened item's own name is the page title. Cost: two title rules, by what the sidebar entry is | **Approved by the user 2026-11-12** |
 | PP-D38 | **The app has themes that carry look, frame and density together** (UX1): Current (today's, kept as the reference), Hearth, Studio and Instrument, each in light and dark, chosen on Settings › Appearance; Website purple stays. A theme is a token set, an arrangement of the frame's parts and a density. Why: the user wants good-looking options and keeps today's. Cost: every component reads tokens only, and each frame arrangement is checked at phone width | **Decided by the user 2026-11-12** |
-| PP-D39 | **The frame is one component with named parts** (operator, areas, applications, lists, search, data context, account), and a theme places them: top bar and sidebar (Current, Hearth, Website purple), one sidebar and a raised page (Studio), an icon rail, a list panel and a status line (Instrument). Pages do not know their frame. This extends [ADR-040](DECISIONS.md)'s frame; the data context keeps its colours and meaning (ADR-039) and is shown once in each arrangement | **Decided by the user 2026-11-12** (the arrangements are the approved prototype's) |
+| PP-D39 | **The frame is one component with named parts** (brand, areas, applications, lists, search, data context, account), and a theme places them: top bar and sidebar (Current, Hearth, Website purple), one sidebar and a raised page (Studio), an icon rail, a list panel and a status line (Instrument). Pages do not know their frame. This extends [ADR-040](DECISIONS.md)'s frame; the data context keeps its colours and meaning (ADR-039) and is shown once in each arrangement | **Decided by the user 2026-11-12** (the arrangements are the approved prototype's) |
 | PP-D40 | **One way for the small interactions, in every theme** (UX1): one value is changed where it stands (Enter saves, Esc cancels); a yes or no is a switch that saves itself; several are picked in a list under the value; a form opens as a side sheet beside the page; at most one confirmation, only for what cannot be undone, naming what is lost; a saved change offers Undo; one word per action (Save, Add ‹thing›, Delete ‹thing›, Publish, Cancel). Why: the code inventory of 2026-11-12 found about 112 dialog and edit sites built in different ways, 61 of them a dialog for one or two controls | **Decided by the user 2026-11-12** |
 | PP-D41 | **A row opens beside its list first** (a peek with the record's main facts, editable), with the full page one step further; on a phone the row opens the page. **One search on ⌘K** finds records across workspaces, lists and actions, and replaces the per-panel search boxes of a record page. **Home is the hub:** the search, what needs the person, and workspace cards that say what is in them | **Decided by the user 2026-11-12** (as in the approved prototype) |
 | PP-D42 | **One e-mail template per instance, in Markdown with a logo, edited by the Operator role** (MT1). It wraps the content of every mail when the mail is queued; without a saved template the engine's own layout is used, so nothing changes until an operator saves one. Why: the user asked for it. Cost: a second place that decides how a mail looks | **Decided by the user 2026-11-12** (the request); the details below are planning defaults |
@@ -171,7 +191,7 @@ values, and the navigation on the right, already filled and marked Proposed by t
 They drag until it reads as the business does, watching the count of rows that load or are refused, then
 continue to the import.
 
-sample rows. It computes its counts on those rows but is not connected to the engine.
+**Mock-up:** kept outside the repository. It computes its counts on sample rows but is not connected to the engine.
 
 ### Gestures and what each one uses
 
@@ -246,7 +266,7 @@ workspace…, Open as canvas in the editor and PL4's Adjust. The editor shares `
 `useEditorWorkspace` and `stillProposed`. Decisions PP-D70 to PP-D76. **Tried:** `frontend/e2e/pl3b-workbook-canvas.mjs` (real
 workbook, drops to the dry run's count, Connect with a tied join, unpivot, undo, a refused row, an invalid draft, keyboard,
 Create workspace sheet, 390px, axe, no 5xx) passes; component and model tests pass. **Not done or not seen:** the value map
-correction and Apply/Load dialogs are covered by component tests only, not in the browser; no real-file smoke on the user's
+correction and Apply/Load dialogs are covered by component tests only, not in the browser; no sample-file smoke on the user's
 samples; no before/after inventory (the canvas changes no reader); the guide how-to and screenshots (Codex).
 
 **Door check (ADR-032):** the new profile readings change only how rows are read. Identity, attribute storage,
@@ -260,10 +280,10 @@ why PP-D9 stands. Volume runs only if these basics give a reason.
 **Tests:** journeys through the API on two model configurations (J58; J51 was taken, PP-D53): a flat sheet shaped into a hierarchy with
 its relationship, filter and group, then loaded; a wide sheet by `unpivot` and grouped rows by `fillDown`, each
 repeated from the saved profile; a tied join asked rather than guessed; a caller without the groups refused by
-code. Browser: a real sample workbook from drops to import, including undo, a refused row corrected and an
-invalid draft; each gesture by keyboard; 390px; axe; no 5xx. Real-file smoke on the user's samples: a flat
+code. Browser: a sample workbook from drops to import, including undo, a refused row corrected and an
+invalid draft; each gesture by keyboard; 390px; axe; no 5xx. Smoke on sample files: a flat
 hierarchy, a wide sheet with its header on row 2, and a workbook with side-by-side lists. **Before and after:**
-an inventory diff on the user's model, since the profile reader changes.
+an inventory diff on a model, since the profile reader changes.
 
 **Documentation (the user, 2026-10-31: required, part of being finished):** the guide explains the canvas for
 a person who has never seen it: a how-to in "Model your domain" ([0.13 plan](BASE_0_13_IMPLEMENTATION_PLAN.md#5-model-your-domain))
@@ -424,7 +444,7 @@ the username; a provider's person gets a username from `preferred_username`, els
 
 **Why.** The user exported a relation matrix (a row type against languages, a translation in each cell) to edit
 translations and import them back, and got the technical tables of every type in the application: one `Records`
-sheet of 3,300 records with every type's columns, one `Relationships` sheet, nothing saying what was exported.
+sheet of every record with every type's columns, one `Relationships` sheet, nothing saying what was exported.
 Cause: only the table view hands its state to Export (`CollectionView`, `onExportContext`); every other view
 leaves the dialog on "the application's types, Technical". The people workbook's columns per parent (0.9 J6a)
 would have given the shape, but they read only an owning relationship (one required binding, `_sheet_plan` in
@@ -450,7 +470,7 @@ Every XLSX file has "About this export" (PP-D22). The engine derives each layout
 ```
 Export
 What
- (•) This view: Names in every language        200 rows × 8 columns, from change set “…”
+ (•) This view: Names in every language        120 rows × 6 columns, from change set “…”
  ( ) The type: every record and field
  ( ) The application: every type, a sheet each
  ( ) The whole workspace
@@ -463,7 +483,7 @@ New records in a column go into            (matrix with Add only)
 "This view" is the first choice on every view; on a page without a view the dialog opens on the application.
 Technical is offered for a type, an application and a workspace, and for a table view as today.
 
-a create matrix, and `sample-matrix-export-links.xlsx`, a link matrix, each with its About sheet, approved before the build.
+**The sample** (not in the repository): a create matrix and a link matrix, each with its About sheet, approved before the build.
 
 **Engine and API.** `ExportRequest.view` (PP-D18) beside today's `scope`, refused `INVALID_EXPORT_LAYOUT` with a
 pointer where the view is unknown, not a list view, or its state names a field it does not declare;
@@ -481,7 +501,7 @@ change set, a cell edited, an empty cell filled, a cell cleared, a column withou
 into the change set with each outcome; a relationships grid and a mapping grid round trip; an application
 exported for editing and imported back unchanged (every row `unchanged`); the technical XLSX with its About sheet
 imported back unchanged; the refusals. Vitest for the dialog's choices per view kind. One browser runner: export
-from a matrix and a tree, 1440px and 390px, axe. A real-file try on the user's matrix, opened in Numbers.
+from a matrix and a tree, 1440px and 390px, axe. A sample-file try on the user's matrix, opened in Numbers.
 
 ## MC1: Reuse or create in any matrix cell
 
@@ -550,7 +570,7 @@ group 750 passed (2 `test_batch_statements` failures, also at HEAD); J27 export-
 create, rows and grid, table and mapping, tree, change set, technical, refusals), unit, contract, Vitest, `test:browser:ex1`
 (matrix, tree, application, 390px, axe) green. Tries on dev (stops, own change set): type-translations matrix edited, filled,
 refused for German by name; classes-by-system edited; the Translations application 5,000 rows and the technical file 10,000 items
-all unchanged. The dialog's count line ("200 rows × 8 columns, from change set …" for a table, matrix or grid; records for a tree or mapping grid) is delivered, taken from the page's own totals; no API change.
+all unchanged. The dialog's count line ("120 rows × 6 columns, from change set …" for a table, matrix or grid; records for a tree or mapping grid) is delivered, taken from the page's own totals; no API change.
 
 **Delivery record (extension, PP-D24 to PP-D26, 2026-11-11).** Built: `engine/model/candidate_places.py` (`derive_place`, `identifying_fields`),
 `candidate_place_filters` in `engine/reads/model_query.py` (the ancestor part of `candidate_ids`, one evaluator), `container_rows` and
@@ -611,12 +631,14 @@ other value, live data untouched. A create-and-edit matrix whose column had one 
 as theirs, `proposed` and `willBeCreated`; the dialog's batch created the group and the cell (applied, the group then offered with one cell); an import of a typed
 value previewed "will create … under …" and created it on confirm. The dialog creates the cell in its parent's application: a type
 that several applications list was refused (`PARENT_WRONG_SCOPE`) when the dialog took the first application listing it, for a new group and for
+an existing one. Numbers and Excel: not checked (see the report).
 
 ## CA1: The parent carries fields and related blocks
 
 _Added by the user on 2026-11-11,_ after an XREF answer gave the parent only its type, ID, code and name, while
 the integrator needed the parent's master ID and its external ID in one system. Mock-up approved the same day
 (the consumer API editor with a Parent section, a Served column and a parent block in the On related filter):
+the mock-up is kept outside the repository.
 
 - **Model:** `object.parent` (the `ParentSpec` form) takes `fields` as `object.fields` does, the four built-in
   names still allowed, and `related` as `object.related` does; a parent of the parent is refused. Every related
@@ -1198,8 +1220,7 @@ Bonaduz translation, the Ambiguous mapping filter, a grouped model-draft line in
 model 1.0.0 while live is 1.8.1 (so Publish is refused). Of C10's 96 screens only the 9 listed ones were run: the whole-file
 run reaches the AI-driven screens, which I stopped.
 
-PL3b, real-file try (2026-11-12, one of the user's sample workbooks: a flat sheet from the example model's workbook,
-31 rows). It found three defects, fixed the same day:
+PL3b, sample-file try (2026-11-12, a flat sheet from a sample workbook). It found three defects, fixed the same day:
 - PL4's dialog stopped with the engine's "No proposal of the draft's inference is open" when the inference read
   no list from the workbook, and left its draft behind. It now says that refiroo found no list by itself and
   offers Adjust as the one way on; Create workspace is not shown then; a reading that fails removes its draft
@@ -1218,28 +1239,11 @@ Decisions PP-D83 to PP-D85. **Tried in the browser** (`pl3b-workbook-canvas.mjs`
 variable): a refusal that names a column corrected through the refused-rows dialog and the value map (2 refused to
 1); Create workspace… for real and the load's result on the workspace page; Apply to this workspace… and Load into an
 existing workspace… walked to their confirmation; a column on the empty board; a drop that would repeat something.
-The runner has an optional real-file mode (`PL3B_REAL_FILE`, and `PL3B_REAL_PLAN` for a JSON list of gestures kept
+The runner has an optional sample-file mode (`PL3B_REAL_FILE`, and `PL3B_REAL_PLAN` for a JSON list of gestures kept
 with the file, never in the repository): New workspace from a workbook, what the dialog says, Adjust, the gestures,
 the count, Create workspace…, the load's result.
 
-Three real samples, by shape (nothing of their contents is recorded):
-- **Sample 1, a flat sheet that repeats its upper levels on every row** (30 rows, three levels). The dialog found no
-  list. A sheet drop made one list (23 load, 7 refused: "A new record needs a name, and the row has none", the rows
-  whose lowest level is blank); two columns dropped on the board made the upper levels; Connect with the join found
-  the parent column (before the fix it said "no column of the workbook was found that names the ... records" twice:
-  the engine leaves a dropped column out of its own table, and the lists that came from a column had no source).
-  Create workspace…: 45 rows load, 7 refused, 68 records created. The 7 cannot be corrected on the canvas (a blank
-  name has no value to map).
-- **Sample 2, a wide sheet (106 columns, 400 rows) with its header on row 2.** The dialog read a different sheet by
-  itself (200 rows, all load). A drop of the wide sheet is refused, with or without the header row pressed first,
-  with "Sheet '<sheet>' has no column '<header>'" where the header ends in a space. Engine defect, not fixed here
-  (below). Columns dropped on the board and the create worked on the proposed model (222 rows load; 3,055 created,
-  37 updated, 176 unchanged, every row loaded). Reading several columns as rows was not tried on it for that reason.
-- **Sample 3, a workbook of many small sheets, one with a side note column** (12 sheets). The dialog read eleven lists
-  (146 rows, all load). A sheet dropped again made a second list beside the one that reads it (now refused with
-  "<list> already reads <sheet>: its card is on the board"); a header in CamelCase read as one lowercase word (now
-  split into words). Create workspace…: 185 rows load, 190 created, 2 updated, every row loaded. No sheet had two
-  tables side by side, so the side-by-side case was **not tried on a real file**.
+Three sample workbooks were tried in the browser (nothing of their contents is recorded): a flat sheet that repeats its upper levels on every row, a wide sheet with its header on row 2, and a workbook of many small sheets. The tries found the defects above and the engine defect below, a header in CamelCase read as one lowercase word (now split into words), and a sheet dropped twice making a second list beside the one that reads it (now refused with "<list> already reads <sheet>: its card is on the board"). Rows whose lowest level is blank are refused ("A new record needs a name, and the row has none") and cannot be corrected on the canvas, as a blank name has no value to map. No sheet had two tables side by side, so the side-by-side case was **not tried on a sample file**.
 
 **Engine defect left, described:** `POST /api/v1/model-drafts/{id}/operations` with `mapColumn` naming a column
 whose header ends in a space, on a source whose `headerRow` is 2, answers "Sheet 'X' has no column 'Y'"
@@ -1261,7 +1265,7 @@ this workspace…; Load into an existing workspace…. Screenshots for a guide: 
 tie question, Read as rows, the refused-rows dialog with the wrong values, the value map, the workspace page after
 the load, the Apply and Load dialogs (the runner writes them into its temporary folder).
 
-**Still not done:** the side-by-side case on a real file; a wide sheet read as rows on a real file (blocked by the
+**Still not done:** the side-by-side case on a sample file; a wide sheet read as rows on a sample file (blocked by the
 engine defect); blank lowest-level rows of a flat hierarchy have no way out on the canvas (they stay refused); Undo and
 Redo are shown on an empty board; the guide how-to and screenshots (Codex); no before/after inventory (the canvas
 changes no reader).
@@ -1477,6 +1481,7 @@ the navigation's colour, glyph and line per page, and every page of the scope mo
 
 **Requested by the user on 2026-11-12 ("lets make the canvas a full model editor too, plan it as a
 package") and approved the same day with its six decisions as proposed ("yes, the above is good"), for 0.17:
+PP-D77 to PP-D82.** Mock-up: kept outside the repository.
 
 **Journey.** A model administrator opens any model draft, with or without a workbook, as a board of its lists.
 They add a list and its fields by hand, rename where the name stands, connect lists, set a relationship's rule,
@@ -1554,7 +1559,7 @@ scope and frames; add by hand; find and centre. Component: inspector on each kin
 Browser, one runner on two configurations: a model built from nothing on the canvas and installed; a released
 model opened whole, a list renamed, a field added, a relationship's rule set, a table view and a record panel
 changed, a consumer API field added, an issue followed, a chosen step undone; keyboard only; 390px; axe; no
-5xx. **Before and after on the user's model:** opening it on the canvas, moving cards, Tidy and folding change
+5xx. **Before and after on a model:** opening it on the canvas, moving cards, Tidy and folding change
 neither the draft's version nor its model (checked by the outline before and after). Looked at by the main
 session at 1440, 1920, 2560 and phone width, in the five themes.
 
@@ -1661,8 +1666,10 @@ words and changes nothing (component test; it already worked through `act`). (3)
 the Add menu is selected (panel held by the page: `panel`/`onPanel` on the inspector; group: Navigation tab) and said in a toast with
 Undo. (4) `ce1-canvas-editor.mjs` gained the three items (23 checks); the attribute drags use Playwright `dragTo`.
 Captures for review (two drafts, five schemes, light and dark, 1440, 1920, 2560, 390, plus inspector, line popover, issues drawer and
+a mid-drag drop line) are kept outside the repository.
 
-**CE1, review of the captures (2026-11-12, main session).** The captures in
+**CE1, review of the captures (2026-11-12, main session).** The captures
+were looked at by theme and width. Found and fixed: attribute and
 object type names were cut short on every model without a workbook, because the source-column cell of every row
 took a fixed share of the row; it now takes only what its text needs (at most 96px), cards are 320px wide, and a
 name that is still too long shows in full on hover. Seen and left as they are: dashed relationship lines crossing
@@ -1738,9 +1745,639 @@ the mapping views with mappings there; Add view… asks the name first; `scripts
 
 **Version.** 0.17.0 in the five places alpha.1 changed; CHANGELOG [0.17.0] holds everything since 0.16.0.
 
+## SR1: The assistant task split by concern
+
+**Why.** From the code review of 2026-11-13. `backend/app/engine/tasks/agent.py` holds 3,559 lines and 139
+top-level functions, and changed in 25 commits between 2026-10-31 and 2026-11-13. It mixes four concerns, so
+every change loads all of them. The security-relevant part (which OS session user runs the session, which
+environment and credentials reach it; RF5) sits among prompt wording and cannot be reviewed alone.
+
+**Scope.** `engine/tasks/agent.py` becomes the package `engine/tasks/agent/`:
+
+| Module | Holds |
+| --- | --- |
+| `sandbox.py` | the session users and their slots, the container check, gates, safeguards, the environment passed to the session (`_passed`), the base command |
+| `files.py` | the task's folder and home, putting and reading work files, the transcript, sweeping |
+| `run.py` | starting a turn, progress from the stream, reaping the process group, recording a turn or an interruption |
+| `outcome.py` | what the session reached: the proposal landed, installed release, change set, load undo and recovery |
+| `words.py` | every prompt and refusal text and the wording helpers (counts, losses, attribute changes) |
+| `__init__.py` | the public names other modules use today (`enabled`, `resumable`, `folder_of`, `ensure_folder`, `sweep`, `said`, `recover_load`, `undo_interrupted_load`, `lives`, …), so no caller changes |
+
+**Stays unchanged.** Behaviour, API, both OpenAPI documents, the database, the prompts word for word. No
+private name imported across the new modules: a name two modules need becomes public in the one that owns it
+(`tests/test_boundaries.py` rules). Tests move with the code only where they reach a moved private name.
+
+**Checks.** Backend group `contract` (boundaries), `tests/unit/engine/tasks/test_agent.py`,
+`test_design_job.py`, the J50 journeys; ruff on the changed files only.
+
+**Docs.** ARCHITECTURE.md names the package and its modules where it describes the assistant task. CHANGELOG
+[Unreleased], Changed: one internal entry.
+
+**Delivery record.** `engine/tasks/agent/`: `sandbox.py` (482 lines), `files.py` (333), `words.py` (385), `run.py` (924), `outcome.py` (1,556), `__init__.py` (57, the re-exports). Every one of the 181 top-level definitions moved unchanged (checked by comparing each definition's syntax tree before and after, apart from the renames below). Dependencies run one way: `sandbox`, `files`, `words`, `run`, `outcome`. Placed otherwise than the table says: `outcome` calls `run`, so `run` cannot import `outcome`; the load undo (`undo_load`, `discard_empty_sets`, `undo_interrupted_load`, `counts_of`, `holds_changes`) stays in `run` because an interrupted turn undoes its load there, while `recover_load` stays in `outcome`; the entry points `start`, `said` and `accepted` are in `outcome` beside the landing they call; `Progress` and `closing_words` (what the session said) are in `run`; `retention` is in `files`; `enabled` is in `sandbox`; `plural` and the attribute-binding helper are in `words`. Names two modules share lost their underscore (`Progress`, `closing_words` for `_said`, `reprompt` for `_again`, `counts_of` for `_counts`, `slots_of` for `_slots`, and the others by dropping it). `items_load.py` reads the public names (`agent.counts_of`, `agent.plural`, `agent.retention`); no private alias is re-exported (main session; boundaries and `test_j50_ai_items_load.py` passed after it, 22 cases in 33 s with `-n 4`). The unit test `test_agent.py` is split into `tests/unit/engine/tasks/agent/test_<module>.py` (the layout rule needs a test file per module) and the J50 journeys patch the module that looks a name up. Checks: `tests/test_boundaries.py` and the `contract` group (100 passed, including the OpenAPI contract), the unit tests of the package and `test_design_job.py` (47 passed), the J50 journeys (all six files; 190 passed and 2 failed in two invocations, the 2 passed alone; one failure was a `DATABASE_UNAVAILABLE` 503, a collision on the shared test server; the other's error was not kept, so its cause is unknown), `import app.main`, `ruff check` and `ruff format` on the changed files.
+
+## SR2: Frontend features import shared state from one layer
+
+**Why.** From the code review of 2026-11-13. The backend's tiers are held by `tests/test_boundaries.py`; the
+frontend has no such rule, and features import each other in both directions (settings ↔ security,
+settings ↔ jobs, objects ↔ workspaces). The cause is app-wide modules living in one feature's folder:
+`workspaces/WorkspaceDataContext` (imported 40 times from other features), `security/permissions` (21),
+`settings/limits` (20), `settings/useSystem` (14, by 8 features), `settings/navigation` (14),
+`jobs/useJobStream` (12, by 7 features), `inbox/useInbox`. `ui/` itself imports `features/workspaces`
+(`ObjectLookup`, `RecordChecklist`) and `features/home` (`WorkspaceTile`). Nothing is broken by it today; the
+rule keeps it from growing and stops shared parts being copied instead of reused.
+
+**Scope.**
+
+1. A new layer `src/state/` for app-wide state and hooks that know no single feature: the workspace data
+   context, permissions, limits, system, the job stream, the inbox, the workspace AI offer, opening a
+   workspace. `ui/` may import `state/`; `state/` imports only `api`, `lib`, `model`, `types`, `routing`.
+2. Every other cross-feature import is resolved by one test: a part used by several features moves to the
+   lowest layer its imports allow (`state/`, `ui/`, `lib/`); a part that is one feature's own and is shown
+   by another stays, as a **deliberate edge** named in the rule. Deliberate from the start:
+   `workbook-canvas → model-editor` (the canvas is a second view of the model editor) and
+   `model-admin → model-editor`. Each further deliberate edge is listed in the delivery record with its reason.
+3. The rule: an ESLint `no-restricted-imports` block per feature forbids `@/features/<other>/…` except its
+   deliberate edges, and forbids `@/features/…` from `ui`, `lib`, `model`, `api`, `types`, `routing`, `state`.
+   No allowlist of exceptions is left at the end.
+4. The two import cycles are removed: the six files of `src/types/` (`ai`, `integration`, `modelAdmin`,
+   `moves`, `runtime`, `security`), and `jobs/ExportDialog` ↔ `objects/views/types` ↔ `objects/views/useViewExport`.
+
+**Stays unchanged.** Behaviour, markup, CSS, labels, routes, the API. Files move with `git mv`; tests move
+beside their module. The duplicated dialogs (Apply/Install, the Bulk dialogs) are not part of SR2; they go
+with the next package that touches them.
+
+**Checks.** `npm run lint` (no new warning), `npm run test`, `npm run build`. No browser runner: nothing a
+user sees changes.
+
+**Docs.** ARCHITECTURE.md's frontend section states the layers and the rule (FRONTEND_STRUCTURE_REFACTOR.md
+stays the history). DECISIONS.md: an ADR for the frontend import rule as the counterpart of the backend
+tiers. CHANGELOG [Unreleased], Changed: one internal entry.
+
+**Delivery record.** Delivered 2026-11-13; ADR-046, ARCHITECTURE.md's frontend section and CHANGELOG [Unreleased] state it.
+Files moved with `git mv`, their tests beside them; behaviour, markup, CSS, labels, routes and API calls are as they were.
+Moved: to `src/state/` the workspace data context, permissions (and their wording), `useSystem`, `useJobStream`,
+`useInbox`, `useWorkspaceAiOffer` and `openWorkspace`. To `src/ui/` the parts several features show and whose imports
+allow it: the job text, limits, Settings navigation (`settingsNavigation`), change text and webhook text; the workspace
+field and selector, the new-workspace fields, the release choices, the shelf toggle, the collection scope, the new-move
+dialog; the job outcomes (`BatchOutcome`, `ImportOutcome`, `Verdict`, `ChangeSetLoad`, `JobNotifications`,
+`MoveRowsTable`, `MigrationRows`); the add-workbook dialog, the propose fields, "proposed because", the impact summary,
+the delete-draft dialog, `DeleteAction`, `WhatChanged`. To `src/lib/` `aiText`, `moveAbility`, `workspacePins`; to
+`src/model/` the export, import and move request builders, `outline`, `proposing`, and the workspace tile's letters and
+hue (out of `homeText`). Taken out of the file that held them, so dependencies run one way: `ui/ActivationParts` (out of
+the activation dialog, used by Apply too), `ui/ChangeTitle` (out of the changes page), `ui/relationFilterNames` (the
+filter's name hook), `model/emptyDraftModel`, `model-editor/columnDrop` (the column-drop operations the canvas and the
+readings share), `types/pagination` and `types/exportCriterion` (the cycle in `src/types/`), and `ExportStart`,
+`ExportViewSize` and `ExportViewExtra`, moved to `model/exportRequest` and `objects/views/types` (the export dialog's cycle).
+
+Deliberate edges (reason in `frontend/eslint.config.js`, `FEATURE_EDGES`): `workbook-canvas` to `model-editor` (a second
+view of the model editor) and to `workspaces` (starts a workspace from a workbook); `model-admin` to `model-editor`;
+`model-editor` to `objects` (the type preview draws the real collection views); `moves` to `model-editor` (the editor's
+history steps) and to `objects` (the selection uses the list filter bar); `settings` to `jobs` (Settings › Jobs hosts the
+job page and its dialogs) and to `security` (account roles, agent clients); `jobs` and `workspaces` to `security` (the
+access list section); `home` to `workspaces` (the workbook start action). Each shows one feature's own part with several
+files behind it, so lowering it would hollow the feature out. The rule: a `no-restricted-imports` block per feature
+(own folder and edges only), one per lower layer (no feature), and `state` also no `@/ui` or `@/app`; the react-aria
+and lucide restrictions are kept in every block they had. It bites: a forbidden import added to a feature, `ui`,
+`model` and `state` each failed lint, an allowed edge did not, and all were removed. Scan before: 64 feature pairs
+importing each other, 3 `ui` imports of features, 2 cycles; after: the 11 pairs above, no lower layer importing a
+feature, 0 cycles.
+
+Checks (from `frontend/`): `npm run lint` 0 errors, the 12 `set-state-in-effect` warnings as before; `npm run build`
+passes; `npm run test` 234 of 236 files pass, 2178 of 2180 tests. The two failures (`AiTaskPage.test`,
+`DesignCheckView.test`) read `ai-tasks/designFixture.ts`, which another session was renaming in the same tree (fixture
+"timetable", tests still "scheduling"); both pass at `HEAD`. Prettier ran on the changed files only. No browser runner:
+nothing a user sees changes.
+
+**SR2 after the loss check (2026-11-13).** The check found nothing lost by SR1 or SR2 and two things SR2
+missed, fixed by the main session: `features/administration` was missing from `FEATURE_EDGES`, so the tier and
+wrapper rules skipped it (added; `eslint.config.js` now fails when a feature folder is not listed, proved
+with a probe folder); EXECUTION_GUIDE.md §2 named ten pre-move paths (rewritten from the renames). Lint: 0
+errors, the 12 accepted warnings.
+
+## SR3–SR6: Reuse review of 2026-11-13
+
+**Why.** A review of the whole code for one version of each thing (flows, loaders, helpers, components,
+styles), in four read-only lanes: backend, frontend logic, frontend components, CSS. The engine core holds
+(one rule set, one write path, `tests/test_boundaries.py`); around it the same thing is built several
+times, and some copies already behave or read differently. Each package below turns every copy into the
+one version and deletes the copies; a finding a package names is done only when no copy is left (grep
+named in its check).
+
+**Common to all four.** Behaviour, API, both OpenAPI documents and the database stay as they are, except
+where a package states the one behaviour or wording chosen. A visible change exists only where this
+section lists it; everything else looks and reads as before. Targeted checks only, per package. Each
+package ends with its CHANGELOG [Unreleased] entry (Fixed for a behaviour that was wrong, Changed for
+the rest), ARCHITECTURE.md where it names a single version, and its delivery record here.
+
+### Decisions
+
+- **SR-D1 Number locale** (**settled by the user, 2026-11-13**): every number is formatted by one helper in
+  the browser's locale, as dates already are. Today 21 sites use `"en"`,
+  15 `"en-GB"`, 11 `"en-US"` and 22 the browser's locale.
+- **SR-D2 One wording each** (proposed with this plan, the user's approval of the plan settles it):
+
+  | What | Today | One wording |
+  | --- | --- | --- |
+  | A record changed while its page was open (page-level notices only; a dialog's own conflict, such as People's "Save again to replace their change with yours", and an in-place edit's "change it again" keep their sentences and behaviour) | "…; choose again." (client, person), "…; review it and choose again." (subscription, workspace), "…; try again." (provider), "The policy changed meanwhile. Reload to see it." | "This <noun> changed while the page was open. It is shown as it is now; review it and choose again." (a person: "They are shown…"); the workspace keeps its label and status in the sentence |
+  | The conflict notice | a warning, except the sign-in page (an error) | a warning, titled "Not saved", everywhere |
+  | A release whose activation needs a migration | "Activation needs a migration", "A migration is needed", "Some records must move first" | "Activation needs a migration" |
+  | Discarding unsaved input | the sentence written in 6 places | "Discard your unsaved changes?" from one place, the browser confirm as today |
+  | A field saved in place | shown 2.5 s, 4 s on the workspace page | 2.5 s |
+  | A type the model does not name | the key, "Record", "record", "" or the plural name | the key |
+  | A change set without a title | "Untitled change set" in 8 places | the same words from one `changeSetTitle` |
+  | A name quoted in text (M4) | “name” in activity, ‘name’ in the inbox | “name” |
+
+- **SR-D3 Stopping a job** (proposed): a repeated stop keeps the time of the first request, as
+  `jobs/background.py` does; the eight other copies overwrite it.
+
+**Second review.** A second review of the same day by another model, reading the code only, is in
+[BUILD_0_17_REVIEW.md](BUILD_0_17_REVIEW.md) (D1–D9 defects, M1–M6 misalignments, R1–R8 and F1–F13
+reuse). Its findings are merged below: the defects into FX1, the rest into SR3–SR6, each row naming
+its finding. Its M2 (one fixed English locale) is not taken: SR-D1 settles the browser's locale.
+
+- **SR-D4 One stale-version refusal** (proposed; an API change, API.md and CHANGELOG; narrowed by the loss check):
+  a stale write is refused as `409 VERSION_CONFLICT` with `{currentVersion}` added to whatever its details carry today.
+  Kept: the draft conflict's `operations` and `more` (the model editor lists them); the mapping replace conflict's
+  `targetCount`, `targets` and continuation (the mapping grid shows them), with `mappingVersion` as `currentVersion`
+  (`MappingGridView.tsx:640` reads all three and changes in the same package);
+  a release's `status` and `currentStatusVersion` (the release claims its status counter); `expectedVersion` and
+  `actualVersion` inside a publish's `conflicts` entries (not a refusal shape). The mapping targets read's stale
+  paging context is a read, not a write: it keeps its own code, which today is the same string as the write's
+  (`MAPPING_VERSION_CONFLICT`, with `mappingVersion`), so `test_mapping_coverage.py` stays and the replace tests change. Every reader of the dropped codes (two frontend
+  pages, `AiTaskPage.tsx` and `MappingGridView.tsx`, and their tests with `ImportProfilesPage.test.tsx`; the route
+  docstrings of `ai_tasks.py`, `imports.py` and `model_releases.py`, which are OpenAPI text; the reference content, API.md, API_JOURNEYS.md, USER_JOURNEYS.md, the guide's integrate pages, the tests
+  the loss check lists) changes in the same package. `CHANGE_SET_VERSION_CONFLICT` and
+  `RELATION_SET_VERSION_CONFLICT` stay, since they tell two claims in one request apart; the import profile,
+  mapping (write), model release and AI task codes become `VERSION_CONFLICT` (M1), and the frontend recognises
+  the three kept codes through one `isVersionConflict(cause, codes?)` (the mapping read's `MAPPING_VERSION_CONFLICT`
+  is not a stale write and is not one of them). Before 1.0 a contract may change; this
+  one is planned and listed.
+
+### FX1: Defects from the code reviews
+
+| Defect | Where | Fix |
+| --- | --- | --- |
+| D1 Kept AI requests and answers outlive `AI_LOG_CONTENT_DAYS` when no new call is recorded: the two reads that expire content never commit | `engine/proposals/calls.py:140-166` | expiry in the worker's hourly retention pass; the reads filter by `content_expires_at` and write nothing; recording a call keeps expiring as today (`record_in`, `record_apart`), since the hourly pass exists only with `INTEGRATION_JOBS_ENABLED` on and direct calls (query translation, summaries) are recorded without a job |
+| D3 The Claude adapter resends at once (no wait, `retry-after` unread, a timed-out long answer resent); the other adapter never retries | `engine/proposals/claude.py:108-123`, `openai_compatible.py:66-76` | one retry helper for both: waits (`retry-after`, else a growing delay), no resend after a timeout |
+| D2 Import profile and model release pages keep a stale version after a refusal, so every further save is refused | `ImportProfilesPage.tsx:290-306` and `:569`, `ModelReleaseDetail.tsx:218-237` | re-read, keep the person's input where it applies, say the item changed; on the two codes as they are when FX1 is delivered, which SR-D4 later makes `VERSION_CONFLICT` |
+| D5 Three `initials` with three results, one showing a bracket | `ui/SettingsParts.tsx:20`, `app/useMe.ts:61`, `security/AccessList.tsx:31` | the top bar's (letters only, as SH1 fixed it), used by all three; a name with no letter at all falls back to its first characters as `SettingsParts` gives today, so a client named "42" keeps its mark (`NameMark` also draws clients) |
+| D6 Behaviour decided by a message's wording | `RelationTableView.tsx:278` (`/changed/i`), `ResetPasswordScreen.tsx:20-27`, `:140` | the item's `code`: `VERSION_CONFLICT` or `RELATION_SET_VERSION_CONFLICT` (today's pattern matches both, and both keep reloading), named directly here and read through `isVersionConflict` once SR4 has it; the answer's `error: "slowed"` for the tone. The wait: the reset screen shows the engine's message as it is, as the sign-in screen already does (`SignInScreen.tsx:40`, "the engine's own, so a wording is never kept twice"); its pattern and its own rewording go, the engine's answer does not change. Visible: a wait of 60 to 89 seconds reads "2 minutes" on the reset screen, as on the sign-in screen, where it read "75 seconds" |
+| D7 Home sends requests per workspace | `HomePage.tsx:396-407` | `GET /me/action-groups` for where the person approves; a group held at the instance comes as `instance: true` with no workspace list, and then every workspace Home lists counts. Account keeps its per-workspace reads: it needs each grant and each application's record types, which that answer does not carry (loss check) |
+| D8 `ai_requested` returns before the send-level ceiling check when `asked` is omitted (no caller today) | `management/ai.py:52-54` | the ceiling applied first; with `asked` omitted a level above the ceiling answers false and never refuses, as an omitted flag does today (only `true` refuses) |
+| D9 State updaters writing storage, commented-out code, per-task storage keys never removed, a route cache keyed by `id(route)`, two stale comments | `RecordTree.tsx:319-332`, `:405-414`; `AiTaskJourneyBar.tsx:26-43`; `query_parameters.py:23, 92-99`; `proposals/provider.py:15`, `registry.py:28` | each fixed at its place |
+
+D4 (workspace lists cut at one page) is in SR4. **Checks.** The groups of the changed modules; a unit test
+each for D1 (expiry without a new call) and D3 (waits, no resend after a timeout); the J-journeys of the
+two pages in D2; lint, tests and build for the frontend items.
+
+### FX2: Defects from the full read of the large modules
+
+Both reviews left the largest modules untraced. Six lanes then read them in full (2026-11-13): imports,
+batches and deletion; model migrations, change sets and restructuring; exports and the job worker; the
+assistant, sources and inference; the consumer API, events, notifications and mail; and the untraced
+frontend (routing, scroll window, canvas, record tree, model editor operations). Every file in scope
+was read; the lanes list them. Found sound: authorization and workspace scoping of consumer reads,
+webhook address checks, mail recipients, the assistant's folder handling (no traversal, symlink or
+injection), lease and cancel paths, formula safety of exports, the lock order of publish and migration.
+Rows marked **checked** were confirmed by the main session in the code.
+
+| Defect | Where | Fix |
+| --- | --- | --- |
+| **High.** A row refused in Python is stored without its key, so the record it names counts as missing; with `missing: "delete"` (change sets only) it gets a delete item, against the comment at 1903 (**checked**) | `imports/binding.py:1236-1240`, `:1905-1914` | keep the key fields on a refused row (every SQL stage already filters `error IS NULL`) |
+| The assistant session's model right covers every draft and release of the instance; only drafts held by another task are refused; "never a draft you did not make" is checked only when the proposal lands (**checked**) | `tasks/agent/sandbox.py:127-136`, `management/access.py:507-508` | refuse a session client's draft writes (and reads) unless the draft is its own. "Its own" is the landing's rule (`_drafted_by`, `tasks/agent/outcome.py:727`) or a draft its task holds: during a turn the session works on a draft it has just made, which `AiTask.draft_id` names only once the proposal lands, so the task link alone would refuse every turn; the task link is still needed beside it, for the draft the design job makes for the task (`design_job.py:83`), which no client created |
+| A row whose key cell fails is skipped silently under `rowsWithoutKey: "skip"` | `binding.py:1219-1222` | skip only an empty key cell; a key cell that fails is then a refused row, which under `atomic` stops the import as any refused row does. Visible: an import that skipped such rows and completed now reports them |
+| A CSV row shorter than its header breaks headings, fill-down and unpivot | `imports/readings.py:97-118` | pad the row to the header's width |
+| An XLSX file declaring a wrong `<dimension>` is read cut short without an error (read-only openpyxl) | `imports/readers.py:105, 115, 133` | `reset_dimensions()` on each sheet, and each row padded to the header's width as the CSV row above: without a dimension a read-only sheet's rows end at their last filled cell (run 2026-11-13: widths 4, 4, 4 with the dimension, 4, 1, 4 after the reset) |
+| Re-reading a preview drops `sourceFileId` | `imports/reread.py:92-102` | carry it over |
+| A NUL or lone surrogate in a cell fails the whole bind at `COPY` | `imports/cells.py:50`, `binding.py:522-535` | refuse the row with a code |
+| The one-by-one fallback catches only `ApiError`; a constraint error fails the chunk | `jobs/batches.py:423` | reject the item with a stable code |
+| A split relation cell is value-mapped twice; a long match value overflows its index; non-ASCII digits crash `_version`; unreadable XLSX shapes give 500 | `binding.py:1326-1461`, `:110-129`, `:739`; `readers.py:106, 213, 226` | each at its place |
+| A carriage return in text is written raw and read back as a line feed, so an unchanged file re-imports as changed (**checked**) | `jobs/xlsx.py:38` | escape `\r` as `_x000D_` |
+| A text cell over 32,767 characters is written whole outside relation lists | `exports.py:1287`, `people.py:2322`, `matrix_sheets.py:528` | refuse with a code naming record and field. Visible: an export holding such a text completes today (with a cell Excel cannot open whole) and fails after the fix; the job's error says which record and field |
+| People relation columns join names with "; " unguarded; a name holding it reads back as two (the matrix replaces it) | `people.py:1210-1215` | one separator guard for both exports |
+| A sweep that keeps failing stops every job: sweep and run share one `try` (**checked**) | `jobs/worker.py:1041-1051` | the sweep in its own `try`; `next_sweep` advanced by the hour after a sweep that worked and by a short retry time after one that failed, so a sweep lost to a database outage at start still runs soon after, as today |
+| A failure after an export's guarded block reruns the job every 2 s forever | `worker.py:895-909`, `:977-1000` | catch, and fail after a bounded number of attempts |
+| Link matrix without a sheet-count bound; sheet titles with control characters; table repeated on pages past 1M rows; two checks loading whole ID sets; dates before 1900; the 100-argument `jsonb_build_object` limit; CSV cancel waits for a whole `COPY` | `matrix_sheets.py:346-360`, `xlsx.py:33`, `:518-533`, `matrix_sheets.py:167`, `grid_sheets.py:276`, `xlsx.py:98`, `people.py:2143`, `exports.py:1100` | each at its place |
+| A relation-type mapping onto a type that already links the same two records hits `uq_object_relation`: a generic failure, no refused items (**checked**) | `model/migrations.py:1204-1209`, `_FILL` | refuse such relations as `DUPLICATE_EDGE` in the plan |
+| The restructuring preview writes into the change set without locking it; a concurrent edit gives a 500 | `operations/restructuring.py:608` | `FOR UPDATE` as `check_type_change` does |
+| Patching or deleting an attribute that conditions `uniqueWhenToAttributeEquals` skips the scoped recheck the update path does (`atLeastOneOf` being deferred is the recorded E-D4 policy, not a defect) | `change_sets/records.py:852-909` | the update path's recheck |
+| A retired target release is still migrated to; refusal bodies list every conflict; NOT IN subqueries; a raw `IntegrityError` from `delete_unreferenced`; a change set can start in a workspace being retired; `landing()` hides every error | `migrations.py:2075-2137`, `publish.py:619-628, 746-752`, `release_lifecycle.py:220-249`, `lifecycle.py:68-117`, `draft_migration.py:470` | each at its place; lists capped per code with a count, and the change set page, which lists `details.conflicts` (`ChangeSets.tsx:678`), shows the count of those left out |
+| A live XREF's relation rules are capped by type before the workspace filter: another workspace's rows use the cap and can answer `QUERY_TOO_BROAD` (no data shown across workspaces) (**checked**) | `reads/consumer_xref.py:312-362` | the owner's workspace inside the bounded select |
+| One failing workspace slows every workspace's event deriving; one slow receiver holds back its round (the docstring promises otherwise); internal dispatcher errors repeat every 2 s | `events/worker.py:98-182`, `events/dispatcher.py:223-541` | progress per workspace; senders claimed as they free; backoff or suspension |
+| `/resolve` reads any body size; list, XREF and resolve reads are not one snapshot (a `KeyError` 500 on a race); the notification stream can skip a notice; a bad header aborts a mail round; one user's digest can stop digests | `consumer/router.py:106`, `events`, `notifications.py:266`, `mail/sender.py:231`, `mailing.py` | each at its place |
+| `previous_file` ignores the workspace: a check in B compares with A's file | `sources/profile_check.py:491-518` | the workspace in both queries |
+| A turn is not recorded when the end-of-turn undo raises | `tasks/agent/run.py:758-781` | record in its own `finally` |
+| Inference and summary load whole sets (missing values, drift), `m[3]::int` overflows on a long row number, the session log has no size cap; smaller assistant items (`RecursionError` on a nested proposal, `put` on a directory, `AI_AGENT_COMMAND` unguarded, token shorter than a long timeout, transcript sweep, legacy folder ownership, `sync` on GET, grants left on expiry) | `inference/run.py:311-360`, `items_summary.py:129-165`, `run.py:223`, `outcome.py:709`, `files.py:85-295`, `design_job.py:1182` | each at its place |
+| Frontend: the line popover takes focus on every canvas render; a menu drop places an existing card; the tree loses the revealed record after a reload; `reloadModel` can overwrite a newer navigation; `restoring` can block navigation; empty page number jumps to 1; no-op steps saved; card places and board saves unordered; listeners and timers left (**first two checked**) | `LinePopover.tsx:53-58`, `WorkbookCanvas.tsx:404-412`, `RecordTree.tsx:993-1001`, `useRouter.ts:299-457`, `ScrollWindow.tsx:864`, `layout.ts:925`, `canvasModel.ts:539`, `useCanvasDocument.ts:37-67`, `CanvasBoard.tsx:331` | each at its place |
+
+- **SR-D5 Publish validates the whole workspace** (**settled by the user, 2026-11-13: changed, as a package of its own after 0.17.2, planned separately; not in this release**): publish, validation and pinning load
+  every live record of the workspace in Python and validate the whole graph, so a small change set costs
+  as much as the workspace and one invalid record anywhere blocks every change set
+  (`change_sets/publish.py:230-434`, `validation.py`, `access.py:33-108`). The alternative validates the
+  change set's records and their neighbourhood in SQL. That is the chosen direction.
+- **SR-D6 The assistant's container network** (**settled by the user, 2026-11-13: restricted, delivered in FX2**): in a container the session's network and
+  folder rules are off (the `assistant` user is the boundary) and it holds the provider's key; a workbook
+  could steer it to send data elsewhere. The alternative allows only the provider's and the engine's
+  hosts at the container network: the container reaches only the AI provider's host and the engine, set in `compose.yml` and stated in OPERATIONS.md. The provider's hosts are all the hosts the session's sign-in uses, not only the API's: a session signed in with a subscription renews its sign-in at another host than the one it sends requests to, and must keep working.
+
+**Checks.** The groups of the changed modules; a unit or journey case per High and Medium row (the
+refused row and `missing: delete`; the session's draft write refused; the CR round trip; the failing
+sweep); lint, tests and build for the frontend rows.
+
+### SR3: Backend, one version of each step
+
+| Step | Copies today | One version |
+| --- | --- | --- |
+| Ask jobs to stop; the states a stop applies to | `jobs/background.py:80`, `tasks/job.py:138`, `tasks/agent` (run), `sources/dry_run.py:125` and `:208`, `sources/inference/run.py:116`, `moves/mapping_inference.py:533`, `sources/profile_check.py:70`, `sources/store.py:273`; `RUNNING` defined 4 times, the tuple written in `jobs/worker.py` and the agent | `request_stop(session, *where)` and `CANCELLABLE` in `jobs/background.py`, SR-D3 |
+| Replace an earlier job of the same kind for a subject (lock, stop, start) | dry run, inference, mapping inference, profile check | one function beside `request_stop` |
+| Submit a batch (fingerprint, replay by idempotency key, context, version, start, keep key, conflict answer) | `imports/submit.py:84`, `jobs/inline.py:75`; `_workspace_key` twice | `inline.py`'s `earlier_job`, `keep_key` and one `workspace_key`; `submit_import` calls them, its file removal as a step it passes in |
+| The first application listing a type | `jobs/people.py` (3), `jobs/grid_sheets.py`, `jobs/matrix_sheets.py` (3), `imports/binding.py` (2) | `EngineModel.application_of_type`; a view's own application stays preferred where it is today |
+| A live event stream (subscribe, first read, keep-alive, headers, frame) | `management/routers/jobs.py:510`, `management/routers/notifications.py` | `management/sse.py` (check `consumer/` for a third) |
+| A stored value as JSON in SQL | `reads/context_sets.py:38`, `reads/relation_queries.py:468`, `indexes/snapshot_values.py:178`, `moves/mapping_inference.py:453` | `value_json(alias)` beside `VALUE_COLUMNS` in `records/values.py` |
+| Canonical JSON and its hash | `common/cursors.py:150`, `model/compiler.py:109`, `reads/matrix_cells.py:100`, `operations/restructuring.py:570` | `canonical_json(value, *, ensure_ascii=True, default=None)` and `sha256_hex(text, length=None)` in `common/encoding.py`, each caller passing its settings so every value stays the same. Not touched (loss check): `jobs/store.py:653` (`ensure_ascii=False`; stored idempotency fingerprints), `agent_access/lookup.py:116` (names the MCP lookup tools), `model/drafts.py:239` (hashes a draft that may not compile). Before/after of every changed caller's value on the dev database |
+| Stop and lease checks in the worker | `JobCancelled`, `ExportCancelled`; `_renewed`, `_export_check`, `_hold_lease` | one cancelled exception and one lease check; the export's progress write keeps its lock |
+| Column letters | `jobs/xlsx.py:124`, `tasks/cell_coverage.py:50` and `:57`, `sources/profile_check.py:525` | openpyxl `get_column_letter`, `column_index_from_string`; `xlsx.column(0)` answers an empty text today and openpyxl raises, and `xlsx.py:428` passes `len(sheet.keys)`: that caller is guarded or shown never to hold an empty sheet |
+| Chunks of 500 | `records/writes.py:94`, `records/context.py:90`, `operations/restructuring.py:737`, `indexes/matrix_states.py:105` | `common` `chunks(items, size)`; a caller that sorts sorts first |
+| A task's workbook and job | `tasks/design_job.py:56` and `:1187`, `management/projections/ai_tasks.py:24`, `:37` and `:76`, `tasks/store.py:267` | `workbook_of`, `job_of` in `tasks/store.py`; `task_source` keeps its assertion; the outcome's lookups by `dryRunJobId` or `sourceFileId` stay |
+| A user by e-mail, a user by ID | `identity/users.py:42` and `:50`, `identity/provider_sign_in.py:406`, `identity/sign_in.py:154`, `mail/links.py:78`, `authorization/administration.py:511` | `user_by_email(session, email, *, except_id=None)` and `load_user` |
+| A count with its noun | `mail/templates.py:263`, `tasks/reading.py:455`, `proposals/history_account.py:339`, `tasks/agent` (words) | `common` `count_noun(n, one, many=None)`; the agent's thousands separator kept as an option |
+| LIKE escaping | `identity/users.py:182`, `workspaces/catalogue.py:117` | `escape_like` from `reads/object_query.py` |
+| Two helpers in one file | `management/presenters.py:597` and `:793` | one |
+| The version check of a write (R1) | about 30 written out (`identity/users.py:102`, `identity/clients.py:54`, `records/objects.py:239`, …); four `_stale` helpers | `require_version(row, expected, what, *, details=None)` called under the row lock, raising SR-D4's refusal; compare-and-set writes (`UPDATE … WHERE version =`: `workspaces/catalogue.py:183-228`, `model/drafts.py`, `sources/store.py`) keep their form and only raise through it; `expected=None` (no claim) and a missing row as version 0 stay where they are today; the word "changed" stays in messages |
+| A route's page size (R2, M6) | `Query(default=…, le=…, alias="pageSize")` on 74 routes | a `PageSize(default, largest)` dependency beside `PageQuery`, allowing a `None` default (five routes); each route keeps today's pair; both OpenAPI documents unchanged |
+| Job kinds (R8) | `if job.kind ==` chains in `jobs/worker.py:333-399` and 10 further places; `EXPORT_KINDS`, `ASSISTANT_KINDS`, `PREVIEWED_KINDS`, `ROW_KINDS`, `JOB_GROUPS` | one registry of job kinds (step, group, previews, rows), the shape `model/authoring/kinds.py` and `moves/mapping_kinds.py` use |
+| Small copies (R4–R7) | `_is_containment` ×3 in model authoring; `_omitted` in two schema modules; dotted version parsing in `model/raising.py:44` and `sources/inference/compare.py:265`; the AI requester built inline beside `_requester` in `routers/ai.py` | one each |
+| Copies from the full read | COPY writers (`binding._Copy`, `exports.py:1102`, `profiling.py:228`); the "ends" CTE ×4 in `binding.py`; value-to-canonical-JSON ×3 in `batches.py`; matrix and grid column setup, relation-set version, Yes/No and value typing in the exports; base-snapshot read, private-base removal, `execute` and `write_refusals` in the two migration modules; relationship classification ×4 in operations; the workspace-active claim ×2; event-source flows, resend body and paging parsing in events and consumer; discarding a change set ×4 and the client's jobs ×4 in tasks; "stored names of a type" ×5 with different case rules; loopback check ×2; dead `draft_plan.py:70-81` and its reader role | one each, except "stored names of a type": five rules on purpose (`lower(btrim)`, `casefold`, letters and digits only for translations), kept apart and each named in its function's docstring |
+| Sign-in sentences (M3) | `management/sign_in_pages.py:251, 436`, `routers/oauth_app.py:177, 185, 224` | one module of sign-in messages |
+
+**Checks.** Groups `contract`, `jobs`, and the groups of the changed modules (AGENTS.md); the J50 journeys;
+a stop pressed twice keeps its first time (one new test); the hash before/after.
+
+### SR4: Frontend, one version of each helper and loader
+
+| Thing | Today | One version |
+| --- | --- | --- |
+| Follow a job (load, stream, stage) | about 12 callers (`JobPage`, `WorkspaceLoad`, `MigrationPage`, `useMoveDryRun`, `ProfileLoadDialog`, `LoadDialog`, `MappingProposalDialog`, `BulkJobDialog`, `ImportProfilesPage`, `useDraftSource` (2), `NewMoveDialog`), three ideas of "done" | `useFollowedJob(jobId)` in `state/` returning job, error and whether it is done or resting, with the options of the SR4 keep list (streamed-only callbacks, a seeded job, `onJob`/`onFinal`, filters, "done" as a parameter, reopening after a confirm, `ui/JobNotifications` as a caller); `useInference`'s and `useAiTask`'s polls stay (they cover a stream that lags, as `useInference` says) and move into the hook as options |
+| The workspace list | about 12 loads; 5 read one page only (100 or 500) | `allWorkspaces({status, holding})` over `everyPage`, each caller keeping its failure handling; `UnavailableWorkspace`'s default-first, available-only list stays its own; `ApplyDialog` keeps listing every other active workspace |
+| Page loops | 17 hand-written `nextCursor` loops | `everyPage` with an optional `signal` and stop predicate; loops that stop early or keep a partial result on a failed page (`readMatching`, `useCells`, `client.ts`, `BulkRelationDialog`, `RelatedRecordsDialog`, `useCellEditing`, `BulkJobDialog`) keep that |
+| Copy to the clipboard | 7 versions | `copyText(text): Promise<boolean>` in `lib/`; `CopyValue` uses it |
+| Downloads and their errors | `SecondFactorPanel` builds its own link; `api/download.ts` parses errors itself | `saveBlob`; `errorFromResponse` in `api/errors.ts` for both |
+| A workspace's model | 2 reads past the cache | `workspaceModel` / `useWorkspaceModel` for plain reads; the workspace page keeps its refresh after the instant paint; `api.workspaceModel` (the assignment and its version) is always read fresh |
+| Permissions | inline checks in `useRouter`, `HomePage`; `ModelWorkbench` reads the groups itself | `holds()`; a cached `fetchPermissions(key)` for the router and Home |
+| The signed-in person, system, capabilities | three caching mechanisms; `api.system()` read in 5 places | one cached read of the signed-in person (`useMe`) and of the system's static parts (`schemaLanguages`) in `state/`; system and capabilities stay fresh reads where they can change (About, API reference, AI offers, Consumer APIs), and Retry bypasses any cache |
+| Numbers, counts and plurals | about 12 count helpers, 7 plural helpers, 40 inline `=== 1 ?` | `count(n)` (browser locale, SR-D1) and `plural(n, one, many?)` in `lib/` |
+| Names of types, relations, fields | 82 inline type lookups, 45 relation, 47 field; `typeName` copied in moves | `typeName(model, key, {plural?, lower?})`, `relationTypeFor`, `attributeTypeFor` in `model/lookup.ts`; SR-D2's fallback; callers that drop unknown types keep `objectTypeFor` |
+| Count with a type's name | `JobPage.tsx:371`, `BulkDeleteDialog.tsx:50` | one `countedType` beside `typeName` |
+| Dates | `timeOfDay` twice and inline; two relative-time functions with different words; hard-coded `en-GB` | `lib/dates.ts` alone; its `formatServerAgo` ("yesterday, 17:40", time of day kept, about 40 callers) is the one kept and the Timeline uses it; `NoticeMailPanel`'s `digestTime` (the subscription's own zone, 24-hour) stays as it is |
+| Newest release first | 4 sorts, one sorting in place | `newestFirst` in `model/` |
+| Stored preferences | hand-written in `RecordTree` (3), `AiTaskJourneyBar`, `JobNotifications` | `readLocalPreference`/`writeLocalPreference` and a session variant |
+| A route by hand | `HomePage.tsx:526` | `routing/routes.ts` |
+| A stale write recognised (M1) | `api/errors.ts:24-27` knows `VERSION_CONFLICT` only | `isVersionConflict(cause, codes?)` for SR-D4's three kept codes |
+| Names in the draft outline (F5) | `model/outline.ts:92` repeated in `elementSettings.tsx:18`, `mapping.ts:146`, `RelationshipMatrix.tsx:215` | `model/outline.ts` |
+| Value coercion (F7) | `list`, `text`, `str`, `record` in 11 files, some trimming | only identical pairs merge, in `lib/`; trimming and empty-as-absent are named variants; label, form-read and `String` helpers stay apart |
+| Request helpers (F8) | `json(method, body)` in `mailClient`, `securityClient`, `mailTemplateClient` | one in `api/client.ts` |
+| Nearest scrolling ancestor | `ScrollWindow.tsx:59`, `RecordTree.tsx:1419`, `keepTabBarInPlace.ts:19`, `ControlPopover.tsx:111`, `edgeScroll.ts:16`, each with its own rule | one in `lib/` |
+| Inference finished | `ModelEditor.tsx:221-262`, `WorkbookCanvas.tsx:303-326` (already differing) | one hook |
+| A type's ancestors (F9) | `model-editor/candidates.ts:47`, `matrixView.ts:19` (differ on the type itself) | one, with the difference as a parameter |
+
+**Visible changes.** Numbers per SR-D1, decimals and 12/24-hour times included; a workspace list longer than one
+page is complete everywhere; the type-name fallback per SR-D2; the Timeline's relative times read as
+`formatServerAgo` does elsewhere ("yesterday, 17:40" for "yesterday", the time of day kept beyond a week);
+D5's initials and D6's reset wait as the SR4 keep list says.
+
+**Checks.** `npm run lint`, `npm run test`, `npm run build`; greps named in the delivery record show no copy left
+(`navigator.clipboard`, `toLocaleString(`, `nextCursor ??`, `objectTypes.find(`).
+
+### SR5: Frontend, one component for each element
+
+| Element | Today | One component |
+| --- | --- | --- |
+| A write with its conflict and error notices | 7 pages (Clients, People, Webhooks, workspace admin ×3, sign-in, groups, agent access) | `useGuardedWrite` and `<ActionNotices>` in `ui/`, SR-D2 wording |
+| Discard unsaved input | `Modal` plus 5 Cancel buttons and the navigation guard; the workspace admin's Cancel does not ask | `Modal` exposes `requestClose`; one sentence; every dialog with input asks |
+| Activation verdict (no change, migration needed, could not be read) | `ApplyDialog`, `InstallDialog`, `ActivateDialog`; shared parts inside `InstallDialog` | `<ActivationVerdict>` in `ui/ActivationParts`; the shared parts move there |
+| Progress of a job | 6 copies | `<JobProgress>` in `ui/` |
+| Saved flash after a toggle | 4 copies | `useFlashSaved` with `FlagCell` owning the cycle; Undo where `EditableField` offers it today |
+| Load into a change set | `LoadDialog`, `ProfileLoadDialog`, `ImportProfilesPage` review | the three follow their job through `useFollowedJob`; no shared shell, each keeps its own stages and notices (keep list) |
+| A list of active and deactivated entities | `PeoplePage`, `ClientsPage`, `GroupsPage` | one list page taking rows and nouns |
+| Create a workspace | canvas dialog, from-workbook sheet, workspace admin | `NewWorkspaceFields` in all three; the key field where it is shown today |
+| A preview gone out of date | `MoveEditor`, `MigrationPage` | `ConfirmDialog` with one "stale preview" body |
+| Migration outcome cards | `MigrationPage`, `MigrationOutcome` | one function mapping counts to cards and tones; each page keeps its own filter control and default (the job page its radio group and "refused first", the migration page its card buttons and "conversion") |
+| Bulk dialogs | props, nouns and policy tables copied | `BulkDialogProps`, `nounOf`, policies by verb in `BulkJobDialog` |
+| Pills | `account-pill` on Home, `canvas-pill` "Proposed" | `StatusPill`; a tone it lacks is added with today's look |
+| Loading and empty lines | 7 class spellings, plain "Loading…" text | `Skeleton` and `EmptyState` for lines that look the same today; the rest stay |
+| Tables | 9 hand-made, two without phone stacking | `SettingsTable` where its look stays, each listed in the delivery record; matrix and grid tables stay |
+| Search boxes, workspace selects, person picker | raw inputs in `CanvasAsks`, `RelationMatrixCellDialog`; 3 hand-made selects; People's own picker | `SearchField`; `WorkspaceField` (with an "All workspaces" choice); `PickDialog` |
+| Edit in place (F1) | the controller in `ui/TextInPlace.tsx`, `model-editor/EditableText.tsx`, `EditableCell.tsx`; the focus-return effect in 5 files | `useInPlaceEdit` in `ui/EditInPlace.tsx`; each keeps its control and words |
+| Undo toasts (F12) | built in 11 places | `toastWithUndo(text, undo, refused)` on the toast hook |
+| Switch (F10) | `workbook-canvas/CanvasInspector.tsx:32`, `LinePopover.tsx:110` | `ui/Switch` with a canvas variant keeping the canvas look, used by both |
+| Dialog actions (M5) | inside `.dialog-body` in `MoveEditor`, `MigrationPage` | `ConfirmDialog` (with the stale-preview row above) |
+| Repeated words | "Untitled change set" ×8, "Every workspace" ×4, "Sign out everywhere" ×3, "Written by hand" ×6 | one source each |
+
+**From SR2.** SR2 moved feature parts used by several features into `ui/` (for example `NewMoveDialog`,
+`AddWorkbookDialog`, `JobNotifications`, `ImportOutcome`), since `state/` may not import `ui/`. `ui/` was
+the home of generic wrappers (ADR-023); SR5 decides per moved part, while it reworks them, whether it stays
+in `ui/` or goes to a layer for shared product parts, and records the result in ARCHITECTURE.md.
+
+**Visible changes.** SR-D2's wordings; the workspace admin's Cancel asks before discarding; two tables
+stack on a phone; the stale-preview alert uses `ConfirmDialog`, which gains a second action and a mode without dismiss (same words and buttons). Nothing else changes
+in look or place.
+
+**Checks.** `npm run lint`, `npm run test`, `npm run build`; the browser runners of the screens whose markup
+changed (`wp13c-ui-states`, `wp11-model-admin`, `ce1-canvas-editor`, `authoring-mg-migration`; others named
+in the delivery record); one real try per changed dialog with own dev credentials.
+
+### SR6: One stylesheet rule for each look
+
+- `.filter-chip`/`.filter-chips`: one definition; the matrix's applied filters get a class of their own
+  holding the look they render with today (the mix of both files: neutral outline, weight 550, its `em`), so
+  nothing changes on screen; `.settings-page .filter-chips`, `.filter-chips:empty` and `.filter-chips .ghost`
+  stay.
+- Chips and pills (about 17 classes): the radius token and the hue convention shared; each class keeps its
+  height, padding and fill; the proposed filter pill keeps its tab radius.
+- Popovers (9 surfaces): one `.popover` surface (colour, border); each keeps its width, margin, padding and shadow.
+- Empty states (17 classes): identical blocks merge into `.empty-state`; dashed weights and radii stay per surface.
+- Split selectors (20 names, mostly redefined in `shell.css`): each merged into one block.
+- Identical declaration blocks: `.truncate`, a list reset and a wrapping row utility.
+- Font sizes: a `--fs-*` use moves to `--text-*` only where both resolve to the same size in every theme;
+  the other steps stay or gain a `--text-*` step.
+- z-index: `--z-*` tokens keeping today's order exactly, ties included (111 stays above 110).
+- Spacing: the 407 raw values that equal a `--space-*` step use it; `999px` radii use `--pill-radius`.
+- Classes named in four or more stylesheets (31, F13): counted again on 2026-11-13, 18 of them are named only
+  inside another selector (a page, a theme frame, a state) and 13 repeat the bare selector, most of those
+  inside `responsive.css`'s media rules. Contextual and media rules are how a page, a frame and the phone layout
+  differ and stay where they are; only a bare selector repeated outside a media rule is merged, under "Split
+  selectors" above.
+- The 46 classes that look unused (49 in the second review): each checked (dynamic names, props, tests) and removed when unused.
+
+Colour is already tokenised and is not touched. **Checks.** `npm run build`, `npm run test:visual` (no diff,
+the matrix filter chips included), a look at each theme light and dark at 1440 and phone width.
+
+## Keep lists: loss check of 2026-11-13
+
+**Why.** Merging copies loses what one copy did. Four read-only checks compared every copy each row of FX1,
+FX2, SR3–SR6 and TS1–TS5 names, against USER_JOURNEYS.md, CURRENT_FUNCTIONALITY.md and the tests and
+runners that guard them. The rows above were corrected where they would lose something (dates, D7, the
+hash, stored names, the task lookups, version checks, page size, SR-D4, the migration outcome, the matrix
+filter chips, SR-D2's scope). What each one version must still do is listed here, per package; an
+implementer brief carries its package's list.
+
+**Rule for every package.** Before merging, every copy is compared and the comparison is written in the
+delivery record. A difference becomes an option of the one version, or the copies stay apart with the
+reason written next to them. Nothing looks or reads differently unless this plan names it. A loss found
+after delivery is a defect of the package. Where nothing guards a kept behaviour (marked *unguarded*), the
+package adds one case for it (TS1's runners, a Vitest case or a unit test), inside its quarter for tests.
+
+**Second loss check (2026-11-13, a second model reading the code).** It compared the copies of the stop step, the
+user lookups, LIKE escaping, the count helpers, the column letters and the readers of SR-D4's codes, and found the
+keep lists right for them. It corrected eight rows that would have lost something: FX1's D1, D5, D6, D7 and D8,
+FX2's session draft rule, wrong `<dimension>` and failing sweep, SR3's column letters, and SR-D4's mapping and
+reader list; and in FX2's remaining rows it named what changes for a person (a failed key cell, a text over the cell limit, capped conflict lists) and the hosts SR-D6 must leave open. It opens no new decision (SR-D2, SR-D3 and SR-D4 still wait for the plan's approval): each correction follows from keeping what exists and one version of each thing. In SR6 it recounted the classes named in several stylesheets and narrowed that bullet to true repeats; SR6's
+other bullets change no rule's result and are held by the visual gate in every theme. TS1–TS5 change how tests
+run and no product behaviour, so there is nothing of the product for them to lose.
+
+### SR3 keeps
+
+- **Stop:** `request_stop` is a silent bulk update that returns its row count; `jobs/background.py`'s
+  single stop keeps cancelling a job waiting for confirmation at once and answering `409 JOB_FINISHED`
+  (`useJobCancel.tsx` reads it). Each caller keeps its own selection (one job; a client's non-`aiTask` jobs
+  with the 60 s wait; a profile's reading jobs).
+- **Replace an earlier job:** lock → stop → start; the items-mode dry run's `AI_TASK_STATE` guard and its
+  input removal stay as steps the caller passes; the subject (`draftId`, `mappingKey`, `profileKey`) and who
+  commits are parameters.
+- **Submit a batch:** the idempotency scope is a parameter (`POST /imports` and `POST /batches` never share
+  keys); the import keeps its order (replay, format, context, change-set version, profile checks,
+  `MISSING_DELETE_NEEDS_CHANGE_SET`, start, file, key, commit) and removes its file on a lost race or an error.
+- **Value JSON:** a typed scalar form (`type_=JSON`), a lateral-column form and a text form for raw SQL.
+- **Worker:** the export's progress under `FOR UPDATE`, lease loss reported without a stop row and with the
+  partial file removed; the claim stage's ordered `CASE` stays SQL in the job-kind registry; `JOB_GROUPS`
+  readers (`requesters.py`, `visibility.py`) unchanged.
+- **Small ones:** `get_column_letter` callers never pass 0, except `xlsx.py:428` (see the row); the dotted version keeps returning `None` for
+  unreadable text; counts unformatted by default, the thousands separator an option (agent, mail digest);
+  sign-in by e-mail keeps its strip, the reset path keeps its filters (active, password set, not managed);
+  `LIKE` callers keep their own trimming; events: the job stream ends on a final state and sends only on
+  change, the inbox stream keeps its named events and catch-up loop.
+- **Discard a change set:** `AI_TASK_STATE` when missing where `_discard_loaded` refuses today (J50 guards
+  it), the refresh after a rolled-back batch in `items_load.py`; the others skip silently as today.
+- **Not compared yet, so compared first:** the workspace-active claim, the loopback check, the `ends` CTE, the
+  COPY writers, event resend and paging, relationship classification, the base-snapshot read and
+  `write_refusals` in the two migration modules, the sign-in sentences (their wording does not change, so the reset screen's pattern keeps working until D6 removes it, in either order; tests may match them).
+
+### SR4 keeps
+
+- **Following a job** (`useFollowedJob`): callbacks fire on streamed changes only, never for the first read
+  (opening a finished migration does not run `onMigrated` again); a caller may seed the job from its POST
+  answer; an `onJob`/`onFinal` form for callers that keep no job; per-caller event filters (the move dry run
+  ignores other runs); "done" is a parameter (resting, final, or final and not awaiting confirmation); after a
+  confirm the stream reopens (bulk, move, migration — *unguarded*); polls are options (interval, the AI task's
+  leading gate, the inference's last read); `ui/JobNotifications` keeps `onEnded` and `onWaiting`.
+- **Page loops:** `everyPage` gets an optional `signal` and stop predicate; loops that stop on cancel or at a
+  first match, or keep a partial result on a failed page (`BulkRelationDialog`, `RelatedRecordsDialog`,
+  `useCellEditing`, `BulkJobDialog`), keep that.
+- **System and capabilities:** only static parts are cached (`schemaLanguages`); About, API reference, the AI
+  offers and Consumer APIs read fresh (an activation or AI change shows at once — *unguarded*); Retry bypasses
+  any cache; `instanceProduct` keeps tolerating a failed read.
+- **Workspace model:** `api.workspaceModel` (the assignment and its version, the lock token of migration and
+  activation) is always read fresh; change-set and publication models stay separate reads; the workspace page
+  keeps its refresh after the instant paint.
+- **Workspace lists:** `allWorkspaces` takes `status` and `holding`; each caller keeps its failure handling;
+  `ApplyDialog`'s "Not changed" keeps listing every other active workspace in list order (*unguarded*); the
+  default-first, available-only list is `UnavailableWorkspace`'s alone; the searched and paged lists
+  (`WorkspaceList`, `WorkspaceSelector`, `MovesPage`, `openingWorkspace`) stay.
+- **Names:** `typeName(model, key, {plural?, lower?})` accepts an empty key; callers that drop unknown types
+  (`permissionText` `narrowedRecords`, Account's record types) keep using `objectTypeFor`; structural lookups
+  (`parentRelationTypeKeys`, attributes, layout) are not name lookups and stay. Outline names share a core,
+  direction and "contains · " stay parameters.
+- **Counts and plurals:** one cached `Intl.NumberFormat` (render loops); strings pass through; Home's
+  spelled numbers ("No", "One"…"Ten") stay its own; two plural shapes (word only, "n word").
+- **Value coercion:** only identical pairs merge; trimming and empty-as-absent are named variants; label,
+  form-read and `String` helpers stay apart.
+- **Errors:** the shared response parser has no side effects; `client.ts` keeps `reportForbidden` and
+  `reportModelReleaseChanged`, downloads keep their own default message and call neither; `isVersionConflict`
+  takes the codes it accepts (SR-D4's three).
+- **Scrolling ancestor:** the `.dialog` stop, the 1 px tolerance, body versus `<html>` and the null-for-page
+  answer are options; `edgeScroll` inside a dialog behaves as today.
+- **Inference finished:** the apply, toast and settle are shared; each surface keeps its wording, the editor its
+  first-type selection, History tab and `guarded`, the canvas its `setBusy`.
+- **Ancestors:** breadth-first versus depth-first order and the start type in a cycle are parameters.
+- **Small ones:** copy-to-clipboard returns a boolean and each of the 8 callers keeps its message; stored
+  preferences gain a session variant, the AI journey bar's `"1"` and the tree's object validator stay valid;
+  `newestFirst` copies and takes the date key (`installedAt`, `updatedAt`); permissions keep the 403 refresh
+  and an awaitable read for the model workbench.
+- **Visible, and now listed:** with SR-D1 decimals and 12/24-hour times follow the browser too; D5's one
+  `initials` gives "A" for "Admin" where People showed "AD" and "NL" for "2nd line" where it showed "2L"; D6's reset
+  screen says a wait of 60 to 89 seconds as "2 minutes", as the sign-in screen does; completing workspace lists lengthens
+  `NotInModel`'s reads.
+
+### SR5 keeps
+
+- **Write and conflict notices:** `useGuardedWrite` serves the page-level slot; each page keeps its dialog
+  conflict slot, its extra reloads (runtime on `WORKSPACE_IS_DEFAULT`, workspace on `WORKSPACE_RETIRED`), the
+  approval policy's "Reload the policy" button and the default-key sentence; pages that hide the page error
+  while a dialog is open keep doing so.
+- **Discard confirm:** a prefilled dialog asks only when its values differ from the initial ones;
+  `ChangeSets`' rule (a name or release set) stays; `NewFromWorkbook` keeps deleting its draft on Cancel;
+  runners that type and cancel (`w4-workspace-admin`) register a dialog handler.
+- **Activation verdict:** only the migration-needed block is shared; each dialog keeps its other states and
+  body sentences ("installed but not activated", "Nothing changes yet…"); the tests and runners asserting the
+  old titles change with it.
+- **Job progress:** `label`, text and role placement are props; "Waiting to start", "N done" and
+  "Proposing" (no number) stay.
+- **Saved flash, edit in place:** each keeps its words, Undo where it has it, the matrix cell's value-keyed
+  flash, `maxLength`, `optional`, `disabled`, the `undo === false` path, the editor heading's id and `after`
+  slot, the `requestAnimationFrame` focus return.
+- **Load dialogs:** they share `useFollowedJob`, not a shell; `LoadDialog` keeps its install stage, identity
+  fields, key and version notices with their Use actions, the contract warning and its wording;
+  `ImportProfilesPage` stays a page.
+- **People, Clients, Groups:** one list page with Active/Deactivated optional, and empty text, lead, pill,
+  facts, placeholder and "New person" visibility as props; nothing a page shows today is dropped.
+- **Create a workspace:** the canvas and from-workbook dialogs keep name only (the server derives the key);
+  `NewWorkspaceFields` gains `disabled`.
+- **Stale preview:** `ConfirmDialog` gains a second action and a mode without dismiss; the move editor keeps
+  "Open the mapping" and "Dry run again", the migration page Close, "Preview again" and `busy`.
+- **Bulk dialogs:** per-verb policies and words, the danger Apply, icon and relationship counts stay.
+- **Pills:** tones are added with today's colours, size and weight (the canvas's violet "Proposed", the
+  account pill's 22 px and weight 500, no marker where none is shown, Home's dot).
+- **Switch:** `ui/Switch` gains a canvas variant with the canvas look; both canvas switches use it.
+- **Search, workspace field, picker:** the canvas search keeps no icon and its Enter-picks-the-only-match;
+  `WorkspaceField` takes `items` and an `allOption` and never selects the first item over "All"; the
+  inbox and changes filters keep their own workspaces list; `PickDialog` gains exclude, a preview sentence
+  and confirm, pending and error labels, so linking keeps "Link to {name}", "Linking…", "Not linked".
+- **Undo toasts:** the refusal is a string or a function, with an optional "undone" text; the grants
+  section's in-page notice stays a notice.
+- **Loading and empty:** only lines that look the same today move to `Skeleton` or `EmptyState`; inline
+  states, button labels, `page-loading` and table skeleton rows stay.
+- **Tables:** a table moves to `SettingsTable` only where its look stays; the delivery record lists each.
+- **Words:** "Unnamed" spellings are not touched; `changeSetTitle` replaces only "Untitled change set".
+
+### SR6 keeps
+
+- **Chips and pills, popovers:** only the radius token, the hue-token convention, the surface colour and
+  border are shared; each class keeps its height, padding, fill, shadow, width and margin; the proposed
+  filter pill keeps its tab radius.
+- **Empty states:** dashed weights and radii stay per surface; only identical blocks merge.
+- **Merged selectors:** each merges at its later position with the winning values (`.record-chip-name`
+  `min-width`, `.home-card-title` `flex`, the `.record-meta` media rule); contextual selectors are not
+  duplicates and stay.
+- **Font scale:** a `--fs-*` use moves to `--text-*` only where both resolve to the same size in every theme
+  (Current, Hearth, Studio, Instrument, light and dark); the other steps stay or gain a `--text-*` step.
+- **z-index:** tokens keep today's order exactly, ties included; a before/after layer table in the delivery
+  record.
+- **Dead classes:** dynamic names (Modal sizes, Notice tones, `react-aria-*`, hue and state families,
+  `canvas-switch`, about 70 in all) are kept; only a class with no static or dynamic use is removed.
+- **Checks:** the visual gate in every theme, not only the default light and dark, for SR6.
+
+### TS keeps
+
+- **TS2:** a starting run never drops another run's clones, the browser lanes' clones included (one naming
+  scheme for pytest and `browser_seeds.py`); the volume seed's lock is a PostgreSQL advisory lock (dies with
+  its holder); the server's owner rule stays (no run stops a server others use); seeds rebuild under their
+  advisory lock, and a worktree run fingerprints its own files; the guards check the resolved path, never turn
+  `fsync` on, and are skipped for the external CI server (`RDM_TEST_DATABASE_SERVER`).
+- **TS3:** `-n 4` selections always run their `-m serial` part next; `serial`, `TIMED`, `budget`,
+  `OWN_DATABASES`, `worker_scope`, `--dist loadfile` and the journey scheduler stay; browser lanes take free
+  ports without a race, never write the same baseline, and fixed-port stand-ins (OIDC, SMTP) are checked first.
+- **TS4:** the non-code rules of `tests/affected.py` stay; an app module also selects the journeys that
+  reach it over HTTP, by a checked journey-to-code map; seed inputs select everything cloning that seed;
+  `journey_trace` keeps working (a coverage run kept for it), so testmon and `COVERAGE_CORE` are removed only
+  with that replacement in place; the durations file is written once by the main process, leaves out `budget`
+  and `serial`, and stays out of git and CI.
+- **TS5:** sleeps that prove something stay (the held job's `sleep(3)` then "not done", the hang stand-in's
+  `sleep(600)`); only state polls become waits.
+- **TS1:** the manifest uses today's paths (after SR2) and treats `ui`, `state`, `lib` and `model` as shared:
+  a change there selects the runners of every feature importing it.
+
+## TS1–TS5: Testing review of 2026-11-13
+
+**Why.** Small changes took long to test, and the 0.17 R took about seven hours (19:21 to 02:20 on
+2026-11-12), most of it testing. From the R session's own record:
+
+| Part of the 0.17 R | Time |
+| --- | --- |
+| Review, 40 fixes, backend suite twice (the first discarded: fixes were written while it ran) | about 1 h 15 min |
+| All 86 browser runners, one queue | 1 h |
+| Fixing the 24 runners that failed, rerunning them | about 2 h 10 min |
+| Accessibility and visual gates brought current (164 of 208 screenshots differed), fixes, re-recording | about 1 h 45 min |
+| Upgrade checks; scripts and README added on request; two CI races | about 1 h 5 min |
+
+About four hours were checks the 0.17 packages left out of date (runners "not written", screenshots
+"open"). In packages: the J50 journeys ran serially at 11% CPU, about 7.5 s a case (the same cases take
+33 s for 22 on four workers); testmon's data was last written 2026-10-03, so packages fall back to whole
+groups; one shared test server lets one run at a time, a starting run dropping the others' databases;
+other sessions' unfinished edits fail runs. These packages change how tests are run and kept current;
+they add no test programme and remove no test (the user's rule of 2026-10-03 stands).
+
+### TS1: A package leaves its screens' checks passing
+
+- **Rule** (AGENTS.md, Definition of done and Work-package validation; the implementer's agent file): a
+  package that changes a screen is finished only when that screen's browser runners pass, its accessibility
+  scenarios pass and its changed screenshots are looked at and re-recorded, and its guide pictures follow
+  the rule for retaking them. "Runner not written" or "screenshots open" is not a delivered state; the
+  delivery record lists what ran.
+- **Mapping.** Each browser runner, accessibility scenario and visual scenario names the source paths of the
+  screens it covers (one manifest beside the runners, checked: an entry naming a missing path fails).
+- **One command**, `npm run test:changed -- <commit>`: lists and runs the runners and scenarios whose
+  paths changed since the commit, in lanes (TS3). A package runs it for its own diff; the session that
+  delivers a day's last package runs it since the day's first commit, so anything missed shows next
+  morning, not at the release.
+- **Today's state.** The command is first run since `v0.17.1`; what fails is fixed in TS1, so the
+  rule starts from passing checks.
+
+### TS2: Test runs side by side on one server
+
+- **Kept:** one PostgreSQL test server, one data folder on the local unsynced volume
+  (`/Volumes/RDMScratch/test-postgres` through `backend/.test-postgres`), one set of seeds. No server per
+  session, no copy of the seeds. (The one-place rule exists because test databases of 5–10 GB once
+  landed in a synced folder.)
+- **Changed:** each run names its clones with a run ID and drops only its own, and those of runs whose
+  process has ended; a starting run no longer drops the others'. The "one pytest at a time" rule goes
+  from AGENTS.md and the memory notes once this is delivered.
+- **Size.** Ordinary seeds are 15–220 MB and a clone lives only during its test. The volume seed (3.9 GB)
+  stays one at a time: tests cloning it take a lock on the server, so two copies never exist together.
+- **Guards:** a run refuses to start below 10 GB free on the volume, and when the data folder resolves
+  into a synced place (iCloud Drive, Desktop or Documents under iCloud, Dropbox, OneDrive), each with a
+  message saying what to do.
+- **Clean copy.** A package's final checks run in a worktree of the last commit plus the package's own
+  changes (one command), so another session's unfinished edits cannot fail them.
+
+### TS3: Waiting tests and browser runners in parallel
+
+- Backend: a selection holding journey or assistant tests runs with workers (`-n 4`), whatever its size;
+  the guide's "a small selection is faster without `-n`" holds only for unit-test selections.
+- Browser runners, accessibility and visual gates: run in 3–4 lanes sized to memory, each lane with its
+  own backend port and database clone (TS2), as the release-run memory note already asks; one command
+  runs a list of runners in lanes and writes one summary.
+- Measured once at delivery: J50 serial against `-n 4`; the 86 runners in one queue against lanes.
+
+### TS4: Tests chosen by what they import, with their expected time
+
+- `tests.affected` selects from the import graph (the reading `test_boundaries.py` does): a changed app
+  module selects the test modules that import it directly or through other app modules, plus the
+  journeys that reach it over HTTP by a checked journey-to-code map; harness, migration and seed-input
+  changes keep selecting everything. testmon is removed only once `journey_trace` has its replacement
+  (TS keeps); its data stopped in October.
+- Every run writes each test's duration to one file beside the server; `tests.affected` prints the
+  selection's expected time from it and says when it exceeds the 3-minute package ceiling.
+- The full-suite run reports its ten slowest modules, the input for any later trimming the user approves.
+
+### TS5: Fixed waits out of the slowest tests
+
+- From TS4's durations, the slowest journey modules first (J50 today): the stand-in assistant waits on
+  the job's event stream instead of polling every 0.2 s; fixed sleeps that wait for a state become waits
+  for that state; the test server's 2 s shutdown wait is shortened where nothing streams. What a test
+  checks does not change.
+
+**Checks for TS1–TS5.** Each package's own: the harness unit tests (`tests/unit/harness/`), one run that
+shows the change (two runs side by side for TS2; the lanes for TS3; a selection for TS4), and the guide
+sections that describe them updated (EXECUTION_GUIDE.md, TEST_HARNESS_PLAN.md ceilings unchanged).
+
+## R 0.17.2: Review and release
+
+Full review of every change since `v0.17.1`; the checks of the changed layers and both gates; version 0.17.2 in
+the places 0.17.1 changed; CHANGELOG [0.17.2] and a PROJECT_STATUS entry; the R record here.
+
 ## Exit gate
 
-- A real workbook is shaped on the canvas without a dialog and without AI, every row checked, and becomes a
+- a workbook is shaped on the canvas without a dialog and without AI, every row checked, and becomes a
   workspace in one confirmed step.
 - A flat sheet becomes a hierarchy, a list dropped on a field becomes a relationship, a wide sheet becomes rows,
   and rows under headings get their parents; each repeats next month from the saved profile.

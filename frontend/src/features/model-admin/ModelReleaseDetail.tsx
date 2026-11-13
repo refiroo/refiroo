@@ -8,7 +8,7 @@ import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
 import { CompatibilityPill, ModelDiff } from "@/features/model-admin/ModelDiff";
 import { downloadJson } from "@/lib/download";
 import { ModelSummary } from "@/features/model-admin/ModelSummary";
-import { settingsHead } from "@/features/settings/navigation";
+import { settingsHead } from "@/ui/settingsNavigation";
 import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { SettingsLayout } from "@/ui/SettingsLayout";

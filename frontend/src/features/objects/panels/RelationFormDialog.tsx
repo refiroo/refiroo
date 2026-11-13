@@ -12,7 +12,7 @@ import { useNavigationGuard } from "@/routing/navigationGuard";
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi } from "@/state/WorkspaceDataContext";
 import { errorMessage } from "@/api/errors";
 import { candidateHint, candidateScope } from "@/model/candidates";
 import type { RelationChoice } from "@/model/lookup";
