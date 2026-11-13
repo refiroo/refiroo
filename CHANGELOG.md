@@ -23,6 +23,7 @@ It also holds what shipped earlier as 0.16.1-alpha.1 to alpha.5 (0.13, the docum
 
 ### Fixed (the 0.14 and 0.17 release review)
 
+- **Stop works at once when proposing from a workbook** (R17-F49): pressing Stop before the engine had answered the start request did nothing and the inference carried on; the job is now cancelled as soon as it is known and nothing is applied.
 - **Every error response in the API reference has an example body**: each code an operation lists shows the refusal's `{"error": {"code", "message"}}` envelope, instead of an empty response.
 - **A provider's e-mail address is taken only when it can be trusted** (R17-F20): an `email_verified: false` claim is never taken as a person's sign-in name; a provider has a new setting, `emailsTrusted` (Settings › Security › Sign-in, `POST|PATCH /sign-in-providers`), and when it is off (the default for a new provider) an address is taken only with `email_verified: true`, else the sign-in is refused (`email_unverified`) and tells the person to ask an administrator; the same rule applies when a later sign-in brings a new address; the "address is taken" message no longer names the address; two people moving to the same new address at once no longer end in a server error (R17-F26).
 - **The e-mail template's text keeps links and names intact** (R17-F21): Markdown marks are removed from the template alone, so an underscore in a link's token or `*x*` in a name stay as they are.

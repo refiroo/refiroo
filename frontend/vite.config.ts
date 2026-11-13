@@ -120,10 +120,6 @@ export default defineConfig({
           environment: "jsdom",
           include: ["src/**/*.test.tsx"],
           setupFiles: "./src/test/setup.ts",
-          // A whole editor rendered in jsdom can starve on a busy machine (CI's runners, a loaded laptop):
-          // 0.17 R's CI timed out one model-editor test at 5 s that takes 82 ms when idle. A real hang still
-          // fails, at 15 s; a findBy or waitFor keeps its own 1 s limit.
-          testTimeout: 15000,
         },
       },
     ],

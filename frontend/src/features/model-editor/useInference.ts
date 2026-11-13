@@ -38,6 +38,10 @@ export function useInference(
   const [error, setError] = useState("");
   // The job whose end was handled: a late read that still says checking must not resume it.
   const ended = useRef<string | undefined>(undefined);
+  // Stop pressed while the start request is still out: the job id is not known yet, so the start
+  // cancels the job itself once it is (R17-F49).
+  const starting = useRef(false);
+  const stopAsked = useRef(false);
   const completed = useRef(onCompleted);
   useEffect(() => {
     completed.current = onCompleted;
@@ -112,7 +116,10 @@ export function useInference(
   }, [follow, read]);
 
   const stop = useCallback(async () => {
-    if (!follow) return;
+    if (!follow) {
+      if (starting.current) stopAsked.current = true;
+      return;
+    }
     try {
       await api.cancelJob(follow);
     } catch (cause) {
@@ -128,16 +135,32 @@ export function useInference(
     async (request: InferenceRequest) => {
       setError("");
       setRunning(true);
+      starting.current = true;
+      stopAsked.current = false;
       try {
         const started = await api.proposeFromWorkbook(draftId, request);
         setInference(started);
-        setFollow(started.jobId);
+        if (stopAsked.current) {
+          ended.current = started.jobId;
+          try {
+            await api.cancelJob(started.jobId);
+          } catch (cause) {
+            setError(errorMessage(cause));
+          }
+          setRunning(false);
+          await read();
+        } else {
+          setFollow(started.jobId);
+        }
       } catch (cause) {
         setRunning(false);
         setError(errorMessage(cause));
+      } finally {
+        starting.current = false;
+        stopAsked.current = false;
       }
     },
-    [draftId],
+    [draftId, read],
   );
 
   const items = useMemo(() => (proposals && proposals.jobId === jobId ? proposals.items : []), [proposals, jobId]);

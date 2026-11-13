@@ -271,6 +271,13 @@ function renderMatrix(
   return { ...utils, onQueryChange, onOpen };
 }
 
+// The grid is drawn while the page loads: wait for its first cell, so a row is looked up only once the data is in.
+const findLoadedGrid = async () => {
+  const grid = await screen.findByRole("grid");
+  await within(grid).findAllByRole("gridcell");
+  return grid;
+};
+
 const gridCell = (rowName: string, column: number) =>
   within(screen.getByRole("row", { name: new RegExp(`^${rowName}`) })).getAllByRole("gridcell")[column - 1];
 
@@ -284,7 +291,7 @@ beforeEach(() => {
 describe("relation matrix lens (Base 0.8 A4)", () => {
   it("renders rows, columns and every cell state with a text label for two row types", async () => {
     renderMatrix(notesView);
-    const grid = await screen.findByRole("grid");
+    const grid = await findLoadedGrid();
     expect(screen.getByRole("heading", { level: 1, name: "Domains" })).toBeInTheDocument();
     expect(grid).toHaveAttribute("aria-rowcount", "3");
     expect(grid).toHaveAttribute("aria-colcount", "3");
@@ -306,7 +313,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("sizes the row and column headers, as every table's columns are", async () => {
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     expect(screen.getByRole("separator", { name: "Resize Domain column" })).toBeInTheDocument();
     expect(screen.getAllByRole("separator", { name: /^Resize .* column$/ })).toHaveLength(3);
   });
@@ -318,7 +325,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     "colours the header by the row type and a cell's record by its own (UA6): %s",
     async (view, rowType, rowName, record) => {
       const { container } = renderMatrix(view);
-      await screen.findByRole("grid");
+      await findLoadedGrid();
       expect(container.querySelector(".page-header .hue-tile")).toHaveAttribute(
         "data-hue",
         String(objectTypeHue(model, rowType)),
@@ -330,7 +337,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("shows each record of a cell as a table row with its type's tile, the relationship's values in their own group (UA6)", async () => {
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Finance", 1));
     const table = within(await screen.findByRole("region", { name: "Notes in this cell" }));
     for (const name of ["Finance A", "Finance B"])
@@ -343,7 +350,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("has no inactive or conflict state for an incoming binding", async () => {
     renderMatrix(tagsView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     const legend = screen.getByRole("list", { name: "Cell states" });
     expect(within(legend).queryByText("Inactive")).toBeNull();
     expect(within(legend).queryByText("Conflict")).toBeNull();
@@ -352,7 +359,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("moves across cells by keyboard, keeps the column between rows, and opens and cancels a cell", async () => {
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     const header = screen.getByRole("rowheader", { name: /Connections/ });
     expect(header).toHaveAttribute("tabindex", "0");
     header.focus();
@@ -376,7 +383,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("filters to a cell state in the shown columns, and says when nothing matches", async () => {
     const { onQueryChange, unmount } = renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     vi.mocked(api.objects).mockResolvedValue({ items: [], nextCursor: null, totalCount: 0, startIndex: 0 });
     fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     const filters = await screen.findByRole("dialog", { name: "Filter" });
@@ -419,7 +426,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       startIndex: 0,
     });
     const { onQueryChange } = renderMatrix(notesView, { query: { matrixColumnIds: ["c-east"] } });
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
     const filters = await screen.findByRole("dialog", { name: "Filter" });
     expect(await within(filters).findByRole("checkbox", { name: /EA.*Region East/ })).toBeChecked();
@@ -439,7 +446,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("pages columns sideways with the column cursor", async () => {
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     expect(screen.getByRole("button", { name: "Previous regions" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Next regions" }));
     await waitFor(() =>
@@ -457,7 +464,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
     vi.mocked(api.createObject).mockResolvedValue({} as never);
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 2));
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
@@ -502,7 +509,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
     vi.mocked(api.createObjectInNewPlace).mockResolvedValue({} as never);
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 2));
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
@@ -540,7 +547,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
     vi.mocked(api.createObjectInNewPlace).mockResolvedValue({} as never);
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 2));
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
@@ -574,7 +581,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
     vi.mocked(api.createObject).mockResolvedValue({} as never);
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 2));
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
@@ -598,7 +605,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
     vi.mocked(api.createObject).mockResolvedValue({} as never);
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 2));
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
@@ -625,7 +632,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       startIndex: 0,
     });
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 2));
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
@@ -641,7 +648,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     vi.mocked(api.relationMatrixContainers).mockReturnValue(new Promise((resolve) => (answer = resolve)));
     vi.mocked(api.createObject).mockResolvedValue({} as never);
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 2));
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
@@ -674,7 +681,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
     vi.mocked(api.createObject).mockResolvedValue({} as never);
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     // A first save re-reads its cell alone.
     fireEvent.click(gridCell("Connections", 2));
     let dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
@@ -713,7 +720,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
   it("edits a record's field where it stands against the record's version and keeps the dialog open", async () => {
     vi.mocked(api.updateAttribute).mockResolvedValue({} as never);
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 1));
     const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
@@ -751,7 +758,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       }),
     );
     const { onOpen } = renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 1));
     const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
@@ -781,7 +788,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       binding.attributeTypeKeys = ["weight"];
     });
     renderMatrix(tagsView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
     const box = within(dialog).getByRole("checkbox", { name: "Approved of Size tag" });
@@ -799,7 +806,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
   it("flips a yes/no record field with one click against the record's version", async () => {
     vi.mocked(api.updateAttribute).mockResolvedValue({} as never);
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 1));
     const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
     const box = within(dialog).getByRole("checkbox", { name: "Active of Connections EA" });
@@ -811,7 +818,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("closes an unchanged editor on a press outside it", async () => {
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 1));
     const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
@@ -826,7 +833,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       new ApiError(409, "VERSION_CONFLICT", "Object version has changed"),
     );
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 1));
     const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
@@ -870,7 +877,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
     vi.mocked(api.createRelation).mockResolvedValue({} as never);
     renderMatrix(tagsView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 2));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · WE" });
     expect(within(dialog).queryByRole("button", { name: /Create/ })).toBeNull();
@@ -912,7 +919,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
     vi.mocked(api.createRelation).mockResolvedValue({} as never);
     renderMatrix(tagsView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 2));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Link existing note" }));
@@ -931,7 +938,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     );
     vi.mocked(api.relation).mockResolvedValue({ id: "rel-n5", version: 3, attributes: { weight: 8 } } as never);
     renderMatrix(tagsView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
     const table = within(dialog).getByRole("table");
@@ -950,7 +957,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
   it("makes a cell table's edit pencils tab stops, so a value is edited by keyboard (R13-F42)", async () => {
     vi.mocked(api.updateRelation).mockResolvedValue({} as never);
     renderMatrix(tagsView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
     const table = within(dialog).getByRole("table");
@@ -972,7 +979,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
   it("asks before dropping a changed relationship value when the dialog is closed (0.13 RV)", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     renderMatrix(tagsView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Edit Weight of Size tag" }));
@@ -985,7 +992,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("offers no editing in a read-only matrix, and shows the values (0.13 RV)", async () => {
     renderMatrix(tagsView, { readOnly: true });
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
     expect(within(dialog).queryByRole("button", { name: /^Edit / })).toBeNull();
@@ -1000,7 +1007,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       new ApiError(409, "RELATION_SET_VERSION_CONFLICT", "The row's relations changed.", {}),
     );
     renderMatrix(tagsView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Unlink Size tag" }));
@@ -1017,7 +1024,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("keeps a record when its Unlink is declined", async () => {
     renderMatrix(tagsView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Unlink Size tag" }));
@@ -1028,7 +1035,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("filters a cell's records by name and shown values, and tells an empty cell what is missing", async () => {
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Finance", 1));
     let dialog = await screen.findByRole("dialog", { name: "Finance · EA" });
     fireEvent.change(within(dialog).getByRole("searchbox", { name: "Filter notes" }), { target: { value: "FB" } });
@@ -1060,7 +1067,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("offers Link existing and Create in a filled cell where many are allowed, only Link where one is (MC1)", async () => {
     const many = renderMatrix(tagsBothView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Sizes", 1));
     let dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
     expect(within(dialog).getByRole("button", { name: /Link existing note/ })).toBeInTheDocument();
@@ -1069,7 +1076,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
     // One record per column (the scope is the column, read outgoing): a filled cell keeps Link only.
     renderMatrix(notesBothView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     fireEvent.click(gridCell("Connections", 1));
     dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
     expect(within(dialog).getByRole("button", { name: /Link existing note/ })).toBeInTheDocument();
@@ -1078,7 +1085,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
 
   it("offers no action when read-only", async () => {
     renderMatrix(notesView, { readOnly: true });
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     expect(screen.getByRole("grid")).toHaveAttribute("aria-readonly", "true");
     expect(screen.getByText("This matrix is read-only.")).toBeInTheDocument();
     fireEvent.click(gridCell("Connections", 2));
@@ -1109,7 +1116,7 @@ describe("Hide empty columns (0.13 LB-D8)", () => {
         : notesPage,
     );
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     const toggle = screen.getByRole("switch", { name: "Hide empty columns" });
     expect(toggle).toHaveAttribute("aria-checked", "false");
     expect(screen.queryByText(/empty column.* hidden/)).not.toBeInTheDocument();
@@ -1135,7 +1142,7 @@ describe("Hide empty columns (0.13 LB-D8)", () => {
       JSON.stringify({ hidden: [], widths: {}, hideEmptyColumns: true }),
     );
     renderMatrix(notesView);
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     expect(screen.getByRole("switch", { name: "Hide empty columns" })).toHaveAttribute("aria-checked", "true");
     expect(vi.mocked(api.relationMatrix).mock.calls[0][0].hideEmptyColumns).toBe(true);
     const handle = screen.getByRole("separator", { name: "Resize Domain column" });
@@ -1150,7 +1157,7 @@ describe("Hide empty columns (0.13 LB-D8)", () => {
       JSON.stringify({ hidden: [], widths: {}, hideEmptyColumns: true }),
     );
     renderMatrix(notesView, { query: { matrixColumnIds: ["c-east"] } });
-    await screen.findByRole("grid");
+    await findLoadedGrid();
     expect(screen.getByText("No effect while columns are chosen in Filter")).toBeInTheDocument();
     expect(vi.mocked(api.relationMatrix).mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ columnIds: ["c-east"], hideEmptyColumns: false }),

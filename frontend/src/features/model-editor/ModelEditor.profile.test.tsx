@@ -155,6 +155,21 @@ describe("the editor while the engine proposes (the user, 2026-10-28)", () => {
     expect(api.applyProposals).not.toHaveBeenCalled();
   });
 
+  it("cancels the job when Stop is pressed before the start request has answered (R17-F49)", async () => {
+    vi.mocked(api.modelDraftProfile).mockResolvedValue({ ...conflict, diagnostics: [], freeKey: null });
+    let answer: (inference: ReturnType<typeof checking>) => void = () => undefined;
+    vi.mocked(api.proposeFromWorkbook).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    vi.mocked(api.cancelJob).mockResolvedValue({} as never);
+    proposeWhenProfiled("d1", { mode: "extend" });
+    renderEditor();
+    fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
+    expect(api.cancelJob).not.toHaveBeenCalled();
+    await act(async () => answer(checking()));
+    await waitFor(() => expect(api.cancelJob).toHaveBeenCalledWith("j1"));
+    await waitFor(() => expect(screen.queryByText(/Editing is paused/)).toBeNull());
+    expect(api.applyProposals).not.toHaveBeenCalled();
+  });
+
   it("submits exactly one inference for New from a workbook, and none when one is resumed", async () => {
     vi.mocked(api.modelDraftProfile).mockResolvedValue({ ...conflict, diagnostics: [], freeKey: null });
     vi.mocked(api.proposeFromWorkbook).mockResolvedValue(checking());
