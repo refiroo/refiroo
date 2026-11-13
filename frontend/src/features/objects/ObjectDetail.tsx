@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
-import { useLocalNumberPreference } from "@/lib/localPreference";
+import { readLocalPreference, useLocalNumberPreference, writeLocalPreference } from "@/lib/localPreference";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { EditableField, fieldEditing, type FieldLayout } from "@/features/objects/EditableField";
@@ -38,6 +38,9 @@ import { focusInNavigationRail } from "@/ui/navigationRail";
  * new route, not a navigation the user made, so it leaves focus where the user is working.
  */
 let followedObjectId: string | undefined;
+
+/** Whether a record page's Details (ID and version) is open: one choice for every record. */
+const DETAILS_OPEN_KEY = "rdm:record:details-open:v1";
 
 export function ObjectDetail({
   model,
@@ -103,7 +106,10 @@ export function ObjectDetail({
   const [deleting, setDeleting] = useState(initialAction === "delete");
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  // Details stays open, or closed, for every record until it is toggled again (per browser).
+  const [detailsOpen, setDetailsOpen] = useState(() =>
+    readLocalPreference(DETAILS_OPEN_KEY, false, (value): value is boolean => typeof value === "boolean"),
+  );
   const detailsId = useId();
   // The header field open for editing in place (UA8), and the one whose value takes focus back.
   const [headerField, setHeaderField] = useState<string>();
@@ -385,7 +391,10 @@ export function ObjectDetail({
                 className="secondary record-details-toggle"
                 aria-expanded={detailsOpen}
                 aria-controls={detailsId}
-                onClick={() => setDetailsOpen((open) => !open)}
+                onClick={() => {
+                  writeLocalPreference(DETAILS_OPEN_KEY, !detailsOpen);
+                  setDetailsOpen(!detailsOpen);
+                }}
               >
                 Details
                 <Icon name="chevron-down" size={14} />

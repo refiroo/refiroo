@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- **A record page's Details stays open for every record**: once opened (ID and version), it is open on the next record too, until it is closed again; the choice is kept per browser. Frontend only; no API change.
+
 ## [0.17.0] - 2026-11-13
 
 0.17, the plain path, released together with 0.14, the management API reference: a workbook shaped on a
