@@ -1699,8 +1699,8 @@ Unit tests: no record value in the context at `structure` (a stored value plante
 
 ## AO2: What changed, an account of history
 
-**Journey:** a data owner picks "last week" on a workspace; the account says "Translations: 200
-labels changed by 3 people, 190 of them in one bulk import on Tuesday; Master: 4 values retired; one
+**Journey:** a data owner picks "last week" on a workspace; the account says "Translations: 120
+labels changed by 3 people, 100 of them in one bulk import on Tuesday; Master: 4 values retired; one
 change set (CS-18) was sent back", each statement linking to the records and the change set.
 
 **Scope.** Fact aggregates from history and the change feed, grouped in PostgreSQL by type, kind,

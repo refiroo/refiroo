@@ -420,9 +420,9 @@ with four many-to-many relationships, one many-to-one relationship and a transla
 ```
 
 The single-valued one (`replaced-by`) may also stand in `sortFields`; the others are listed in
-name order in each cell, as many as the column's width holds. Measured once on a small data set (200
-records, every one of a type's nine relationships expanded, 500 rows a page, 20 related records each:
-2,682 related records, about 1 MB, 0.3–0.4 s), the largest read an integrator can ask for is bounded
+name order in each cell, as many as the column's width holds. Measured once on a small data set (a
+type with many relationships, every one expanded, 500 rows a page, 20 related records each: about
+1 MB, 0.3–0.4 s), the largest read an integrator can ask for is bounded
 by the page size and `expandLimit`, not by the number of columns.
 
 ### Mapping grid view (`type: "mappingGrid"`, schema 0.6)
