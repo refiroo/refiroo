@@ -1,5 +1,14 @@
 # Project status
 
+## 0.17.1 — released 2026-11-13
+
+Fixes after 0.17.0, reviewed as a release (every change since `v0.17.0`; two findings fixed, R17-F49
+moved to this release's notes and R17-F50, a link-matrix name refused when two relationships of one row
+named it). Checked: backend `jobs`, `contract` and `reference` groups, the frontend block, the runners of
+the changed screens (`j6` and `ex1` brought up to the export change), both gates, and a round trip of
+four workbook kinds through Apple Numbers (no value changed; Numbers rewrites long lists inline when it
+saves). `v0.17.0` got no images, its CI having failed on a Stop race fixed here.
+
 ## 0.17.0 (the plain path, with 0.14, the management API reference) — released 2026-11-13
 
 0.14 and 0.17 went through one build acceptance R on 2026-11-12 and 2026-11-13

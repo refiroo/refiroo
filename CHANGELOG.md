@@ -6,8 +6,18 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-13
+
+Fixes after 0.17.0: exports for people offer their drop-down lists in every workbook and open as pop-up
+menus in Numbers, and load back unchanged (checked through Numbers itself for a type, a set of types, a
+tree and an application workbook); Stop works at once when proposing from a workbook; a record page's
+Details stays open. No images were built for `v0.17.0` (its CI did not pass), so 0.17.1 is the first
+0.17 release with images.
+
 ### Fixed
 
+- **Two relation columns naming the same shared name import back unchanged (R17-F50)**: a row whose cells in two columns (different relationships or directions) named the same value several records share was refused as ambiguous although nothing was edited, because the turns for a repeated name were counted across the row's links instead of per relationship and direction. They are counted per relationship and direction now.
+- **Stop works at once when proposing from a workbook** (R17-F49): pressing Stop before the engine had answered the start request did nothing and the inference carried on; the job is now cancelled as soon as it is known and nothing is applied.
 - **A view with an `ancestor:<type>` column can be exported for editing**: a mapping grid or table that shows the ancestor of a record (for example a system value's system) was refused with "is no column a table can show". The column is for reading (marked not imported), holds the name of the record's ancestor of that type as the path names it, is read in PostgreSQL with the rest of the sheet, and the file imports back unchanged.
 - **A tree, type, application or workspace workbook offers drop-down lists again**: the sheet-per-type workbooks had none. A parent column and every relationship column holding one record now offer the records they may choose, from list sheets shared per type and rule as in a people workbook; a parent found by its hidden ID stays as it was. A column that may hold several records offers the list too, as a soft one (pick one, or type several separated as the cell lists them, as a link matrix's cells do). A column made read-only because its records' names clash writes no list sheet.
 - **A mapping grid's export edits its mapping**: the mapped column covered every type the relationship reaches, so it was read-only with no list. It now covers the grid's target type alone: editable, with a list of that type's records, and an import replaces only the mappings to that type (mappings of the same relationship to other types stay).
@@ -40,7 +50,6 @@ It also holds what shipped earlier as 0.16.1-alpha.1 to alpha.5 (0.13, the docum
 
 ### Fixed (the 0.14 and 0.17 release review)
 
-- **Stop works at once when proposing from a workbook** (R17-F49): pressing Stop before the engine had answered the start request did nothing and the inference carried on; the job is now cancelled as soon as it is known and nothing is applied.
 - **Every error response in the API reference has an example body**: each code an operation lists shows the refusal's `{"error": {"code", "message"}}` envelope, instead of an empty response.
 - **A provider's e-mail address is taken only when it can be trusted** (R17-F20): an `email_verified: false` claim is never taken as a person's sign-in name; a provider has a new setting, `emailsTrusted` (Settings › Security › Sign-in, `POST|PATCH /sign-in-providers`), and when it is off (the default for a new provider) an address is taken only with `email_verified: true`, else the sign-in is refused (`email_unverified`) and tells the person to ask an administrator; the same rule applies when a later sign-in brings a new address; the "address is taken" message no longer names the address; two people moving to the same new address at once no longer end in a server error (R17-F26).
 - **The e-mail template's text keeps links and names intact** (R17-F21): Markdown marks are removed from the template alone, so an underscore in a link's token or `*x*` in a name stay as they are.

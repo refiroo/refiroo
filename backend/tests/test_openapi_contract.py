@@ -615,9 +615,10 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # structural change in the release review is R17-F20's `emailsTrusted`.
     # Re-baselined for the export lists fix: RelationValue (an import profile's relationship value)
     # gains the optional valueMap, as a column has; nothing else.
+    # Re-baselined for 0.17.1: info.version only.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "0ce7768942be8df12bc15abb2a0ea4750c6d446b81673a6fa04f19c6676eb065"
+        "6a72601e00ac1cd51cdbc3520e02706dc774d0ad0f3a9776aa487852663b6132"
     )
 
 

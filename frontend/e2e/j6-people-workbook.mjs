@@ -177,16 +177,17 @@ try {
   });
   if (read.status !== 0) throw new Error(`openpyxl: ${read.stderr}`);
   const found = JSON.parse(read.stdout);
-  // J6a (D196, D197): the relationship sheet's related record cells choose from a list sheet.
+  // J6a (D196, D197): the relationship sheet's related record cells choose from a list sheet. Brought up to date (4a054e34): the
+  // main sheet's own related-record column offers a list too, so there are two list sheets ("List - Master values", "List - System values").
   expect(
     JSON.stringify(found.sheets) ===
       JSON.stringify(["System values", "About this export", MAPS, ...found.lists, "Import profile"]) &&
-      found.lists.length === 1,
+      JSON.stringify(found.lists) === JSON.stringify(["List - Master values", "List - System values"]),
     `sheets: ${found.sheets}`,
   );
   expect(found.profileState === "hidden", `the profile sheet is ${found.profileState}`);
   expect(
-    found.relationRules.some((rule) => rule.includes(found.lists[0])),
+    found.relationRules.some((rule) => found.lists.some((list) => rule.includes(list))),
     `the relationship sheet's rules: ${found.relationRules}`,
   );
   expect(found.header[0] === "Name" && found.header.includes("Value name"), `header: ${found.header}`);

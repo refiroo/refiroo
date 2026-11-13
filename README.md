@@ -171,7 +171,7 @@ follow ([explained](docs/EXAMPLE_MODEL.md)).
 
 ## Status
 
-The latest version is **0.17.0** (2026-11-13), the plain path: a workbook shaped on a canvas and made
+The latest version is **0.17.1** (2026-11-13). 0.17, the plain path: a workbook shaped on a canvas and made
 into a workspace in one step, themes, a page for each workspace, Settings by task, fields that save
 when you leave them, an e-mail template, account security messages, and the complete management API
 reference. 0.15 (the interface language) is the last release before 1.0. PostgreSQL is the only

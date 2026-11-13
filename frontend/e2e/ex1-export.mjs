@@ -10,6 +10,7 @@
 //    unchanged.
 // 4. The application, as "The application", is a sheet per type too.
 // Axe on the dialog from the matrix, light and dark; screenshots of each.
+// Brought up to date (4a054e34): every workbook for people offers drop-down lists, so a tree's file also holds "List - " sheets; they are not data sheets and hold no exported records.
 // Brought up to date (0.14 + 0.17 release review, NG1): a view in no navigation group is headed by its type's plural name (Codelists, Domains), not the view's name.
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -22,6 +23,8 @@ import { workspaceAction } from "./helpers/workspaceMenu.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const MATRIX = "/apps/rdm-systems/views/codelists-by-system?workspaceKey=default";
 const TREE = "/apps/rdm-master/views/domain-hierarchy?workspaceKey=default";
+
+const dataSheet = (title) => !["About this export", "Import profile"].includes(title) && !title.startsWith("List - ");
 
 let harness;
 const checks = [];
@@ -242,7 +245,7 @@ try {
   });
   const treeFound = read(tree);
   const treeRows = Object.entries(treeFound.dataRows)
-    .filter(([title]) => !["About this export", "Import profile"].includes(title))
+    .filter(([title]) => dataSheet(title))
     .reduce((sum, [, rows]) => sum + rows, 0);
   expect(
     treeLine === `${treeRows.toLocaleString("en")} records, from live data`,
@@ -250,7 +253,7 @@ try {
   );
   checks.push(`the tree's count line: ${treeLine}`);
   expect(treeFound.sheets[1] === "About this export", `the tree's About sheet is not second: ${treeFound.sheets}`);
-  const data = treeFound.sheets.filter((title) => !["About this export", "Import profile"].includes(title));
+  const data = treeFound.sheets.filter(dataSheet);
   expect(data.length === 3, `the tree's sheets: ${data.join(", ")}`);
   const treeBack = await previewed(tree);
   expect(

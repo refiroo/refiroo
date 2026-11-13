@@ -1350,6 +1350,68 @@ def _profile_of(book):
 
 @pytest.mark.journey("J27.26")
 @pytest.mark.structures(*PLACES)
+def test_two_relationships_naming_the_same_twin_in_one_row_import_back_unchanged(world):
+    """Given a matrix column holding two records named Booked, a row related to one of them by a
+    relationship and to the other by a second relationship. When the matrix is exported, its file
+    gets a second cell column for the second relationship (cells naming the same Booked), and it is
+    previewed. Then every item is unchanged and none refused: each cell names the record its own
+    relationship links although the name is shared, whichever the order of the turns (R17-F50)."""
+    views = _place_views(world, one=[("eq", "Booked group")], two=[("eq", "Booked group")])
+    view, first = views["one"]
+    second = views["two"][1]
+    column = world.made("P", "System A")
+    place = world.made("C", "Booked group", parent=column["id"])
+    twins = [
+        world.made("C2", "Booked", parent=place["id"], values={"H.code": code})
+        for code in ("BK1", "BK2")
+    ]
+    row = world.made("H", "Row a", values={"H.code": "A"})
+    _link(world, first, row["id"], twins[0]["id"])
+    _link(world, second, row["id"], twins[1]["id"])
+    _, book, _ = _export(world, W1, _links_export(world, view, [column], "name"))
+    sheet = book.worksheets[0]
+    profile = _profile_of(book)
+    source = profile["sources"][0]
+    binding = next(item for item in source["columns"] if item.get("relation", {}).get("within"))
+    extra = json.loads(json.dumps(binding))
+    extra["column"] = "System A - second relationship"
+    extra["relation"]["relationTypeKey"] = second
+    extra["relation"].pop("versionColumn", None)
+    source["columns"].append(extra)
+    at = _link_cell(sheet, "System A")
+    spare = sheet.max_column + 1
+    sheet.cell(2, spare).value = extra["column"]
+    rows = {sheet.cell(n, 1).value: n for n in range(3, sheet.max_row + 1)}
+    sheet.cell(rows["Row a"], at).value = "Booked"
+    sheet.cell(rows["Row a"], spare).value = "Booked"
+    request = {
+        "workspaceKey": W1,
+        "policy": "independent",
+        "onExisting": "reject",
+        "stage": "preview",
+        "profile": profile,
+    }
+    job = ok(
+        world.api.upload(
+            "/imports",
+            {"file": ("twins.xlsx", _saved(book), XLSX)},
+            {"request": json.dumps(request)},
+        ),
+        202,
+    )
+    world.api.client.app.state.job_worker.run_until_idle()
+    job = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert job["state"] == "awaiting_confirmation", job["error"]
+    outcomes = _outcomes(world, job)
+    assert not [i for i in outcomes if i["status"] == "rejected"], outcomes
+    assert {(i["status"], i.get("action")) for i in outcomes if "Takes" in i["ref"]} <= {
+        ("applied", "unchanged")
+    }
+    ok(world.api.post(f"/jobs/{job['id']}/cancel", None), 202)
+
+
+@pytest.mark.journey("J27.26")
+@pytest.mark.structures(*PLACES)
 def test_a_file_that_records_no_reading_is_guessed_and_the_person_can_choose_another_field(world):
     """Given a file whose profile does not say which field its matrix cells list, and cells that
     list records by their codes. When it is previewed. Then the engine reads the column by the code,

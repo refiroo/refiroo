@@ -2834,7 +2834,8 @@ class _ProfileBinding:
             ambiguous AS (
                 SELECT l.row_id, l.link_no, r.record_id, l.relation_type_key, l.direction,
                     m.match_id,
-                    row_number() OVER (PARTITION BY l.row_id, m.match_id ORDER BY l.link_no) AS turn
+                    row_number() OVER (PARTITION BY l.row_id, m.match_id, l.relation_type_key, l.direction
+                        ORDER BY l.link_no) AS turn
                 FROM import_links l
                 JOIN import_rows r ON r.row_id = l.row_id AND r.existing AND r.error IS NULL
                 JOIN import_matches m ON {joined.format(s="l.match")}
