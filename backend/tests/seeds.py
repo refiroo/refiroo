@@ -28,7 +28,6 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -36,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import engine_writer  # noqa: F401
 import harness_identity
 import postgres_server
+import run_ids
 from sqlalchemy import URL, create_engine, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
@@ -239,13 +239,69 @@ def _build(seed: Seed) -> dict[str, Any]:
     return payload
 
 
+# The volume seeds are large (3.9 GB at the full shape), so two copies never exist together: under a
+# short advisory lock, a volume seed is cloned only when no volume clone of a live run exists (the
+# clone's name says it is one, and whose; an ended run's clone counts as free and is dropped). The
+# clone's existence is the lock, since a browser runner's clone outlives the command that made it.
+VOLUME_LOCK = "rdm-volume-seed-clone"
+VOLUME_WAIT_SECONDS = 1800
+VOLUME_POLL_SECONDS = 5.0
+_VOLUME_HELD: set[str] = set()  # this process's own volume clones, which never block it
+
+
+def _is_volume(name: str) -> bool:
+    return name.startswith("volume-")
+
+
+def _wait_for_volume(server: Connection) -> None:
+    """Return holding the volume lock on ``server`` once no other live run holds a volume clone."""
+    deadline = time.monotonic() + VOLUME_WAIT_SECONDS
+    told = False
+    while True:
+        server.execute(text("SELECT pg_advisory_lock(hashtext(:n))"), {"n": VOLUME_LOCK})
+        drop_abandoned()
+        names = server.scalars(
+            text("SELECT datname FROM pg_database WHERE datname ~ '^[tr]_p'")
+        ).all()
+        holders = sorted(run_ids.volume_holders(names))
+        if not holders or _VOLUME_HELD:
+            return
+        server.execute(text("SELECT pg_advisory_unlock(hashtext(:n))"), {"n": VOLUME_LOCK})
+        if time.monotonic() > deadline:
+            raise TimeoutError(
+                f"A volume seed clone of run {run_ids.run_of(holders[0])} still exists after "
+                f"{VOLUME_WAIT_SECONDS} s; only one volume copy exists at a time."
+            )
+        if not told:
+            print(
+                f"Waiting for run {run_ids.run_of(holders[0])} to drop its volume clone "
+                f"({holders[0]}); only one volume copy exists at a time.",
+                file=sys.stderr,
+            )
+            told = True
+        time.sleep(VOLUME_POLL_SECONDS)
+
+
 def clone(name: str, database: str | None = None) -> URL:
-    """A new database copied from seed ``name`` (built first if needed); drop it with :func:`drop`."""
+    """A new database copied from seed ``name`` (built first if needed); drop it with :func:`drop`.
+
+    The database is named for this run (``run_ids``). A clone of a volume seed waits, bounded, until
+    no other live run holds one, and is named as a volume clone (``run_ids.name(label="v_")``).
+    """
     ensure(name)
-    database = database or f"t_{uuid4().hex[:16]}"
+    volume = _is_volume(name)
+    database = database or run_ids.name(label="v_" if volume else "")
     with admin() as server:
-        _drop(server, database)
-        _create(server, database, template_name(name))
+        if volume:
+            _wait_for_volume(server)
+        try:
+            _drop(server, database)
+            _create(server, database, template_name(name))
+            if volume:
+                _VOLUME_HELD.add(database)
+        finally:
+            if volume:
+                server.execute(text("SELECT pg_advisory_unlock(hashtext(:n))"), {"n": VOLUME_LOCK})
     return postgres_server.url(database)
 
 
@@ -265,7 +321,7 @@ def schema_session() -> Iterator[Session]:
 
 def create_empty(options: str = "") -> URL:
     """A new database with no schema, from ``template0`` with ``options`` (for example a locale)."""
-    database = f"t_{uuid4().hex[:16]}"
+    database = run_ids.name()
     with admin() as connection:
         connection.execute(text(f'CREATE DATABASE "{database}" TEMPLATE template0 {options}'))
     return postgres_server.url(database)
@@ -274,17 +330,24 @@ def create_empty(options: str = "") -> URL:
 def drop(database: str) -> None:
     with admin() as server:
         _drop(server, database)
+    _VOLUME_HELD.discard(database)
 
 
-def drop_clones() -> None:
-    """Drop every test database a run left behind (an interrupted run skips its teardown)."""
+def drop_abandoned() -> list[str]:
+    """Drop the test and runner databases of runs that have ended (an interrupted run skips its
+    teardown); a run still alive keeps its own. Returns the names dropped.
+
+    A seed's ``__build`` database is left alone: a run building a seed owns it (under the seed's
+    advisory lock), and the next build of that seed drops what an interrupted one left.
+    """
     with admin() as server:
         names = server.scalars(
-            text("SELECT datname FROM pg_database WHERE datname LIKE 't\\_%' OR datname LIKE :b"),
-            {"b": f"{PREFIX}%__build"},
+            text("SELECT datname FROM pg_database WHERE datname ~ '^[tr]_'")
         ).all()
-        for database in names:
+        dropped = [database for database in names if run_ids.abandoned(database)]
+        for database in dropped:
             _drop(server, database)
+    return dropped
 
 
 # --- Building with the application --------------------------------------------------------------
@@ -422,7 +485,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="The test harness's seeded databases (H1).")
     parser.add_argument("command", choices=("list", "build"))
     arguments = parser.parse_args()
-    started = postgres_server.start()
+    postgres_server.start()
     # A seed build imports app.main, which starts an application: its job files (0.9 J1) go to a
     # directory of this command's, never the project's var/.
     files = tempfile.mkdtemp(prefix="rdm-job-files-")
@@ -431,8 +494,7 @@ def main() -> None:
         _list() if arguments.command == "list" else _build_all()
     finally:
         shutil.rmtree(files, ignore_errors=True)
-        if started:
-            postgres_server.stop()
+        postgres_server.stop()
 
 
 if __name__ == "__main__":

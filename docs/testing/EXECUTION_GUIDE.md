@@ -40,9 +40,39 @@ cd backend && .venv/bin/python -m tests.seeds list    # each seed, its fingerpri
 .venv/bin/python -m tests.seeds build                 # build every stale seed now, e.g. after a pull
 ```
 
-Do not run `pytest` or `tests.seeds build` while another is running: they share the server, and a
-starting run drops databases an interrupted run left behind. If the server's directory is damaged,
-delete `backend/.test-postgres/`; the next run creates it and rebuilds the seeds.
+**Runs go side by side on this one server** (TS2; one server, one data folder, one set of seeds; no
+server per session, no copy of the seeds). Each run names its clones `t_p<pid>_<start>_…`, with its
+process number and the time the process started (`tests/run_ids.py`); a `-n` run's workers use their
+controller's ID. A starting run drops the clones of runs whose process has ended and never those of a
+run still alive, so a reused process number is not mistaken for a live run. A browser runner's clones
+use the same scheme (`r_p<pid>_<start>_…`, owned by the runner that started `browser_seeds.py`). Seeds
+rebuild under their advisory lock, one builder at a time. A test cloning a **volume seed** (up to 3.9 GB)
+is made only when no volume clone of a live run exists (under a short advisory lock; the clone's
+name, `…_v_…`, says it is one and whose; an ended run's clone is dropped, so it counts as free), so
+two copies never exist together; a waiting run retries for up to 30 minutes and names the run it
+waits for. The rule is the same for a browser runner's volume clone, which outlives the command that
+made it. The server stays up while any run uses it: starting and stopping it are one at a time (a file
+lock in the data folder), a start registers its use before it lets go, and the last run to end stops a
+server the harness started.
+
+**Guards at the start of a run** (not with `RDM_TEST_DATABASE_SERVER`): a run refuses below 10 GB free
+on the volume holding the data folder, and when the data folder's resolved path (not the link
+`backend/.test-postgres`) lies in a synced place (iCloud Drive, Desktop or Documents when iCloud syncs
+them, Dropbox, OneDrive); each message says what to do. `backend/.test-postgres` links to the unsynced
+volume (`/Volumes/RDMScratch/test-postgres`). `fsync` stays off.
+
+**Clean copy for a package's final checks** (shared working tree): one command makes a worktree of the
+last commit plus the package's own changed paths, runs the checks there and removes it. The paths are
+arguments, since the package's own changes cannot be guessed in a tree other sessions edit:
+
+```sh
+cd backend && .venv/bin/python -m tests.clean_copy backend/app/foo.py backend/tests/test_foo.py -- \
+  .venv/bin/python -m pytest tests/test_foo.py -q
+```
+
+The copy links the repository's `.venv`, `frontend/node_modules` and `.test-postgres` (the same server
+and seeds; a seed's fingerprint is made from the copy's own files). If the server's directory is
+damaged, delete `backend/.test-postgres/` (its link target); the next run creates it and rebuilds the seeds.
 
 ### Backend: parallel runs (H2)
 
@@ -53,7 +83,7 @@ scheduler in `conftest.py` sends each journey case to a worker on its own (0.11 
 spreads over the workers. Older modules whose tests each build their own databases are spread the
 same way once checked (`layout.OWN_DATABASES`: `test_startup.py`). A journey module therefore takes no module- or class-scoped fixture: it
 would run once on every worker that takes one of its cases. The run's own process starts
-the server, drops leftover databases and builds the `schema` seed before the workers start; each
+the server, drops the databases of runs that ended and builds the `schema` seed before the workers start; each
 worker clones its own session database, and all of them clone from the same seeds.
 
 **Timing-based checks are `serial`** (narrowed in H3): only a test whose outcome depends on wall
@@ -227,7 +257,7 @@ consumer rules in section 2.
 
 Each runner starts its own isolated backend, Vite and Chrome. The backend runs on a database of its
 own on the **development server** (`scripts/postgres.sh start` first; PG-D8), cloned from a seed in
-the seed store there and dropped when the runner ends (`backend/tests/browser_seeds.py`,
+the seed store there, named for the runner (`r_p<pid>_<start>_…`, TS2) and dropped when the runner ends (`backend/tests/browser_seeds.py`,
 0.9.0-alpha.1 PG2): `schema` for the runners that create their records themselves, `starter` (the
 harness's records, one seed per model the runner starts with) and `volume` (the Track S fixture at
 the runner's scale). A seed is built on a runner's first use after its inputs change and reused after
@@ -473,8 +503,8 @@ visual evidence separately.
 
 ## 3. WP-9 comprehensive command set
 
-Run once, against the finished build, after all implementation packages close. Never run two
-pytest invocations at once: they share the harness's PostgreSQL server. The backend suite is one
+Run once, against the finished build, after all implementation packages close. Runs may share the harness's
+PostgreSQL server (§ Backend: the PostgreSQL test harness), but a release's heavy blocks run one at a time. The backend suite is one
 parallel invocation followed by its serial part, without `budget` (11-minute ceiling, six workers); the full-size
 budgets run only at a release's acceptance (§1).
 

@@ -27,11 +27,11 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
-from uuid import uuid4
 
 import layout
 import postgres_server
 import pytest
+import run_ids
 import seeds
 from xdist.scheduler import LoadFileScheduling
 
@@ -41,7 +41,9 @@ from xdist.scheduler import LoadFileScheduling
 # modules); the C tracer records them. Set before testmon starts coverage; workers inherit it.
 os.environ.setdefault("COVERAGE_CORE", "ctrace")
 _WORKER = os.environ.get("PYTEST_XDIST_WORKER")
-SESSION_DATABASE = f"t_session_{_WORKER + '_' if _WORKER else ''}{uuid4().hex[:8]}"
+# Named for the run (a worker inherits its controller's ID), so a starting run drops only the
+# databases of runs that ended (TS2).
+SESSION_DATABASE = run_ids.name(label=f"s{_WORKER or ''}_")
 _STARTED_SERVER = pytest.StashKey[bool]()
 _SERIAL_LEFT_OUT = pytest.StashKey[int]()
 _STARTED_AT = pytest.StashKey[float]()
@@ -357,21 +359,22 @@ def pytest_xdist_make_scheduler(config: pytest.Config, log):
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
-    """In the run's own process, before any worker starts: start the server, remove databases an
-    interrupted run left behind and build the ``schema`` seed, so no worker races another for them."""
+    """In the run's own process, before any worker starts: start the server, remove databases of runs
+    that ended (never another live run's) and build the ``schema`` seed, so no worker races another for them."""
     if _is_worker(session.config):
         return
     try:
         session.config.stash[_STARTED_SERVER] = postgres_server.start()
     except postgres_server.ServerUnavailable as unavailable:
         pytest.exit(str(unavailable), returncode=pytest.ExitCode.USAGE_ERROR)
-    seeds.drop_clones()
+    seeds.drop_abandoned()
     seeds.ensure("schema")
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
-    # After every worker has ended; a server another tool started stays running.
-    if config.stash.get(_STARTED_SERVER, False):
+    # After every worker has ended: this run lets go of the server, which stops only when the harness
+    # started it and no other run still uses it.
+    if _STARTED_SERVER in config.stash:
         postgres_server.stop()
 
 
@@ -543,7 +546,7 @@ def migrated_database():
     created: list[str] = []
 
     def create(name: str = "test") -> str:
-        database = f"t_{uuid4().hex[:16]}"
+        database = run_ids.name()
         created.append(database)
         return seeds.clone("schema", database).render_as_string(hide_password=False)
 

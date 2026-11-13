@@ -340,9 +340,14 @@ affects theme tokens or a new surface. Do not update baselines merely to hide an
   smoke-start server left running filled the disk with a 28 GB log.
 - Keep test output bounded and report concise results. While a test runs, wait for completion
   rather than repeatedly polling, reanalysing unchanged code or launching overlapping checks.
-- Run one backend `pytest` invocation at a time; it parallelizes itself with `-n auto` (H2). Two
-  invocations share the harness's server, and a starting one drops the other's databases. A
-  parallel run leaves the `serial` tests out and names the second, non-parallel command that runs them.
+- Backend `pytest` runs may go side by side on the harness's one server (TS2): each names its databases
+  with a run ID and a starting run drops only those of runs that have ended. A run parallelizes itself
+  with `-n auto` (H2) and leaves the `serial` tests out, naming the second, non-parallel command that
+  runs them. The volume seed is cloned by one test at a time, by a lock on the server. A run refuses to
+  start below 10 GB free on the volume or on a data folder in a synced place. A package's final checks
+  run in a clean copy, so another session's unfinished edits cannot fail them:
+  `cd backend && .venv/bin/python -m tests.clean_copy <the package's own changed paths> -- <command>`
+  (the last commit plus those paths, in a worktree removed after; the paths are named, never guessed).
 - Every run has a [time ceiling](docs/TEST_HARNESS_PLAN.md#time-ceilings) (this machine, wall
   time): focused tests while iterating, seconds; a package's checks (its boundary's groups, parallel
   and serial part), **3 minutes**; build acceptance (the full backend suite without `budget`, with

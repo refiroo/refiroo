@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **Test runs side by side on one server (TS2)**: internal. Test databases are named with a run ID (process number and start time; the browser runners use the same scheme), so a starting run drops only the clones of runs that ended and never a live run's; a volume seed is cloned only when no live run holds a volume clone (browser runners included), so one copy exists at a time; the shared server is stopped only by the last run using it, and starting and stopping it are serialised by a file lock; a run refuses to start below 10 GB free or on a data folder in a synced place; `python -m tests.clean_copy` runs a package's final checks on the last commit plus the paths it names. AGENTS.md's one-pytest-at-a-time rule is replaced. No application change.
 - **The assistant task's code split by concern (SR1)**: internal. `engine/tasks/agent.py` is now the package `engine/tasks/agent/` with `sandbox`, `files`, `words`, `run` and `outcome`; no behaviour, API, prompt or database change.
 - **Frontend features import shared state from one layer (SR2)**: internal. App-wide state and hooks move out of single features into `src/state/`, parts several features show into `src/ui/`, `src/lib/` and `src/model/`; a lint rule (ADR-046) keeps features from importing each other beyond a short list of deliberate edges; two import cycles are gone. No behaviour change.
 

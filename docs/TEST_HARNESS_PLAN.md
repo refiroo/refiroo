@@ -104,7 +104,11 @@ complete.
   volume fixture at each scale the tests use, each heavy module's common records (on the generated
   model and on its renamed copy), and the browser runners' starter seed and prepared databases.
 - **Where it lives.** Template databases on the test harness's private PostgreSQL server, whose
-  data directory `backend/.test-postgres/` (git-ignored) is kept between runs (PG-D8).
+  data directory `backend/.test-postgres/` (git-ignored, a link to the unsynced volume) is kept between
+  runs (PG-D8). Runs share it side by side (TS2): clones are named with a run ID, a starting run drops
+  only those of ended runs, the volume seed is cloned under an advisory lock, and a run refuses below
+  10 GB free or on a synced data folder (EXECUTION_GUIDE §1; `tests/run_ids.py`, `postgres_server.guard`);
+  a package's final checks run in a clean copy (`tests/clean_copy.py`).
 - **When it is rebuilt.** Each seed carries a fingerprint: the Alembic head, the model it was built
   from, and the source of its seed function and of the fixture code it calls. On use, a matching
   fingerprint is used as it is; a different one rebuilds that seed once, and later runs reuse it. A
@@ -132,7 +136,7 @@ the changed modules' groups green.
 
 **Delivered 2026-10-01.** `pytest-xdist` (3.8) is a dev dependency and `--dist loadfile` is in
 `addopts`, so `pytest -n auto` parallelizes and a run without `-n` stays serial. The run's own
-process starts the server, drops leftover databases and builds the `schema` seed in
+process starts the server, drops the databases of ended runs (TS2) and builds the `schema` seed in
 `pytest_sessionstart`, before any worker starts, and stops the server in `pytest_unconfigure`, after
 the last worker ends. Each worker clones its own session database (`t_session_gw<N>_…`) and sets its
 own `DATABASE_URL`: a worker inherits the run's environment, and the first parallel run failed 244
@@ -167,8 +171,9 @@ server. Tests run with `--dist loadfile`, so a module stays on one worker. (Sinc
 test goes to a worker on its own; see EXECUTION_GUIDE §1.)
 Timing-based checks (`volume`, the lock-wait tests in `test_jobs_migration`, the worker thread test
 in `test_background_jobs`) carry a `serial` marker and run in a second, non-parallel invocation.
-AGENTS.md's rule "never run multiple backend pytest processes concurrently" becomes "run one pytest
-invocation at a time; it parallelizes itself". EXECUTION_GUIDE gives the commands.
+AGENTS.md's rule "never run multiple backend pytest processes concurrently" became "run one pytest
+invocation at a time; it parallelizes itself"; TS2 (0.17.x) replaced that: runs go side by side, each
+dropping only its own and ended runs' databases. EXECUTION_GUIDE gives the commands.
 
 **Evidence:** the full backend suite before and after, serial and parallel. Measuring the gain is
 this package's purpose, so running the full suite here is the instruction, not a breach of the

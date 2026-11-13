@@ -16,8 +16,10 @@ starter seed, the dataset's identifiers for the volume seed)::
     cd backend && .venv/bin/python tests/browser_seeds.py clone starter --model /tmp/model.json
     .venv/bin/python tests/browser_seeds.py drop <database_url>
 
-``RDM_TEST_DATABASE_SERVER`` names the server (the development server by default). A clone
-whose runner was interrupted is dropped by a later ``clone`` once it is six hours old.
+``RDM_TEST_DATABASE_SERVER`` names the server (the development server by default). A clone is named
+for the process that started ``clone`` (the runner: ``r_p<pid>_<start>_…``, ``run_ids.py``, the scheme
+pytest's databases use); a later ``clone`` drops the clones of runners that ended and never those of a
+runner still running.
 """
 
 import argparse
@@ -25,10 +27,8 @@ import hashlib
 import json
 import os
 import sys
-import time
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS.parent))
@@ -39,13 +39,10 @@ os.environ.setdefault("RDM_TEST_DATABASE_SERVER", DEVELOPMENT_SERVER)
 
 import harness_identity
 import postgres_server
+import run_ids
 import seeds
-from sqlalchemy import URL, make_url, text
+from sqlalchemy import URL, make_url
 from sqlalchemy.exc import OperationalError
-
-# A runner's clone is named r_<epoch seconds>_<random>; older than this, it was left behind.
-CLONE_PREFIX = "r_"
-ABANDONED_AFTER_SECONDS = 6 * 3600
 
 
 def _create_starter_records(client: Any) -> dict[str, list[dict[str, Any]]]:
@@ -139,20 +136,6 @@ def starter_seed(model_path: Path) -> str:
     return name
 
 
-def _prune() -> None:
-    """Drop runner clones left behind by interrupted runs."""
-    with seeds.admin() as server:
-        names = server.scalars(
-            text("SELECT datname FROM pg_database WHERE starts_with(datname, :prefix)"),
-            {"prefix": CLONE_PREFIX},
-        ).all()
-    now = time.time()
-    for name in names:
-        started = name.removeprefix(CLONE_PREFIX).split("_", 1)[0]
-        if started.isdigit() and now - int(started) > ABANDONED_AFTER_SECONDS:
-            seeds.drop(name)
-
-
 def clone(seed: str, *, model: Path | None, scale: float) -> dict[str, Any]:
     if seed == "schema":
         name, payload = "schema", {}
@@ -169,8 +152,11 @@ def clone(seed: str, *, model: Path | None, scale: float) -> dict[str, Any]:
         model.write_text(json.dumps(volume_fixture.volume_model()))
         name = seeds.volume_seed(volume_fixture.scaled_shape(scale))
         payload = seeds.ensure(name)["dataset"]
-    _prune()
-    url = seeds.clone(name, f"{CLONE_PREFIX}{int(time.time())}_{uuid4().hex[:8]}")
+    seeds.drop_abandoned()
+    # Owned by the runner that started this command (its parent), which outlives the command; the
+    # volume lock cannot outlive the command, so a browser runner's volume clone is not held.
+    runner = run_ids.of_process(os.getppid())
+    url = seeds.clone(name, run_ids.name("r", runner), hold_volume=False)
     # The harness client every clone of the schema seed holds, and the settings its signing key
     # needs, so the runner's backend issues it tokens (0.12 I1, D263).
     harness = {
