@@ -10,16 +10,25 @@ model and the import mapping, ADR-035), 0.11 for production hardening and staged
 0.12 for security (authentication and authorization across the backend, frontend and APIs), 0.13 for the documentation, 0.14 for the management API reference, 0.15 for the interface language, 0.16 for AI integration (proposals, agent access, operations summaries), 0.17 for the plain path, and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
-## Current development baseline — Base 0.16 complete
+## Current development baseline — Base 0.17 complete
+
+Base 0.17 is complete (2026-11-13; build acceptance R in
+[its plan](BASE_0_17_IMPLEMENTATION_PLAN.md#r-record-2026-11-12-and-2026-11-13-together-with-014)), released as
+**0.17.0** together with 0.14: a workbook shaped on a canvas and made into a workspace in one step, the canvas as a full
+model editor, themes with their frames, a page for each workspace, Settings by task, account security messages, the
+e-mail as the sign-in name, any view in a navigation group, and the complete management API reference
+([product release 0.17](#product-release-017--the-plain-path),
+[product release 0.14](#product-release-014--management-api-reference-and-ui-refinements)). 0.13, the documentation,
+was released before them as 0.16.1-alpha.5 (2026-11-11) and is part of 0.17.0. **0.15, the interface language, is the
+only release left before 1.0.**
+
+## Base 0.16 complete
 
 Base 0.16 is complete (2026-11-02; build acceptance R in
 [its plan](BASE_0_16_IMPLEMENTATION_PLAN.md#r-record-2026-11-02)): the AI proposal provider, the assistant that designs and
 loads from a few words and a workbook, changing a workspace's model, agent access over `/mcp`, the accounts of a model
-change and of a period, and notification digests ([product release 0.16](#product-release-016--ai-integration)).
-**0.13, 0.14 and 0.15 are not released: 0.16 was released before them** (0.13 is built, 0.14 and 0.15 are not). The next release is 0.13, documentation (in
-progress: the guide is written, and the editor, migration, assistant and relationship packages built with it are
-recorded in [its plan](BASE_0_13_IMPLEMENTATION_PLAN.md); what is left is its "Open for 0.13" list and the release step R), then 0.14
-and 0.15.
+change and of a period, and notification digests ([product release 0.16](#product-release-016--ai-integration)). It was
+released before 0.13, 0.14 and 0.15.
 
 ## Base 0.12 complete
 
@@ -609,6 +618,8 @@ OAuth client writing for a source system is the natural name of that source.
 
 ## Product release 0.13 — Documentation
 
+**Released 2026-11-11** as 0.16.1-alpha.5, after build acceptance R in [its plan](BASE_0_13_IMPLEMENTATION_PLAN.md#r-record); part of 0.17.0.
+
 _Created 2026-10-26 by the user._ After 0.12, before 1.0. Strategy: [DOCUMENTATION_PLAN](DOCUMENTATION_PLAN.md);
 plan: [BASE_0_13_IMPLEMENTATION_PLAN](BASE_0_13_IMPLEMENTATION_PLAN.md).
 
@@ -653,6 +664,8 @@ reads data, and a steward and a model administrator do their daily work.
   and published as a static site, with search, in light and dark, and passes the accessibility gate.
 
 ## Product release 0.14 — Management API reference and UI refinements
+
+**Released 2026-11-13** in 0.17.0, together with 0.17 (one build acceptance R, recorded in [the 0.17 plan](BASE_0_17_IMPLEMENTATION_PLAN.md#r-record-2026-11-12-and-2026-11-13-together-with-014)).
 
 _Created 2026-10-10 by the user_ for the work left open when 0.9 closes. Planned before 1.0 for now;
 expected to move after 1.0 later. The documentation release 0.13 is planned in
@@ -752,6 +765,8 @@ provider, and nothing writes live data without a person.
 - Every summary statement cites a fact that exists; a failing provider never fails a deterministic result.
 
 ## Product release 0.17 — The plain path
+
+**Released 2026-11-13** as 0.17.0, together with 0.14, after build acceptance R in [its plan](BASE_0_17_IMPLEMENTATION_PLAN.md#r-record-2026-11-12-and-2026-11-13-together-with-014).
 
 _Approved 2026-10-31 by the user_, straight after 0.16. Plan: [BASE_0_17_IMPLEMENTATION_PLAN](BASE_0_17_IMPLEMENTATION_PLAN.md),
 with the findings and principles in [PLAIN_PATH_PLAN](PLAIN_PATH_PLAN.md).
