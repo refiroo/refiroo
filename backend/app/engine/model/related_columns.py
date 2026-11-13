@@ -86,6 +86,18 @@ def related_column(model: EngineModel, object_type_key: str, key: str) -> Relate
     return RelatedColumn(key, relation_type.key, direction, bindings)
 
 
+def narrow_to(column: RelatedColumn, far_type_key: str) -> RelatedColumn:
+    """The column over its bindings whose far end is ``far_type_key`` alone (a view that names the
+    target type, as a mapping grid does); the column unchanged when no binding reaches that type."""
+    end = "toObjectTypeKey" if column.direction == "outgoing" else "fromObjectTypeKey"
+    bindings = tuple(item for item in column.bindings if getattr(item, end) == far_type_key)
+    if not bindings:
+        return column
+    return RelatedColumn(
+        column.key, column.relation_type_key, column.direction, bindings, column.field
+    )
+
+
 def related_field_column(model: EngineModel, object_type_key: str, text: str) -> RelatedColumn:
     """What ``text`` (``<key>`` or ``<key>.<field>``, the part after ``related:``) shows for records
     of ``object_type_key``: the relation, and the field when it names one (D148).
@@ -117,7 +129,9 @@ def related_field_column(model: EngineModel, object_type_key: str, text: str) ->
     if attribute is not None and attribute.valueType == "json":
         raise RelatedKeyError(f"'{field}' holds JSON, which a column cannot show")
     return RelatedColumn(
-        column.key, column.relation_type_key, column.direction, column.bindings,
+        column.key,
+        column.relation_type_key,
+        column.direction,
+        column.bindings,
         None if field == "name" else field,
     )
-

@@ -42,7 +42,7 @@ from openpyxl import load_workbook
 path, edited = sys.argv[1], sys.argv[2]
 book = load_workbook(path)
 main, sheet = book.worksheets[0], book.worksheets[2]
-lists = [item.title for item in book.worksheets if item.title.startswith("List · ")]
+lists = [item.title for item in book.worksheets if item.title.startswith("List - ")]
 header = [cell.value for cell in main[1]]
 hidden = [cell.value for cell in main[1] if main.column_dimensions[cell.column_letter].hidden]
 rows = [[cell.value for cell in row] for row in main.iter_rows(min_row=2)]

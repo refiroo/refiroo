@@ -6,6 +6,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- **A view with an `ancestor:<type>` column can be exported for editing**: a mapping grid or table that shows the ancestor of a record (for example a system value's system) was refused with "is no column a table can show". The column is for reading (marked not imported), holds the name of the record's ancestor of that type as the path names it, is read in PostgreSQL with the rest of the sheet, and the file imports back unchanged.
+- **A tree, type, application or workspace workbook offers drop-down lists again**: the sheet-per-type workbooks had none. A parent column and every relationship column holding one record now offer the records they may choose, from list sheets shared per type and rule as in a people workbook; a parent found by its hidden ID stays as it was. A column that may hold several records offers the list too, as a soft one (pick one, or type several separated as the cell lists them, as a link matrix's cells do). A column made read-only because its records' names clash writes no list sheet.
+- **A mapping grid's export edits its mapping**: the mapped column covered every type the relationship reaches, so it was read-only with no list. It now covers the grid's target type alone: editable, with a list of that type's records, and an import replaces only the mappings to that type (mappings of the same relationship to other types stay).
+- **Lists open as pop-up menus in Numbers again**: list sheets were named "List · …", and Numbers makes no pop-up menu of a list on a sheet whose name holds "·" (checked in Numbers itself; Excel read them). They are named "List - …" now; a file exported before still imports.
+- **A table's main sheet edits a relationship holding one record, with its list**: the Export dialog gave every relationship the table shows a sheet of its own, which made its main-sheet column read-only. It now gives a sheet only to a relationship that needs one (holding several records, carrying its own fields, or shown by a field other than the name); Advanced still adds any.
+- **A relationships table offers lists**, for both records of a row, and every relationship sheet's first column (the row's own record) offers the records it may name.
+- **Yes/No values of a relationship import back**: a relationship sheet's or a relationships grid's Yes and No were refused as "must be boolean". A profile's relationship value takes `valueMap` (`relation.attributes[].valueMap`) as a column does, checked like it, and the exports name the Yes/No map.
+- **A name several records share imports back unchanged**: in a link matrix, a cell naming one of several same-named records of its column was refused as ambiguous. A value several records match now means the ones the row is already related to by the link's relationship (in turn, for a name listed more than once), found in the same set statements; a name matching none of the row's records stays ambiguous.
+- **A relationship stored with an empty value is unchanged by a file that leaves the cell empty**: a value stored as null and a value left out are the same, so an unchanged file no longer updates such relationships.
+- **Every workbook for people says the same about its lists**: the About sheet's "How it loads back" names "Choose a record" and "List sheets" wherever cells offer lists, and "Editing in Numbers" gives the steps to type other values (Format, Cell, Data Format: Automatic) or add a choice, shared with the link matrix.
+
 ### Changed
 
 - **A record page's Details stays open for every record**: once opened (ID and version), it is open on the next record too, until it is closed again; the choice is kept per browser. Frontend only; no API change.

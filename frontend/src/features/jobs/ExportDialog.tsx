@@ -43,6 +43,7 @@ import {
   peopleLayout,
   relationFields,
   relationKeyOf,
+  needsSheet,
   sheetRelationships,
   ownedType,
   type ExportField,
@@ -131,13 +132,18 @@ export function ExportDialog({
   ]);
   const [fields, setFields] = useState<Record<string, string>>({});
   const relationships = useMemo(() => (people ? sheetRelationships(model, people) : []), [model, people]);
-  // By default the relationships the table shows as columns get a sheet of their own (D182).
+  // By default the relationships the table shows as columns get a sheet of their own (D182), but for
+  // a column that edits its relationships on the main sheet (one related record, by name, no fields).
   const [sheets, setSheets] = useState<string[]>(() =>
     relationships
       .map((item) => item.key)
       .filter((key) =>
         (start.columns?.shown ?? []).some(
-          (column) => column.startsWith(RELATED_FIELD_PREFIX) && relationKeyOf(model, column) === key,
+          (column) =>
+            column.startsWith(RELATED_FIELD_PREFIX) &&
+            relationKeyOf(model, column) === key &&
+            people !== undefined &&
+            needsSheet(model, people, column),
         ),
       ),
   );

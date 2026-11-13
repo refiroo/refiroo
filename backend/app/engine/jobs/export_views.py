@@ -143,11 +143,14 @@ def mapping_columns(model: EngineModel, definition: MappingGridViewDefinition) -
         None,
     )
     mapped = f"related:{key}"
-    return PeopleLayout(
+    layout = PeopleLayout(
         columns=[*dict.fromkeys(config.sourceColumns), mapped],
         columnFields={mapped: chosen} if chosen else {},
         referenceLists=[key],
     )
+    # The grid maps to one type: the column edits the relationships to it, and lists its records.
+    layout._targets = {mapped: target}
+    return layout
 
 
 def effective_request(

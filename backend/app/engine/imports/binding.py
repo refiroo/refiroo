@@ -158,6 +158,12 @@ _TEMPORARY_TABLES = (
         " value text, object_id text) ON COMMIT DROP"
     ),
     "CREATE INDEX ON import_scope_values (scope, field, value)",
+    # The records each match found, kept where it found several: a row already related to some of
+    # them by the link's relationship means those (an unchanged cell names its own links).
+    (
+        "CREATE TEMPORARY TABLE import_match_candidates (match_id integer, object_id text)"
+        " ON COMMIT DROP"
+    ),
     "CREATE TEMPORARY TABLE import_fields (scope text, field text, rank integer) ON COMMIT DROP",
     # The rows of a value sheet (PP-D27) with each field a link cell may name them by: a main-sheet
     # value naming one is that record, whether its row updates a record or creates a new one.
@@ -1330,6 +1336,16 @@ class _ProfileBinding:
                 return (None if is_empty(mapped) else mapped), True
         return raw, False
 
+    def _mapped(self, value_map: str | None, raw: Any) -> Any:
+        """A relationship value's cell through its value map, as :meth:`_raw` reads a column's."""
+        if value_map is None or raw is None:
+            return raw
+        mapping = self.profile.valueMaps[value_map]
+        key = cell_text(raw)
+        if key not in mapping:
+            return raw
+        return None if is_empty(mapping[key]) else mapping[key]
+
     def _value(self, attribute_type_key: str, raw: Any, column_name: str) -> Any:
         try:
             return attribute_value(self.model.attribute_type(attribute_type_key), raw)
@@ -1420,7 +1436,7 @@ class _ProfileBinding:
                         self.report.cell(
                             plan.order, value.column, "attributeTypeKey", value.attributeTypeKey
                         ),
-                        _cell(plan.columns, cells, value.column),
+                        self._mapped(value.valueMap, _cell(plan.columns, cells, value.column)),
                         False,
                         lambda raw, value=value: self._value(
                             value.attributeTypeKey, raw, value.column
@@ -2769,11 +2785,16 @@ class _ProfileBinding:
                     AND v.value = m.value #>> '{}'
                     AND (v.field = m.attr OR (m.attr = '@label' AND v.field = 'name'))),
             counted AS (
-                SELECT match_id, count(*) AS n, min(object_id) AS one FROM candidates GROUP BY match_id)
+                SELECT match_id, count(*) AS n, min(object_id) AS one FROM candidates GROUP BY match_id),
+            kept AS (
+                INSERT INTO import_match_candidates (match_id, object_id)
+                SELECT a.match_id, a.object_id FROM candidates a
+                JOIN counted c ON c.match_id = a.match_id AND c.n > 1)
             UPDATE import_matches m SET candidates = c.n, resolved = CASE WHEN c.n = 1 THEN c.one END
             FROM counted c WHERE c.match_id = m.match_id
             """
         )
+        self._sql("ANALYZE import_match_candidates")
         # A name no record has, in a column that creates what it names, is a new record (D77).
         self._sql(
             """
@@ -2797,6 +2818,36 @@ class _ProfileBinding:
             f"""
             UPDATE import_links l SET target_id = m.resolved, candidates = m.candidates
             FROM import_matches m WHERE {joined.format(s="l.match")}
+            """
+        )
+        # A value several records match, in a row whose record is already related to some of them by
+        # the link's relationship: those records, in turn for a value the cell names more than once
+        # (two linked records sharing a name and every field are still each one). A value that matches
+        # none of the row's records stays ambiguous.
+        self._sql(
+            f"""
+            WITH ends AS (
+                SELECT relation_type_key, 'outgoing' AS direction, from_id AS near, to_id AS far
+                FROM import_context_relations
+                UNION ALL
+                SELECT relation_type_key, 'incoming', to_id, from_id FROM import_context_relations),
+            ambiguous AS (
+                SELECT l.row_id, l.link_no, r.record_id, l.relation_type_key, l.direction,
+                    m.match_id,
+                    row_number() OVER (PARTITION BY l.row_id, m.match_id ORDER BY l.link_no) AS turn
+                FROM import_links l
+                JOIN import_rows r ON r.row_id = l.row_id AND r.existing AND r.error IS NULL
+                JOIN import_matches m ON {joined.format(s="l.match")}
+                WHERE l.candidates > 1),
+            linked AS (
+                SELECT a.row_id, a.link_no, a.turn, k.object_id,
+                    row_number() OVER (PARTITION BY a.row_id, a.link_no ORDER BY k.object_id) AS turn_of
+                FROM ambiguous a
+                JOIN import_match_candidates k ON k.match_id = a.match_id
+                JOIN ends x ON x.relation_type_key = a.relation_type_key
+                    AND x.direction = a.direction AND x.near = a.record_id AND x.far = k.object_id)
+            UPDATE import_links l SET target_id = k.object_id, candidates = 1
+            FROM linked k WHERE k.row_id = l.row_id AND k.link_no = l.link_no AND k.turn_of = k.turn
             """
         )
         self._sql(

@@ -336,7 +336,9 @@ class _Batch:
         own_links: bool = False,
     ) -> None:
         self.writer = (
-            _ChangeSetItems(session, context) if context.change_set else _LiveItems(session, context)
+            _ChangeSetItems(session, context)
+            if context.change_set
+            else _LiveItems(session, context)
         )
         self.writer.counterparts = other_workspace_ids == "counterparts"
         self.items = items
@@ -356,7 +358,9 @@ class _Batch:
         outcomes: list[ItemOutcome] = []
         for segment in _segments(self.items):
             deletes = isinstance(segment[0][1], BatchDeleteItem)
-            go_on = self._deletes(segment, outcomes) if deletes else self._together(segment, outcomes)
+            go_on = (
+                self._deletes(segment, outcomes) if deletes else self._together(segment, outcomes)
+            )
             if not go_on:
                 break
         return outcomes
@@ -394,7 +398,7 @@ class _Batch:
             try:
                 with self.session.begin_nested():
                     self.writer.write()
-            except (IntegrityError, DuplicateValueWritten):
+            except IntegrityError, DuplicateValueWritten:
                 # A row the rules did not foresee (PG-D15), or a unique value written past them
                 # (J2a): each item again as a batch of one.
                 return self._one_by_one(segment, outcomes)
@@ -472,7 +476,10 @@ class _Batch:
         # A record this job deleted already, with an earlier item's impact (D122).
         gone = deleted_by_job(self.session, self.job_id, sorted(set(missing.values())))
         if gone:
-            earlier = {**applied_deletions(self.session, self.job_id, set(gone.values())), **self.deleting}
+            earlier = {
+                **applied_deletions(self.session, self.job_id, set(gone.values())),
+                **self.deleting,
+            }
             for index, object_id in missing.items():
                 owner = earlier.get(gone.get(object_id, ""))
                 if owner is not None and owner < index:
@@ -498,7 +505,8 @@ class _Batch:
                 or (self.file_rows and (item.ref or "").startswith(MISSING_REF)),
             )
             for index, item in segment
-            if index in found and not (atomic and first_refused is not None and index > first_refused)
+            if index in found
+            and not (atomic and first_refused is not None and index > first_refused)
         ]
         results = {
             result.item: result
@@ -525,7 +533,10 @@ class _Batch:
             else:
                 self.deleting[object_id] = result.item
                 decided[result.item] = ItemOutcome(
-                    result.item, item.ref, "applied", {"action": "deleted", **identity, "impact": result.impact}
+                    result.item,
+                    item.ref,
+                    "applied",
+                    {"action": "deleted", **identity, "impact": result.impact},
                 )
         for index, _item in segment:
             if index not in decided:
@@ -622,7 +633,10 @@ class _Batch:
         single delete's step, with its refusals; ``unchanged`` when none joins them."""
         lookup, model = self.writer.lookup, self.writer.model
         rules.relation_binding(
-            model, item.relationTypeKey, source.object_type_key, target.object_type_key,
+            model,
+            item.relationTypeKey,
+            source.object_type_key,
+            target.object_type_key,
             lookup.refusals,
         )
         if existing is None:
@@ -718,7 +732,9 @@ class _Batch:
                 lookup.refusals,
             )
             wanted = rules.relation_attributes(model, binding, item.attributes)
-        if item.attributes is None or wanted == dict(existing.attributes or {}):
+        # A value stored as null and a value left out are the same: no value (a relationship written
+        # with an explicit null is unchanged by a file that leaves the cell empty).
+        if item.attributes is None or _held(wanted) == _held(existing.attributes):
             return {"action": "unchanged", **identity, "version": existing.version}
         expected, audit = self._claim(item.expectedVersion if claimed else None), {}
         if expected is None:
@@ -1134,7 +1150,11 @@ class _Items:
                             self.model,
                             type_key,
                             criteria,
-                            [record.object_id for record in named if record.object_type_key == type_key],
+                            [
+                                record.object_id
+                                for record in named
+                                if record.object_type_key == type_key
+                            ],
                         )
         lookup.prefetch_relation_ids(
             str(item.id)
@@ -1251,7 +1271,10 @@ class _LiveItems(_Items):
 
     def version_conflict(self, record: Any) -> ApiError:
         return api_error(
-            409, "VERSION_CONFLICT", "Object version has changed", {"currentVersion": record.version}
+            409,
+            "VERSION_CONFLICT",
+            "Object version has changed",
+            {"currentVersion": record.version},
         )
 
     def write(self) -> None:
@@ -1491,3 +1514,8 @@ def _error(index: int, error: ApiError) -> dict[str, Any]:
         field = _POINTERS.get(error.code)
         details["pointer"] = f"/items/{index}/{field}" if field else f"/items/{index}"
     return {"code": error.code, "message": error.message, "details": details}
+
+
+def _held(values: dict[str, Any] | None) -> dict[str, Any]:
+    """The values a relationship holds: those that are not null."""
+    return {key: value for key, value in (values or {}).items() if value is not None}

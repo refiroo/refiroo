@@ -117,9 +117,18 @@ def test_a_type_exported_for_editing_has_a_sheet_per_type_and_imports_back_uncha
     assert job["output"]["sheets"] == [
         item for item in book.sheetnames if item not in (ABOUT, PROFILE_SHEET)
     ]
-    assert len(job["output"]["sheets"]) == 2
+    assert [t for t in job["output"]["sheets"] if not t.startswith("List - ")] == [
+        "Hs",
+        "Ks",
+    ]
     about = _about(book)
-    assert list(about) == ["What was exported", "What it holds", "How it loads back"]
+    assert list(about) == [
+        "What was exported",
+        "What it holds",
+        "How it loads back",
+        "Editing in Numbers",
+    ]
+    assert {"Choose a record", "List sheets"} <= set(about["How it loads back"])
     assert about["What was exported"]["Workspace"] == ws
     assert about["What was exported"]["Read from"] == "Live data"
     print(
@@ -735,7 +744,7 @@ def test_a_matrix_that_links_and_creates_makes_a_new_name_where_the_column_alrea
     containers = next(rows for heading, rows in about.items() if "go into" in heading)
     assert list(containers) == ["Place"]
     numbers = about["Editing in Numbers"]
-    assert "Automatic" in str(numbers["To type new names"])
+    assert "Automatic" in str(numbers["To type other values"])
     sheet = book.worksheets[0]
     header = [cell.value for cell in sheet[2]]
     first = next(n for n, v in enumerate(header, 1) if v and "Hall one" in str(v))
@@ -800,7 +809,7 @@ def test_a_tree_is_a_sheet_per_type_and_a_parent_two_records_share_a_name_is_fou
         "format": "xlsx",
     }
     job, book, content = _export(world, W1, body)
-    assert len(job["output"]["sheets"]) == 2
+    assert [t for t in job["output"]["sheets"] if not t.startswith("List - ")] == ["Ps", "Cs"]
     sheets = {sheet.title: sheet for sheet in book.worksheets}
     child_sheet = next(
         sheet
@@ -827,6 +836,142 @@ def test_a_tree_is_a_sheet_per_type_and_a_parent_two_records_share_a_name_is_fou
     ok(world.api.post(f"/jobs/{preview['id']}/confirm", {}), 202)
     world.api.client.app.state.job_worker.run_until_idle()
     assert world.record("C", moving["id"], workspaceKey=W1)["parentObjectId"] == twin_two["id"]
+
+
+@pytest.mark.journey("J27.23")
+@pytest.mark.structures(*RELATIONSHIPS, "P")
+def test_a_mapping_grid_edits_its_target_type_alone_and_offers_its_records(world):
+    """Given a relationship H→K that is also bound H→P, and a mapping grid over its H→K part. When
+    the grid is exported. Then the mapped column is editable, offers the K records as a list a cell
+    of several may still be typed into, imports back unchanged, and an edited cell changes the H→K
+    mappings while the H→P one stays."""
+    import copy
+
+    model = copy.deepcopy(world.configuration.model)
+    model["release"]["version"] = f"{model['release']['version']}-narrow"
+    model["objectTypeRelations"].append(
+        {
+            "relationTypeKey": world.key("Bnn"),
+            "fromObjectTypeKey": world.key("H"),
+            "toObjectTypeKey": world.key("P"),
+            "cardinality": "many-to-many",
+        }
+    )
+    ok(world.activate(world.install(model)["id"]))
+    _, second, _ = _relationship_scene(world, W1)
+    hall = world.made("P", "North hall")
+    ok(world.relate("Bnn", second["id"], hall["id"]), 201)
+
+    _, book, content = _export(world, W1, _view(world, "Vnn"))
+    sheet = book.worksheets[0]
+    header = [cell.value for cell in sheet[1]]
+    mapped = next(n for n, label in enumerate(header, 1) if "forward" in str(label))
+    assert "(not imported)" not in str(header[mapped - 1]), header
+    letter = sheet.cell(1, mapped).column_letter
+    rule = next(r for r in sheet.data_validations.dataValidation if f"{letter}2" in str(r.sqref))
+    assert rule.errorStyle == "warning"
+    listed = book[rule.formula1.split("!")[0].strip("'")]
+    names = {row[0] for row in listed.iter_rows(min_row=2, values_only=True)}
+    assert {"Alpha token", "Beta token", "Gamma token"} <= names and "North hall" not in names
+    rows = {sheet.cell(n, 1).value: n for n in range(2, sheet.max_row + 1)}
+    assert sheet.cell(rows["Second branch"], mapped).value == "Gamma token"
+    preview = _import(world, W1, content)
+    assert {(i["status"], i.get("action")) for i in _outcomes(world, preview)} == {
+        ("applied", "unchanged")
+    }
+
+    sheet.cell(rows["Second branch"], mapped).value = "Alpha token"
+    preview = _import(world, W1, _saved(book))
+    rejected = [i for i in _outcomes(world, preview) if i["status"] == "rejected"]
+    assert not rejected, rejected
+    ok(world.api.post(f"/jobs/{preview['id']}/confirm", {}), 202)
+    world.api.client.app.state.job_worker.run_until_idle()
+    held = ok(
+        world.api.get(
+            "/relations",
+            objectId=second["id"],
+            relationTypeKey=world.key("Bnn"),
+            workspaceKey=W1,
+            pageSize=100,
+        )
+    )["items"]
+    assert {item["object"]["name"] for item in held} == {"Alpha token", "North hall"}
+
+
+def _validation_ranges(sheet):
+    """The cells each list rule of the sheet covers."""
+    return [str(rule.sqref) for rule in sheet.data_validations.dataValidation]
+
+
+@pytest.mark.journey("J27.23")
+@pytest.mark.structures(*ROOMS)
+def test_a_tree_workbook_offers_its_parents_as_a_list_and_a_table_shows_the_ancestor(world):
+    """Given a tree of P above C with P records of different names. When the tree is exported for
+    editing, and C's table is exported with an ancestor column. Then C's parent column offers the P
+    records as a list, the ancestor column is for reading and holds the name of the P above each C,
+    and both files import back unchanged."""
+    import copy
+
+    model = copy.deepcopy(world.configuration.model)
+    model["release"]["version"] = f"{model['release']['version']}-lists"
+    application = next(a for a in model["applications"] if a["key"] == world.key("A1"))
+    application["views"].append(
+        {
+            "key": "x-lists",
+            "name": "Rooms lists",
+            "type": "tree",
+            "config": {
+                "rootObjectTypeKeys": [world.key("P")],
+                "objectTypeKeys": [world.key("P"), world.key("C")],
+                "labelField": "name",
+                "pageSize": 20,
+            },
+        }
+    )
+    ok(world.activate(world.install(model)["id"]))
+    north, south = world.made("P", "North hall"), world.made("P", "South hall")
+    world.made("C", "Room 1", parent=north["id"], values={"H.code": "R1"})
+    world.made("C", "Room 2", parent=south["id"], values={"H.code": "R2"})
+    _, book, content = _export(
+        world,
+        W1,
+        {
+            "view": {"applicationKey": world.key("A1"), "viewKey": "x-lists", "state": {}},
+            "format": "xlsx",
+        },
+    )
+    child = next(
+        sheet
+        for sheet in book.worksheets
+        if "Room 1" in str([c.value for r in sheet.iter_rows() for c in r])
+    )
+    header = [cell.value for cell in child[1]]
+    parent_column = next(n for n, label in enumerate(header, 1) if str(label).startswith("Parent"))
+    letter = child.cell(1, parent_column).column_letter
+    assert any(f"{letter}2" in rule for rule in _validation_ranges(child)), header
+    preview = _import(world, W1, content)
+    assert preview["state"] == "awaiting_confirmation", preview["error"]
+    assert {(i["status"], i.get("action")) for i in _outcomes(world, preview)} == {
+        ("applied", "unchanged")
+    }
+
+    _, book, content = _export(
+        world,
+        W1,
+        _view(world, f"{world.key('C')}--list", columns=["name", f"ancestor:{world.key('P')}"]),
+    )
+    sheet = book.worksheets[0]
+    header = [cell.value for cell in sheet[1]]
+    assert header[0] == "Name" and "(not imported)" in str(header[1]), header
+    assert {sheet.cell(n, 1).value: sheet.cell(n, 2).value for n in (2, 3)} == {
+        "Room 1": "North hall",
+        "Room 2": "South hall",
+    }
+    preview = _import(world, W1, content)
+    assert preview["state"] == "awaiting_confirmation", preview["error"]
+    assert {(i["status"], i.get("action")) for i in _outcomes(world, preview)} == {
+        ("applied", "unchanged")
+    }
 
 
 # --- where a new cell goes, and which field the cells list (0.17 PP-D24 to PP-D26) -----------------

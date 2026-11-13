@@ -8,7 +8,7 @@ model and is checked by ``engine/jobs/exports.py`` through the model query's own
 
 from typing import Literal
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .queries import QueryContext, QueryCriterion
 
@@ -110,6 +110,9 @@ class PeopleLayout(BaseModel):
             " relationship the workbook names when omitted (0.9 J6a, D196, D197)"
         ),
     )
+    # Not part of the API: the one far type a ``related:<key>`` column covers, where the view the
+    # export names says it (a mapping grid's target type); the column then edits that part alone.
+    _targets: dict[str, str] = PrivateAttr(default_factory=dict)
 
 
 MatrixCellState = Literal["one", "several", "inactive", "historyOnly", "none"]

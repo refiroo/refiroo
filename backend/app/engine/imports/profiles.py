@@ -248,6 +248,15 @@ def _source_problems(
                     f"Value map '{binding.valueMap}' is not defined",
                 )
             )
+        for position, value in enumerate(binding.relation.attributes if binding.relation else ()):
+            if value.valueMap is not None and value.valueMap not in profile.valueMaps:
+                problems.append(
+                    Problem(
+                        f"{at}/relation/attributes/{position}/valueMap",
+                        "UNKNOWN_VALUE_MAP",
+                        f"Value map '{value.valueMap}' is not defined",
+                    )
+                )
         parent_map = (
             binding.relatedRecord.parent.valueMap
             if binding.relatedRecord and binding.relatedRecord.parent

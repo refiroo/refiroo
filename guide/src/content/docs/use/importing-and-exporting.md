@@ -136,8 +136,14 @@ readable labels and typed cells. **Advanced: columns and sheets** changes the co
 order, which field a relationship column shows and which relationships get separate sheets.
 Related records are exported in full, even where the browser showed only a few chips.
 Record identity and versions are held in hidden columns. Keep those columns and the workbook's
-saved import information when editing. Cells choosing a single record offer dropdowns from
-sheets of eligible records.
+saved import information when editing. Cells naming a record offer dropdowns from the
+**List - …** sheets of eligible records, on the main sheet and on relationship sheets alike (both
+records of a relationship row). A cell that may name several records offers the list too; type
+the others separated by `;` past Excel's warning. By default only relationships that need one get
+a sheet of their own: one holding several records, carrying its own fields, or shown by a field
+other than the name. A relationship holding one record is edited in its main-sheet column.
+Numbers shows each list as a pop-up menu that takes only its items; the file's **About this
+export** says how to set the cells to Automatic to type other values.
 
 Columns marked **(not imported)** are for reading. A table relationship column that owns its
 records is read-only; edit those records on their own sheet or in refiroo. An ambiguous or overlong relationship cell

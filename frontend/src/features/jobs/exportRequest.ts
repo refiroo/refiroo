@@ -4,7 +4,7 @@
  * the field (D19); the search is not carried, since the query has no full-text search (D60).
  */
 
-import { RELATED_FIELD_PREFIX, relatedColumn, relatedTargetTypes } from "@/model/lookup";
+import { holdsOne, RELATED_FIELD_PREFIX, relatedColumn, relatedTargetTypes } from "@/model/lookup";
 import type {
   ApplicationDefinition,
   CollectionFilter,
@@ -140,6 +140,29 @@ export function sheetRelationships(model: EngineModel, objectTypeKey: string): {
     key,
     label: relatedColumn(model, `${RELATED_FIELD_PREFIX}${key}`)?.name ?? key,
   }));
+}
+
+/**
+ * Whether a table's `related:` column needs a sheet of its own to edit its relationships: it does
+ * unless it shows the related record by name, each record holds at most one such relationship and
+ * the relationship carries no fields of its own. Such a column edits them on the main sheet, with
+ * the list to choose from.
+ */
+export function needsSheet(model: EngineModel, objectTypeKey: string, column: string): boolean {
+  const related = relatedColumn(model, column);
+  if (!related) return false;
+  if (related.field) return true;
+  const outgoing = related.direction === "outgoing";
+  const bindings = model.objectTypeRelations.filter(
+    (binding) =>
+      binding.relationTypeKey === related.relationTypeKey &&
+      (outgoing ? binding.fromObjectTypeKey : binding.toObjectTypeKey) === objectTypeKey,
+  );
+  return (
+    bindings.length !== 1 ||
+    !holdsOne(bindings[0], outgoing ? "from" : "to") ||
+    (bindings[0].attributeTypeKeys?.length ?? 0) > 0
+  );
 }
 
 /** The relation key a `related:` column reads (its key or reverse key, without a field). */

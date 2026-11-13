@@ -55,6 +55,10 @@ class RelationValue(BaseModel):
 
     column: str = Field(min_length=1)
     attributeTypeKey: str
+    valueMap: str | None = Field(
+        default=None,
+        description="A value map of the profile the cell goes through first, as a column's does",
+    )
 
 
 class ContainerRecord(BaseModel):

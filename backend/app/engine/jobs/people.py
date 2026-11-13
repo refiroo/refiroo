@@ -63,10 +63,11 @@ from ..model.related_columns import (
     RELATED_FIELD_PREFIX,
     RelatedColumn,
     RelatedKeyError,
+    narrow_to,
     related_column,
     related_field_column,
 )
-from ..model.traversal import parent_type_keys
+from ..model.traversal import ancestor_type_keys, parent_type_keys
 from ..reads.context_sets import record_source, relation_source
 from ..reads.model_query import candidate_ids
 from ..reads.snapshot_reads import SnapshotContext
@@ -76,6 +77,7 @@ LAYOUT = "people"
 SUMMARY = "(not imported)"
 # A people column that shows a record's parent: ``parent:<type key>``.
 PARENT_PREFIX = "parent:"
+ANCESTOR_PREFIX = "ancestor:"
 SPLIT = "; "
 ID_LABEL = "Record ID"
 VERSION_LABEL = "Record version"
@@ -122,7 +124,7 @@ class MainColumn:
 
     key: str
     label: str
-    kind: str  # name, attribute, builtin, related
+    kind: str  # name, attribute, builtin, related, parent, ancestor
     value_type: str = "text"
     editable: bool = True
     related: RelatedColumn | None = None
@@ -195,6 +197,45 @@ class ViewWritten:
     loads: list[tuple[str, str, str | None]]
     extra: list[tuple[str, list[tuple[str, str, str | None]]]] = field(default_factory=list)
     value_maps: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+# The About sheet's steps for typing in a list's cells in Numbers, which turns a cell list into a
+# pop-up menu taking only its items (PP-D27; Apple's Numbers guide, "Add checkboxes ... and other
+# controls"); every workbook whose cells offer lists of records says them.
+NUMBERS_STEPS: tuple[tuple[str, str, str | None], ...] = (
+    (
+        "Why",
+        (
+            "Numbers turns each list of a sheet into a pop-up menu, which takes only its items; in"
+            " Excel the list is a drop-down"
+        ),
+        None,
+    ),
+    (
+        "To type other values",
+        (
+            "Select the cells or the column, open Format (the paintbrush), Cell, and set Data"
+            " Format from Pop-Up Menu to Automatic; the values stay and the cells take any text,"
+            f" such as several names separated by '{SPLIT.strip()}'"
+        ),
+        None,
+    ),
+    (
+        "Or add one choice",
+        "With the cells selected, under Data Format, Pop-Up Menu, click + and type the new name",
+        None,
+    ),
+)
+
+
+# The About sheet's lines on lists, the same in every workbook for people.
+CHOOSE_A_RECORD = "Choose a record"
+CHOOSE_A_RECORD_TEXT = (
+    "A cell naming a record offers a drop-down of the records it may name (a pop-up menu in"
+    " Numbers); a typed name is checked on import. A cell that may name several records takes"
+    f" them separated by '{SPLIT.strip()}', after a warning in Excel."
+)
+LIST_SHEETS_TEXT = "The records each drop-down offers, with their path, for reading; not imported."
 
 
 @dataclass(frozen=True)
@@ -388,6 +429,8 @@ def plan_type(
                     if column.field is not None or column.key != text_:
                         raise RelatedKeyError(f"Column '{key}' shows a field already")
                     column = related_field_column(model, type_key, f"{text_}.{chosen}")
+                if people is not None and key in people._targets:
+                    column = narrow_to(column, people._targets[key])
             except RelatedKeyError as error:
                 path = f"/people/columnFields/{key}" if chosen is not None else at
                 raise invalid_layout(str(error), path) from None
@@ -409,14 +452,21 @@ def plan_type(
                     hue=parent.key,
                 )
             )
+        elif key.startswith(ANCESTOR_PREFIX) and key.removeprefix(ANCESTOR_PREFIX) in (
+            ancestor_type_keys(model, type_key)
+        ):
+            ancestor = model.object_type(key.removeprefix(ANCESTOR_PREFIX))
+            columns.append(
+                MainColumn(key, ancestor.name, "ancestor", editable=False, hue=ancestor.key)
+            )
         else:
             raise invalid_layout(
                 f"'{key}' is no column a table of '{type_key}' can show: name, id, path, createdAt,"
-                " updatedAt, an attribute the type binds or related:<key>[.<field>]",
+                " updatedAt, an attribute the type binds, related:<key>[.<field>], parent:<type>"
+                " or ancestor:<type> of a type the record can sit under",
                 at,
             )
-    # A sheet per type offers no lists: a workbook of a whole application stays what its types hold.
-    lists = frozenset() if people is None and sheet_types else None
+    lists = None
     if people is not None and people.referenceLists is not None:
         named = {column.related.key for column in columns if column.related is not None}
         named |= {sheet.key for sheet in sheets}
@@ -677,6 +727,8 @@ class CellSpec:
     hidden: bool = False
     header: int = 0
     list_: str | None = None
+    # A cell holding several records: its list warns on typed text instead of refusing it.
+    soft: bool = False
 
 
 @dataclass
@@ -726,13 +778,15 @@ def write_people(
         fill_links(session, number, column.related, workspace_key, context, plan.object_type_key)
     for plan, sheet, number in sheets:
         fill_links(session, number, sheet.related, workspace_key, context, plan.object_type_key)
-    lists = _list_specs(model, plans)
-    _fill_choices(session, model, plans, lists, workspace_key, context)
+    # A view with sheets of its own (a relationships table) offers lists as a type's sheets do.
+    listing = [*plans, *(getattr(workbook.view, "list_plans", lambda: ())())]
+    lists = _list_specs(model, listing)
+    _fill_choices(session, model, listing, lists, workspace_key, context)
     parents = {
         (plan.object_type_key, column.key)
         for plan in plans
         for column in plan.columns
-        if column.kind == "parent"
+        if column.kind in ("parent", "ancestor")
     }
     if parents:
         # A parent column names the record's parent: those records are read with the far records.
@@ -808,6 +862,16 @@ def write_people(
     # The reader finds the profile by this title, so no data sheet takes it.
     book.titles.add(PROFILE_SHEET.lower())
     writer = SheetWriter(session, connection, book, model, workspace_key, context)
+    # A main column made read-only above (a summary, names that clash) offers no list: a list only
+    # its read-only columns would use is not written.
+    editable = {
+        (type_key, column.key)
+        for type_key, found in columns.items()
+        for column in found
+        if column.editable
+    }
+    for spec in lists:
+        spec.uses = [where for where in spec.uses if where[0] != "main" or where[1:] in editable]
     writer.rules = _reserve_lists(session, model, book, lists)
     profile_sources: list[dict[str, Any]] = []
     value_maps: dict[str, dict[str, Any]] = {YES_NO: {"Yes": True, "No": False}}
@@ -898,6 +962,16 @@ def write_people(
         ensure_ascii=False,
         separators=(",", ":"),
     )
+    # Lists of records: how to choose and what the list sheets are, and how to type in Numbers; the
+    # same words in every workbook for people (a link matrix says its own choose line).
+    if writer.rules:
+        said = {label for label, _, _ in loads}
+        if "Choose a record" not in said:
+            loads.append((CHOOSE_A_RECORD, CHOOSE_A_RECORD_TEXT, None))
+        if any(spec.title is not None for spec in lists):
+            loads.append(("List sheets", LIST_SHEETS_TEXT, None))
+        if not any(heading == "Editing in Numbers" for heading, _ in extra):
+            extra.append(("Editing in Numbers", list(NUMBERS_STEPS)))
     outcome = PeopleOutcome(titles, counts, relations, holds, loads, extra)
     title, what, sections = about(outcome)
     book.about(title, what, sections)
@@ -1207,11 +1281,21 @@ def _list_specs(model: EngineModel, plans: Sequence[PeoplePlan]) -> list[ListSpe
             return plan.lists is None or key in plan.lists
 
         for column in plan.columns:
+            if column.kind == "parent" and column.editable and plan.lists is None:
+                use(
+                    column.key.removeprefix(PARENT_PREFIX),
+                    (),
+                    None,
+                    None,
+                    ("main", type_key, column.key),
+                )
+                continue
             related = column.related
             if related is None or not column.editable or not offered(related.key):
                 continue
-            near = "from" if related.direction == "outgoing" else "to"
-            if len(related.bindings) == 1 and related.bindings[0].holds_one(near):
+            # A column holding several records offers the list too, as a soft one: pick one, or
+            # type several separated as the cell lists them (the matrix's link cells do the same).
+            if len(related.bindings) == 1:
                 use(
                     related.target_type_keys[0],
                     far_criteria(related),
@@ -1231,6 +1315,16 @@ def _list_specs(model: EngineModel, plans: Sequence[PeoplePlan]) -> list[ListSpe
                     relation_label(model, related),
                     ("sheet", type_key, sheet.key),
                 )
+                # The row's own record, named on a new row: the records that end may choose.
+                if len(related.bindings) == 1:
+                    near = "from" if related.direction == "outgoing" else "to"
+                    use(
+                        type_key,
+                        tuple(related.bindings[0].candidates_at(near)),
+                        None,
+                        relation_label(model, related),
+                        ("anchor", type_key, sheet.key),
+                    )
                 continue
             owned_key = related.target_type_keys[0]
             for parent in sorted(parent_type_keys(model, owned_key)):
@@ -1293,11 +1387,12 @@ def _reserve_lists(
     rules: dict[tuple[str, ...], str] = {}
     for number, spec in enumerate(specs):
         spec.count = counts.get(number, 0)
-        if not spec.count:
+        if not spec.count or not spec.uses:
             continue
         plural = model.object_type(spec.far).pluralName
         spec.title = book.reserve(
-            f"List · {plural}" + (f" · {spec.relation}" if spec.relation else "")
+            # Not "·": Numbers makes no pop-up menu of a list on a sheet whose name holds it.
+            f"List - {plural}" + (f" - {spec.relation}" if spec.relation else "")
         )
         quoted = spec.title.replace("'", "''")
         for where in spec.uses:
@@ -1454,6 +1549,24 @@ class SheetWriter:
                 cells.append(CellSpec(label, built_in(column.key), header=header))
                 bindings.append({"column": label, "ignore": True})
                 continue
+            if column.kind == "ancestor":
+                # The nearest the root of that type among the record's ancestors, as ``path`` names it.
+                cells.append(
+                    CellSpec(
+                        label,
+                        sql.SQL(
+                            "(SELECT a.name FROM (SELECT r.parent_object_id AS id, 0 AS level"
+                            " UNION ALL SELECT u.ancestor_id, u.level FROM people_ancestors u"
+                            " WHERE u.object_id = r.parent_object_id) up"
+                            " JOIN people_records a ON a.object_id = up.id"
+                            " WHERE a.object_type_key = {} ORDER BY up.level DESC LIMIT 1)"
+                        ).format(sql.Literal(column.key.removeprefix(ANCESTOR_PREFIX))),
+                        style=self.fill(column.hue),
+                        header=header,
+                    )
+                )
+                bindings.append({"column": label, "ignore": True})
+                continue
             if column.kind == "parent":
                 parent_key = column.key.removeprefix(PARENT_PREFIX)
                 held = sql.SQL(
@@ -1469,6 +1582,9 @@ class SheetWriter:
                         ).format(sql.Literal(parent_key)),
                         style=self.fill(column.hue),
                         header=header,
+                        list_=self.rules.get(("main", plan.object_type_key, column.key))
+                        if column.editable
+                        else None,
                     )
                 )
                 if column.editable:
@@ -1517,6 +1633,12 @@ class SheetWriter:
                     list_=self.rules.get(("main", plan.object_type_key, column.key))
                     if column.editable
                     else None,
+                    soft=not (
+                        len(column.related.bindings) == 1
+                        and column.related.bindings[0].holds_one(
+                            "from" if column.related.direction == "outgoing" else "to"
+                        )
+                    ),
                 )
             )
             if not column.editable:
@@ -1611,7 +1733,13 @@ class SheetWriter:
         shown = sheet_field(model, plan, sheet)
         cells = [
             CellSpec(
-                own_label, sql.SQL("r.name"), style=self.fill(plan.object_type_key), header=header
+                own_label,
+                sql.SQL("r.name"),
+                style=self.fill(plan.object_type_key),
+                header=header,
+                list_=self.rules.get(("anchor", plan.object_type_key, sheet.key))
+                if sheet.editable
+                else None,
             ),
             CellSpec(
                 far_label,
@@ -1647,7 +1775,10 @@ class SheetWriter:
                     list_='"Yes,No"' if value_type == "yesno" else None,
                 )
             )
-            values.append({"column": label, "attributeTypeKey": key})
+            values.append(
+                {"column": label, "attributeTypeKey": key}
+                | ({"valueMap": YES_NO} if value_type == "yesno" else {})
+            )
         ignored = []
         for type_key in () if sheet.title else far:
             display = model.object_type(type_key).displayAttributeTypeKey
@@ -2134,7 +2265,12 @@ class SheetWriter:
                     reserved=reserved,
                     groups=groups,
                     freeze_columns=freeze_columns,
-                    soft_lists=soft_lists,
+                    soft_lists=soft_lists
+                    | {
+                        letter
+                        for letter, cell in zip(letters, cells, strict=True)
+                        if cell.soft and cell.list_
+                    },
                     hidden_sheet=hidden_sheet,
                     table=table,
                 )

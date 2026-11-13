@@ -33,6 +33,7 @@ from .people import (
     HUES,
     ID_LABEL,
     SUMMARY,
+    YES_NO,
     CellSpec,
     Labels,
     PeoplePlan,
@@ -161,9 +162,12 @@ class RowsSheets(_Relationships):
             self.application(config.fromObjectTypeKey),
             (),
             (self.sheet,),
-            lists=frozenset(),
             main=False,
         )
+
+    def list_plans(self) -> tuple[PeoplePlan, ...]:
+        """The plan whose cells offer lists: both records of a row, as a relationship sheet does."""
+        return (self.plan,)
 
     def check(
         self,
@@ -411,7 +415,10 @@ class GridSheets(_Relationships):
                         list_='"Yes,No"' if value_type == "yesno" else None,
                     )
                 )
-                values.append({"column": label, "attributeTypeKey": key})
+                values.append(
+                    {"column": label, "attributeTypeKey": key}
+                    | ({"valueMap": YES_NO} if value_type == "yesno" else {})
+                )
             groups.append((start, len(cells), group, group_style))
             hidden.append(
                 CellSpec(

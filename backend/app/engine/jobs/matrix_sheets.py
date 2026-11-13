@@ -44,6 +44,7 @@ from .export_views import ViewExport
 from .people import (
     HUES,
     ID_LABEL,
+    NUMBERS_STEPS,
     SPLIT,
     SUMMARY,
     YES_NO,
@@ -929,30 +930,9 @@ class MatrixSheets:
         return found
 
 
-# The About sheet's steps for typing new names in Numbers, which turns a cell list into a pop-up menu
-# taking only its items (PP-D27; Apple's Numbers guide, "Add checkboxes ... and other controls").
+# A link matrix adds to the shared steps for Numbers (PP-D27) where its value sheets stand.
 _NUMBERS_STEPS: tuple[tuple[str, str, str | None], ...] = (
-    (
-        "Why",
-        (
-            "Numbers turns each list of the main sheet into a pop-up menu, which takes only its"
-            " items; in Excel a new name can be typed past the warning"
-        ),
-        None,
-    ),
-    (
-        "To type new names",
-        (
-            "Select the cells or the column, open Format (the paintbrush), Cell, and set Data"
-            " Format from Pop-Up Menu to Automatic; the values stay and the cells take any text"
-        ),
-        None,
-    ),
-    (
-        "Or add one choice",
-        "With the cells selected, under Data Format, Pop-Up Menu, click + and type the new name",
-        None,
-    ),
+    *NUMBERS_STEPS,
     ("Values sheets", "Their cells are plain and can be edited in Numbers as they are", None),
 )
 

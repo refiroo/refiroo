@@ -306,7 +306,9 @@ def test_pointer_cells_choose_from_reference_sheets_and_cells_have_borders(world
     assert _choices(book, main, bn1) == {"Alpha token", "Beta token"}
     related = _labels(sheet)[1]
     assert _choices(book, sheet, related) == {"Alpha token"}
-    assert len(job["output"]["sheets"]) == 4
+    # The relationship sheet's own records get a list too (both records of a row are chosen).
+    assert "First branch" in _choices(book, sheet, _labels(sheet)[0])
+    assert len(job["output"]["sheets"]) == 5
     for cell in (main["A1"], main["A2"], main[f"{_letter(main, bn1)}2"], sheet["B2"]):
         assert cell.border.left.style == "thin" and cell.border.bottom.style == "thin"
 

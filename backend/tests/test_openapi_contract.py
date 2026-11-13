@@ -613,9 +613,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.17.0: info.version, and the release review's later description and error-list
     # fixes (R17-F27 to F29, F14 to F17's refusals); compared against HEAD without prose, the only
     # structural change in the release review is R17-F20's `emailsTrusted`.
+    # Re-baselined for the export lists fix: RelationValue (an import profile's relationship value)
+    # gains the optional valueMap, as a column has; nothing else.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "679df97f1b53d3ba66df422e60d1789d50304fcc4facdb97fcf302a2602fba69"
+        "0ce7768942be8df12bc15abb2a0ea4750c6d446b81673a6fa04f19c6676eb065"
     )
 
 
