@@ -1,4 +1,5 @@
 // Focused WP-12 browser evidence for release identity, history comparison and activation context.
+// Brought up to date (0.14 + 0.17 release review, SH1): the release header is the item header (.item-header), not .model-detail-header.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -96,11 +97,11 @@ try {
   // Activation goes into one workspace through the activation dialog (0.11 M5, D51).
   await page.getByRole("button", { name: "Activate in a workspace…" }).click();
   await page.getByRole("dialog").getByRole("button", { name: /^Activate .* in / }).click();
-  await page.locator(".model-detail-header .status-pill.tone-success", { hasText: "Run by" }).waitFor();
+  await page.locator(".item-header .status-pill.tone-success", { hasText: "Run by" }).waitFor();
   // The activation names who made it since 0.12 Z4 ("… first activated by Test harness.").
   await page.getByText(/^Default: the active release this one replaced when it was first activated( by .+)?\.$/).waitFor();
   expect(
-    (await page.locator(".model-detail-header .status-pill", { hasText: "Run by no workspace" }).count()) === 0,
+    (await page.locator(".item-header .status-pill", { hasText: "Run by no workspace" }).count()) === 0,
     "Run by no workspace shown after activation",
   );
   await page.getByRole("status").getByText(/now runs/).waitFor();

@@ -14,6 +14,7 @@
 // Each check asserts what the person sees. Uncaught errors in any page fail the run (the harness reports
 // them at cleanup). `SECURITY_R_ONLY=starter|generated-b` and `SECURITY_R_WIDTH=1440|390` narrow a run
 // while iterating.
+// Brought up to date (0.14 + 0.17 release review, ST1): People and Groups are Settings lists of rows in regions (Active people, Groups), not navigations of buttons; a person's or group's roles are chips in a list named Roles in <place>.
 import { createHash, randomBytes } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -175,10 +176,10 @@ async function walk(configuration, width) {
       await page.getByRole("heading", { level: 1, name: "People" }).waitFor();
       // Search by keyboard, Tab into the result, Enter opens the person.
       await typeInto(page, page.getByLabel("Search people"), "Nia");
-      const entry = page.getByRole("navigation", { name: "People" }).getByRole("button", { name: /Nia Okafor/ });
+      const entry = page.getByRole("region", { name: "Active people" }).getByRole("button", { name: /Nia Okafor/ });
       await entry.waitFor();
       await press(page, entry);
-      await page.getByRole("heading", { level: 2, name: "Nia Okafor" }).waitFor();
+      await page.getByRole("heading", { level: 1, name: "Nia Okafor" }).waitFor();
       await press(page, page.getByRole("button", { name: "Grant", exact: true }));
       let dialog = page.getByRole("dialog", { name: "Nia Okafor's access" });
       await dialog.getByRole("checkbox", { name: "Reader" }).waitFor();
@@ -193,18 +194,20 @@ async function walk(configuration, width) {
       await press(page, dialog.getByRole("button", { name: "Save", exact: true }));
       await dialog.waitFor({ state: "detached" });
       await page
-        .getByRole("group", { name: "Roles" })
-        .getByRole("row", { name: /Reader/ })
+        .getByRole("list", { name: /^Roles in / })
+        .getByRole("listitem")
+        .filter({ hasText: /Reader/ })
+        .first()
         .waitFor();
       checks.push(`${tag}: J40 a Security administrator granted Reader to a person, by keyboard`);
 
       // The group.
       await page.goto(`${uiUrl}/settings/groups`);
       await page.getByRole("heading", { level: 1, name: "Groups" }).waitFor();
-      const groupEntry = page.getByRole("navigation", { name: "Groups" }).getByRole("button", { name: /Curators/ });
+      const groupEntry = page.getByRole("region", { name: "Groups" }).getByRole("button", { name: /Curators/ });
       await groupEntry.waitFor();
       await press(page, groupEntry);
-      await page.getByRole("heading", { level: 2, name: `Curators ${tag}` }).waitFor();
+      await page.getByRole("heading", { level: 1, name: `Curators ${tag}` }).waitFor();
       await page.getByRole("group", { name: "Members" }).getByText(ada.email).waitFor();
       await press(page, page.getByRole("button", { name: "Grant", exact: true }));
       dialog = page.getByRole("dialog", { name: `Curators ${tag}'s access` });
@@ -214,8 +217,10 @@ async function walk(configuration, width) {
       await press(page, dialog.getByRole("button", { name: "Save", exact: true }));
       await dialog.waitFor({ state: "detached" });
       await page
-        .getByRole("group", { name: "Roles" })
-        .getByRole("row", { name: /Contributor/ })
+        .getByRole("list", { name: /^Roles in / })
+        .getByRole("listitem")
+        .filter({ hasText: /Contributor/ })
+        .first()
         .waitFor();
       expect((await overflow(page)) <= 0, `${tag}: the group's page scrolls sideways`);
       checks.push(`${tag}: J40 a Security administrator granted Contributor to a group, by keyboard`);
@@ -224,7 +229,7 @@ async function walk(configuration, width) {
       await page.goto(`${uiUrl}/settings/people`);
       await typeInto(page, page.getByLabel("Search people"), "Nia");
       await page
-        .getByRole("navigation", { name: "People" })
+        .getByRole("region", { name: "Active people" })
         .getByRole("button", { name: /Nia Okafor.*Reader/ })
         .waitFor();
       await shot(page, "people-after-grant");

@@ -303,14 +303,14 @@ Operator, Security administrator, Agent: the most an agent token holds); custom 
 narrowing what may be changed to applications and record types (`/api/v1/grants`). Reading a
 workspace is never narrowed: data some readers must not see belongs in a workspace of its own.
 `GET /api/v1/workspaces/{key}/access` lists who can do what there. A change to a grant, role, group
-or membership applies on the next request on every process. Settings › Security makes each of
-these a page (People, Groups, Roles, Clients, and a workspace's Access).
+or membership applies on the next request on every process. Settings › People and access makes each of
+these a page (People, Groups, Roles, and a workspace's Access; Clients are under Settings › Connections).
 
-**Clients and signing keys on a page** (0.12 SP2): Settings › Security › Clients creates a client and
+**Clients and signing keys on a page** (0.12 SP2): Settings › Connections › Clients creates a client and
 shows its ID and secret once; **Rotate secret** makes a new one and keeps the current one working
 for 1 hour, 24 hours (the default) or 7 days, or stops it at once for a leaked secret; the Secrets
 table tells them apart by their last four characters, and **End now** stops the previous one before
-its overlap ends. Settings › Security › Signing keys lists the token signing keys; **Start a new
+its overlap ends. Settings › People and access › Signing keys lists the token signing keys; **Start a new
 key** rotates now (the previous key verifies its tokens until they expire), and **Retire the
 current key now** refuses its tokens at once: sessions renew on their own, and each client is
 refused once and fetches a new token with its unchanged secret. The deployment flags still decide which
@@ -422,7 +422,7 @@ brings its own multi-factor sign-in (D225). The engine still starts its own sess
 only proves who the person is.
 
 1. **Register the engine with the provider** as a web application with a client secret. Add a
-   new provider on Settings › Security › Sign-in (or `POST /api/v1/sign-in-providers`) with a key,
+   new provider on Settings › People and access › Sign-in (or `POST /api/v1/sign-in-providers`) with a key,
    then register its **redirect address**, `<PUBLIC_URL>/oauth/providers/<key>/callback`, which
    the provider's page shows with Copy. The engine asks for `openid profile email`.
 2. **Enter the issuer exactly as the provider states it** in its discovery document
@@ -437,7 +437,7 @@ only proves who the person is.
    issuer cannot change, because people are matched by the issuer's subjects (`409
    SIGN_IN_PROVIDER_IN_USE`): add a new provider and link people to it instead.
 3. **Groups (optional).** Name the ID token claim holding the person's groups, usually `groups`.
-   Each value becomes a provider group on Settings › Security › Groups when a sign-in first names
+   Each value becomes a provider group on Settings › People and access › Groups when a sign-in first names
    it, or make the group ahead with **New group › From a sign-in provider** and grant its roles
    before go-live. Entra ID sends each group's **object ID**, not its name: configure the
    application's token to include groups ("groups assigned to the application" keeps the list
@@ -449,10 +449,19 @@ only proves who the person is.
 **Who a person is.** The engine finds a person by the provider and the token's subject (`sub`),
 never by e-mail (D363). The e-mail address is the name a person signs in with (0.17 EM1), so the
 token must carry an `email` claim: a first sign-in without one is refused, and the message tells
-the person to ask whoever manages the provider to add it. At their first sign-in a person is created
+the person to ask whoever manages the provider to add it. **Whose addresses are trusted** (0.17
+R17-F20): some providers (Entra ID, for one) let people set their own address, so a claim could name an
+address that is not theirs and later receive roles granted by address. Each provider has a setting,
+**Trust the e-mail addresses it sends** (`emailsTrusted`; a new provider is **not** trusted). Not
+trusted: an address is taken only when the ID token says `email_verified: true`; a first sign-in
+without that is refused (`email_unverified`: the message tells the person to ask an administrator,
+and names no address). Trusted: taken as the provider sends it. In both cases an address the token
+says is **not** verified (`email_verified: false`) is never taken. Turn trust on only when people
+cannot set their own address at the provider. The upgrade to this version set every existing
+provider to trusted, so sign-ins that work keep working; review each one. At their first sign-in a person is created
 with the token's name and e-mail and no roles; their groups grant what they may do. Name and e-mail
-follow the provider at each sign-in, except that an address another person holds is not taken: the
-stored one stays and the sign-in goes on. Someone who already had
+follow the provider at each sign-in, except that an address another person holds, or one the
+provider has not confirmed, is not taken: the stored one stays and the sign-in goes on. Someone who already had
 a local account becomes a second person: open the new person's page and choose **Link to an existing
 person…** (0.12 I4a, D377): their identity and provider groups move onto the person who had the
 account, with their roles and history, and the new person is deactivated. It is refused when the new
@@ -461,8 +470,9 @@ the person's page undoes a wrong link; the next sign-in with that provider makes
 
 **An address that is already taken** (`email_taken`, 0.17 EM1). A first provider sign-in is refused
 when another person, active or deactivated, already holds the token's e-mail address, in any
-letters; the person sees that a security administrator resolves it, and the `sign-in` `failed` event
-says `email_taken`. To resolve it, open Settings › Security › People, find the person who holds the
+letters; the person sees that a security administrator resolves it (the page does not name the
+address, so a first sign-in cannot be used to find who is registered), and the `sign-in` `failed`
+event says `email_taken` and names it for the administrator. To resolve it, open Settings › People and access › People, find the person who holds the
 address (search the address) and do one of these, then ask the person to sign in again:
 
 1. The address belongs to an old account that nobody uses: **Deactivate** it, then **Edit…** and
@@ -476,7 +486,7 @@ address (search the address) and do one of these, then ask the person to sign in
 A first sign-in refused with `no_email` needs nothing freed: once the provider's administrator adds
 the claim, the person signs in again.
 
-**Turning local sign-in off** (D365): on Settings › Security › Sign-in › Local accounts, once an
+**Turning local sign-in off** (D365): on Settings › People and access › Sign-in › Local accounts, once an
 enabled provider has signed someone in. Passwords then stop working, except for the people who
 **keep local sign-in**: those made on the server with `create_admin`, and those made before 0.12 Z4
 (the upgrade marks them; `PATCH /api/v1/users/{id}` with `localKept` changes it). They sign in
@@ -520,7 +530,7 @@ sealed with `SECRETS_ENCRYPTION_KEY` (a lost key loses every app), the recovery 
 keyed hashes (a lost key voids them too: make new ones). Removing a passkey asks for the password
 again (or a code). A person who signs in with a provider has no password, so no app and no passkey. The phone's clock must be right within about a minute.
 
-**Requiring it.** Settings › Security › Sign-in › Local accounts › **Require a second factor with a
+**Requiring it.** Settings › People and access › Sign-in › Local accounts › **Require a second factor with a
 password** (D388): a person without an app sets one up on the sign-in page, with their recovery
 codes, before their session starts, the administrators made on the server included; nobody can
 remove their own factor while it is on. Clients and people signing in with a provider are never
@@ -557,7 +567,7 @@ secret and the redirect address), `browser` (started in another browser) or `dea
 The engine sends e-mail through the organisation's own SMTP server (0.12 M1, D418, D419) or through
 Microsoft 365 ([below](#sending-through-microsoft-365-graph), 0.13 MS), one method at a time: it is
 used for a new person's link, a password reset and, when a person asks, inbox notices; never for a
-password or a code (D395). **Settings › Integration › Mail** (or `PUT /api/v1/mail-settings`, needing
+password or a code (D395). **Settings › This instance › Mail** (or `PUT /api/v1/mail-settings`, needing
 Security administration at the instance) takes the server, the port, how the connection is secured
 (**STARTTLS**, usually port 587, or **TLS**, usually 465; `none` only for a relay on a trusted
 network, and then without a login: the engine never sends a login unencrypted), a user name and
@@ -581,19 +591,32 @@ message from the same page: it names what failed (the connection, TLS, the login
   page lists the messages waiting, sent and failed, and `mailSender` appears among a process's
   threads on Operations. Finished messages are kept for 30 days.
 - **Inbox notices are mailed by the same sender** (0.12 M2, D432), one message per notice, to people who switched
-  on "Email me when something arrives in my inbox" on Settings › Notifications (off by default; clients have no mail),
+  on "Email me when something arrives in my inbox" on Settings › You › Notification email (off by default; clients have no mail),
   except for the kinds of notice they switched off there (D434).
   Only notices made after switching on are mailed, and only while they are under 24 hours old, so a long outage
   or mail not set up never sends a pile of old notices. A message names the kind of event and links to the
   application address above; it holds no record, change-set or person content. Messages of this kind show as
   `notice` in the outbox.
-- **Digests go at 07:00** (0.16 AO3): a person who put kinds of notice in the digest (Settings › Notifications) is mailed
+- **Digests go at 07:00** (0.16 AO3): a person who put kinds of notice in the digest (Settings › You › Notification email) is mailed
   one `digest` message every morning, or on Monday, at 07:00 in the time zone their browser reported when they chose it
   (the zone is the person's, not the server's; a daylight-saving change keeps 07:00). The mail sender makes it in its
   round, once the time has passed: the person's row is locked and the next time moved in the same commit, so several
   processes make one digest, and a sender that was down sends one, not one per missed morning. With nothing unread to say
   there is no message; with mail not set up nothing is queued and the time does not move, so the digest goes once mail is
   saved. Messages show as `digest` in the outbox. No setting and no AI provider is involved.
+- **One e-mail template wraps every message** (0.17 MT1). The instance has one template: Markdown with
+  placeholders (`{{content}}`, which it must hold exactly once and which the message's own heading, text and
+  button replace, `{{product_name}}`, `{{instance_url}}`, `{{recipient_name}}` and `{{logo}}`) and a logo (a PNG,
+  JPEG or SVG of at most 512 KB, sent inline; without one the refiroo mark). It is edited under **Settings › This
+  instance › E-mail template** (or `GET`/`PUT`/`DELETE /api/v1/mail-template`, with `/logo`, `/preview` and `/test`),
+  needing Operations at the instance, where the page previews it and sends a test message. Without a saved template,
+  or after **Reset to default**, mail keeps the engine's own layout. The template and logo are stored in the database
+  (table `mail_template`), so they are in its backup and restore and in nothing else.
+- **People are told when their sign-in changes** (0.17 SM1): a changed or reset password, and an
+  authenticator app or a passkey added or removed, queue one message, in the transaction of the change, saying what
+  changed and when. It carries no code or link that signs in, a person cannot switch it off, and nothing is queued
+  when mail is not set up or the person has no address; the change itself is never held back. Messages of this kind
+  go through the template like the others.
 - **Sender reputation is the organisation's:** the from address's domain needs SPF and DKIM for the
   sending server, or mailboxes may file the messages as junk. The engine does neither.
 - **Several processes** each run a sender; leases keep them off the same message.
@@ -821,7 +844,7 @@ its counters. Both page like every collection. `GET /api/v1/system/summary` give
 figures that `/metrics` counts when scraped (below) as JSON: processes live and silent, workspaces
 served and unavailable, jobs by kind and state, webhook subscriptions by state.
 
-**In the browser.** Settings › Administration › **Operations** shows the four figures, each
+**In the browser.** Settings › This instance › **Operations** shows the four figures, each
 workspace and the processes that do not serve it, every process with its threads, connections and
 requests, the last [backup rehearsal](#backup-and-restore) and the probe addresses. It reads again
 every 15 seconds while it is open and visible.
@@ -1037,7 +1060,7 @@ offered.
   `propose`) refuses the start and names the setting. `INFERENCE_ASSISTANT` and
   `INFERENCE_ASSISTANT_ROWS`, the 0.10 naming helper's settings, are retired: the start is refused while
   either is set, naming `AI_PROVIDER` or `AI_SAMPLE_VALUES`.
-- **Settings › Administration › AI** (Operations) opens when either setting is on. It first says what each
+- **Settings › This instance › AI** (Operations) opens when either setting is on. It first says what each
   gives: the assistant (`AI_AGENT_COMMAND`: on or not set) and the provider (`AI_PROVIDER`: mapping targets,
   search and summaries, or not offered). With neither it says nothing is sent and no AI action is offered.
   With the provider on it shows the provider, the model, the address,
@@ -1079,7 +1102,7 @@ offered.
 
 ## Agent access
 
-An assistant that speaks MCP can reach the instance at `/mcp`, with `MCP_ENABLED=true` and a restart; off, nothing of it exists. A reverse proxy in front of the engine must pass `/mcp` and `/.well-known/`; the shipped web image does. Security administrators see the address, the agent clients, the assistants and each call on Settings › Security › **Agent access**.
+An assistant that speaks MCP can reach the instance at `/mcp`, with `MCP_ENABLED=true` and a restart; off, nothing of it exists. A reverse proxy in front of the engine must pass `/mcp` and `/.well-known/`; the shipped web image does. Security administrators see the address, the agent clients, the assistants and each call on Settings › Connections › **Agent access**.
 
 - **A system's assistant** uses an agent client (made on that page), with a grant like any client, and asks for a token with `scope=agent`. An agent client holds no other token and no other client holds this one.
 - **A person's assistant** is added by its address and opens this instance's sign-in page. The page says who asks and where it returns; signing in is the consent. The person needs no new grant. The session appears in their sessions and ending it stops the assistant.
@@ -1104,7 +1127,7 @@ release and are not copied by one.
 
 **The delivery log** (0.9 U5a) records every request the dispatcher sends: its body, the events
 it carries and each attempt's start, duration and answer (up to 4 KiB). It is read on Settings ›
-Integration › Webhooks, Deliveries, and through `GET /api/v1/consumer-subscriptions/{id}/deliveries`.
+Connections › Webhooks, Deliveries, and through `GET /api/v1/consumer-subscriptions/{id}/deliveries`.
 A busy subscription writes up to 1 MiB per request: size the database for the retention. The
 dispatcher deletes expired entries at most hourly.
 
@@ -1201,6 +1224,16 @@ runner for the deployment gives it).
 | `engine` | built from `backend/Dockerfile` | The engine under Uvicorn as an unprivileged user, one process, `--proxy-headers`, export files in the `job-files` volume and the assistant's task folders in the `assistant` volume; its health check is `/health/live` |
 | `web` | built from `frontend/Dockerfile` | nginx (unprivileged, 8080 and 8443, published as 80 and 443) serving the application built once for every installation and forwarding the engine's public paths to the engine |
 
+**The deploy script (0.17).** `scripts/deploy.sh` does steps 2 to 5 below for a first deployment, on a server or on a
+laptop: it asks for what is missing (or takes `--url`, `--https acme|files|proxy|local`, `--admin-email`,
+`--admin-name`, `--password-stdin` and `--yes`), writes the env file from `.env.example` with generated secrets (mode
+600, never printed, never over an existing file without `--force`), pulls and builds, creates the database, starts
+everything, waits until the engine answers and creates the first administrator, then prints the address, the env
+file and the next steps. `--local` is the laptop preset (`http://localhost:8080`, no certificate, ports 8080 and
+8443); `--dry-run` prints every command and runs nothing; `--force` goes on over an existing env file or low disk
+space. It refuses a host where a chosen port is in use or an installation (the `database` volume) already exists:
+that is `scripts/upgrade.sh`. Mail and a sign-in provider stay steps 6 and 7. The steps below are what it runs.
+
 Both images keep the application under `/opt/refiroo/rdm-engine`, laid out as the repository is, and add nothing at `/`. In the engine image: `backend/` (the working directory), `guide/dist`, `model/rdm-starter.json` and `data/` (`job-files` and `assistant`, the volumes; `assistant-slots`, the session users' lock files). In the web image: `frontend/dist` (the application), `frontend/certs` (where `fullchain.pem` and `privkey.pem` are mounted) and `frontend/nginx`. `compose.yml` mounts the `job-files` and `assistant` volumes and the certificate folder there; a deployment of its own mounts them at `/opt/refiroo/rdm-engine/data/job-files` and `/opt/refiroo/rdm-engine/frontend/certs`.
 
 1. **Choose the address people open** and make its DNS name reach the host. It is `PUBLIC_URL`: the
@@ -1231,7 +1264,7 @@ Both images keep the application under `/opt/refiroo/rdm-engine`, laid out as th
 6. **Register a sign-in provider** (optional): its redirect address is
    `<PUBLIC_URL>/oauth/providers/<key>/callback`, see
    [Signing in with the organisation's provider](#signing-in-with-the-organisations-provider).
-7. **Set up mail** (optional) on Settings › Integration › Mail; see [Sending mail](#sending-mail).
+7. **Set up mail** (optional) on Settings › This instance › Mail; see [Sending mail](#sending-mail).
 
 **What is public.** `web` forwards `/api`, `/oauth`, `/.well-known`, `/docs` (the documentation and the API
 reference at `/docs/api`, built into the engine image and served offline), `/openapi.json` and
@@ -1379,6 +1412,32 @@ Drafts started from a deleted release stay, without the link.
 
 ## Upgrades
 
+**The upgrade script (0.17).** On a Docker Compose installation `scripts/upgrade.sh` does all of this in one command,
+from the checkout of the new version: it checks the host (Docker, `compose.yml`, the env file, the running
+database, free space of at least twice the database's size in the backup folder), backs up (`pg_dump -Fc` of the
+database, proved readable with `pg_restore --list`; the `job-files` volume as a tarball; the env file at mode 600;
+`--with-assistant` adds the `assistant` volume; one time stamp in every file name; default folder
+`/opt/refiroo/backups`, `--backups DIR` names another; old backups are never touched or pruned), pulls the registry
+images and builds, stops the engine, runs `python -m app.cli.database_upgrade`, starts everything, waits up to 120 s
+for `/health` and prints the engine version and database revision before and after, the files written and the commands
+that restore them. Each step is announced with its duration. If the migration fails the database stays at its
+previous revision, the script leaves the engine stopped, prints the restore commands for the backup it just made and
+exits 1; it never starts the old engine by itself. `scripts/upgrade.sh --dry-run` prints every command and runs none.
+
+| Option | Meaning |
+| --- | --- |
+| `--backups DIR` | The backup folder (default `/opt/refiroo/backups`). |
+| `--with-assistant` | Also back up the `assistant` volume (open assistant tasks' folders and session logs). |
+| `--skip-backup` | No backup; asks for confirmation unless `--yes`. |
+| `--yes` | No questions (it asks one confirmation before it starts otherwise). |
+| `--dry-run` | Print the commands, run nothing. |
+| `--force` | Go on although the backup folder has less than twice the database's size free. |
+| `-f`, `--file FILE` | A Compose file, repeated as in `docker compose -f`; `COMPOSE_FILE` in the shell works too. With automatic HTTPS give both: `-f compose.yml -f compose.acme.yml`. Without them it refuses when a `caddy-data` volume exists (web would be recreated without Caddy). |
+| `-p`, `--project NAME` | The Compose project name, when you override `refiroo`. |
+| `--env-file FILE` | The env file (default `.env`, or `RDM_ENV_FILE`). |
+
+The script never runs `docker compose down -v`. The steps it replaces are the ones below, by hand:
+
 Before upgrading the application:
 
 1. Stop or quiesce writers.
@@ -1403,6 +1462,33 @@ in an escalation. Startup in the same condition enters maintenance mode with `/h
 migration runs in one PostgreSQL transaction, so a failed or interrupted migration leaves the
 database at its previous revision.
 
+**Upgrading to 0.17 (EM1): the e-mail address becomes the sign-in name.** Migration `20261128_01`
+removes `users.username` and requires an address of every active person. It first gives an active
+person who has no address, but whose username is an address, that username as the address (a blank
+address counts as none). It then stops, changing nothing, and prints the people it found, when
+(a) an active person still has no address, or (b) two people share an address ignoring upper and
+lower case (this check covers deactivated people too). The message lists each such username and, for a
+shared address, the people who share it. The whole run is one transaction, so a stopped upgrade leaves
+the database at the revision it was at before (`20261127_02` for this migration, or earlier if more
+migrations were pending); nothing is invented and no person is changed. Find them before the
+upgrade, on the old version's database:
+
+```sql
+-- active people the migration cannot give an address (no address, username not an address)
+SELECT id, username FROM users
+WHERE active AND (email IS NULL OR btrim(email) = '')
+  AND username !~ '^[^@[:space:]]+@[^@[:space:]]+$';
+
+-- addresses shared by two or more people, ignoring case
+SELECT lower(email) AS address, string_agg(username, ', ' ORDER BY id) AS people
+FROM users WHERE email IS NOT NULL AND btrim(email) <> ''
+GROUP BY lower(email) HAVING count(*) > 1;
+```
+
+Give each person in the first list an address (in the old version's Settings › Security › People),
+or deactivate them: a deactivated person may have none. Give each person who shares an address their
+own, or remove it from the one who should not have it. Then run the upgrade again.
+
 A release of the bundled starter model (`model/rdm-starter.json`) with a new `release.version` is
 installed at startup beside the older one, and given only to workspaces that run no model yet.
 A workspace already running an older starter release keeps it until a person with model
@@ -1418,7 +1504,7 @@ manual edits to release rows are not a supported rollback path.
 
 The database is the whole state of an instance: every workspace's records, change sets,
 publications and history, the installed model releases and which workspace runs which, jobs,
-webhook subscriptions and the feed. The source files of model drafts and import profiles live in
+webhook subscriptions and the feed, and the e-mail template with its logo. The source files of model drafts and import profiles live in
 `JOB_FILE_DIR` (the `job-files` volume), not in the database: back that up with it. Keep with
 it the application version and its configuration (see [Upgrades](#upgrades)); the cursor signing
 key and `SECRETS_ENCRYPTION_KEY` are settings, not data, and a restore needs the same ones.

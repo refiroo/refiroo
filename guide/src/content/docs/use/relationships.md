@@ -145,7 +145,7 @@ When candidate rules change, existing connections remain and no browser list aut
 flags all newly ineligible ones. Ask a model administrator to review a dry-run copy of the
 workspace when those connections need auditing.
 
-A related-record panel with all its rows loaded, five rows or fewer and no active search puts **Search**, **Display** and any available **Sort** in its ⋯ menu. Choose an item to reveal that control. Larger panels and panels with an active search keep the controls visible.
+A related-record panel with all its rows loaded, five rows or fewer and no active search puts **Search**, **Display** and any available **Sort** in its ⋯ menu, labelled **Search, display and sort** for screen readers. A panel's search box reads **Search related records**. Choose an item to reveal that control. Larger panels and panels with an active search keep the controls visible.
 
 ## Longer sets and actions on several records
 

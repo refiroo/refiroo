@@ -31,7 +31,7 @@ from ..notifications import mailing
 from . import mail_template
 from . import settings as mail_settings
 from .outbox import GIVE_UP_AFTER, RETAIN_FINISHED, body_context, retry_delay, unpack
-from .smtp import SERVER_WIDE, MailError, build
+from .smtp import LOGO_CID, SERVER_WIDE, MailError, build
 from .transport import Transport, deliver
 
 logger = logging.getLogger(__name__)
@@ -65,6 +65,7 @@ class MailSender:
         self.batch = batch
         self._stopping = threading.Event()
         self._thread: threading.Thread | None = None
+        self._logos: dict[str | None, tuple[bytes, str] | None] = {}
 
     # --- one round --------------------------------------------------------------------------------
 
@@ -132,6 +133,7 @@ class MailSender:
     def run_once(self, now: datetime | None = None) -> int:
         """Send what is due; how many messages were handled (sent, retried later or failed)."""
         at = now or datetime.now(UTC)
+        self._logos = {}
         self.expire(at)
         with self.session_factory() as session:
             mailing.queue_notices(session, self.identity, at)
@@ -225,8 +227,7 @@ class MailSender:
                 "The message cannot be read: SECRETS_ENCRYPTION_KEY has changed since it was queued",
                 permanent=True,
             )
-        with self.session_factory() as template_session:
-            logo = mail_template.logo_of(template_session)
+        logo = self._logo(message, html)
         built = build(connection, message.to_address, message.subject, body, html, logo)
         try:
             deliver(connection, built, timeout=self.timeout_seconds)
@@ -234,14 +235,34 @@ class MailSender:
             return error
         return None
 
+    def _logo(self, message: MailOutbox, html: str | None) -> tuple[bytes, str] | None:
+        """The logo the message was rendered with, read once per round however many messages show
+        it (R17-F22). A message queued before logos were kept has none recorded and gets the saved
+        logo, as then; one whose logo copy is gone is sent without it."""
+        if html is None or f"cid:{LOGO_CID}" not in html:
+            return None
+        key = message.logo_digest
+        if key in self._logos:
+            return self._logos[key]
+        with self.session_factory() as session:
+            found = (
+                mail_template.logo_by_digest(session, key)
+                if key is not None
+                else mail_template.logo_of(session)
+            )
+        self._logos[key] = found
+        return found
+
     def prune(self, now: datetime) -> int:
-        """Delete messages finished more than 30 days ago; how many."""
+        """Delete messages finished more than 30 days ago, and the logo copies nothing waits for;
+        how many messages."""
         with self.session_factory() as session:
             count = session.execute(
                 delete(MailOutbox).where(
                     MailOutbox.status != "pending", MailOutbox.finished_at < now - RETAIN_FINISHED
                 )
             ).rowcount
+            mail_template.prune_logos(session)
             session.commit()
         return count
 

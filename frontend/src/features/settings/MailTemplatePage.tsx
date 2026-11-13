@@ -9,6 +9,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { errorMessage } from "@/api/errors";
 import { mailTemplate } from "@/api/mailTemplateClient";
+import { useNavigationGuard } from "@/routing/navigationGuard";
 import type { MailTemplate } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { FileField } from "@/ui/FileField";
@@ -32,6 +33,8 @@ const PLACEHOLDER_WORDS: Record<string, string> = {
   recipient_name: "The person's name",
   logo: "The logo image",
 };
+
+const NOTHING_TO_DISCARD = () => undefined;
 
 type Paper = "light" | "dark" | "text";
 
@@ -103,6 +106,8 @@ function Editor({
   const [confirming, setConfirming] = useState(false);
   const [fileKey, setFileKey] = useState(0);
   const dirty = draft !== template.markdown;
+  // Leaving with an unsaved draft asks first, as other unsaved edits do; the draft is not stored.
+  useNavigationGuard(dirty, false, NOTHING_TO_DISCARD);
 
   useLayoutEffect(() => {
     if (!selection.current || !source.current) return;

@@ -140,7 +140,7 @@ used, make or request a fresh one.
 
 ## Notices and digests
 
-Each person controls their own delivery under **Settings › You › Notification email › Email**. **Email me when something arrives in my inbox** uses the address shown there. Without an e-mail address, or for a client, the page explains there is nothing to choose. Administrators do not choose these preferences for others.
+Each person controls their own delivery under **Settings › You › Notification email**, in its **Email** group. **Email me when something arrives in my inbox** uses the address shown there. Without an e-mail address, or for a client, the page explains there is nothing to choose. Administrators do not choose these preferences for others.
 
 Under **How each kind reaches me**, a person chooses **At once**, **Digest**, or **Off** for each kind. Immediate notices include both plain text and HTML, are sent once while under 24 hours old, and contain no record, change-set, workspace or person content. Turning mail on does not send a backlog of old notices.
 

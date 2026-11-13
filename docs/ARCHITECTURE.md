@@ -980,7 +980,7 @@ Designed, delivered by the 0.12 packages ([ADR-043](DECISIONS.md#adr-043--identi
 tokens for the browser, the management API and the consumer APIs; no API keys and no credential in a
 URL. Permissions are **runtime data**, not part of a model release: roles made of action groups,
 granted to users, groups and clients at the instance or in a workspace, managed through the API and
-Settings › Security. Grants refer to the model's applications and record types as data and narrow
+Settings › People and access. Grants refer to the model's applications and record types as data and narrow
 writes only. Webhook signing-key rotation and approvals of change-set publication belong to the same
 release. Record-level rules come only for demonstrated needs.
 
@@ -1119,8 +1119,57 @@ waiting out a timeout for each. A person's one-time link is the first producer (
 `before_commit` queues the message in the same transaction, after `check` has refused a missing address
 without replacing the earlier link. Every message names the product through `templates.product` (the model's own name, refiroo for a default one), so no caller words it. `links.request_reset` is the second (I6): the asks are counted under `reset-` kinds of
 `sign_in_failures` (`sign_in.seconds_to_wait`/`record_failure` take a scope), whatever the typed name matches,
-before any account is looked up, so the answer reveals nothing. No other route queues mail; the test message is the one thing sent from a
-request, because its answer is the point. `resealing.py` covers the password and the queued text. Inbox notices are the third producer (M2, D432): `notifications/mailing.py` `queue_notices`, which `MailSender.run_once` calls before it claims, enqueues one message per unread, unhandled notice of a person with `users.notice_mail_since` set and marks it `notifications.mailed_at` in one transaction, so a notice is mailed once.
+before any account is looked up, so the answer reveals nothing. Security notices are the fourth (0.17 SM1, `mail/security_notice.py`): the identity operations that change a person's sign-in (`resets.py` for a changed or reset password, `second_factor.py`, `passkeys.py`) call `notify`, which queues one message from `templates.security_change` in the transaction of the change; it carries no code or link that signs in, a person cannot switch it off, and it queues nothing without mail settings or an address, so mail never holds a change back. The failed-sign-in counter is keyed by the e-mail address, case-folded (`sign_in_failures` kind `account`, and `address` for the caller; with the reset scope the `reset-` kinds), the address being the sign-in name since 0.17 EM1. No other route queues mail; the test messages are the things sent from a
+request, because their answer is the point. `resealing.py` covers the password and the queued text. Inbox notices are the third producer (M2, D432): `notifications/mailing.py` `queue_notices`, which `MailSender.run_once` calls before it claims, enqueues one message per unread, unhandled notice of a person with `users.notice_mail_since` set and marks it `notifications.mailed_at` in one transaction, so a notice is mailed once.
+
+**The e-mail template (0.17 MT1).** `mail/mail_template.py` and the one-row table `mail_template` hold the
+instance's template: Markdown with `{{content}}` (exactly once), `{{product_name}}`, `{{instance_url}}`,
+`{{recipient_name}}` and `{{logo}}`, and an uploaded logo (PNG, JPEG or SVG without script, at most 512 KB). It is applied when a
+message is queued (`outbox.enqueue` calls `mail_template.apply`, so the sealed body is already wrapped) around the
+message's own heading, text and button; the Markdown is converted with raw HTML, images and links other than
+http, https and mailto switched off. The logo is attached inline (`cid:`) when the message is sent
+(`sender.py` reads `logo_of`). With no row the engine's own layout (`html.layout`) is used; reset deletes the row.
+The routes are `/mail-template` with `/logo`, `/preview` and `/test` (`routers/mail.py`, action
+`mail-template.manage`, held by Operations at the instance). The row is part of the database and of its backup.
+
+### Further 0.17 mechanisms
+
+- **A webhook to a private address (RF6).** `engine/events/webhook_urls.py` `address_refusal` is the one rule:
+  an address that is, or whose host name resolves to, a loopback, private, shared or otherwise non-public
+  address (NAT64 forms of them included) is refused when a subscription is saved (`400 INVALID_WEBHOOK_URL`)
+  and again by the dispatcher when it sends (`webhook_client.py`, `address` in the delivery log), unless
+  `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED` is on; link-local addresses (cloud metadata) are refused whatever it says.
+  Checking at send time too means an existing subscription, or a host name later pointed at a private address, is held as well.
+- **The caller address behind `web` (RF4).** The engine believes the forwarded address only from the
+  addresses in `FORWARDED_ALLOW_IPS` (Uvicorn's setting; default the compose network's private ranges), never
+  from every address; the sign-in throttle counts per that address.
+- **The content security policy (RF4).** Each surface sends the policy it needs: `web` for the application
+  (`frontend/nginx/snippets/csp-app.inc.template`), the engine for its sign-in pages (`sign_in_pages.py`), the
+  guide (`guide_site.py`) and the API reference (`reference/`); none allows script from outside the
+  engine's origin, an inline script is by hash or an own file, and `web` adds only `frame-ancestors 'none'`.
+  The table is in [OPERATIONS](OPERATIONS.md#deploying).
+- **Managed sign-in (SA1).** `users.sign_in_managed` (migration `20261129_01`, default off) marks a person whose
+  sign-in an administrator manages, such as an account several people share. `engine/identity/managed.py`
+  is the one rule: every own-credential operation (password, second factor, passkeys, ending sessions other than
+  the held one) calls `refuse` first and answers `403 SIGN_IN_MANAGED`; what an administrator does for the person
+  (a reset link, removing a factor or passkey, ending sessions) never asks it. The API shows it as `signInManaged` on
+  the person and on `/me`, which the application reads to hide the actions.
+- **A workspace from a workbook (PL4).** `engine/workspaces/from_workbook.py` `create_from_workbook` is one
+  transaction over the existing steps: the model draft a workbook made is installed as a release, a workspace
+  is created on it (`assign_new_workspace`) and the workbook's stored file is queued as an ordinary import job
+  into the workspace's live data (`submit_import`). It adds no data path of its own (`POST /workspaces/from-workbook`,
+  answered `202` with the job).
+- **The canvas of a draft (PL3b, CE1).** `engine/model/canvas.py` keeps what the workbook canvas needs in
+  `model_drafts.canvas_json` (migration `20261202_01`): card positions, folded cards and the chosen scope
+  (`model`, `changed` or `workbook`). It is the draft's own, not part of its model, version, history, undo or any
+  release, so moving a card never changes `expectedVersion`. Positions and folds are merged by card key (two editors
+  moving different cards do not overwrite each other; at most 500 cards); the scope is replaced. Routes:
+  `GET`/`PATCH /model-drafts/{id}/canvas`.
+- **No username (EM1).** The e-mail address is the sign-in name, unique ignoring case
+  (`ux_users_email`, `ck_users_active_email` for an active person); migration `20261128_01` drops
+  `users.username`, taking an address-shaped username as the e-mail where one was missing and stopping,
+  changing nothing, when an active person has none or two share an address (see OPERATIONS, Upgrades). Past
+  security events keep the username they recorded.
 
 ### AI proposals (0.16)
 
@@ -1184,7 +1233,12 @@ cancel while it does:
   `session`) whose grants are made per turn from what the person holds in the workspace (Browse, Work in
   change sets, Bulk and import, and model authoring and installation if held) and ended with the turn. Its
   tools, its folder and the network it reaches are fixed by the engine (`_safeguards`), and the engine's
-  environment is not passed to it. It builds a model draft and checks every row with the draft's dry run,
+  environment is not passed to it. In a container (`AI_AGENT_SANDBOX=container`) the operating-system sandbox is off
+  and its folder and network rules are inert, so the network and folder parts of `--settings` are not sent (and the
+  task's folder path stays off the command line); the boundary is the separate user: each turn takes one user of a
+  pool (`assistant-1` to `assistant-N`, the image's `ASSISTANT_USERS`) by an exclusive lock, so two sessions at once
+  are two users, and each task's folder is a gate that is open only to that user for the length of the turn, with a
+  reset of the user's processes and files before and after (0.17 RF4, RF5). It builds a model draft and checks every row with the draft's dry run,
   then writes `proposal.json`. `_proposal_landed` shows the proposal from the draft and the dry run, not
   from the session's account: the outline (`_shape`), the checks the engine makes whatever the session
   said (`_left_out`, `_beside_held`), the questions. A proposal that names a draft another task holds fails

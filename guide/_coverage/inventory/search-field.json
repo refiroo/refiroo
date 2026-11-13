@@ -1,0 +1,348 @@
+[
+ {
+  "kind": "search-field",
+  "key": "search:Find a record in this workspace",
+  "labels": [
+   "Find a record in this workspace"
+  ],
+  "source": "frontend/src/app/TopBar.tsx:291",
+  "section": "use",
+  "commonContext": [
+   "top",
+   "bar"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Find a record, a list or a place (⌘K)",
+  "labels": [
+   "Find a record, a list or a place (⌘K)"
+  ],
+  "source": "frontend/src/app/TopBar.tsx:292",
+  "section": "use",
+  "commonContext": [
+   "top",
+   "bar"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Find a record in any workspace",
+  "labels": [
+   "Find a record in any workspace"
+  ],
+  "source": "frontend/src/features/home/HomeSearch.tsx:147",
+  "section": "use",
+  "commonContext": [
+   "home",
+   "search"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Find any record in any workspace (⌘K)",
+  "labels": [
+   "Find any record in any workspace (⌘K)"
+  ],
+  "source": "frontend/src/features/home/HomeSearch.tsx:148",
+  "section": "use",
+  "commonContext": [
+   "home",
+   "search"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search",
+  "labels": [
+   "Search"
+  ],
+  "source": "frontend/src/features/inbox/NotificationsPage.tsx:205",
+  "section": "use",
+  "commonContext": [
+   "notifications",
+   "page"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search models",
+  "labels": [
+   "Search models"
+  ],
+  "source": "frontend/src/features/model-admin/ModelWorkbench.tsx:566",
+  "section": "use",
+  "commonContext": [
+   "model",
+   "workbench"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Find a target",
+  "labels": [
+   "Find a target"
+  ],
+  "source": "frontend/src/features/model-editor/MoveToDialog.tsx:195",
+  "section": "model",
+  "commonContext": [
+   "move",
+   "to",
+   "dialog"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Find a list",
+  "labels": [
+   "Find a list"
+  ],
+  "source": "frontend/src/features/objects/Explorer.tsx:150",
+  "section": "use",
+  "commonContext": [
+   "explorer"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Find a collection or view",
+  "labels": [
+   "Find a collection or view"
+  ],
+  "source": "frontend/src/features/objects/NavigationGroupPage.tsx:80",
+  "section": "use",
+  "commonContext": [
+   "navigation",
+   "group",
+   "page"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search or ask",
+  "labels": [
+   "Search or ask"
+  ],
+  "source": "frontend/src/features/objects/ObjectToolbar.tsx:158",
+  "section": "use",
+  "commonContext": [
+   "object",
+   "toolbar"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search places",
+  "labels": [
+   "Search places"
+  ],
+  "source": "frontend/src/features/objects/RelationMatrixCellDialog.tsx:725",
+  "section": "use",
+  "commonContext": [
+   "relation",
+   "matrix",
+   "cell",
+   "dialog"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search places…",
+  "labels": [
+   "Search places…"
+  ],
+  "source": "frontend/src/features/objects/RelationMatrixCellDialog.tsx:728",
+  "section": "use",
+  "commonContext": [
+   "relation",
+   "matrix",
+   "cell",
+   "dialog"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search by name…",
+  "labels": [
+   "Search by name…"
+  ],
+  "source": "frontend/src/features/objects/RestructuringDialog.tsx:1196",
+  "section": "use",
+  "commonContext": [
+   "restructuring",
+   "dialog"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search new locations",
+  "labels": [
+   "Search new locations"
+  ],
+  "source": "frontend/src/features/objects/TreeMoveDialog.tsx:251",
+  "section": "use",
+  "commonContext": [
+   "tree",
+   "move",
+   "dialog"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Find a record",
+  "labels": [
+   "Find a record"
+  ],
+  "source": "frontend/src/features/objects/TreeView.tsx:487",
+  "section": "use",
+  "commonContext": [
+   "tree",
+   "view"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search, display and sort",
+  "labels": [
+   "Search, display and sort"
+  ],
+  "source": "frontend/src/features/objects/panels/PanelTools.tsx:68",
+  "section": "use",
+  "commonContext": [
+   "tools",
+   "panel"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search related records",
+  "labels": [
+   "Search related records"
+  ],
+  "source": "frontend/src/features/objects/panels/RelationsPanel.tsx:405",
+  "section": "use",
+  "commonContext": [
+   "relations",
+   "panel"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search people, groups, clients",
+  "labels": [
+   "Search people, groups, clients"
+  ],
+  "source": "frontend/src/features/security/AccessList.tsx:117",
+  "section": "use",
+  "commonContext": [
+   "access",
+   "list"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search people",
+  "labels": [
+   "Search people"
+  ],
+  "source": "frontend/src/features/security/AddMembersDialog.tsx:172",
+  "section": "use",
+  "commonContext": [
+   "add",
+   "members",
+   "dialog"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search people by name or e-mail",
+  "labels": [
+   "Search people by name or e-mail"
+  ],
+  "source": "frontend/src/features/security/AddMembersDialog.tsx:173",
+  "section": "use",
+  "commonContext": [
+   "add",
+   "members",
+   "dialog"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search clients",
+  "labels": [
+   "Search clients"
+  ],
+  "source": "frontend/src/features/security/ClientsPage.tsx:159",
+  "section": "use",
+  "commonContext": [
+   "clients",
+   "page"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search groups",
+  "labels": [
+   "Search groups"
+  ],
+  "source": "frontend/src/features/security/GroupsPage.tsx:132",
+  "section": "use",
+  "commonContext": [
+   "groups",
+   "page"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Find an object type or attribute",
+  "labels": [
+   "Find an object type or attribute"
+  ],
+  "source": "frontend/src/features/workbook-canvas/CanvasFind.tsx:47",
+  "section": "use",
+  "commonContext": [
+   "canvas",
+   "find"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Find an object type or attribute (⌘K)",
+  "labels": [
+   "Find an object type or attribute (⌘K)"
+  ],
+  "source": "frontend/src/features/workbook-canvas/CanvasFind.tsx:48",
+  "section": "use",
+  "commonContext": [
+   "canvas",
+   "find"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search workspaces",
+  "labels": [
+   "Search workspaces"
+  ],
+  "source": "frontend/src/features/workspaces/WorkspaceList.tsx:106",
+  "section": "use",
+  "commonContext": [
+   "workspace",
+   "list"
+  ]
+ },
+ {
+  "kind": "search-field",
+  "key": "search:Search by name or attribute…",
+  "labels": [
+   "Search by name or attribute…"
+  ],
+  "source": "frontend/src/ui/ObjectLookup.tsx:141",
+  "section": "use",
+  "commonContext": [
+   "object",
+   "lookup"
+  ]
+ }
+]

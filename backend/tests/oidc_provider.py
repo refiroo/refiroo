@@ -29,7 +29,7 @@ import httpx2
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-PERSON_FIELDS = ("sub", "name", "email", "preferred_username", "groups")
+PERSON_FIELDS = ("sub", "name", "email", "email_verified", "preferred_username", "groups")
 
 
 @dataclass
@@ -91,7 +91,7 @@ class OidcProvider:
 
     def sign_in(self, authorize_url: str, **person: str | list[str]) -> str:
         """Answer the authorize request at ``authorize_url`` as ``person`` (``sub``, ``name``,
-        ``email``, ``preferred_username``, ``groups``); the address the provider sends the browser
+        ``email``, ``email_verified`` as "true" or "false", ``preferred_username``, ``groups``); the address the provider sends the browser
         back to."""
         query = {k: v[0] for k, v in parse_qs(urlsplit(authorize_url).query).items()}
         groups = person.pop("groups", [])
@@ -150,6 +150,8 @@ class OidcProvider:
             return f"{redirect}?{urlencode({'error': 'access_denied', 'state': state})}"
         code = secrets.token_urlsafe(24)
         claims: dict[str, Any] = {k: form[k] for k in PERSON_FIELDS[:-1] if form.get(k)}
+        if "email_verified" in claims:  # a form field is text; the claim is a boolean
+            claims["email_verified"] = claims["email_verified"] == "true"
         groups = [g.strip() for g in form.get("groups", "").split(",") if g.strip()]
         claims["groups"] = groups
         self._codes[code] = _Code(

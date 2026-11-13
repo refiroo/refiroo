@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
@@ -28,11 +28,14 @@ function asSentence(cause: unknown) {
   return /[.!?]$/.test(message) ? message : `${message}.`;
 }
 
-export function changeSetSource(changeSet: ChangeSet) {
+/** Where a change set started; a publication is named by its number, never by its identifier. */
+export function changeSetSource(changeSet: ChangeSet, publicationNumber?: number) {
   return changeSet.source === "currentLive"
     ? "Started from live data"
     : changeSet.source === "publication"
-      ? `Started from publication ${changeSet.derivedFromPublicationId}`
+      ? publicationNumber === undefined
+        ? "Started from an earlier publication"
+        : `Started from publication ${publicationNumber}`
       : "Started empty";
 }
 
@@ -351,6 +354,33 @@ export function ChangeSetDiagnostics({
   );
 }
 
+/** The submitter's comment, two lines of it until "Show more" is chosen (only where it overflows). */
+function ClampedComment({ text }: { text: string }) {
+  const [element, setElement] = useState<HTMLParagraphElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  useLayoutEffect(() => {
+    if (!element || open) return undefined;
+    const measure = () => setOverflows(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measure);
+    observer?.observe(element);
+    return () => observer?.disconnect();
+  }, [element, open, text]);
+  return (
+    <div className="change-set-comment">
+      <p ref={setElement} className={open ? undefined : "clamped"}>
+        “{text}”
+      </p>
+      {(overflows || open) && (
+        <button type="button" className="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /**
  * How many records and how many relationships a change set adds, changes or removes (the totals of its
  * two change lists), read again when it changes; none until read, or where the lists cannot be read.
@@ -444,6 +474,22 @@ export function ChangeSetActions({
   const counts = useChangeSetChangeCount(changeSet?.id, changeSet?.version);
   const changeCount = counts && counts.records + counts.relationships;
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // The publication a change set started from, named by its number under Details.
+  const startedFrom = changeSet?.source === "publication" ? changeSet.derivedFromPublicationId : null;
+  const [startPublication, setStartPublication] = useState<{ id: string; number: number }>();
+  useEffect(() => {
+    if (!detailsOpen || !startedFrom) return;
+    let active = true;
+    Promise.resolve()
+      .then(() => api.publication(startedFrom))
+      .then(
+        (publication) => active && setStartPublication({ id: publication.id, number: publication.publicationNumber }),
+        () => undefined,
+      );
+    return () => {
+      active = false;
+    };
+  }, [detailsOpen, startedFrom]);
   const [submitting, setSubmitting] = useState(false);
   const [submitComment, setSubmitComment] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -752,10 +798,12 @@ export function ChangeSetActions({
       <section className="change-set-bar" aria-label="Change set publication">
         <div className="change-set-bar-main">
           <h2 title={current.name || undefined}>{current.name || "Untitled change set"}</h2>
-          {/* The band's one row: the change count and the state; who, when, version and model are under Details. */}
+          {/* The band's one row: the change count, the state, who and when; version and model are under Details. */}
           <span className="change-set-bar-state">
             {changeCount !== undefined && `${changeCount} ${changeCount === 1 ? "change" : "changes"} · `}
             {waiting ? "waits for approval" : request?.state === "sentBack" ? "sent back" : "open"}
+            {current.createdBy && ` · ${principalName(current.createdBy)}`}
+            {` · ${formatServerAgo(current.createdAt)}`}
           </span>
           <button
             type="button"
@@ -837,10 +885,13 @@ export function ChangeSetActions({
         {detailsOpen && (
           <div id="change-set-details" className="change-set-details">
             <span className="change-set-bar-meta">
-              {current.createdBy && <span>Created by {principalName(current.createdBy)}</span>}
-              <span>{formatServerAgo(current.createdAt)}</span>
               <span>Version {current.version}</span>
-              <span>{changeSetSource(current)}</span>
+              <span>
+                {changeSetSource(
+                  current,
+                  startPublication?.id === current.derivedFromPublicationId ? startPublication?.number : undefined,
+                )}
+              </span>
               <span>
                 Model {current.modelReleaseKey} {current.modelReleaseVersion}
               </span>
@@ -856,6 +907,7 @@ export function ChangeSetActions({
             )}
           </div>
         )}
+        {waiting && request?.comment && <ClampedComment text={request.comment} />}
         {sentBack && (
           <Notice tone="info">
             Sent back{sentBack.decider ? ` by ${principalName(sentBack.decider)}` : ""}

@@ -4,6 +4,7 @@
 // starter is started with one consumer API, whose document is the page's second source. C1 (0.12): the
 // console is signed in as the person signed in at the browser, a client's token pasted over it is sent as
 // it is, and a browser with no session starts with none.
+// Brought up to date (0.14 + 0.17 release review): the bundled console's token fields are named by their placeholder (Token), no longer "Access Token".
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -185,7 +186,7 @@ try {
 
       // A client's token pasted over the person's is sent as it is, and shows the client's view.
       const clientToken = (await harnessToken(apiUrl, database.payload.harness)).replace(/^Bearer /, "");
-      const token = page.getByRole("textbox", { name: "Access Token" }).last();
+      const token = page.getByPlaceholder("Token").last();
       await token.fill(clientToken);
       const again = page.waitForResponse((reply) => reply.url() === `${apiUrl}/api/v1/capabilities`);
       await page.getByRole("button", { name: /^Send get request to \/api\/v1\/capabilities/ }).click();

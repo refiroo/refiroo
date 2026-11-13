@@ -1,5 +1,16 @@
 # Project status
 
+## 0.17.0 (the plain path, with 0.14, the management API reference) — released 2026-11-13
+
+0.14 and 0.17 went through one build acceptance R on 2026-11-12 and 2026-11-13
+([record](BASE_0_17_IMPLEMENTATION_PLAN.md#r-record-2026-11-12-and-2026-11-13-together-with-014)): the
+full review of every change since `v0.16.1-alpha.5` (R17-F1–F40, all fixed), every block run, and seven
+more defects found by the runs fixed (R17-F41, F43–F47). The version is **0.17.0**; the commit and the tag
+`v0.17.0` follow the user's instruction. Left for the user: judging the canvas on their own workbooks (0.17's
+exit gate), and PP-D11 (a grouped view also stays among its collection's views), taken by the built
+behaviour. The full-size budgets were not measured. Next: 0.15 (the interface language), the last release
+before 1.0.
+
 ## 0.13 (the documentation release) — R run, release pending (2026-11-11)
 
 0.13's build acceptance R ran on 2026-11-10 and 2026-11-11 ([record](BASE_0_13_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)):

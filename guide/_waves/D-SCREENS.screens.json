@@ -108,7 +108,7 @@
       "height": 1300,
       "actions": [
         {
-          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=application&key=network"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=network"
         },
         {
           "waitFor": {
@@ -157,7 +157,7 @@
       "height": 1300,
       "actions": [
         {
-          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=application&key=network"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=network"
         },
         {
           "waitFor": {

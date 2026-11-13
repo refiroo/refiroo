@@ -27,7 +27,7 @@ A notice is an invitation to inspect the result; a finished job may still have r
 
 *Above: The reference account’s notices include workbook results, mapping proposals, migrations, batches and moves. Unread notices are highlighted; read notices have a plain background.*
 
-On **Notifications**, search by change set, comment, person or job. **Kind**, **Workspace** and
+On the **Notifications** page, type in **Search** to find notices by change set, comment, person or job. **Kind**, **Workspace** and
 **Show** narrow the list; **Sort** chooses newest or oldest first. Filters cover the stored notices,
 not just the rows you have scrolled to. Notices are kept for 90 days.
 

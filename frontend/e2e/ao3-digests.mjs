@@ -13,6 +13,7 @@
 //     the notice read; a link to a notice that is gone says so and stays on the list.
 // No console error or 4xx/5xx beyond the missing notice's 404; screenshots in the run's folder (inspect them
 // against the mock-up).
+// Brought up to date (0.14 + 0.17 release review, ST1/UX1): the kinds' choices are radio groups in a fieldset named by its legend (no .account-kinds); EM1: the run changes the person's e-mail address (their sign-in name) to steward@example.org, so the follower is found by that.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -147,7 +148,10 @@ async function walk(configuration) {
       }
       const approvals = page.getByRole("radiogroup", { name: "A change set is waiting for your approval" });
       await approvals.waitFor();
-      const kinds = await page.locator(".account-kinds [role=radiogroup]").count();
+      const kinds = await page
+        .locator("fieldset", { has: page.locator("legend", { hasText: "How each kind reaches me" }) })
+        .locator("[role=radiogroup]")
+        .count();
       assert.ok(kinds >= 6, `${label}: every kind has its three-way choice (${kinds})`);
       await page.getByText("Workspaces I follow").waitFor();
       await accessible(page, `ao3-${label}-${tag}-settings`);
@@ -229,9 +233,7 @@ async function walk(configuration) {
     // A followed publication: the link opens the publication.
     execute(
       databaseUrl,
-      "INSERT INTO workspace_followers (user_id, workspace_key, created_at) SELECT id, 'default', now() FROM users WHERE email = '" +
-        harnessIdentity.person.email +
-        "'",
+      "INSERT INTO workspace_followers (user_id, workspace_key, created_at) SELECT id, 'default', now() FROM users WHERE email = 'steward@example.org' ON CONFLICT DO NOTHING",
     );
     const published = await api("/workspaces/default/change-sets", { source: "currentLive", name: "Followed" });
     const staged = await api(

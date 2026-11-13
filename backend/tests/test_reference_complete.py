@@ -17,11 +17,13 @@ API, with every optional surface switched on. These tests fail when something is
 - no recorded example holds a secret.
 """
 
+import json
 import re
 from pathlib import Path
 from urllib.parse import unquote
 
 import pytest
+from jsonschema import Draft202012Validator
 from test_api_journeys import raised_codes
 
 from app.management.reference import static_site
@@ -223,10 +225,27 @@ def test_every_parameter_and_schema_field_is_described(document):
             if not parameter.get("description"):
                 lacking.append(f"{method} {path}: {parameter['name']}")
     for schema, body in document["components"]["schemas"].items():
-        for field, definition in body.get("properties", {}).items():
-            if not definition.get("description"):
-                lacking.append(f"{schema}.{field}")
+        lacking.extend(_undescribed_fields(body, schema))
     assert not lacking, lacking[:20]
+
+
+def _undescribed_fields(schema, where: str):
+    """The fields of a schema, and of any inline object nested in it, that carry no description."""
+    if isinstance(schema, dict):
+        for field, definition in schema.get("properties", {}).items():
+            # A field that only points at a described component is described there.
+            if (
+                isinstance(definition, dict)
+                and not definition.get("description")
+                and "$ref" not in definition
+            ):
+                yield f"{where}.{field}"
+            yield from _undescribed_fields(definition, f"{where}.{field}")
+        for key in ("items", "additionalProperties"):
+            yield from _undescribed_fields(schema.get(key), f"{where}.{key}")
+        for key in ("anyOf", "oneOf", "allOf"):
+            for index, item in enumerate(schema.get(key, [])):
+                yield from _undescribed_fields(item, f"{where}.{key}[{index}]")
 
 
 def _descriptions(value, where: str = ""):
@@ -348,3 +367,43 @@ def test_no_recorded_example_holds_a_secret():
         if (found := _SECRETS.search(path.read_text(encoding="utf-8")))
     ]
     assert not held, held
+
+
+def _example_schema(operation: dict, part: str, status: int | None):
+    if part == "request":
+        content = operation.get("requestBody", {}).get("content", {})
+    else:
+        content = operation.get("responses", {}).get(str(status), {}).get("content", {})
+    return next(iter(content.values()), {}).get("schema") if content else None
+
+
+def test_every_recorded_example_body_fits_its_operations_schema(document):
+    wrong = []
+    for path in sorted((CONTENT_DIR / "examples").glob("*.json")):
+        recorded = json.loads(path.read_text(encoding="utf-8"))
+        method, route = recorded["operation"].split(" ", 1)
+        operation = document["paths"].get(route, {}).get(method.lower())
+        if operation is None:
+            continue
+        parts = [("request", recorded.get("request", {}).get("body"), None)]
+        response = recorded.get("response", {})
+        parts.append(("response", response.get("body"), response.get("status")))
+        for part, body, status in parts:
+            # Text bodies (an event stream, a file) have no JSON schema to meet.
+            if body is None or isinstance(body, str):
+                continue
+            schema = _example_schema(operation, part, status)
+            if schema is None:
+                wrong.append(f"{path.name}: {part} has a body but the operation declares none")
+                continue
+            validator = Draft202012Validator({**schema, "components": document["components"]})
+            for error in validator.iter_errors(body):
+                # An example whose notes say it shows only part of a body may leave required fields out.
+                if recorded.get("notes") and (
+                    error.validator == "required"
+                    or any(inner.validator == "required" for inner in error.context or [])
+                ):
+                    continue
+                location = "/".join(str(item) for item in error.absolute_path)
+                wrong.append(f"{path.name}: {part} {location}: {error.message[:120]}")
+    assert not wrong, wrong[:20]

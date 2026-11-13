@@ -717,7 +717,7 @@ def matrix_containers(
     page_size: int,
 ) -> RelationMatrixContainerPage:
     """The column record and the records under it that can directly hold a new cell record, in
-    path order; the column's only container is its default (D13)."""
+    path order; the default is the container that holds the view's cells, never an empty one (PP-D24)."""
     _require_action(read, "create")
     column = named_columns(read, [column_id])[0]
     base = container_rows(read, column).subquery("matrix_container_rows")

@@ -174,10 +174,9 @@ class ExportView(BaseModel):
         default=None,
         description=(
             "A matrix whose cells link records: the field of the cell record each cell lists the"
-            " linked records by (0.17 PP-D25): name, or an attribute the cell type's records are"
-            " identified by (its display attribute, or a unique one). The file records the choice and"
-            " an import reads it back. Left out, a cell lists each record as its name with its display"
-            " field in parentheses"
+            " linked records by (0.17 PP-D27): name, the cell type's display attribute, or any other"
+            " text or long text attribute it binds. The file records the choice and an import reads"
+            " it back. Left out, a cell lists each record by its name alone"
         ),
     )
 

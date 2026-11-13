@@ -90,8 +90,9 @@ def password_reset(product: str, name: str, link: str, hours: int) -> Rendered:
         product,
         "Let's get you a new password",
         [
+            mailhtml.greeting(name),
             mailhtml.paragraph(
-                f"Hello {mailhtml.e(name)}, a new password was asked for your "
+                f"A new password was asked for your "
                 f"{mailhtml.e(product)} account. Choose it with this link."
             ),
             mailhtml.button(link, "Choose a new password"),
@@ -399,7 +400,8 @@ def security_change(product: str, name: str, change: str, when: datetime) -> Ren
         product,
         heading,
         [
-            mailhtml.paragraph(f"Hello {mailhtml.e(name)}, {mailhtml.e(what)}."),
+            mailhtml.greeting(name),
+            mailhtml.paragraph(mailhtml.e(f"{what[0].upper()}{what[1:]}.")),
             mailhtml.pill(at),
             mailhtml.paragraph(mailhtml.e(advice)),
             mailhtml.paragraph("If it was you, nothing more is needed.", small=True),

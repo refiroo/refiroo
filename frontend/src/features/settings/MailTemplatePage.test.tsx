@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { mailTemplate } from "@/api/mailTemplateClient";
 import { MailTemplatePage } from "@/features/settings/MailTemplatePage";
+import { allowNavigation } from "@/routing/navigationGuard";
 import { navigationFor } from "@/features/settings/navigation";
 import type { MailTemplate } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
@@ -127,6 +128,18 @@ describe("Settings › E-mail template", () => {
     await waitFor(() => expect(mailTemplate.reset).toHaveBeenCalledTimes(1));
     await waitFor(() => expect((screen.getByLabelText("Markdown") as HTMLTextAreaElement).value).toBe(DEFAULT));
     expect(screen.queryByRole("button", { name: "Reset to default…" })).toBeNull();
+  });
+
+  it("asks before leaving with an unsaved draft, and not once it is saved", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    open(saved);
+    const field = await markdown();
+    expect(allowNavigation()).toBe(true);
+    expect(confirm).not.toHaveBeenCalled();
+    fireEvent.change(field, { target: { value: "{{content}} changed" } });
+    expect(allowNavigation()).toBe(false);
+    expect(confirm).toHaveBeenCalledWith("Discard your unsaved changes?");
+    confirm.mockRestore();
   });
 
   it("is listed only to those who hold Operations", () => {

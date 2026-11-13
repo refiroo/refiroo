@@ -38,7 +38,7 @@ no children. If the tree is empty, check its workspace, context and search befor
 2. Open the record's **…** menu and choose **Move to…**. You can also open the menu with a
    right click or **Shift+F10** while the record has focus. The dialog names the record and
    shows **Now in** followed by its current path.
-3. Search by name for the new parent. Check the path below each candidate to distinguish
+3. Type in **Search by name…** to find the new parent. Check the path below each candidate to distinguish
    repeated names. Select its radio button; typing a name alone is not a selection.
 4. Use **Top level** only if you intend to remove the parent and the choice is available.
    Unavailable destinations state their reason. If no destination matches, shorten the search

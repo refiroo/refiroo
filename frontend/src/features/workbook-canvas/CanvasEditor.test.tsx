@@ -306,7 +306,7 @@ describe("a model made by hand on the canvas (0.17 CE1)", () => {
     expect(api.applyModelDraftOperations).not.toHaveBeenCalled();
   });
 
-  it("renames an object type where it stands: the value becomes its input, leaving it saves the editor's Rename…", async () => {
+  it("renames an object type where it stands: the value becomes its input, leaving it saves the editor's heading rename", async () => {
     renderCanvas();
     const shelf = await card("Shelf");
     fireEvent.click(within(shelf).getByRole("button", { name: /Name of the object type Shelf/ }));
@@ -315,7 +315,7 @@ describe("a model made by hand on the canvas (0.17 CE1)", () => {
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() =>
       expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
-        { kind: "setLabel", element: { objectType: "shelf" }, name: "Rack", pluralName: "Shelves" },
+        { kind: "setLabel", element: { objectType: "shelf" }, name: "Rack" },
       ]),
     );
   });

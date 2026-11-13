@@ -11,11 +11,12 @@ import copy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
+from ...db import lock_job_subject
 from ...errors import api_error
-from ...models.database import Job, ModelRelease, Workspace
+from ...models.database import AiTask, Job, ModelDraft, ModelRelease, Workspace
 from ...models.imports import ImportProfileDefinition, ImportRequest
 from ..imports.profiles import check_profile, invalid_profile
 from ..imports.submit import submit_import
@@ -54,6 +55,27 @@ def free_workspace_key(session: Session, name: str) -> str:
     return key_from_label(name, taken)
 
 
+def _require_free_draft(session: Session, draft: ModelDraft) -> None:
+    """The draft is no other workspace's and no assistant task's (as ``workspace_draft`` never takes
+    them): ``409 DRAFT_HELD_BY_WORKSPACE`` or ``409 AI_TASK_DRAFT_HELD``."""
+    if draft.workspace_key is not None:
+        raise api_error(
+            409,
+            "DRAFT_HELD_BY_WORKSPACE",
+            f"Model draft '{draft.public_id}' belongs to workspace '{draft.workspace_key}'; "
+            "make a new draft to create another workspace",
+            {"draftId": draft.public_id, "workspaceKey": draft.workspace_key},
+        )
+    if session.scalar(select(exists().where(AiTask.draft_id == draft.id))):
+        raise api_error(
+            409,
+            "AI_TASK_DRAFT_HELD",
+            "An assistant task holds this draft: make a new draft, from the same release if it "
+            "should start the same",
+            {"draftId": draft.public_id},
+        )
+
+
 def create_from_workbook(
     session: Session,
     *,
@@ -71,6 +93,7 @@ def create_from_workbook(
     workspace key that is taken."""
     draft = load_draft_for_update(session, draft_id)
     require_draft_version(draft, expected_version)
+    _require_free_draft(session, draft)
     source = draft_profile.current_source(session, draft)
     if source is None:
         raise api_error(
@@ -95,6 +118,9 @@ def create_from_workbook(
     problems = check_profile(compiled.model, ImportProfileDefinition.model_validate(exported))
     if problems:
         raise invalid_profile(problems)
+    # One new workspace key is chosen at a time across processes until this transaction ends, so
+    # a second request finds the first's workspace and takes the next free key (or is refused).
+    lock_job_subject(session, "workspace-key", "new")
     workspace_key = key or free_workspace_key(session, name)
     if session.get(Workspace, workspace_key) is not None:
         raise api_error(
@@ -139,6 +165,9 @@ def create_from_workbook(
     matrix_states.sync_workspace(session, workspace_key)
     # The draft is the workspace's own from here: editing its model continues this draft.
     draft.workspace_key = workspace_key
+    # The draft changed: a repeat of this request, which read the old version, is refused.
+    draft.version += 1
+    draft.updated_at = datetime.now(UTC)
     session.flush()
 
     request = ImportRequest(

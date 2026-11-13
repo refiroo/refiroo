@@ -4,6 +4,7 @@ import { API_URL } from "@/api/address";
 import { startSession } from "@/api/session";
 import { ResetPasswordScreen, takeResetToken } from "@/features/sign-in/ResetPasswordScreen";
 import { SignInScreen } from "@/features/sign-in/SignInScreen";
+import { reloadOnStaleChunk } from "@/lib/reloadOnStaleChunk";
 import { ErrorBoundary } from "@/ui/ErrorBoundary";
 import "@fontsource-variable/instrument-sans/wght.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
@@ -16,6 +17,9 @@ import "./styles.css";
 
 // The application loads once a session exists: the sign-in screens do not carry it (0.17 RF3).
 const App = lazy(() => import("@/app/App"));
+
+// A tab left open across a deployment reloads once instead of failing on a chunk that is gone.
+reloadOnStaleChunk();
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 

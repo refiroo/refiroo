@@ -377,6 +377,9 @@ function OperationFields({
                   {...control}
                   autoFocus={index === 0}
                   required={field.required}
+                  {...(field.type === "text" && field.markEmpty && !String(values[field.name] ?? "").trim()
+                    ? { "aria-invalid": true }
+                    : {})}
                   value={String(values[field.name] ?? "")}
                   onChange={(event) => set(field.name, event.target.value)}
                 />

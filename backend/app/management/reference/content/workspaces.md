@@ -59,9 +59,11 @@ Turns a workbook's model draft into a running workspace in one step: the draft i
 - 403 FORBIDDEN: a group is missing; `details.groups` names it
 - 404 MODEL_DRAFT_NOT_FOUND: no draft has this ID
 - 405 HTTP_ERROR: workspace administration, model administration or integration jobs are switched off
-- 409 VERSION_CONFLICT: the draft changed since `expectedVersion`
+- 409 VERSION_CONFLICT: the draft changed, or the same request was sent twice
 - 409 WORKSPACE_ALREADY_EXISTS: the key is taken, even by a retired workspace
 - 409 SOURCE_FILE_PROFILE_NOT_READY: the workbook is not read yet
+- 409 DRAFT_HELD_BY_WORKSPACE: another workspace remembers the draft
+- 409 AI_TASK_DRAFT_HELD: an assistant task names the draft
 - 422 DRAFT_HAS_NO_WORKBOOK: the draft has no workbook
 - 422 INVALID_MODEL: the draft's model does not compile; `details` lists why
 - 422 INVALID_IMPORT_PROFILE: the draft's mapping does not fit its model; `details.problems` lists why

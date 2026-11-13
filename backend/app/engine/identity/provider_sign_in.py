@@ -241,6 +241,18 @@ def finish(
     created: User | None = None
     if found is None:
         email = _email(claims)
+        if email is not None and not _believed(provider, claims):
+            raise fail(
+                "email_unverified",
+                f"{provider.name} did not confirm that the e-mail address it sent is yours, and "
+                "refiroo only takes an address a provider has confirmed. Ask an administrator of "
+                f"refiroo to sign you in, or to trust the addresses {provider.name} sends, then "
+                "sign in again.",
+                detail="the ID token's email_verified is not true and the provider's addresses "
+                "are not trusted"
+                if not provider.emails_trusted
+                else "the ID token says email_verified is false",
+            )
         if email is None:
             raise fail(
                 "no_email",
@@ -252,7 +264,7 @@ def finish(
         def taken() -> SignInFailed:
             return fail(
                 "email_taken",
-                f"Another person in refiroo already has the e-mail address {email}. A security "
+                f"The e-mail address {provider.name} sent cannot be used to sign you in. A security "
                 "administrator resolves this: ask one, then sign in again.",
                 detail=f"{email} belongs to another person",
             )
@@ -280,7 +292,7 @@ def finish(
                 "Your account is deactivated. Ask a security administrator.",
                 user=user,
             )
-        _refresh(session, user, claims, now)
+        _refresh(session, provider, user, claims, now)
         identity.last_sign_in_at = now
     _sync_groups(session, provider, user, claims, now)
     provider.last_sign_in_at = now
@@ -359,6 +371,25 @@ def _email(claims: dict[str, Any]) -> str | None:
     return email if email and _ADDRESS.match(email) else None
 
 
+def _verified(claims: dict[str, Any]) -> bool | None:
+    """The token's ``email_verified``: True, False, or None when it does not say (some providers
+    send the strings "true" and "false")."""
+    flag = claims.get("email_verified")
+    if isinstance(flag, str):
+        flag = {"true": True, "false": False}.get(flag.strip().lower())
+    return flag if isinstance(flag, bool) else None
+
+
+def _believed(provider: SignInProvider, claims: dict[str, Any]) -> bool:
+    """Whether the token's address may be the person's sign-in name (R17-F20). An address the token
+    calls unverified never is; one that does not say is taken only from a provider whose addresses
+    are trusted, as a provider can let people set their own."""
+    said = _verified(claims)
+    if said is False:
+        return False
+    return said is True or provider.emails_trusted
+
+
 def _identity(
     session: Session, provider: SignInProvider, subject: str
 ) -> tuple[User, UserIdentity] | None:
@@ -379,17 +410,36 @@ def _holder(session: Session, email: str, *, except_id: int | None = None) -> Us
     return session.scalar(statement)
 
 
-def _refresh(session: Session, user: User, claims: dict[str, Any], now: datetime) -> None:
-    """Name and e-mail follow the provider at each sign-in (D363); an address another person holds
-    is not taken, the stored one stays and the sign-in goes on (0.17 EM1, PP-D15)."""
+def _refresh(
+    session: Session, provider: SignInProvider, user: User, claims: dict[str, Any], now: datetime
+) -> None:
+    """Name and e-mail follow the provider at each sign-in (D363); an address another person holds,
+    or one the provider has not confirmed, is not taken: the stored one stays and the sign-in goes
+    on (0.17 EM1, PP-D15, R17-F20)."""
     email = _email(claims)
-    if email is None or _holder(session, email, except_id=user.id) is not None:
+    if (
+        email is None
+        or not _believed(provider, claims)
+        or _holder(session, email, except_id=user.id) is not None
+    ):
         email = user.email
     name = _name(claims, user.name)
-    if (name, email) != (user.name, user.email):
-        user.name, user.email = name, email
-        user.version += 1
-        user.updated_at = now
+    if (name, email) == (user.name, user.email):
+        return
+    try:
+        # In a savepoint: two people moving to the same new address at once, the second fails on
+        # ``ux_users_email`` and keeps the stored address (R17-F26).
+        with session.begin_nested():
+            user.name, user.email = name, email
+            user.version += 1
+            user.updated_at = now
+            session.flush()
+    except IntegrityError:
+        session.refresh(user)
+        if name != user.name:
+            user.name = name
+            user.version += 1
+            user.updated_at = now
 
 
 def _create_person(

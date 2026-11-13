@@ -14,6 +14,8 @@ from test_j39_sign_in import _browser, _reset_link, _set_password, _sign_in, add
 from test_j40_authorization import _as, _client, _grant
 from test_j46_mail import _person, _reset_mail, _save, smtp  # noqa: F401 - a fixture
 
+from app.engine.mail import templates
+
 TEMPLATE = "/mail-template"
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
@@ -65,7 +67,7 @@ def test_the_default_is_read_edited_saved_and_reset(world):
 
 @pytest.mark.journey("J46.12")
 def test_an_unknown_placeholder_and_a_missing_content_are_refused_by_code(world):
-    """Given an Operator, when the Markdown holds an unknown placeholder, no {{content}} or two,
+    """Given an Operator, when the Markdown holds an unknown placeholder, no {{content}} or two, or is too long,
     then each is refused by its code and nothing is saved."""
     operator = _operator(world)
     unknown = refused(
@@ -86,6 +88,12 @@ def test_an_unknown_placeholder_and_a_missing_content_are_refused_by_code(world)
         "MAIL_TEMPLATE_CONTENT_REQUIRED",
     )
     assert twice["details"]["count"] == 2
+    long = refused(
+        operator.api.put(TEMPLATE, {"markdown": "{{content}}" + "x" * 20_000}),
+        422,
+        "MAIL_TEMPLATE_TOO_LONG",
+    )
+    assert long["details"]["limit"] == 20_000
     assert ok(operator.api.get(TEMPLATE))["saved"] is False
 
 
@@ -209,3 +217,46 @@ def test_a_real_mail_and_a_test_are_wrapped_by_the_saved_template(world, smtp): 
     assert send_mail(world) == 1
     assert "Dear Ada," not in _html(smtp.messages[-1])
     assert "cid:mail-template-logo" not in _html(smtp.messages[-1])
+
+
+@pytest.mark.journey("J46.12")
+def test_a_queued_message_keeps_its_logo_and_its_text_is_not_damaged(world, smtp):  # noqa: F811
+    """Given a saved template with a PNG logo and a link whose token holds `-_abc_-` for a person
+    named `*x* Ada`, when the logo is replaced by an SVG before the message is sent, then the
+    message is sent with the PNG it was rendered with, the person is greeted once, and the text
+    holds the token and the name as they are."""
+    _save(world, smtp, applicationUrl="https://refiroo.example.org")
+    operator = _operator(world)
+    ok(_logo(operator.api, PNG, "image/png"))
+    link = "https://refiroo.example.org/reset?token=Zm9v-_abc_-YmFy"
+    message = templates.password_reset("refiroo", "*x* Ada", link, 24)
+    queue_mail(world, "ada@example.org", message, recipient_name="*x* Ada")
+    ok(_logo(operator.api, SVG, "image/svg+xml", expectedVersion=1))
+    assert send_mail(world) == 1
+    [mail] = smtp.messages
+    text = mail.get_body(("plain",)).get_content()
+    assert link in text and text.count("Hello *x* Ada,") == 1
+    assert _html(mail).count("Hello *x* Ada,") == 1
+    logos = [p for p in mail.walk() if p["Content-ID"] == "<mail-template-logo>"]
+    assert [p.get_content_type() for p in logos] == ["image/png"]
+    assert logos[0].get_content() == PNG
+
+
+@pytest.mark.journey("J46.12")
+@pytest.mark.parametrize(
+    "inner",
+    [
+        "<svg:script>alert(1)</svg:script>",
+        '<a href="javascript&#58;alert(1)"><rect width="1" height="1"/></a>',
+        '<image href="https://example.org/x.png"/>',
+        "<style>@import url(https://example.org/x.css);</style>",
+    ],
+)
+def test_an_svg_logo_that_runs_or_fetches_is_refused(world, inner):
+    """Given an Operator, when an SVG with a namespaced script, an encoded `javascript:` link, an
+    external image or an imported style is uploaded, then it is refused as unsafe."""
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" '
+        f'width="10" height="10">{inner}</svg>'
+    ).encode()
+    refused(_logo(_operator(world).api, svg, "image/svg+xml"), 422, "MAIL_LOGO_UNSAFE")

@@ -25,7 +25,8 @@ from app.db import DatabaseStartupError, get_engine
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261130_01"
+# The newest migration: 0.17's identity and mail review (20261203_01), after 20261201 and 20261202.
+HEAD = "20261203_01"
 LIMITED_ROLE = "rdm_startup_limited"
 LIMITED_PASSWORD = "limited-role-pass"
 

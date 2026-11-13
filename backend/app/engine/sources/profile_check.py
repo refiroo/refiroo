@@ -402,6 +402,9 @@ def _follow(
         elif key.get("versionColumn") in missing:
             key.pop("versionColumn")
     gone = _follow_readings(found, name, missing)
+    # A column a dropped reading added is missing like any other: every member that names it is
+    # left out, or its binding unmapped, as for a column the file lost.
+    missing = missing | gone
     columns = []
     for binding in found.get("columns", []):
         if "column" in binding:

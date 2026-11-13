@@ -11,6 +11,7 @@
 // assistant offers no item.
 // 0.13 release review: the engine offers no change that loses what the person did not ask to remove (2026-11-09), so the
 // stand-in lists the split type as a removal with the person's words and movedTo (`plan.words`).
+// Brought up to date (0.14 + 0.17 release review, ST1): the dialog's intro holds the words 'what happens to the records', so the wait is on the proposal's table, not on that text.
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -176,8 +177,9 @@ async function scenario(configuration, index) {
       `${label}: Change this model… on the workspace menu opens the dialog with the workspace fixed and the words first`,
     );
 
-    await page.getByText("What happens to the records").waitFor();
+    // The dialog's own intro says "what happens to the records" too, so the wait is on the task's table.
     const table = page.getByRole("group", { name: "Types that become others" });
+    await table.waitFor();
     assert.equal(await table.getByRole("row").count(), 3, "a head and two moves");
     assert.match(await table.innerText(), /Supplier[\s\S]*Partner[\s\S]*3/);
     assert.match(await table.innerText(), /Vendor[\s\S]*Partner[\s\S]*2/);

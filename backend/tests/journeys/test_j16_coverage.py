@@ -289,8 +289,8 @@ def test_fill_a_cell_through_each_binding_shape(world):
 def test_columns_several_levels_above_the_related_record(world):
     """Given column g1 with containers M1 and M2 between it and its records. When its containers are
     listed, a record is created under M2 and the matrix read. Then the containers are listed in path
-    order with no default (several); the new record fills g1's cell; a column with one container
-    names it as the default."""
+    order with no default (several); the new record fills g1's cell; a column's one container
+    is its default only once it holds a cell."""
     g1 = world.made("G", "Deep column")
     m1 = world.made("M", "Container one", parent=g1["id"])
     m2 = world.made("M", "Container two", parent=g1["id"])
@@ -310,6 +310,10 @@ def test_columns_several_levels_above_the_related_record(world):
 
     g2 = world.made("G", "Single column")
     only = world.dependant_parent(g2["id"])
+    # A container that holds no cells of the view is never the default, even the only one (0.17 MC1,
+    # PP-D24: where a new record goes is the evidence of the data); once it holds one, it is.
+    assert ok(_sub(world, "containers", "Mown", columnId=g2["id"]))["defaultContainerId"] is None
+    _owned(world, world.made("R", "Row single"), g2, parent=only)
     assert ok(_sub(world, "containers", "Mown", columnId=g2["id"]))["defaultContainerId"] == only
 
 

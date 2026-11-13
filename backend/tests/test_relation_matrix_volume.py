@@ -17,7 +17,7 @@ from volume_fixture import (
     volume_app,
 )
 
-from app.management.projections import relation_matrix
+from app.engine.reads import matrix_read
 
 SHAPE = scaled_shape(0.01)
 PATH = f"/api/v1/workspaces/{WORKSPACE}/relation-matrix"
@@ -60,7 +60,9 @@ def test_state_filter_matches_every_rows_cells(volume, context, view, monkeypatc
     def derived(*_args, **_kwargs):
         raise AssertionError("the filter derived its cells instead of reading stored states")
 
-    monkeypatch.setattr(relation_matrix, "_current_pairs", derived)
+    # The derivation moved to the engine read module (shared with the export) when the matrix
+    # read was extracted; the filter must still never reach it.
+    monkeypatch.setattr(matrix_read, "current_pairs", derived)
     columns = dataset.matrix_column_ids[:10]
     params = {
         "applicationKey": MATRIX_APPLICATION,

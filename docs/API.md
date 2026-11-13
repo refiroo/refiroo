@@ -982,7 +982,7 @@ import (`GET /jobs/{id}`, its `rows` and `events`), and a refused row is reporte
 Model release and Bulk and import at the instance, and refuses with `403 FORBIDDEN` naming the first it lacks. Refused
 before anything is written: `404 MODEL_DRAFT_NOT_FOUND`, `409 VERSION_CONFLICT`, `422 DRAFT_HAS_NO_WORKBOOK`, `409
 SOURCE_FILE_PROFILE_NOT_READY`, `422 INVALID_MODEL` (`details` the model's diagnostics), `422 INVALID_IMPORT_PROFILE`
-(`details.problems`), `422 UNSUPPORTED_SCHEMA_VERSION`, `409 WORKSPACE_ALREADY_EXISTS`. Registered with workspace
+(`details.problems`), `422 UNSUPPORTED_SCHEMA_VERSION`, `409 WORKSPACE_ALREADY_EXISTS`, `409 DRAFT_HELD_BY_WORKSPACE` (another workspace remembers the draft), `409 AI_TASK_DRAFT_HELD` (an assistant task names it). A success raises the draft's version, so a repeat of the same request is `409 VERSION_CONFLICT` and makes no second workspace. Registered with workspace
 administration, model administration and integration jobs all on.
 
 Each workspace item and the detail read carry `availability` (0.12 UW1): `{"state": "available"}`, or
@@ -2024,6 +2024,7 @@ refused by a single write's rule carries the same code in its outcome.
 | `REQUIRED_RELATION_WITHOUT_PLACE` | 422 | `changeType`, restructuring | The new type cannot hold a relationship another record requires (J15) |
 | `RELATION_ALREADY_EXISTS` | 409 | change back in a change set | A relationship the change back restores already exists in the change set (J15.1) |
 | `WORKSPACE_ALREADY_EXISTS` | 409 | `POST /workspaces`, `POST /workspaces/from-workbook` | The key is taken, by an active or a retired workspace (J19) |
+| `DRAFT_HELD_BY_WORKSPACE` | 409 | `POST /workspaces/from-workbook` | Another workspace already remembers the draft |
 | `DRAFT_HAS_NO_WORKBOOK` | 422 | `POST /workspaces/from-workbook` | The draft has no workbook to load (J36.13) |
 | `DEFAULT_WORKSPACE_CANNOT_BE_RETIRED` | 409 | `PATCH /workspaces/{key}` | Retiring the default workspace (J19) |
 | `MAPPING_VIEW_REQUIRED` | 422 | `GET /workspaces/{key}/mapping-targets` | `applicationKey` and `viewKey` must come together (J10) |
@@ -3035,7 +3036,7 @@ fixed values it matches. A list pages in key order (ADR-030).
   `column` is a heading and no record; its text fills the new column `into` on every row beneath it until
   the next heading, so a `parent` binding (with `missing: "create"`) reads it as the parent. A data row must
   hold a value in another column, or it reads as a heading. `fillDown: [column, …]`: an empty cell takes the
-  nearest filled cell above it in its column. `unpivot: {columns, nameColumn, valueColumn}`: each filled
+  nearest filled cell above it within its heading group (the next heading row starts a new group). `unpivot: {columns, nameColumn, valueColumn}`: each filled
   cell of the two or more listed columns becomes a row, the column's header in the new `nameColumn` and the
   cell in `valueColumn`; a row whose listed cells are all empty gives no row, and the rows keep their sheet
   row number. A column listed in `fillDown` is not also unpivoted. A new column whose name the table has is
@@ -6627,11 +6628,14 @@ Outside `/api/v1`, needing no token:
   `redirect_uri` with a one-time code and its `state`, as the form does; the session's
   `signedInWith` is the provider's key. Parameters the provider adds of its own (`session_state`, ...) are ignored; an `iss` (RFC 9207) must equal the provider's issuer, else the sign-in is refused (reason `issuer`). A sign-in that cannot finish shows "*name* could not sign
   you in" with the reason and **Try again** (`400`; `403` for a deactivated person or a disabled
-  provider; `403` too for `email_taken`) and is a `sign-in` `failed` security event; nothing is redirected.
+  provider; `403` too for `email_taken` and `email_unverified`) and is a `sign-in` `failed` security event; nothing is redirected.
   A first sign-in needs the token's `email` claim (reason `no_email`: the message names the missing
   claim and that the provider's administrator adds it) and an address no other person holds, in any
   letters, deactivated or not (reason `email_taken`: the message says a security administrator
-  resolves it; OPERATIONS gives the steps); the address is the person's name for signing in. At a
+  resolves it, and the page names no address; OPERATIONS gives the steps; reason `email_unverified`:
+  the provider's addresses are not trusted and the token does not say `email_verified: true`, or it says
+  `false`: the message tells the person to ask an administrator, R17-F20); the address is the person's
+  name for signing in. At a
   later sign-in the name and e-mail follow the token, except that an address another person holds
   is not taken: the stored one stays and the sign-in succeeds (0.17 EM1, PP-D15).
 - `POST /oauth/second-factor` (I4b, D388): the sign-in page's second step, a form post carrying the
@@ -7197,7 +7201,10 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   provider), `signOutOfProvider` (I4a, D379: signing out of the engine signs the person out of the
   provider too; off by default; turning it on reads the discovery document for an
   `end_session_endpoint`, `422 SIGN_IN_PROVIDER_UNREACHABLE` with `kind: sign-out` without one),
-  `signedOutUri` (`<PUBLIC_URL>/oauth/providers/{key}/signed-out`, to register as the provider's
+  `emailsTrusted` (R17-F20: its e-mail addresses are taken as sent; off by default for a new provider, on
+  for providers that existed at the upgrade; off: an address is taken only when the ID token says
+  `email_verified: true`, else the first sign-in is refused with reason `email_unverified`; an address the
+  token says is not verified is never taken, trusted or not), `signedOutUri` (`<PUBLIC_URL>/oauth/providers/{key}/signed-out`, to register as the provider's
   post-logout redirect address), `people` (how many have signed in with it), `lastSignInAt`, `version`, `createdAt`,
   `updatedAt`. Changing the `issuer` does not carry the saved secret to the new provider: a `PATCH` that
   changes it must send `clientSecret` too (`422 SIGN_IN_PROVIDER_SECRET_REQUIRED`, `details.field`
@@ -7257,7 +7264,7 @@ security change is audited with its actor.
     the requirement changed is `sign-in-provider` `updated` on `local` with
     `changedFields: ["secondFactorRequired"]`;
   - `sign-in-provider`: `created`, `updated` (`changedFields` and the new `name`, `issuer`,
-    `groupsClaim`, `enabled`, `signOutOfProvider`; never the secret), `deleted`; local sign-in turned on or off is
+    `groupsClaim`, `enabled`, `signOutOfProvider`, `emailsTrusted`; never the secret), `deleted`; local sign-in turned on or off is
     `updated` on `local` (`enabled`).
   Grants given at startup or by the CLI's `--role` (the first administrator's) are not events; the
   person's creation is. Nothing expires them yet (TODO).

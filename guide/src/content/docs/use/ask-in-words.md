@@ -10,7 +10,7 @@ it does not change any record. Follow [Ask a list in words](/docs/guide/use/ask-
 
 ## Where Ask is offered
 
-A table collection offers **Search** and **Ask** beside its search box when an AI provider is
+A table collection offers **Search** and **Ask** beside its search box, as a switch named **Search or ask**, when an AI provider is
 enabled and you have **Browse** and **Use AI proposals** in the workspace. Ask works in Live,
 a change set and a publication. It is absent from mapping grids, trees and the Changes page.
 You can always use the list's ordinary [search and filters](/docs/use/lists-and-filters/).

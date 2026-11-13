@@ -530,7 +530,7 @@ def _provider_problem(
         redirect_origins=_origins(settings),
         status=(
             403
-            if failed.reason in ("disabled", "deactivated", "email_taken")
+            if failed.reason in ("disabled", "deactivated", "email_taken", "email_unverified")
             else 429
             if failed.reason == "busy"
             else 400

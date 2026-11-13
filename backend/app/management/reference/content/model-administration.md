@@ -884,7 +884,7 @@ A draft's structure as the editor shows it, each element marked against the base
 ### OutlineNavigationEntry
 
 - collection: The object type key of a collection in the group.
-- view: The key of a relation matrix in the group. An entry holds one of the two.
+- view: The key of a view of the application in the group. An entry holds one of the two.
 
 ### OutlineNavigationGroup
 
@@ -892,7 +892,7 @@ A draft's structure as the editor shows it, each element marked against the base
 - label: The group's name.
 - collapsed: Whether the group starts folded.
 - collections: The collections in the group, by object type key.
-- entries: The group's collections and matrices in their one order.
+- entries: The group's collections and views in their one order.
 - mark: `new`, `changed` or `released` against the base release.
 
 ### OutlineNavigation

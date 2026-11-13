@@ -101,7 +101,9 @@ function brand() {
   const subjects = pages().map((page) => ({ where: page.where, text: page.text }));
   for (const { where, text } of subjects) {
     const body = text.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
-    for (const spelling of new Set(body.match(/refiroo/gi) ?? [])) {
+    // Code keeps the names the code uses (REFIROO_BUILD_COMMIT, a variable): only prose is checked.
+    const prose = body.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+    for (const spelling of new Set(prose.match(/refiroo/gi) ?? [])) {
       if (spelling !== "refiroo") fail("brand", where, `"${spelling}" must be written "refiroo", in lower case, even at the start of a sentence`);
     }
     if (/\bRDM Engine\b/.test(body)) fail("brand", where, '"RDM Engine" is the old name: write "refiroo", or "the engine" in technical text');
@@ -163,7 +165,8 @@ function links() {
 // its key (or an alias) stands on a page exactly, or one of its labels stands on a page, ignoring case and only
 // as a whole word (a label starting with "/" is a path: its {placeholders} are compared without their names and it
 // must not run on into a longer path). An entry with `context` counts a label or alias only on a page that also
-// names one of the context words. An entry is excluded by a line `kind key — reason` in
+// names one of the context words. A label that is one common word counts only with a `commonContext` word on the
+// same page, and text inside headings counts for no label. An entry is excluded by a line `kind key — reason` in
 // guide/_coverage/exclusions.md. Prints the counts per kind and section, writes inventory/uncovered.md, and fails
 // while anything is uncovered.
 const INVENTORY = join(ROOT, "_coverage", "inventory");
@@ -188,6 +191,19 @@ function keyPattern(key) {
   return new RegExp(`${/^\w/.test(key) ? "(?<![A-Za-z0-9_])" : ""}${escapeRegExp(key)}${/\w$/.test(key) ? after : ""}`);
 }
 
+// Text inside a heading is not coverage: a heading names a topic, the text under it says what the thing does.
+// Front matter and Markdown headings (# ...) and HTML headings are taken out before a label is looked for.
+function withoutHeadings(page) {
+  return page.body
+    .replace(/^ {0,3}#{1,6}[ \t].*$/gm, "")
+    .replace(/<h[1-6][\s>][\s\S]*?<\/h[1-6]>/gi, "");
+}
+
+// A label that is one common word (a single plain word, or one of the stop list) proves nothing alone: it counts
+// only on a page that also names one of the entry's context words (`commonContext`, else `context`).
+const COMMON_PHRASES = new Set(["add new", "save changes", "are you sure", "go back", "try again", "delete all", "remove all"]);
+const isCommonLabel = (label) => !label.startsWith("/") && (/^[A-Za-z][a-z]*$/.test(label) || COMMON_PHRASES.has(label.toLowerCase()));
+
 function exclusions() {
   const found = new Map();
   if (!existsSync(EXCLUSIONS)) return found;
@@ -205,7 +221,10 @@ function coverage() {
     fail("coverage", "_coverage/inventory", "no inventory; run backend/.venv/bin/python guide/tools/inventory.py first");
     return;
   }
-  const texts = pages().map((page) => ({ where: page.where, raw: page.text, flat: normalPath(page.text), low: page.text.toLowerCase() }));
+  const texts = pages().map((page) => {
+    const prose = withoutHeadings(page);
+    return { where: page.where, raw: page.text, flat: normalPath(prose), low: prose.toLowerCase() };
+  });
   const excluded = exclusions();
   const entries = walk(INVENTORY, [".json"]).flatMap((file) => JSON.parse(readFileSync(file, "utf8")));
   const unused = new Set(excluded.keys());
@@ -235,11 +254,15 @@ function coverage() {
     }
     const key = keyPattern(item.key);
     const context = (item.context ?? []).map((word) => word.toLowerCase());
-    const patterns = [...(item.labels ?? []), ...(item.aliases ?? [])].map(labelPattern);
+    const common = (item.commonContext ?? item.context ?? []).map((word) => word.toLowerCase());
+    const patterns = [...(item.labels ?? []), ...(item.aliases ?? [])].map((label) => ({ pattern: labelPattern(label), common: isCommonLabel(label) }));
     const hit = texts.some(
       (page) =>
         key.test(page.raw) ||
-        (patterns.length > 0 && (!context.length || context.some((word) => page.low.includes(word))) && patterns.some((pattern) => pattern.test(page.flat))),
+        patterns.some(
+          ({ pattern, common: isCommon }) =>
+            (isCommon ? common.length > 0 && common.some((word) => page.low.includes(word)) : !context.length || context.some((word) => page.low.includes(word))) && pattern.test(page.flat),
+        ),
     );
     if (hit) cell.covered += 1;
     else {

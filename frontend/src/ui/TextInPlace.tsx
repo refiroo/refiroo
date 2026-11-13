@@ -36,8 +36,8 @@ export function TextInPlace({
   /** The toast a saved change shows. */
   savedText?: string;
   disabled?: boolean;
-  /** Saves the new text. A refusal is thrown and shown under the field; the result, where there is one, puts the old text back. */
-  onSave: (next: string) => Promise<void | (() => Promise<unknown>)>;
+  /** Saves the new text. A refusal is thrown and shown under the field; the result, where there is one, puts the old text back; false means nothing was saved (the draft moved on) and is said elsewhere, so no saved message. */
+  onSave: (next: string) => Promise<void | false | (() => Promise<unknown>)>;
   /** The value as it reads (default: the text). */
   children?: ReactNode;
 }) {
@@ -70,6 +70,7 @@ export function TextInPlace({
     try {
       const undo = await onSave(next);
       setEditing(false);
+      if (undo === false) return;
       toast(
         savedText,
         undo

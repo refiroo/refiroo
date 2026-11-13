@@ -538,6 +538,12 @@ The subscription has no logged delivery with the ID in `GET /api/v1/consumer-sub
 
 `POST /api/v1/workspaces/from-workbook` named a model draft that has no workbook, so there is nothing to load into the new workspace. Nothing was created. Add the workbook to the draft (`POST /api/v1/source-files` with the draft as its owner), wait until it is read, then send the request again.
 
+### DRAFT_HELD_BY_WORKSPACE
+
+<span class="rdm-status rdm-4xx">Status 409</span>
+
+`POST /api/v1/workspaces/from-workbook` was sent a model draft that another workspace already remembers as its own, so a second workspace cannot take it. `details` holds `draftId` and `workspaceKey`. Make a new draft, from the same release or workbook, and create the workspace from that.
+
 ### DRY_RUN_NOT_FOUND
 
 <span class="rdm-status rdm-4xx">Status 404</span>

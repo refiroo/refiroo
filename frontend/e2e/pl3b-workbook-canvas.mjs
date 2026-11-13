@@ -18,6 +18,9 @@
 //     (the draft's action in ⋯) walked to their confirmation;
 //   - 390px: the panes stack, the menus do what the drags do, no horizontal scroll; axe; no 5xx.
 //
+// Brought up to date (0.14 + 0.17 release review): the sheet tabs sit beside their actions menus (PP-D75) and the
+// tablist owns its tabs by aria-owns (axe); the 390px part waits for the workbook pane before it measures.
+//
 // Real-file mode (optional, skipped when PL3B_REAL_FILE is unset): the path of one workbook in PL3B_REAL_FILE, and
 // optionally the path of a JSON list of gestures in PL3B_REAL_PLAN, drive the whole journey on that file in the
 // isolated harness: New workspace from a workbook, what the dialog says, Adjust, the canvas, the gestures, the
@@ -625,6 +628,8 @@ async function synthetic() {
     true,
     "no horizontal scroll",
   );
+  // The workbook pane stands once the draft's file is read, which may be after the first card shows.
+  await phone.locator(".canvas-workbook").waitFor();
   const stacked = await phone.evaluate(() => {
     const pane = document.querySelector(".canvas-workbook")?.getBoundingClientRect();
     const middle = document.querySelector(".canvas-main")?.getBoundingClientRect();

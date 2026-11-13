@@ -1,5 +1,5 @@
 /**
- * Settings › Integration › Consumer APIs (Track U U4): each consumer API of the active release with
+ * Settings › Integration › Consumer APIs (Track U U4): each consumer API of the chosen workspace's model release with
  * its base URL, its OpenAPI document and its routes. The API index (`GET /api/consumer`) names each one and its OpenAPI
  * document; the document gives the routes, each linked to its operation in the API reference at
  * `/docs/api`, which holds everything else the contract says. Read only: a definition changes through a
@@ -23,12 +23,22 @@ import { allConsumerApis, baseUrl, consumerSlug, openapiUrl, operationUrl } from
 import { ReferenceWorkspace } from "./ReferenceWorkspace";
 import { count } from "./limits";
 import { settingsHead } from "./navigation";
-import { useCapabilities, useSettingsRead, useSystem } from "./useSystem";
+import { useCapabilities, useSettingsRead } from "./useSystem";
 
 async function loadApis(workspaceKey: string) {
   const entries = await allConsumerApis(workspaceKey);
   const documents = await Promise.all(entries.map((entry) => api.consumerApiDocument(openapiUrl(entry))));
   return entries.map((entry, index) => ({ entry, document: documents[index] }));
+}
+
+/** The release the chosen workspace runs: the default workspace's is the instance's active release. */
+async function loadRelease(workspaceKey: string) {
+  if (!workspaceKey) {
+    const { activeModelRelease } = await api.system();
+    return { id: activeModelRelease.id, name: activeModelRelease.name, version: activeModelRelease.version };
+  }
+  const { model } = await api.workspace(workspaceKey);
+  return { id: model.releaseId, name: model.releaseName, version: model.releaseVersion };
 }
 
 export function ConsumerApisPage({
@@ -42,18 +52,18 @@ export function ConsumerApisPage({
   const workspaceKey = route.workspaceKey ?? "";
   const load = useCallback(() => loadApis(workspaceKey), [workspaceKey]);
   const { data: apis, error, retry } = useSettingsRead(load);
-  const { system, error: systemError, retry: retrySystem } = useSystem();
+  const loadWorkspaceRelease = useCallback(() => loadRelease(workspaceKey), [workspaceKey]);
+  const { data: release, error: releaseError, retry: retryRelease } = useSettingsRead(loadWorkspaceRelease);
   const { capabilities } = useCapabilities();
-  const release = system?.activeModelRelease;
   const releaseRoute: SettingsRoute | undefined = release && { kind: "settings", page: "model", releaseId: release.id };
-  const failure = error || systemError;
+  const failure = error || releaseError;
 
   const head = settingsHead("consumer-apis");
   return (
     <SettingsLayout
       {...head}
       title="Consumer APIs"
-      description="The read APIs the active model release declares for consuming systems, each at its contract version, with its routes. Each route opens its documentation in the API reference."
+      description="The read APIs the model release of the chosen workspace declares for consuming systems, each at its contract version, with its routes. Each route opens its documentation in the API reference."
     >
       <ReferenceWorkspace
         value={workspaceKey}
@@ -64,14 +74,14 @@ export function ConsumerApisPage({
           message={failure}
           onRetry={() => {
             if (error) retry();
-            if (systemError) retrySystem();
+            if (releaseError) retryRelease();
           }}
         />
       ) : !apis || !release || !releaseRoute ? (
         <Skeleton label="Loading the consumer APIs" lines={8} />
       ) : (
         <>
-          <SettingsGroup title="Active release" description="A consumer API changes only through a model release.">
+          <SettingsGroup title="Model release" description="A consumer API changes only through a model release.">
             <SettingsPanel>
               <SettingRow fact name="Declared by">
                 <span>
@@ -99,7 +109,7 @@ export function ConsumerApisPage({
                     </button>
                   }
                 >
-                  The active release declares no consumer API.
+                  The workspace's model release declares no consumer API.
                 </SettingsEmpty>
               </SettingsPanel>
             </SettingsGroup>

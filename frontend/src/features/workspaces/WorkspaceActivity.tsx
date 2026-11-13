@@ -227,6 +227,7 @@ export function WorkspaceActivity({
   return (
     <section className="workspace-activity" aria-label="Activity">
       <WhatChanged
+        headingLevel={2}
         workspaceKey={workspaceKey}
         application={application}
         onNavigate={onNavigate}
@@ -275,7 +276,8 @@ export function WorkspaceActivity({
           <div className="history-days" aria-label="Activity" role="group">
             {byDay(groupActivity(feed.items, feed.hasMore)).map((day) => (
               <section key={day.day} aria-label={day.day}>
-                <h3 className="history-day">{day.day}</h3>
+                {/* Level 2: "What changed" above is an h2 and renders nothing when the AI offer is off, so an h3 would skip a level under the page's h1. */}
+                <h2 className="history-day">{day.day}</h2>
                 <ol className="activity-list">{day.entries.map(render)}</ol>
               </section>
             ))}

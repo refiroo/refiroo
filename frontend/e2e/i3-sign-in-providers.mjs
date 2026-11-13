@@ -8,6 +8,7 @@
 // through its confirmation; the sign-in page then shows only the provider's button and the local
 // administrator's link, where the harness person (keeping local sign-in) signs in; turned on again.
 // Axe on each page; screenshots; no horizontal page scroll at 390px.
+// Brought up to date (0.14 + 0.17 release review, R17-F20): the harness provider sends no email_verified, so the provider is added with its e-mail addresses trusted.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { SHAPED_MODELS, bootShaped } from "./helpers/shaped-models.mjs";
@@ -62,6 +63,9 @@ async function walk(configuration) {
       await dialog.getByLabel(label, { exact: true }).focus();
       await page.keyboard.type(value);
     }
+    // The harness provider sends no email_verified, so its addresses are trusted as sent (R17-F20).
+    await dialog.getByLabel("Trust the e-mail addresses it sends").focus();
+    await page.keyboard.press("Space");
     expect(
       (await dialog.getByLabel("Key", { exact: true }).inputValue()) === "harness-id",
       `${tag}: the key follows the name`,

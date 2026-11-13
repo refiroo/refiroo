@@ -9,7 +9,8 @@ import { bootHarness } from "./harness.mjs";
 import { seedMappingData } from "./acceptance-data.mjs";
 import { workspaceAction } from "./workspaceMenu.mjs";
 
-const csv = (rows) => rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n") + "\n";
+const csv = (rows) =>
+  rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n") + "\n";
 const attribute = (record, key) => record.attributes.find((item) => item.attributeTypeKey === key)?.value;
 
 async function until(condition, message, timeout = 30000) {
@@ -35,6 +36,8 @@ export async function visitReleaseSurfaces(visit) {
   const harness = await bootHarness({
     backendEnv: {
       CONSUMER_SUBSCRIPTIONS_ENABLED: "true",
+      // The webhook below goes to a local receiver; RF6 refuses private addresses by default.
+      WEBHOOK_PRIVATE_ADDRESSES_ALLOWED: "true",
     },
   });
   try {
@@ -47,7 +50,7 @@ export async function visitReleaseSurfaces(visit) {
     // What differs from run to run: the receiver's port, times, IDs (whole or shortened), an export's
     // checksum, and the jobs listed on Jobs (their times, IDs and how far each has run).
     const varying = () => [
-      page.getByText(/127\.0\.0\.1|\d{1,2}\/\d{1,2}\/\d{4}|^[0-9a-f]{8}(-|…)|^[0-9a-f]{64}$/),
+      page.getByText(/127\.0\.0\.1|\d{1,2}\/\d{1,2}\/\d{4}|\d{1,2}:\d{2}|^[0-9a-f]{8}(-|…)|^[0-9a-f]{64}$/),
       page.getByRole("row").filter({ hasText: /processed/ }),
     ];
     const closeDialogs = async () => {
@@ -109,7 +112,12 @@ export async function visitReleaseSurfaces(visit) {
         path,
         csv([
           ["Code", "Name", "Type", "Active"],
-          [attribute(system, "system-code"), `${system.name} (${scheme})`, attribute(system, "system-type") ?? "", "true"],
+          [
+            attribute(system, "system-code"),
+            `${system.name} (${scheme})`,
+            attribute(system, "system-type") ?? "",
+            "true",
+          ],
           [`${tag}-NEW`, `${tag} New system`, "ERP", "true"],
           [`${tag}-BAD`, `${tag} Bad flag`, "ERP", "maybe"],
         ]),
@@ -145,6 +153,8 @@ export async function visitReleaseSurfaces(visit) {
         "integration-jobs",
         async () => {
           await page.goto(`${uiUrl}/settings/jobs`);
+          // Limits is a tab of the Jobs page since ST1 (it was a region beside the job list).
+          await page.getByRole("tab", { name: "Limits" }).click();
           await page.getByRole("region", { name: "Limits" }).getByText("Chunk").waitFor();
         },
       ],
@@ -181,7 +191,9 @@ export async function visitReleaseSurfaces(visit) {
         "filter-editor",
         async () => {
           await page.getByRole("button", { name: "Filter", exact: true }).click();
-          await dialog("Filter").getByRole("button", { name: /^Maps to master value/ }).click();
+          await dialog("Filter")
+            .getByRole("button", { name: /^Maps to master value/ })
+            .click();
           await page.getByLabel("Filter by Maps to master value").locator(".record-checklist-row").first().waitFor();
         },
         { continues: true },
@@ -211,7 +223,11 @@ export async function visitReleaseSurfaces(visit) {
       [
         "export-job",
         async () => {
-          await toasts.locator(".toast", { hasText: "completed." }).last().getByRole("link", { name: "View job" }).click();
+          await toasts
+            .locator(".toast", { hasText: "completed." })
+            .last()
+            .getByRole("link", { name: "View job" })
+            .click();
           await page.getByRole("region", { name: "The file" }).waitFor();
         },
         { continues: true },
@@ -221,7 +237,9 @@ export async function visitReleaseSurfaces(visit) {
         async (scheme) => {
           await page.goto(`${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default`);
           await workspaceAction(page, "Import…");
-          await dialog("Import").getByLabel("File", { exact: true }).setInputFiles(await importFile(scheme));
+          await dialog("Import")
+            .getByLabel("File", { exact: true })
+            .setInputFiles(await importFile(scheme));
           await dialog("Import").getByLabel("Profile", { exact: true }).selectOption("gate-systems");
         },
       ],
@@ -245,7 +263,11 @@ export async function visitReleaseSurfaces(visit) {
       [
         "import-loaded",
         async () => {
-          await toasts.locator(".toast", { hasText: "completed." }).last().getByRole("link", { name: "View job" }).click();
+          await toasts
+            .locator(".toast", { hasText: "completed." })
+            .last()
+            .getByRole("link", { name: "View job" })
+            .click();
           await page.getByRole("region", { name: "The result", exact: true }).waitFor();
         },
         { continues: true },

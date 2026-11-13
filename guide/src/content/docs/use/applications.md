@@ -79,7 +79,7 @@ The model chooses their arrangement. If it declares no detail layout, refiroo pr
 The collection views above are the supported kinds; dedicated form and dashboard views are
 not available.
 
-The group page's **Find a collection or matrix** searches collection and matrix names. **This group has no collections or relation matrices.**
+The group page's **Find a collection or view** searches the names of the group's collections and views. **This group has no collections or views.**
 describes an empty group, rather than no records in its collections. For the shared table
 controls, see [Lists, search and filters](/docs/use/lists-and-filters/).
 
@@ -90,13 +90,15 @@ Settings opens an index grouped by task. Inside Settings, **← Back to** follow
 name returns to its page. On a phone, choose the application from the band
 beneath the top bar instead. See [Appearance and devices](/docs/use/appearance-and-devices/).
 
-If a group says **No collection or relation matrix in this group matches “…”**, clear **Find a collection or matrix**
-or press Escape in that search field. This search covers collection and matrix names, not records.
-Opening a collection result uses its chosen starting view; opening a matrix result goes straight
-to that matrix. Both keep the current data context.
+If a group says **No collection or view in this group matches “…”**, clear **Find a collection or view**
+or press Escape in that search field. This search covers collection and view names, not records.
+Opening a collection result uses its chosen starting view; opening a view result goes straight
+to that view. Both keep the current data context.
 
 ### Find a list in the sidebar
 
-Use the workspace search above the page to find a list by name, including lists in folded groups. Press ⌘K on a Mac or Ctrl+K elsewhere to focus it. Matching lists appear under **Lists**; select one to open its view. **Go to** offers matching places such as Home, Change sets and Settings. The sidebar no longer has a separate list search.
+Use the workspace search above the page, **Find a record, a list or a place (⌘K)**, to find a list by name, including lists in folded groups. Press ⌘K on a Mac or Ctrl+K elsewhere to focus it. Matching lists appear under **Lists**; select one to open its view. **Go to** offers matching places such as Home, Change sets and Settings.
 
-The same search finds record names across the workspace. Results are grouped by record type and show each record's place. Use the arrow keys to choose a record and Enter to open it. Workspace search opens records in **Live**; use a collection's own search to stay in a change set or publication. **Browse records** has no search box of its own. The group page's **Find a collection or matrix** searches only that group's entries.
+When an application has more than ten entries in its sidebar, the sidebar also shows **Find a list** under **Collections**, with a count such as “3 of 14”. Typing narrows the sidebar to the matching lists. Enter opens the first match, and Escape clears the field. **No list matches** means no entry name contains what you typed.
+
+The same search finds record names across the workspace. Results are grouped by record type and show each record's place. Use the arrow keys to choose a record and Enter to open it. Workspace search opens records in **Live**; use a collection's own search to stay in a change set or publication. **Browse records** has no search box of its own. The group page's **Find a collection or view** searches only that group's entries.

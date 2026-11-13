@@ -1,4 +1,6 @@
 // Real-backend SC-08 regression. All model/data mutations target a temporary database.
+// Brought up to date (0.14 + 0.17 release review): a change set started from a publication says "Started from
+// publication <number>", never the identifier.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
@@ -219,8 +221,10 @@ try {
     .getByRole("heading", { name: "Earlier review", exact: true })
     .waitFor();
   await page.getByRole("button", { name: "Details", exact: true }).click();
+  // A publication is named by its number, never by its identifier (0.14 + 0.17 release review).
+  await page.getByText(`Started from publication ${oldPublication.publicationNumber}`, { exact: true }).waitFor();
   const changeSetText = await page.locator("main").innerText();
-  assert.match(changeSetText, new RegExp(`Started from publication ${oldPublication.id}`));
+  assert.doesNotMatch(changeSetText, new RegExp(oldPublication.id));
   assert.match(changeSetText, /This change set uses a different model version/);
   checks.push(
     "Deriving from an earlier publication is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override",

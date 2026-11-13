@@ -1459,6 +1459,7 @@ An OpenID Connect provider people sign in with; never its secret.
 - groupsClaim: The ID token claim that lists the person's groups; null: groups are not used.
 - enabled: Whether the sign-in page offers it.
 - signOutOfProvider: Signing out of the engine also signs the person out of the provider.
+- emailsTrusted: The provider's e-mail addresses are taken as it sends them. False: an address is taken only when the ID token says `email_verified: true`; a first sign-in without that is refused. An address the token says is not verified is never taken.
 - redirectUri: The address to register with the provider as the sign-in's return address.
 - signedOutUri: The address to register for returning from the provider's sign-out.
 - people: How many people have signed in with it.
@@ -1479,6 +1480,7 @@ An OpenID Connect provider; an enabled one is checked when it is saved.
 - groupsClaim: The ID token claim that lists the person's groups.
 - enabled: Whether the sign-in page offers it; an enabled provider is read when saved.
 - signOutOfProvider: Also sign the person out of the provider; needs its `end_session_endpoint`.
+- emailsTrusted: Trust the e-mail addresses the provider sends; default false. Turn it on only when people cannot set their own address at the provider.
 
 ### SignInProviderUpdate
 
@@ -1490,6 +1492,7 @@ An OpenID Connect provider; an enabled one is checked when it is saved.
 - groupsClaim: A new groups claim; an empty text stops using groups.
 - enabled: Turn the provider on or off; turning it off ends its sessions.
 - signOutOfProvider: Whether signing out also signs the person out of the provider.
+- emailsTrusted: Whether the provider's e-mail addresses are trusted as sent.
 
 ### LocalSignInResponse
 

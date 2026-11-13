@@ -9,6 +9,32 @@ read the target version's compatibility and model-language notes. The database s
 schema language are separate: a successful database migration does not prove every workspace's
 model can be served.
 
+## Upgrade with the script
+
+`scripts/upgrade.sh` makes the backup, builds the new version, upgrades the database and starts
+it again. Check out the target version, then run it from that checkout, with the same Compose
+files your installation uses (for automatic HTTPS, `-f compose.yml -f compose.acme.yml`):
+
+```bash
+scripts/upgrade.sh
+```
+
+It shows its plan and asks once, then:
+
+1. checks Docker, the environment file, the running database and the free space for the backup;
+2. writes the backup to `/opt/refiroo/backups` (`--backups DIR` for another folder): the database
+   dump, checked that it can be read back, the file volume and a copy of the environment file, all
+   with one time stamp; `--with-assistant` adds the assistant volume;
+3. builds the new images;
+4. stops the engine and upgrades the database. If that fails, the database stays at its previous
+   version, the engine stays stopped, and the script prints the commands that restore the backup
+   it has just made;
+5. starts everything and waits until the engine answers;
+6. shows the version before and after, the backup files and the restore commands.
+
+`--dry-run` prints every command without running any, and `--yes` skips the question. It never
+deletes volumes or old backups. The steps below are the same work by hand.
+
 ## Upgrade the Compose installation
 
 :::caution[Automatic HTTPS needs both Compose files]
@@ -117,6 +143,27 @@ receivers are intended. Link-local addresses stay refused. Check the delivery lo
 attempts and resume subscriptions that became suspended once the cause is resolved. See
 [Webhook delivery](/docs/run/webhook-delivery/#network-and-receiver-requirements).
 
+From 0.17, a person signs in with their e-mail address, and the username is gone. Before you
+upgrade from an earlier version, check that every active person has an address of their own.
+The upgrade fills a missing address from the username when the username is itself an address.
+It stops when an active person still has no address, or when two people share one, ignoring
+upper and lower case. Deactivated people count for shared addresses too. Run these two checks
+on the old version:
+
+```sh
+docker compose exec -T database psql -U rdm -d rdm -c \
+  "SELECT username FROM users WHERE active AND (email IS NULL OR btrim(email) = '') AND username !~ '^[^@[:space:]]+@[^@[:space:]]+$';"
+docker compose exec -T database psql -U rdm -d rdm -c \
+  "SELECT lower(email), string_agg(username, ', ') FROM users WHERE btrim(coalesce(email, '')) <> '' GROUP BY lower(email) HAVING count(*) > 1;"
+```
+
+Both should return no rows. Otherwise, give each person listed their own address under
+**Settings › Security › People** (where the old version keeps it), or deactivate the ones nobody uses any more, and run
+the checks again. If the upgrade stops anyway, its message starts with **The e-mail address
+becomes the sign-in name** and names the people. The database stays at the previous version,
+because the change runs in one transaction. Fix those people on the old version and run the
+upgrade again.
+
 After the explicit migration command, expect:
 
 ```text
@@ -217,6 +264,11 @@ record. When maintaining your own build, move each pin deliberately:
   choose one for your build. Check the built version with
   `docker compose run --rm --no-deps --entrypoint claude engine --version`, then recreate the
   engine and check an assistant turn as described in [Set up AI](/docs/run/set-up-ai/).
+- **Build reference:** `REFIROO_BUILD_COMMIT` and `REFIROO_BUILD_TAG` in `backend/Dockerfile`
+  record which commit and tag an image was built from. Both are empty by default, and then
+  **Settings › This instance › About** shows no **Build** row. The published images set them. For
+  your own build, pass them with `docker compose build --build-arg REFIROO_BUILD_COMMIT=$(git rev-parse HEAD) --build-arg REFIROO_BUILD_TAG=<tag> engine`;
+  **Build** then links the tag and commit to the source repository.
 - **Python dependencies:** the engine image installs with `backend/constraints.txt`. After changing
   `backend/pyproject.toml`, or to take newer dependencies, regenerate it from `backend/`:
 

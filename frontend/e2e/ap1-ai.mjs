@@ -18,6 +18,7 @@
 // works; the loaded page names the saved profile the engine saved from a keyed load, or says why none was
 // saved. Each by keyboard and at 390px with axe.
 // 0.13 CP (6feccc0f): the values send level reads "with no limit per column", no longer "up to 20 per column".
+// Brought up to date (0.14 + 0.17 release review, ST1): the AI page has Settings and Calls tabs; the calls and their totals are read on the Calls tab; durations read in seconds (formatDuration); Deployment's settings are rows of settings, not table rows. PL3b: the session stand-in stores the profile on its draft, so a keyed load first clears the profiles earlier loads saved.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -102,7 +103,10 @@ async function journey(label, source, level) {
       .getByText(structureOnly ? "Unavailable" : "Available", { exact: true })
       .first()
       .waitFor();
+    // The calls are a tab of their own (0.17 ST1).
+    await page.getByRole("tab", { name: "Calls" }).click();
     await page.getByText(/No call has been made yet/).waitFor();
+    await page.getByRole("tab", { name: "Settings" }).click();
     assert.equal(await page.getByText("Neither the assistant nor an AI provider is set up").count(), 0);
     await shot(page, "configured-1440");
     await accessible(page, `ap1-${label}-configured`);
@@ -111,10 +115,12 @@ async function journey(label, source, level) {
     // 2. A test request by keyboard: answered, and listed.
     await page.getByRole("button", { name: "Send a test request" }).focus();
     await page.keyboard.press("Enter");
-    await page.getByText(/^Answered in \d[\d,]* ms by fake-1\.$/).waitFor();
+    await page.getByText(/^Answered in [\d.,]+ (?:s|min|h)(?: \d+ \w+)? by fake-1\.$/).waitFor();
+    await page.getByRole("tab", { name: "Calls" }).click();
     const row = page.getByRole("row", { name: /Test request/ });
     await row.getByText("Answered", { exact: true }).waitFor();
-    await page.getByText(/Last 30 days: 1 call, 0 failed/).waitFor();
+    await page.locator('dl[aria-label^="Totals of the last 30 days"]').getByText("1", { exact: true }).first().waitFor();
+    await page.getByRole("tab", { name: "Settings" }).click();
     assert.equal((await api("/ai/calls")).items.length, 1, "the test request is one call");
     await shot(page, "test-answered-1440");
     await accessible(page, `ap1-${label}-test-answered`);
@@ -229,6 +235,7 @@ async function journey(label, source, level) {
 
     // 5. The calls list; the Deployment page shows the settings, the key hidden.
     await page.goto(`${uiUrl}/settings/ai`);
+    await page.getByRole("tab", { name: "Calls" }).click();
     await page.getByRole("row", { name: /Test request/ }).waitFor();
     await shot(page, "calls-1440");
     await accessible(page, `ap1-${label}-calls`);
@@ -239,6 +246,7 @@ async function journey(label, source, level) {
     const night = await dark.newPage();
     night.setDefaultTimeout(15000);
     await night.goto(`${uiUrl}/settings/ai`);
+    await night.getByRole("tab", { name: "Calls" }).click();
     await night.getByRole("row", { name: /Test request/ }).waitFor();
     await shot(night, "dark");
     await accessible(night, `ap1-${label}-dark`);
@@ -247,6 +255,7 @@ async function journey(label, source, level) {
     const phone = await narrow.newPage();
     phone.setDefaultTimeout(15000);
     await phone.goto(`${uiUrl}/settings/ai`);
+    await phone.getByRole("tab", { name: "Calls" }).click();
     await phone.getByRole("row", { name: /Test request/ }).waitFor();
     assert.ok((await overflow(phone)) <= 0, `${label}: the AI page scrolls sideways at 390px`);
     await shot(phone, "narrow");
@@ -308,11 +317,13 @@ async function journey(label, source, level) {
     await page.goto(`${uiUrl}/settings/deployment`);
     await page.getByRole("heading", { level: 2, name: "AI proposals" }).waitFor();
     await page
-      .getByRole("row", { name: /AI_PROVIDER/ })
+      .locator(".deployment-setting")
+      .filter({ has: page.locator("code", { hasText: /^AI_PROVIDER$/ }) })
       .getByText(FAKE)
       .waitFor();
     await page
-      .getByRole("row", { name: /AI_API_KEY/ })
+      .locator(".deployment-setting")
+      .filter({ has: page.locator("code", { hasText: /^AI_API_KEY$/ }) })
       .getByText("Not set", { exact: true })
       .first()
       .waitFor();
@@ -736,12 +747,14 @@ async function createTask(harness, load, words) {
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 async function taskIn(harness, id, states) {
+  let last;
   for (let attempt = 0; attempt < 200; attempt += 1) {
     const task = await harness.api(`/ai/tasks/${id}`);
+    last = task;
     if (states.includes(task.state)) return task;
     await new Promise((done) => setTimeout(done, 150));
   }
-  throw new Error(`task ${id} did not reach ${states.join("/")}`);
+  throw new Error(`task ${id} did not reach ${states.join("/")}: ${last?.state} ${JSON.stringify(last, (key, value) => (key === "design" || key === "model" || key === "reading" ? "…" : value)).slice(0, 1500)}`);
 }
 
 /** The workspace's records of a type, by name, as live data holds them. */
@@ -1032,6 +1045,10 @@ async function besideHeld(harness, load) {
  */
 async function loadedWithProfile(harness, load) {
   const { uiUrl, api } = harness;
+  // The loads before it left saved profiles (a proposal's profile is stored with its release, 0.17 PL3b), and a
+  // workbook one of them fits is read by it, with no session: this load starts from a file that meets none.
+  for (const held of (await api("/import-profiles?pageSize=100")).items)
+    await api(`/import-profiles/${held.key}?expectedVersion=${held.version}`, undefined, "DELETE");
   const task = await createTask(harness, load, "KEYED: load it as an update.");
   const proposed = await taskIn(harness, task.id, ["checked"]);
   await api(`/ai/tasks/${task.id}/accept`, { expectedVersion: proposed.version });

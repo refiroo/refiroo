@@ -70,19 +70,20 @@ the group itself.
 
 In an entry's menu, **Move up** and **Move down** change its position. **Move to another group…**
 is offered when another group exists. **Take out of the group** returns a collection to the
-sidebar's top level, or leaves a matrix available through its row collection without a separate
+sidebar's top level, or leaves a view available through its collection without a separate
 entry. These actions arrange navigation; they do not move records.
 
 For a collection with several views, edit **Opens on** in place; selecting a view saves the choice immediately.
 It decides which view opens from that collection's sidebar entry or the group page. Without a
 separate choice, the application default is used when it belongs to the collection, then its
-table, then its first view. Other view tabs stay available. A matrix entry shows **Itself**:
-it always opens that matrix, using its view name and a matrix symbol in its row type's colour.
-The row collection stays in navigation and still offers the matrix among its tabs.
+table, then its first view. Other view tabs stay available. A view entry's **Kind** is the view's kind, and its **Opens on**
+shows the kind and the view's name, such as “table · Active items”: it always opens that view, with
+the kind's symbol in its collection's colour. The collection stays in navigation and still offers
+the view among its tabs.
 
-The application panel's **Entries** column lists the collections and matrices in each group.
+The application panel's **Entries** column lists the collections and views in each group.
 Its **In no group:** line offers **Add to a group…** with ungrouped collections ticked.
-A relation matrix's menu in **Views** offers **Move to group…** when a group exists.
+Every view's menu in **Views** offers **Move to group…** when a group exists.
 Follow [Group collections in navigation](/docs/guide/model/group-collections-in-navigation/)
 for the steps. Navigation changes reach a workspace when the model release is activated.
 
@@ -234,7 +235,7 @@ intended release and review the changes you carry across. A refused grouped oper
 none of that step. Intermediate invalid drafts may be saved; Issues identifies what still needs work.
 
 A navigation group's initial folded state is a model default; each browser can remember a
-different state. A group page gathers its collection and matrix entries with search over their names. During a drag in the model
+different state. A group page gathers its collection and view entries with search over their names. During a drag in the model
 pane, moving near its upper or lower edge scrolls the pane. Keyboard and phone users use
 **Move to…** and the ordering menus instead.
 

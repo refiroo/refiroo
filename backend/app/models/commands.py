@@ -914,6 +914,11 @@ class SignInProviderCreate(BaseModel):
         description="Signing out of the engine signs the person out of the provider too; needs "
         "the provider's end_session_endpoint (0.12 I4a, D379)",
     )
+    emailsTrusted: bool = Field(
+        default=False,
+        description="The provider's e-mail addresses are trusted as the provider sends them. "
+        "Off: an address is taken only when the ID token says `email_verified: true`",
+    )
 
 
 class SignInProviderUpdate(BaseModel):
@@ -927,6 +932,7 @@ class SignInProviderUpdate(BaseModel):
     groupsClaim: str | None = Field(default=None, max_length=200)
     enabled: bool | None = None
     signOutOfProvider: bool | None = None
+    emailsTrusted: bool | None = None
 
 
 class IdentityLink(BaseModel):

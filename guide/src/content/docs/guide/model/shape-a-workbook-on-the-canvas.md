@@ -37,7 +37,7 @@ to change how object types relate.
 
 ## Make object types and map columns
 
-1. Drag a sheet's tab onto empty space on the board. refiroo makes an object type, chooses a
+1. Drag a sheet's tab onto empty space on the board, or choose **Make an object type of this sheet** in the tab's **⋯** menu (the way by keyboard or on a phone). refiroo makes an object type, chooses a
    column for record names and maps the other named columns to attributes. Check those choices:
    a suggested value type does not establish what the column means. If the sheet is already
    fully read, a notice names the object type reading it instead of making another copy.

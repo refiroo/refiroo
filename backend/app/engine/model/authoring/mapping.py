@@ -739,11 +739,12 @@ def _drop_added(context: Context, source: dict[str, Any], gone: set[str], becaus
     if not gone:
         return
     for binding in list(_source(context, source["id"]).get("columns") or []):
-        names = [binding["column"]] if "column" in binding else []
-        if gone & set(names):
+        if profile_side.names_column(binding, gone):
             profile_side.unmap(context.profile, source, binding, because)
     key = _source(context, source["id"]).get("key")
-    if isinstance(key, dict) and key.get("column") in gone:
+    if isinstance(key, dict) and gone & {
+        key.get(member) for member in ("column", "versionColumn", "nameColumn")
+    }:
         profile_side.unmap_key(context.profile, source, because)
 
 

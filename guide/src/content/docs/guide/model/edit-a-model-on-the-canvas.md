@@ -42,7 +42,7 @@ a release and the model running in a workspace.
    workbook suggestion. Unchanged released cards not read by the workbook appear quieter.
 4. Use the arrow beside a card's name to fold it to its top bar; press it again to unfold.
    Folding is kept on the draft, so others opening it can see that arrangement too.
-5. Use **Find an object type or attribute**, or press Ctrl+K or Command+K. Type a name, use
+5. Use **Find an object type or attribute (⌘K)** above the board, or press Ctrl+K or Command+K. Type a name, use
    Up and Down to choose a match, then Enter. The board centres on it and selects it.
    A match outside the current scope switches the board to **Whole model**. Unfold a folded
    card to see its attribute rows.

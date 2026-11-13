@@ -223,3 +223,48 @@ def test_a_caller_without_the_groups_is_refused_by_code(world):
         ("owner", {"instance": True}),
     )
     ok(_create(allowed, draft, version=version), 202)
+
+
+@pytest.mark.journey("J36.13")
+@pytest.mark.structures(*BOTH)
+def test_a_repeated_request_makes_no_second_workspace(world):
+    """Given a workspace created from a draft. When the same request is sent again, with the
+    version it read, and when a new request names the draft at its new version. Then the repeat is
+    `409 VERSION_CONFLICT`, the new request `409 DRAFT_HELD_BY_WORKSPACE`, and one workspace was
+    added."""
+    draft = _draft(world)
+    version = _version(world, draft)
+    before = ok(world.api.get("/workspaces", pageSize=100))["items"]
+    ok(_create(world, draft, "Repeated", version=version), 202)
+    refused(_create(world, draft, "Repeated", version=version), 409, "VERSION_CONFLICT")
+    error = refused(_create(world, draft, "Second"), 409, "DRAFT_HELD_BY_WORKSPACE")
+    assert error["details"]["draftId"] == draft["id"]
+    assert len(ok(world.api.get("/workspaces", pageSize=100))["items"]) == len(before) + 1
+
+
+@pytest.mark.journey("J36.13")
+@pytest.mark.structures(*BOTH)
+def test_two_requests_for_one_name_at_once_get_two_keys_and_one_key_is_taken_once(world):
+    """Given two drafts. When two workspaces are created from them at once under one name, and then
+    two more under one explicit key. Then the first pair are both `202` with different keys, and the
+    second pair are one `202` and one `409 WORKSPACE_ALREADY_EXISTS`; none is a server error."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def race(names, **extra):
+        drafts = [_draft(world) for _ in names]
+        versions = [_version(world, draft) for draft in drafts]
+        with ThreadPoolExecutor(2) as pool:
+            futures = [
+                pool.submit(_create, world, draft, name, version, **extra)
+                for draft, name, version in zip(drafts, names, versions, strict=True)
+            ]
+            return [future.result(timeout=60) for future in futures]
+
+    first = race(["Raced name", "Raced name"])
+    assert [response.status_code for response in first] == [202, 202]
+    assert len({response.json()["workspace"]["key"] for response in first}) == 2
+
+    second = race(["Raced one", "Raced two"], key=f"raced-{uuid4().hex[:6]}")
+    assert sorted(response.status_code for response in second) == [202, 409]
+    refusal = next(response for response in second if response.status_code == 409)
+    assert refusal.json()["error"]["code"] == "WORKSPACE_ALREADY_EXISTS"

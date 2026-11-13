@@ -47,7 +47,7 @@ Starts a job that writes the records of a `scope`, or of a `view`'s current stat
 - 409 PINNED_MODEL_UNAVAILABLE: the context's release is not installed
 - 409 UNSUPPORTED_PINNED_MODEL_SCHEMA: the context's release is too new
 - 409 PINNED_MODEL_INVALID: the context's release is damaged
-- 422 REQUEST_VALIDATION_ERROR: the body is malformed or names both `scope` and `view`
+- 422 REQUEST_VALIDATION_ERROR: the body is malformed, names both `scope` and `view`, or names neither
 - 422 WORKSPACE_CONTEXT_MISMATCH: the context is another workspace's
 - 422 INVALID_QUERY: a type, field or operator does not fit the model
 - 422 AS_OF_NOT_SUPPORTED: no exported type has an effective period
@@ -515,7 +515,7 @@ An export of what a view shows: the engine derives the records and the workbook'
 - applicationKey: The application that holds the view.
 - viewKey: The view's key.
 - state: What the page showing the view had narrowed it to.
-- cellField: For a matrix whose cells link records: the field of the cell record that each cell lists the linked records by, `name` or an attribute the cell type's records are identified by (its display attribute, or a unique one). The file records the choice and an import reads it back. Left out, a cell lists each record as its name with its display field in parentheses.
+- cellField: For a matrix whose cells link records: the field of the cell record that each cell lists the linked records by: `name`, the cell type's display attribute, or any other text or long text attribute the type binds. The file records the choice and an import reads it back. Left out, a cell lists each record by its name alone.
 
 ### PeopleLayout
 

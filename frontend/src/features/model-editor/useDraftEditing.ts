@@ -83,6 +83,8 @@ export interface DraftEditing {
   step: (send: (version: number) => Promise<ModelDraftStep>, applyingProposals?: boolean) => Promise<StepOutcome>;
   /** Operations as one request and one undo step; a refusal is thrown, for a dialog that says it. */
   run: (operations: DraftOperation[]) => Promise<StepOutcome>;
+  /** `run`, with the step the draft made of it: for a toast whose Undo takes back that step, not the last one. */
+  runAnswered: (operations: DraftOperation[]) => Promise<{ outcome: StepOutcome; step?: number }>;
   /** Runs an action; a refusal is said in a notice, the dependants of an undo asked about. */
   guarded: (action: () => Promise<unknown>) => Promise<void>;
   /** `run` under `guarded`: for a control that has no surface of its own to say a refusal. */
@@ -152,6 +154,18 @@ export function useDraftEditing(draftId: string, options: DraftEditingOptions = 
     [draftId, step],
   );
 
+  const runAnswered = useCallback<DraftEditing["runAnswered"]>(
+    async (operations) => {
+      let answered: ModelDraftStep | undefined;
+      const outcome = await step(async (at) => {
+        answered = await api.applyModelDraftOperations(draftId, at, operations);
+        return answered;
+      });
+      return { outcome, step: answered?.entries[0]?.step };
+    },
+    [draftId, step],
+  );
+
   const guarded = useCallback<DraftEditing["guarded"]>(async (action) => {
     setWorking(true);
     try {
@@ -159,7 +173,7 @@ export function useDraftEditing(draftId: string, options: DraftEditingOptions = 
     } catch (cause) {
       if (isApiError(cause, "OPERATION_HAS_DEPENDANTS"))
         setDialog({ kind: "dependants", ...dependantsOf(cause.details) });
-      else if (outlineNow.current) setNotice({ tone: "error", text: refusalText(cause, outlineNow.current) });
+      else setNotice({ tone: "error", text: refusalText(cause, outlineNow.current) });
     } finally {
       setWorking(false);
     }
@@ -219,6 +233,7 @@ export function useDraftEditing(draftId: string, options: DraftEditingOptions = 
     setPaused,
     step,
     run,
+    runAnswered,
     guarded,
     runGuarded,
     undo,

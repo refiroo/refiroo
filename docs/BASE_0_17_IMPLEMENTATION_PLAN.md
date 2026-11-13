@@ -1198,8 +1198,8 @@ Bonaduz translation, the Ambiguous mapping filter, a grouped model-draft line in
 model 1.0.0 while live is 1.8.1 (so Publish is refused). Of C10's 96 screens only the 9 listed ones were run: the whole-file
 run reaches the AI-driven screens, which I stopped.
 
-PL3b, real-file try (2026-11-12, one of the user's sample workbooks: a flat sheet of regions, operators and
-locations, 31 rows). It found three defects, fixed the same day:
+PL3b, real-file try (2026-11-12, one of the user's sample workbooks: a flat sheet from the example model's workbook,
+31 rows). It found three defects, fixed the same day:
 - PL4's dialog stopped with the engine's "No proposal of the draft's inference is open" when the inference read
   no list from the workbook, and left its draft behind. It now says that refiroo found no list by itself and
   offers Adjust as the one way on; Create workspace is not shown then; a reading that fails removes its draft
@@ -1681,6 +1681,62 @@ canvas's drop target does. Component tests only; not run in a browser.
 Starts with the full review of every change since 0.16; the contract lock marked additive (the new profile
 fields and routes); documentation (PRODUCT, CURRENT_FUNCTIONALITY, ARCHITECTURE, API, MODEL_AUTHORING, journeys,
 CHANGELOG); each heavy run announced, one at a time.
+
+### R record (2026-11-12 and 2026-11-13, together with 0.14)
+
+0.14's and 0.17's R ran as one, at the user's request (2026-11-12): one review, one set of runs, one
+version, **0.17.0**. Before it, SM1 and NG1 were found unbuilt and were delivered first (`eb873c75`).
+
+**Review.** Every change since `v0.16.1-alpha.5` (the last fully reviewed release; `v0.16.2-alpha.1`
+had no review), 16 commits, by six reviewers by area: identity, mail and deployment; the engine's model
+and data; 0.14's API reference; the canvas and model editor; the rest of the frontend; the guide and
+documents. 40 findings, all fixed (R17-F1 to R17-F40, CHANGELOG "Fixed (the 0.14 and 0.17 release
+review)"). The ones that broke a product limit or a rule: a sheet could become an object type only by
+dragging (F1); a provider's unverified e-mail claim could take an address and later its roles (F20,
+decided by recommendation: an `email_verified: false` claim is never taken, a per-provider "trusted"
+setting, existing providers set to trusted by the upgrade); matrix-cell placing walked every container
+in Python (F15, now SQL); a repeated from-workbook request made a second workspace (F14). The guide's
+coverage check counted single common words and headings; it now does not, and the 15 controls it then
+found undescribed were written up (F31).
+
+**Decided without the user** (recorded for review): PP-D11 to PP-D13 as recommended; PP-D11 had been
+taken by the built behaviour (a grouped view also stays among its collection's views), never put to
+the user. F20's design above.
+
+**What ran.**
+- **Backend:** ruff clean; the full suite (`-n 6`, then `serial`) twice: the first run's 120 failures
+  were made by fixes being written during it and were discarded; the second, alone: 8,963 passed, 65
+  failed in 23 min 44 s (serial 5 passed). The 65 were fixed (R17-F41, an assistant turn's process left
+  uncollected; the rest tests behind intended changes, R17-F42) and their 15 modules passed together
+  (192). The contract tests pass with the lock re-baselined for 0.17.0; compared without prose, the
+  release review's only structural API change is `emailsTrusted` (additive).
+- **Frontend:** format, lint (0 errors), build, Vitest (2,165 tests in 235 files), gate helpers.
+- **Upgrade** from `v0.16.1-alpha.5` and from `v0.16.2-alpha.1` (what production runs): 92 tables and
+  290 rows unchanged, under a second each, intended columns only; an old client's credentials, e-mail
+  sign-in and the provider's `emailsTrusted` checked; a forced failure and a `kill -9` left the previous
+  revision and a retry succeeded; a clean bootstrap matches the upgraded schema; a copy of the
+  development database started.
+- **Browser runners:** all 86 (not the paid real-provider one): 63 passed, 24 failed; all 24 pass after
+  fixes: three product defects (R17-F43 the canvas's sheet tabs in a tablist, F44 a skipped heading
+  level on Activity, F45 Home scrolling sideways at 390 px), the rest runners behind 0.17's changes,
+  each naming the change.
+- **Accessibility gate:** 269 scenarios, 0 violations, after R17-F46 (Activity's day headings).
+- **Visual gate:** 164 of 208 scenarios differed; each was looked at: the 0.17 frame and Settings
+  family, dialogs as popovers, views as tabs, identifiers out of the common pages, export choices; one
+  defect, R17-F47 (a column cut while the table had room), and masks moved to the new markup. Re-recorded;
+  208 of 208 match.
+- **Full-size budgets:** not measured.
+- **Deployment runner** (`dp3`): 12 checks passed in 122 s, nothing left behind. The new
+  `scripts/deploy.sh --local` and `scripts/upgrade.sh` were run for real on an isolated project
+  (28 s and 13 s), then removed.
+- **Guide:** `npm run verify` passes: 259 pages, the inventory matches the code, coverage complete,
+  77,222 links.
+
+**Also in the release, added during R at the user's request:** the lens row under a parent lists only
+the mapping views with mappings there; Add view… asks the name first; `scripts/deploy.sh`,
+`scripts/upgrade.sh` and the README rewritten.
+
+**Version.** 0.17.0 in the five places alpha.1 changed; CHANGELOG [0.17.0] holds everything since 0.16.0.
 
 ## Exit gate
 

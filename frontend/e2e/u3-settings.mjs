@@ -5,6 +5,7 @@
 // views of different object types, with a view's own choice winning; and the keyboard order.
 // 0.13 release review: the keyboard order now has the top bar's Help link and the AI and Agent access entries, and the walk
 // back to Model counts from the asserted order, not a fixed number.
+// Brought up to date (0.14 + 0.17 release review, ST1): Deployment is rows of settings, not a scrollable table, so the content holds no tab stop.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -282,7 +283,9 @@ try {
     );
   }
   expect(
-    expected.every((item, index) => order[index] === item) && order[expected.length].startsWith("main:"),
+    // The Deployment page (rebuilt from setting rows, 0.17 ST1) has no table to scroll, so no tab stop in the content:
+    // after the resize handle Tab leaves the page to its start.
+    expected.every((item, index) => order[index] === item) && order[expected.length].startsWith("other:Skip to main content"),
     `keyboard order: ${order.join(" → ")}`,
   );
   // Back past the resize handle and every navigation entry after Model (the order asserted above) to Model,

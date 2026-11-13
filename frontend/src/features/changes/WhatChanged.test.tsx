@@ -58,6 +58,13 @@ describe("WhatChanged (0.16 AO2)", () => {
     expect(screen.getByRole("combobox", { name: "Period" })).toHaveValue("7");
   });
 
+  it("is headed at the level its page leaves free (R17-F44: no skipped level under the page's h1)", () => {
+    mounted();
+    expect(screen.getByRole("heading", { name: "What changed", level: 3 })).toBeInTheDocument();
+    mounted({ headingLevel: 2 });
+    expect(screen.getByRole("heading", { name: "What changed", level: 2 })).toBeInTheDocument();
+  });
+
   it("names no name at the send level structure", () => {
     offer.value = { configured: true, provider: "Claude", sendLevel: "structure" };
     mounted();
@@ -78,6 +85,13 @@ describe("WhatChanged (0.16 AO2)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fact 3" }));
     await waitFor(() => expect(screen.getByText("Fact number 3")).toHaveFocus());
     expect(screen.getByRole("button", { name: "Explain again" })).toBeInTheDocument();
+  });
+
+  it("heads the account's facts one level below its own heading (R17-F44)", async () => {
+    vi.mocked(ai.explainWorkspaceHistory).mockResolvedValue(account());
+    mounted({ headingLevel: 2 });
+    fireEvent.click(screen.getByRole("button", { name: "Explain this period" }));
+    expect(await screen.findByRole("heading", { name: /^The facts \(3, all of them\)/, level: 3 })).toBeInTheDocument();
   });
 
   it("leads a fact to its changes, its job and its change set", async () => {

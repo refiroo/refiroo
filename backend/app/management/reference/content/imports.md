@@ -441,7 +441,7 @@ One object type loaded from a sheet (the first sheet when omitted, the file for 
 - parent: One parent for every row. A source with it binds no `parent` column.
 - under: Marks the source as a value sheet: the records one column record of a matrix offers.
 - headings: Rows holding only a heading, in the heading column, are read as the parent of the rows beneath them: the heading's text fills a new column that a `parent` binding can name. Applied before `fillDown` and `unpivot`.
-- fillDown: Columns repeated by blanks: an empty cell takes the nearest filled cell above it in its column. Applied after `headings` and before `unpivot`.
+- fillDown: Columns repeated by blanks: an empty cell takes the nearest filled cell above it in its column, within its heading group: a heading row starts a new group, so a value never carries across headings. Applied after `headings` and before `unpivot`.
 - unpivot: A wide table read as rows: each filled cell of the listed columns becomes a row, with the column's header in one new column and the cell in another, which bindings name like any column. Applied last.
 
 ### Unpivot

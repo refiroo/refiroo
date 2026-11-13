@@ -9,6 +9,13 @@ One use is connecting codes from another system to the records whose meaning the
 The model chooses both sides, their fields and the relationship; neither side has a fixed role
 in refiroo. Follow [Map codes between systems](/docs/guide/use/map-codes-between-systems/) for the steps.
 
+A collection can offer several mapping grids as views beside its table. When you open the
+collection from a parent record, for example the values of one group, the row of views lists only
+the mapping grids that already map at least one record under that parent, along with its other
+views and the view you are on. If none of them maps anything there yet, or refiroo cannot tell,
+every view is listed. To start the first mapping in another grid, open that view from the
+collection itself rather than from the parent.
+
 ## Reading a mapping
 
 Each row identifies a source record, its mapping state and its connected targets. Target chips use the target type’s colour and

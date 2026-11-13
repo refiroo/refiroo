@@ -84,7 +84,16 @@ list. refiroo does not follow that link, leaving the person with no provider gro
 groups assigned to the registration. Keycloak needs a Group Membership mapper. Google does not
 supply groups through this sign-in.
 
-Name and e-mail are refreshed from the provider when the person signs in. Removing a person at
+A person's e-mail address is their sign-in name in refiroo, so a provider's address is taken only
+when the provider confirms it (`email_verified`), or when the provider's **Trust the e-mail addresses
+… sends** switch is on. A new provider starts with the switch off. Turn it on only when people
+cannot set their own address at the provider; in some Entra ID set-ups they can. Providers added
+before 0.17 were switched on by the upgrade, so check each one. An address the provider marks as
+not confirmed is never taken. A first sign-in refused for that reason, or because another person
+already has the address, does not show the address.
+
+Name and e-mail are refreshed from the provider when the person signs in; an address that is not
+confirmed, or that another person already has, leaves the stored one in place. Removing a person at
 the provider does not recheck an existing refiroo session: deactivate leavers here too.
 
 Turning on provider sign-out affects sessions started afterwards. Older sessions did not retain

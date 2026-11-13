@@ -204,6 +204,7 @@ function NewProviderDialog({
     clientSecret: "",
     groupsClaim: "",
     enabled: true,
+    emailsTrusted: false,
   });
   const [keyEdited, setKeyEdited] = useState(false);
   const [pending, setPending] = useState(false);
@@ -332,13 +333,34 @@ function NewProviderDialog({
             />
           )}
         </FormField>
-        <label className="checkbox">
-          <input type="checkbox" checked={values.enabled} onChange={(event) => set("enabled", event.target.checked)} />
-          Offer it on the sign-in page now
-        </label>
-        <p className="admin-hint">
-          An enabled provider is checked when saved. The address to register with it is on its page.
-        </p>
+        {/* Each switch with its explanation spaced as a field, as the fields above are. */}
+        <div className="form-field">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={!!values.emailsTrusted}
+              onChange={(event) => set("emailsTrusted", event.target.checked)}
+            />
+            Trust the e-mail addresses it sends
+          </label>
+          <p className="admin-hint">
+            Off: a first sign-in is accepted only when the provider says the address is verified. Turn it on only when
+            people cannot set their own address at the provider.
+          </p>
+        </div>
+        <div className="form-field">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={values.enabled}
+              onChange={(event) => set("enabled", event.target.checked)}
+            />
+            Offer it on the sign-in page now
+          </label>
+          <p className="admin-hint">
+            An enabled provider is checked when saved. The address to register with it is on its page.
+          </p>
+        </div>
         {error && (
           <Notice tone="error" title="The provider was not saved">
             {error}
@@ -627,7 +649,9 @@ function ProviderSettings({
   const [clientId, setClientId] = useState(provider.clientId);
   const [secret, setSecret] = useState("");
   const [claim, setClaim] = useState(provider.groupsClaim ?? "");
+  const [trusted, setTrusted] = useState(provider.emailsTrusted);
   const dirty =
+    trusted !== provider.emailsTrusted ||
     name !== provider.name ||
     issuer !== provider.issuer ||
     clientId !== provider.clientId ||
@@ -640,6 +664,7 @@ function ProviderSettings({
     setClientId(provider.clientId);
     setSecret("");
     setClaim(provider.groupsClaim ?? "");
+    setTrusted(provider.emailsTrusted);
   }
 
   return (
@@ -655,6 +680,7 @@ function ProviderSettings({
             ...(clientId.trim() !== provider.clientId && { clientId: clientId.trim() }),
             ...(secret && { clientSecret: secret }),
             ...(claim.trim() !== (provider.groupsClaim ?? "") && { groupsClaim: claim.trim() || null }),
+            ...(trusted !== provider.emailsTrusted && { emailsTrusted: trusted }),
           });
         }}
       >
@@ -730,6 +756,17 @@ function ProviderSettings({
               </FormField>
             </div>
           </div>
+          <SettingRow
+            keep
+            name={`Trust the e-mail addresses ${provider.name} sends`}
+            help="An address is the person's name for signing in. Off: it is taken only when the provider says it is verified (email_verified), and a sign-in without that is refused. On: taken as sent, unless the provider says it is not verified. Turn it on only when people cannot set their own address at the provider."
+          >
+            <Switch
+              label={`Trust the e-mail addresses ${provider.name} sends`}
+              checked={trusted}
+              onChange={setTrusted}
+            />
+          </SettingRow>
         </SettingsPanel>
       </form>
     </SettingsGroup>

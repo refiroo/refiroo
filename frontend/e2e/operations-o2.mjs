@@ -11,6 +11,7 @@
 //   3. a rehearsal into a copy with the wrong collation: failed with its reason; the earlier one
 //      shown on demand by keyboard;
 //   4. axe; 1440px and 390px without sideways scroll; light and dark screenshots.
+// Brought up to date (0.14 + 0.17 release review, ST1): earlier rehearsals are setting rows, not a list; the backup's name is their code text.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -147,7 +148,7 @@ try {
   const earlier = page.getByRole("button", { name: /^Show earlier rehearsals/ });
   await earlier.focus();
   await page.keyboard.press("Enter");
-  await page.getByRole("list").filter({ hasText: "o2-run.dump" }).waitFor();
+  await page.locator("code", { hasText: "o2-run.dump" }).waitFor();
   await assertAccessible(page, "the Operations page, rehearsal failed");
   await shotBoth("failed");
   checks.push("3. a rehearsal into a libc copy: failed with the collation reason; the earlier one shown by keyboard");

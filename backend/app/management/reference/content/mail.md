@@ -162,6 +162,7 @@ Uploads the image that `{{logo}}` shows, sent inline in each message; without on
 - 413 MAIL_LOGO_TOO_LARGE: over 512 KB
 - 422 MAIL_LOGO_UNSUPPORTED: not a PNG, JPEG or SVG image
 - 422 MAIL_LOGO_UNSAFE: an SVG that holds script or an external object
+- 422 REQUEST_VALIDATION_ERROR: the `file` part is missing
 
 ## DELETE /api/v1/mail-template/logo
 
@@ -190,6 +191,8 @@ Renders a draft Markdown around a sample message with sample values, and answers
 - 403 FORBIDDEN: needs Operations at the instance
 - 422 MAIL_TEMPLATE_UNKNOWN_PLACEHOLDER: a `{{name}}` that is not a placeholder
 - 422 MAIL_TEMPLATE_CONTENT_REQUIRED: `{{content}}` is missing or appears twice
+- 422 MAIL_TEMPLATE_TOO_LONG: over 20,000 characters
+- 422 REQUEST_VALIDATION_ERROR: the Markdown is empty or the body is malformed
 
 ## POST /api/v1/mail-template/test
 

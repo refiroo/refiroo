@@ -19,17 +19,18 @@ removing the definition has a different effect; see [Types](/docs/model/types-at
 
 ![Application panel with its object types, views and navigation groups](/docs/screens/model-application-panel.png)
 
-Navigation groups have a **Label**, ordered entries (collections and relation matrices) and an **Open**
-or **Folded** starting state. A collection, or a relation matrix, can belong to only one group in an
-application. A relation matrix placed in a group has an entry of its own, named after the view, and its
-row type's entry stays. The matrix symbol uses the row type's colour, and opening the entry
-goes directly to the matrix. The matrix also stays among the row collection's view tabs. Without
-a group placement, it is available through that collection only. Ungrouped collections appear
+Navigation groups have a **Label**, ordered entries (collections and views) and an **Open**
+or **Folded** starting state. A collection, or a view, can belong to only one group in an
+application. Any view of the application can be placed in a group: a table, a tree, a mapping grid,
+a relationships table or a relation matrix. A view placed in a group has an entry of its own, named
+after the view, and its collection's entry stays. The view's symbol shows its kind in its collection's
+colour, and opening the entry goes directly to the view. The view also stays among its collection's
+view tabs. Without a group placement, it is available through that collection only. Ungrouped collections appear
 at the top. An empty group is valid. Grouping does not change parents, data access or the type's
 identity. Follow [Group collections in navigation](/docs/guide/model/group-collections-in-navigation/).
 
 Navigation groups have one level: a group cannot contain another group. Its collection page
-lets people search collection and matrix names; it does not show a record count for each entry.
+lets people search collection and view names; it does not show a record count for each entry.
 Only collections with a view in this application can be placed in its groups. Group labels
 and ordering change navigation without requiring a data migration.
 
@@ -42,19 +43,19 @@ names a collection outside the application, add a suitable view there or remove 
 
 Choose a group in the model pane, or its name in the application's **Navigation groups**
 table, to open its panel. It shows the application, starting state and entry count. **Entries**
-lists collections and matrices together, in their sidebar order, with **Entry**, **Kind**,
+lists collections and views together, in their sidebar order, with **Entry**, **Kind**,
 **Opens on** and **State**. The application's group table also lists both kinds in **Entries**.
 
-**Add to group…** lets you search and select several collections and matrices in one dialog.
-Their location notes distinguish ungrouped collections, matrices inside a row collection and
+**Add to group…** lets you search and select several collections and views in one dialog.
+Their location notes distinguish ungrouped collections, views inside their collection and
 entries in another group. Selecting an entry from another group moves it rather than copying
 it. Entries already in the destination group are omitted. The whole addition is one history
 step, so one **Undo** reverses it. In the application panel, **In no group:** offers
 **Add to a group…** with the ungrouped collections already selected.
 
 An entry's row menu offers **Move up**, **Move down**, **Move to another group…** and
-**Take out of the group** where applicable. Taking a matrix out removes its separate entry;
-it keeps the view in the row collection. A matrix's menu in the application's **Views** table
+**Take out of the group** where applicable. Taking a view out removes its separate entry;
+it keeps the view in its collection. Every view's menu in the application's **Views** table
 also offers **Move to group…** when a group exists. The group panel has **Rename…** and
 **Start folded** / **Start unfolded**; the group menu orders or removes the group itself.
 
@@ -63,8 +64,8 @@ also offers **Move to group…** when a group exists. The group panel has **Rena
 **Opens on** chooses which of a collection's views opens from its sidebar entry or the group
 page. Edit the cell in the group panel when the collection has more than one view;
 selecting a view saves immediately. The choice belongs to that collection in this application; it does not change
-another collection's opening view or remove any view tabs. A separate matrix entry always
-opens itself and shows **Itself** in this column.
+another collection's opening view or remove any view tabs. A view's own entry always
+opens that view; this column shows its kind and name, such as “table · Active items”, and cannot be edited.
 
 Without a collection choice, refiroo uses the application's **Default view** if it is one of
 that collection's views, otherwise its table, otherwise its first view. Choosing that same

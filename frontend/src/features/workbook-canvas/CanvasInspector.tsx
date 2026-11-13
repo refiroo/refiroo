@@ -88,7 +88,10 @@ function FieldPanel({
             label="Name"
             savedText="Renamed."
             onSave={async (name) => {
-              await editing.run(renameFieldOperations(card, field, name, outline));
+              const { outcome, step } = await editing.runAnswered(renameFieldOperations(card, field, name, outline));
+              // Held back because the draft moved on: the editing hook says so, and nothing was renamed.
+              if (outcome === "stale") return false as const;
+              return () => editing.undo(step === undefined ? undefined : [step]);
             }}
           />
         </div>

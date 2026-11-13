@@ -25,6 +25,32 @@ describe("WorkspaceActivity with What changed (0.16 AO2)", () => {
     expect(screen.queryByRole("heading", { name: "What changed" })).not.toBeInTheDocument();
   });
 
+  it("heads each day at level 2, so no level is skipped under the page's heading without the offer", async () => {
+    offer.value = undefined;
+    vi.mocked(api.changes).mockResolvedValue({
+      items: [
+        {
+          id: "e1",
+          occurredAt: "2026-10-26T10:00:00",
+          kind: "record",
+          action: "updated",
+          workspace: { key: "north", label: "North" },
+          changeSet: null,
+          subject: { id: "r1", name: "Parcel", objectTypeKey: "delivery", objectTypeName: "Delivery method" },
+          changedFields: [],
+          attributes: [],
+          cause: { kind: "user" },
+          actor: { kind: "user", id: "ana", name: "Ana" },
+        },
+      ],
+      nextCursor: null,
+      prevCursor: null,
+    } as never);
+    render(<WorkspaceActivity workspaceKey="north" onNavigate={vi.fn()} />);
+    await waitFor(() => expect(document.querySelector(".history-day")).not.toBeNull());
+    expect(document.querySelector(".history-day")?.tagName).toBe("H2");
+  });
+
   it("narrows the list, in place, to the live changes a fact counted, and the way back widens it", async () => {
     vi.mocked(ai.explainWorkspaceHistory).mockResolvedValue({
       scope: "workspace",

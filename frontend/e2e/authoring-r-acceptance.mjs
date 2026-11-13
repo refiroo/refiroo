@@ -17,6 +17,8 @@
 // US-P10, on the first walk's saved profile: W1′ uploaded as the next version, its check (the
 //   renamed column, the new column), the rename accepted and the new column ignored, loaded into a
 //   change set whose review holds only W1′'s 3 added and 5 changed items, published.
+// Brought up to date (0.14 + 0.17 release review, ST1): Import profiles is a Settings list of rows, in a region
+// named Profiles, not a navigation of buttons.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -297,9 +299,7 @@ async function journey(label, source, viewport, walks) {
     // --- US-P10, W1′ through the saved profile ---
     const profileKey = (await api(`/model-drafts/${draftId}/profile`)).profile.key;
     await page.goto(`${harness.uiUrl}/settings/import-profiles`);
-    await keys.press(
-      page.getByRole("navigation", { name: "Import profiles" }).getByRole("button", { name: /published/ }),
-    );
+    await keys.press(page.getByRole("region", { name: "Profiles" }).getByRole("button", { name: /published/ }));
     await page.waitForURL(new RegExp(`/settings/import-profiles/${profileKey}$`));
     await keys.press(page.getByRole("button", { name: "Upload the next version…" }));
     await keys.choose(dialog().getByLabel("Workbook"), resolve(harness.output, "catalogue-v2.xlsx"));

@@ -80,13 +80,12 @@ describe("find (0.17 CE1)", () => {
 });
 
 describe("by hand: what the editor's table builds for the gestures (0.17 CE1)", () => {
-  it("a rename is the editor's Rename…, the plural following the name only while it was the name's own", () => {
+  it("a rename is the editor's heading rename, the name alone, and the editor's Rename… of a field", () => {
     const bin = cards.find((card) => card.typeKey === "bin")!;
-    expect(renameListOperations(bin, "Crate", outline)).toEqual([
-      { kind: "setLabel", element: { objectType: "bin" }, name: "Crate", pluralName: "Crates" },
+    expect(renameListOperations(bin, " Crate ")).toEqual([
+      { kind: "setLabel", element: { objectType: "bin" }, name: "Crate" },
     ]);
     const shelf = cards.find((card) => card.typeKey === "shelf")!;
-    expect(renameListOperations(shelf, "Rack", outline)[0]).toMatchObject({ pluralName: "Shelves" });
     const depth = shelf.fields.find((field) => field.id === "attribute:depth")!;
     expect(renameFieldOperations(shelf, depth, "Deepness", outline)).toEqual([
       { kind: "setLabel", element: { attributeType: "depth" }, name: "Deepness" },

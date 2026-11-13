@@ -3,6 +3,8 @@
 
 .home-page {
   display: grid;
+  /* One column that may shrink: an auto track grows to its widest child and the page scrolls sideways at 390px. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-8);
   width: 100%;
   /* A reading page, yet one that follows a large window: more cards across, up to 1680px (0.17 UX1). */
@@ -85,6 +87,8 @@
 }
 .home-section-head {
   display: flex;
+  /* The heading and its action go under each other where both do not fit (390px). */
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-3);
   margin-bottom: var(--space-3);

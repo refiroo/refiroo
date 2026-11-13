@@ -10,6 +10,7 @@
 //    unchanged.
 // 4. The application, as "The application", is a sheet per type too.
 // Axe on the dialog from the matrix, light and dark; screenshots of each.
+// Brought up to date (0.14 + 0.17 release review, NG1): a view in no navigation group is headed by its type's plural name (Codelists, Domains), not the view's name.
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -146,7 +147,7 @@ try {
 
   // 1. 1440px: the matrix.
   await page.setViewportSize({ width: 1440, height: 900 });
-  const matrix = await exportFrom(MATRIX, "Codelists by system", "matrix", async (dialog) => {
+  const matrix = await exportFrom(MATRIX, "Codelists", "matrix", async (dialog) => {
     expect(
       await dialog.getByRole("radio", { name: "This view: Codelists by system" }).isChecked(),
       "the dialog is not on this view",
@@ -211,7 +212,7 @@ try {
   // 2. 390px: the same dialog.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}${MATRIX}`);
-  await page.getByRole("heading", { level: 1, name: "Codelists by system" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Codelists", exact: true }).waitFor();
   await workspaceAction(page, "Export…");
   const narrow = page.getByRole("dialog", { name: "Export" });
   await narrow.getByText("What each cell lists").waitFor();
@@ -231,7 +232,7 @@ try {
   // 3. The tree: a sheet per type.
   let treeLine;
   await page.setViewportSize({ width: 1440, height: 900 });
-  const tree = await exportFrom(TREE, "Domain hierarchy", "tree", async (dialog) => {
+  const tree = await exportFrom(TREE, "Domains", "tree", async (dialog) => {
     expect(
       await dialog.getByRole("radio", { name: "This view: Domain hierarchy" }).isChecked(),
       "the tree's dialog is not on this view",
@@ -259,7 +260,7 @@ try {
   checks.push(`the tree file: sheets ${data.join(", ")}; imported back ${JSON.stringify(treeBack.tally)}`);
 
   // 4. The application, as a sheet per type.
-  const application = await exportFrom(TREE, "Domain hierarchy", "application", async (dialog) => {
+  const application = await exportFrom(TREE, "Domains", "application", async (dialog) => {
     await dialog.locator("label", { hasText: "The application:" }).click();
   });
   const applicationFound = read(application);
@@ -270,7 +271,7 @@ try {
   for (const theme of ["light", "dark"]) {
     await page.evaluate((value) => localStorage.setItem("rdm:theme:v1", JSON.stringify(value)), theme);
     await page.goto(`${uiUrl}${MATRIX}`);
-    await page.getByRole("heading", { level: 1, name: "Codelists by system" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: "Codelists", exact: true }).waitFor();
     await workspaceAction(page, "Export…");
     const dialog = page.getByRole("dialog", { name: "Export" });
     await dialog.getByText("What each cell lists").waitFor();

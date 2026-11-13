@@ -13,7 +13,7 @@ you can read and the work waiting for you. **Waiting for your approval**, where 
 
 ## Find a record
 
-Use **Find a record in any workspace** to search record names across every workspace you may browse. Results are grouped by workspace and show the record's type and where it stands. Press ⌘K on a Mac or Ctrl+K elsewhere to focus the search, Up/Down to choose a result and Enter to open it. Escape closes the results. Check the workspace after opening a result.
+Use **Find a record in any workspace**, the box that reads **Find any record in any workspace (⌘K)**, to search record names across every workspace you may browse. Results are grouped by workspace and show the record's type and where it stands. Press ⌘K on a Mac or Ctrl+K elsewhere to focus the search, Up/Down to choose a result and Enter to open it. Escape closes the results. Check the workspace after opening a result.
 
 ## Your workspaces
 

@@ -207,6 +207,11 @@
   gap: 6px;
   margin-bottom: var(--space-3);
 }
+.canvas-sheet-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
 .canvas-sheet {
   display: inline-flex;
   align-items: baseline;

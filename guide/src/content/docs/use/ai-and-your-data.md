@@ -62,7 +62,7 @@ check that assistant's settings too.
 
 AI requests and assistant turns can incur charges or consume your organisation's subscription
 allowance, even if they fail or you later discard the work. Your operator can see call records
-under **Settings › Administration › AI**, including who asked, what for, the outcome, tokens and
+under **Settings › This instance › AI**, including who asked, what for, the outcome, tokens and
 reported cost. A missing cost means none was reported; it does not mean free usage. Provider
 billing and Claude Code billing are separate. A saved workbook layout that fits the next file
 can prepare it without another assistant session and without AI cost.

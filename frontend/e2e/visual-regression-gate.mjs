@@ -39,6 +39,10 @@ let harness;
 const checks = [];
 const failures = [];
 
+// A time shown at a glance ("today, 12:40 AM", "yesterday, 10:01 PM", "Nov 5, 10:00 PM") or in full:
+// the element that holds it is covered, by its text, wherever the markup puts it.
+const timeValue = (page) => page.getByText(/\d{1,2}:\d{2}/);
+
 async function shown(locator) {
   await locator.waitFor({ state: "visible" });
 }
@@ -140,13 +144,11 @@ try {
   // --- 8. Settings › Model (U3): the list page, and the active release's page ---
   await page.goto(`${uiUrl}/settings/model`);
   await shown(page.getByRole("region", { name: "Default workspace" }));
-  await capture(page, "settings-model-light", output, [
-    page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
-  ]);
+  await capture(page, "settings-model-light", output, [timeValue(page)]);
   const activeRelease = (await api("/workspaces/default/model")).releaseId;
   await page.goto(`${uiUrl}/settings/model/releases/${activeRelease}`);
   await shown(page.getByRole("button", { name: "Export JSON" }));
-  await capture(page, "settings-release-detail-light", output, [page.locator(".release-metadata dd")]);
+  await capture(page, "settings-release-detail-light", output, [timeValue(page)]);
 
   // --- 9. Change sets list ---
   const changeSet2 = await api(`/workspaces/default/change-sets`, { name: "Second change set", source: "currentLive" });
@@ -175,9 +177,7 @@ try {
   await capture(page, "record-detail-domain-dark", output);
   await page.goto(`${uiUrl}/settings/model`);
   await shown(page.getByRole("region", { name: "Default workspace" }));
-  await capture(page, "settings-model-dark", output, [
-    page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
-  ]);
+  await capture(page, "settings-model-dark", output, [timeValue(page)]);
   await openLongList(page, uiUrl, longDomain);
   await capture(page, "scrolling-list-tree-dark", output);
   // The amber data-context band in a change set (Track U U2), on the second change set.
@@ -204,7 +204,7 @@ try {
   ]);
   await page.goto(`${uiUrl}/settings/model/releases/${activeRelease}`);
   await shown(page.getByRole("button", { name: "Export JSON" }));
-  await capture(page, "settings-release-detail-dark", output, [page.locator(".release-metadata dd")]);
+  await capture(page, "settings-release-detail-dark", output, [timeValue(page)]);
   await page.emulateMedia({ colorScheme: "light" });
   const changeSet2Detail = await api(`/change-sets/${changeSet2.id}`);
   await api(`/change-sets/${changeSet2.id}?expectedVersion=${changeSet2Detail.version}`, undefined, "DELETE");
@@ -336,10 +336,15 @@ try {
   const retired = await api("/workspaces", { key: "archive", label: "Archive" });
   await api("/workspaces/archive", { expectedVersion: retired.version, status: "retired" }, "PATCH");
   const varying = () => [
-    page.locator(".description-list dd:has-text(':'), .release-metadata dd:has-text(':')"),
+    timeValue(page),
     page.locator(".settings-note code").first(),
-    // About's Build row names the commit the harness was started on, which changes with every commit.
-    page.locator('a[href*="/commit/"]'),
+    // About's Build row names the commit the harness was started on, which changes with every commit;
+    // the engine version and the source code link (it carries the version tag) change with every release.
+    page.locator('a[href*="/commit/"], a[href*="/releases/tag/"], a[href*="/tree/"]'),
+    page
+      .locator(".setting-row")
+      .filter({ hasText: /^Engine version/ })
+      .locator(".setting-row-value"),
   ];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });

@@ -48,6 +48,7 @@ export function WhatChanged({
   application,
   onShow,
   onNavigate,
+  headingLevel = 3,
 }: {
   workspaceKey: string;
   /** One record's account instead of the workspace's. */
@@ -57,7 +58,10 @@ export function WhatChanged({
   /** Narrows the surface to what a fact counted (**Show them**). */
   onShow: (shown: ShownFact) => void;
   onNavigate: (route: RouteState) => void;
+  /** The heading's level: under a page's own heading (h1) with no heading between, 2. */
+  headingLevel?: 2 | 3;
 }) {
+  const Heading = `h${headingLevel}` as const;
   const offer = useHistoryAccountOffer(workspaceKey);
   const [preset, setPreset] = useState<Preset>(record ? "30" : "7");
   const [from, setFrom] = useState("");
@@ -127,9 +131,9 @@ export function WhatChanged({
   return (
     <section className="impact-summary what-changed" aria-labelledby={heading}>
       <div className="what-changed-head">
-        <h3 id={heading} className="install-heading">
+        <Heading id={heading} className="install-heading">
           What changed
-        </h3>
+        </Heading>
         <div className="what-changed-controls">
           <label htmlFor={`${prefix}-period`}>Period</label>
           <select
@@ -190,6 +194,7 @@ export function WhatChanged({
         askingLabel="Writing the account"
         errorTitle="The account could not be asked for"
         renderFact={lead}
+        factsHeadingLevel={headingLevel === 2 ? 3 : 4}
         factsNote={done ? `${periodLabel(done.since, done.until)}, live data` : undefined}
         emptyFacts={
           done && (

@@ -178,11 +178,24 @@ describe("Consumer APIs", () => {
     expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "model", releaseId: "r1" });
   });
 
-  it("says when the active release declares none, and opens the model", async () => {
+  it("names the chosen workspace's own release, not the default workspace's", async () => {
+    vi.mocked(api.workspace).mockResolvedValue({
+      key: "w2",
+      model: { releaseId: "r9", releaseName: "Other model", releaseVersion: "2.0.0" },
+    } as Awaited<ReturnType<typeof api.workspace>>);
+    const onNavigate = vi.fn();
+    render(<ConsumerApisPage route={{ ...CONSUMER_APIS, workspaceKey: "w2" }} onNavigate={onNavigate} />);
+    expect(await screen.findByText(/Other model 2\.0\.0/)).toBeInTheDocument();
+    expect(api.workspace).toHaveBeenCalledWith("w2");
+    fireEvent.click(screen.getByRole("link", { name: "Open the release" }));
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "model", releaseId: "r9" });
+  });
+
+  it("says when the model release declares none, and opens the model", async () => {
     vi.mocked(api.consumerApis).mockReset().mockResolvedValue({ items: [], nextCursor: null });
     const onNavigate = vi.fn();
     render(<ConsumerApisPage route={CONSUMER_APIS} onNavigate={onNavigate} />);
-    expect(await screen.findByText("The active release declares no consumer API.")).toBeInTheDocument();
+    expect(await screen.findByText("The workspace's model release declares no consumer API.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open model" }));
     expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "model" });
   });

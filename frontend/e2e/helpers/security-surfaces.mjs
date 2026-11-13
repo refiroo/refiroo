@@ -154,6 +154,7 @@ export async function visitSecuritySurfaces(visit) {
       clientId: "engine",
       clientSecret: provider.secret,
       groupsClaim: "groups",
+      emailsTrusted: true,
       enabled: true,
     });
 
@@ -317,6 +318,9 @@ with engine.begin() as connection:
       await page.evaluate(() => document.fonts.ready);
     };
 
+    // Brought up to date (0.14 + 0.17 release review, ST1/UX1): People is a region of rows (Active people)
+    // and a person's, group's, client's and provider's page is headed by the item header (level 1); a
+    // person's roles are a list named "Roles in <place>"; a group's members are a region.
     // Each: [name, open, { dark, phone, axe }]. `open` may return `{ page, done }` for a page of its own.
     const surfaces = [
       [
@@ -358,7 +362,7 @@ with engine.begin() as connection:
         "security-people",
         staysOn("/settings/people", () =>
           page
-            .getByRole("navigation", { name: "People" })
+            .getByRole("region", { name: "Active people" })
             .getByRole("button", { name: /Nia Okafor/ })
             .waitFor(),
         ),
@@ -368,8 +372,8 @@ with engine.begin() as connection:
         "security-person",
         async () => {
           await page.goto(`${uiUrl}/settings/people/${nia.id}`);
-          await heading(2, "Nia Okafor")();
-          await page.getByRole("group", { name: "Roles" }).waitFor();
+          await heading(1, "Nia Okafor")();
+          await page.getByRole("list", { name: /^Roles in / }).first().waitFor();
           await settled();
         },
       ],
@@ -377,8 +381,8 @@ with engine.begin() as connection:
         "security-group",
         async () => {
           await page.goto(`${uiUrl}/settings/groups/${curators.id}`);
-          await heading(2, "Curators")();
-          await page.getByRole("group", { name: "Members" }).getByRole("link", { name: "Ada Varga" }).waitFor();
+          await heading(1, "Curators")();
+          await page.getByRole("region", { name: "Members" }).getByRole("link", { name: "Ada Varga" }).waitFor();
           await settled();
         },
       ],
@@ -387,7 +391,7 @@ with engine.begin() as connection:
         "security-client",
         async () => {
           await page.goto(`${uiUrl}/settings/clients/${client.id}`);
-          await heading(2, "Catalogue sync")();
+          await heading(1, "Catalogue sync")();
           await settled();
         },
       ],
@@ -395,7 +399,7 @@ with engine.begin() as connection:
         "security-provider",
         async () => {
           await page.goto(`${uiUrl}/settings/sign-in/harness-id`);
-          await heading(2, "Harness ID")();
+          await heading(1, "Harness ID")();
           await settled();
         },
       ],
@@ -404,6 +408,8 @@ with engine.begin() as connection:
         async () => {
           await page.goto(`${uiUrl}/settings/mail`);
           await heading(1, "Mail")();
+          // The outbox is on the Messages tab (0.17 ST1, PP-D62).
+          await page.getByRole("tab", { name: "Messages" }).click();
           await page.getByText("gone@example.org").waitFor();
           await settled();
         },
@@ -444,7 +450,14 @@ with engine.begin() as connection:
         },
         { dark: true, phone: true },
       ],
-      ["security-workspace-overview", staysOn("/settings/workspaces/default", heading(1, "Workspaces"))],
+      [
+        "security-workspace-overview",
+        // An opened workspace is its own page: its name the level-1 heading, "Workspaces" the trail back (0.17 ST1).
+        staysOn("/settings/workspaces/default", async () => {
+          await page.getByRole("heading", { level: 1 }).first().waitFor();
+          await page.getByRole("tab", { name: "Overview", selected: true }).waitFor();
+        }),
+      ],
       [
         "security-workspace-access",
         staysOn("/settings/workspaces/default/access", () => page.getByRole("region", { name: "Access" }).waitFor()),

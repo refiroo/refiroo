@@ -800,7 +800,7 @@ US-I01. **Scenario:** SC-14, SC-08. **Status:** delivered (0.8 W).
 ### J25 — Define a consumer API in the model
 
 **Actor:** model author. **Channel:** API (model documents), UI (model administration; a declared
-definition is read on Settings › Integration › Consumer APIs, 0.9 U4).
+definition is read on Settings › Connections › Consumer APIs, 0.9 U4).
 **Stories:** US-I09 (consumer side), US-P04. **Status:** definitions delivered (0.9 C1); the
 consumer tier's reads in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md)); event declarations in C9,
 their events produced from C10 (J30); written in schema 0.9 since C18.
@@ -1094,7 +1094,7 @@ as a list…, lists of one shape as one list, both designer models).
 
 ### J35 — Load the next version of a workbook
 
-**Actor:** model administrator; data steward. **Channel:** UI (Settings › Data operations › Import profiles), API.
+**Actor:** model administrator; data steward. **Channel:** UI (Settings › Workspaces and models › Import profiles), API.
 **Stories:** US-P10. **Status:** delivered (0.10 A5c).
 
 1. Upload the next version of a workbook to its saved profile.
@@ -1341,7 +1341,7 @@ the mapping changed after the dry run, 390px).
 
 ### J20 — Discover the model and the API
 
-**Actor:** integrator. **Channel:** API; UI (Settings › Integration › Consumer APIs and API
+**Actor:** integrator. **Channel:** API; UI (Settings › Connections › Consumer APIs and API
 reference, 0.9 U4). **Stories:** US-I01, US-P01. **Status:** delivered.
 
 1. Read the capabilities: which groups are enabled and their limits.
@@ -1544,7 +1544,7 @@ single writes' codes.
 
 ### J24 — Run a large background job and recover
 
-**Actor:** integrator; exchange operator. **Channel:** API; UI (Settings › Data operations › Jobs
+**Actor:** integrator; exchange operator. **Channel:** API; UI (Settings › This instance › Jobs
 lists jobs and cancels a queued or running one, 0.9 U4). **Stories:** US-I03, US-I04.
 **Scenario:** SC-10. **Status:** delivered (0.9 B2).
 
@@ -1998,7 +1998,7 @@ statements in `test_consumer_xref_volume`.
 ### J30 — Follow a consumer API's changes
 
 **Actor:** integrator; operator (subscriptions). **Channel:** API; UI (subscriptions on Settings ›
-Integration › Webhooks, 0.9 U5). **Stories:** US-I05. **Status:**
+Connections › Webhooks, 0.9 U5). **Stories:** US-I05. **Status:**
 the pull feed delivered (0.9 C10); subscriptions managed from 0.9 C11 and delivered as webhooks
 from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
@@ -2079,7 +2079,7 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   a deleted subscription's go with it. An operator resends an event by hand, whatever its status:
   the event as it was sent, alone in a new request with the same `eventId` and `RDM-Redelivery:
   manual`, once, during the call, also while suspended, in the format it was sent in; the new
-  request names the one it repeats. UI: Settings › Integration › Webhooks, Deliveries, where a
+  request names the one it repeats. UI: Settings › Connections › Webhooks, Deliveries, where a
   delivered event is resent only after a confirmation.
 - **J30.11 A subscription on a kept version (0.13 DF3)**: a subscription accepted under a version the
   model then keeps stays active and receives its events in that version's shape (its objects, and the
@@ -2230,7 +2230,7 @@ applications and record types as data.
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, I2 and I3. I1 (2026-10-23):
 the refusals without a token or with one not issued here. I2 (2026-10-23): steps 1–3 with an e-mail address
 and password, J39.1–J39.6; the provider's button and J39.7 are I3. I3 (2026-10-25): J39.7 through
-the API and the UI (Settings › Security › Sign-in, the sign-in page's button), and local sign-in
+the API and the UI (Settings › People and access › Sign-in, the sign-in page's button), and local sign-in
 turned off with the administrators made on the server keeping it. I4a (2026-10-25): J39.8, and the
 link of J40.13. I4b (2026-10-25): J39.9, a second factor for a password. I4c (2026-10-25): J39.10, passkeys.
 C1 (2026-10-26): J39.11, the API reference signed in.
@@ -2294,7 +2294,7 @@ SESSION_NOT_FOUND`, `403 NOT_A_PERSON`, `403 SIGN_IN_MANAGED`; on the sign-in pa
 
 ### J40 — Manage who can do what
 
-**Actor:** security administrator. **Channel:** UI (Settings › Security), API.
+**Actor:** security administrator. **Channel:** UI (Settings › People and access), API.
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, Z1, Z2, SP1. I1 (2026-10-23):
 people created, changed and deactivated through the API, and the first administrator from
 `create_admin`; roles and grants are Z1. I2 (2026-10-23): a person's one-time password link and
@@ -2303,7 +2303,7 @@ groups and grants through the API, every operation checked at its route (J40.1, 
 the person's roles on Settings › Account and in the account menu. Z2 (2026-10-23): J40.3's
 narrowing enforced on every write path, a stale grant reported, J40.10, and an import profile's
 files kept to their uploader and their workspace. SP1 (2026-10-24): the UI channel: Settings ›
-Security › People, Groups and Roles and a workspace's Access, shown to Security administrators; a
+People and access › People, Groups and Roles and a workspace's Access, shown to Security administrators; a
 person's roles in the people list and their grants through groups, groups and clients found by
 name, and a role held only at the instance refused in a workspace, through the API. Z5 (2026-10-24):
 J40.12, the interface following the person's permissions (J40.1–J40.3's UI channel). SP2
@@ -2359,14 +2359,14 @@ narrowed write, `requestedBy` for a job's step), `409 ROLE_PREDEFINED`, `409 ROL
 
 ### J41 — A system calls with a client
 
-**Actor:** integration team. **Channel:** API, UI (Settings › Security › Clients).
+**Actor:** integration team. **Channel:** API, UI (Settings › Connections › Clients).
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, Z1, Z3, SP2. I1 (2026-10-23):
 the main flow through the API (any active client may use every route until Z1), J41.3, J41.4, J41.5;
 the first client from `create_client`. Z1 (2026-10-23): a client does what its roles allow, granted
 like a person's (step 2 for the management API; `create_client --role`). Z3 (2026-10-24): J41.2,
 a consumer API granted in a workspace (step 2 for the consumer APIs) through the API; the index
 lists only what is granted, and a subscription names the client or person that created it. SP2
-(2026-10-25): the UI channel: Settings › Security › Clients (create with the ID and secret shown
+(2026-10-25): the UI channel: Settings › Connections › Clients (create with the ID and secret shown
 once, rotate with a chosen overlap, end the previous secret, rename, deactivate and restore, its
 access, the webhooks it created, its recent activity) and Signing keys; a client's reads name its
 roles, consumer APIs and creator, and each secret its last four characters (J41.3), through the API.
@@ -2416,7 +2416,7 @@ roles, consumer APIs and creator, and each secret its last four characters (J41.
 
 ### J43 — Rotate a key
 
-**Actor:** security administrator, integration administrator. **Channel:** UI (Settings › Security
+**Actor:** security administrator, integration administrator. **Channel:** UI (Settings › People and access
 › Signing keys, a webhook's page), API. **Stories:** US-S01. **Status:** designed (0.12 P0);
 delivered by I1 and K1. I1 (2026-10-23): J43.1 (rotated on request, and on its own after
 `TOKEN_SIGNING_KEY_DAYS`) and J43.2. K1 (2026-10-25): J43.3, J43.4 and J43.5.
@@ -2509,7 +2509,7 @@ open). **Channel:** UI (the home page after sign-in, the bare address, the produ
 ### J46 — Send mail
 
 **Actor:** Security administrator; the engine itself (a new person's link, a reset, inbox notices);
-any person, for their own inbox mail. **Channel:** UI (Settings › Mail, under Integration; Settings ›
+any person, for their own inbox mail. **Channel:** UI (Settings › Mail, under This instance; Settings ›
 Account for the inbox switch), API (`GET`/`PUT`/`DELETE /mail-settings`, `POST /mail-settings/test`,
 `GET /mail-outbox`, `GET`/`PUT /me/notification-mail`). **Status:** the sending half delivered by 0.12
 M1 (2026-10-26); a new person's link and an administrator's reset are mailed by SP3, a forgotten
@@ -2559,7 +2559,7 @@ password by I6 and inbox notices by M2 (2026-10-27).
   erased and nothing more is sent. A message already sent or failed, one a sender holds at that moment,
   and one that does not exist are refused by code.
 - **J46.10 Inbox notices by mail** (0.12 M2): a person with an address switches on "Email me when
-  something arrives in my inbox" on Settings › Notifications (off until then; the switch is not offered where mail is
+  something arrives in my inbox" on Settings › You › Notification email (off until then; the switch is not offered where mail is
   not set up, the person has no address or the caller is a client). From then on each notice that
   arrives and is still unread is mailed once, within 24 hours, as a plain-text message that names the
   kind of event (a change set waits for approval, a decision on yours, a job of yours finished) and
@@ -2675,7 +2675,7 @@ link_gone`, `403 foreign_origin`.
 ### J48 — Use AI proposals
 
 **Actor:** an operator, who sets the provider up in the environment and watches what it is sent.
-**Channel:** the environment (`AI_*` settings), UI (Settings › AI, under Administration), API
+**Channel:** the environment (`AI_*` settings), UI (Settings › AI, under This instance), API
 (`GET /ai/status`, `GET /ai/calls`, `POST /ai/test`, `GET /system` `ai`). **Status:** delivered by
 0.16 AP1 (2026-10-28); the inference's better names for the types it proposes, its first feature,
 were removed in 0.16 AP6a, and the inference runs on its rules alone. Each feature that asks the
@@ -3107,11 +3107,11 @@ HISTORY_PERIOD_INVALID`, `404 OBJECT_NOT_FOUND`.
 
 ### J57 — Notification digests and following a workspace
 
-**Actor:** a person who is mailed for their inbox (J46.10). **Channel:** UI (Settings › Notifications › Email; Follow on a
+**Actor:** a person who is mailed for their inbox (J46.10). **Channel:** UI (Settings › You › Notification email › Email; Follow on a
 workspace card on Home), API (`GET`/`PUT /me/notification-mail`, `GET /me/followed-workspaces`, `PUT`/`DELETE
 /me/followed-workspaces/{workspaceKey}`, `following` on `GET /me/workspaces`). **Status:** delivered by 0.16 AO3 (2026-11-02).
 
-1. On Settings › Notifications the person chooses, for each kind of notice, whether it is mailed at once (as
+1. On Settings › You › Notification email the person chooses, for each kind of notice, whether it is mailed at once (as
    today, and what every kind stays until changed), in the digest or not at all, and whether the digest comes
    every morning or on Mondays, at 07:00 in the time zone their browser reports. The page says when the next
    digest is.
@@ -3122,7 +3122,7 @@ workspace card on Home), API (`GET`/`PUT /me/notification-mail`, `GET /me/follow
    (D432). No notice, or only ones the person read, gives no message; the next time still moves on.
 3. A person may follow a workspace they may browse from its card on Home. A change set published there, from an
    approved request or directly, puts a notice in the inbox of each follower who can still browse it, but not of the
-   publisher; from there it is a kind like the others. Settings › Notifications lists the followed workspaces with
+   publisher; from there it is a kind like the others. Settings › You › Notification email lists the followed workspaces with
    Stop following.
 
 **Variants:**

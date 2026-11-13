@@ -58,10 +58,12 @@ CONTEXTS = ("live", "change set")
 # statement), whatever the chunk holds. And one in 0.12 Z4: the job's response names its requester
 # (`requestedBy`, one statement per kind of principal), found by Z6's full run. And two in 0.16
 # (ag1, ap9): a client token's request reads the client's kind and whether an assistant task owns
-# the client, found by CI's first full run (2026-11-08).
+# the client, found by CI's first full run (2026-11-08). And one in 0.13 JG (5a90acd6): the job's
+# response names its origin, one statement for the response (`origins_of`), whatever the chunk holds;
+# it took the live creates and upserts, whose budgets were exact, to 39 and 53 (0.17 release review).
 BUDGET = {
-    ("live", "creates"): 38,
-    ("live", "upserts"): 52,
+    ("live", "creates"): 39,
+    ("live", "upserts"): 53,
     ("change set", "creates"): 50,
     ("change set", "upserts"): 56,
     ("live", "relations"): 48,

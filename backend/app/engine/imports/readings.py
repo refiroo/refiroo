@@ -92,6 +92,7 @@ def apply_readings(table: Table, source: Source) -> Table:
                 and all(is_empty(value) for at, value in enumerate(cells) if at != heading_at)
             ):
                 heading = cells[heading_at]
+                last.clear()  # A filled-down value stays within its heading group.
                 continue
             row = [*cells, *([None] * len(added))]
             if into_at is not None:

@@ -142,7 +142,7 @@ can complete the task in the application; "API" means another system can.
   its value, its default and where it came from, and the capability groups on or off. Settings are
   read here, never edited; secrets show only whether they are set.
 - Choose the theme and the default table density for this browser.
-- In Settings › **Integration**, read each consumer API the active release declares (its version,
+- In Settings › **Connections**, read each consumer API the active release declares (its version,
   base URL, exposed types, lists and events), follow and cancel jobs beside the batch, job and feed
   limits, and open each job's page with its state, progress and, for an export, what the file
   holds and Download; start an export of any types of a workspace; and open each API's reference.
@@ -156,7 +156,7 @@ can complete the task in the application; "API" means another system can.
   made. People allowed to use AI proposals then get suggestions in the screens they already use, which
   they edit, keep or remove; nothing is written or published without them. Without a provider nothing
   is sent anywhere.
-- Reach the data from an assistant the organisation already uses: with agent access on, a person adds this instance's address to an assistant that speaks MCP and signs in, or a system uses an agent client. It looks up values, reads the model, records, history and unmapped values, and prepares changes: it creates a change set of its own, adds and changes records, relationships and values in it, and submits it for approval. It works within what that person or client may do, only in change sets that person or client created, and can never approve, publish, remove or clear anything; change reaches live data only when a person approves it ([AG3](BASE_0_16_IMPLEMENTATION_PLAN.md#ag3-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-ag-d27-as-written)). Settings › Security › **Agent access** lists the assistants and each call, and blocks one at once.
+- Reach the data from an assistant the organisation already uses: with agent access on, a person adds this instance's address to an assistant that speaks MCP and signs in, or a system uses an agent client. It looks up values, reads the model, records, history and unmapped values, and prepares changes: it creates a change set of its own, adds and changes records, relationships and values in it, and submits it for approval. It works within what that person or client may do, only in change sets that person or client created, and can never approve, publish, remove or clear anything; change reaches live data only when a person approves it ([AG3](BASE_0_16_IMPLEMENTATION_PLAN.md#ag3-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-ag-d27-as-written)). Settings › Connections › **Agent access** lists the assistants and each call, and blocks one at once.
 - Load a workbook with the assistant: Import offers it first. It reads the file the way an import
   profile that fits already reads it, or works out which lists update which types, asks only about what
   needs a person (new keys, names that differ, records missing from the file), checks every row and

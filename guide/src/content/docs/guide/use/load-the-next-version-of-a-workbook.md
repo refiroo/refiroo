@@ -8,7 +8,7 @@ Use a saved import profile to recognise a recurring workbook. This differs from 
 model from a new workbook; that task belongs to
 [Workbook onboarding](/docs/model/workbook-onboarding/).
 
-1. Open **Settings › Data operations › Import profiles**. Open the profile’s row and read its
+1. Open **Settings › Workspaces and models › Import profiles**. Open the profile’s row and read its
    **Last load**: file, destination, row counts and whether its change set was published.
 2. If your permissions offer **Upload the next version…**, choose it and upload the newer
    workbook. Choose the intended comparison workspace and wait while it is checked.

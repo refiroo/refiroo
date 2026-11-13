@@ -5,6 +5,7 @@
 // <address>"; pressed, the dialog says where the link went and shows the newer link once, the server
 // receives one message holding that link, and the person's one Make a password link button leads to the
 // same dialog. Axe on each dialog; screenshots; no horizontal page scroll at 390px.
+// Brought up to date (0.14 + 0.17 release review, ST1): a person's page no longer holds the people list beside it, so the narrow walk opens the list before New person.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { SHAPED_MODELS, bootShaped } from "./helpers/shaped-models.mjs";
@@ -112,6 +113,7 @@ async function walk(configuration) {
 
     // 4. 390px.
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${uiUrl}/settings/people`);
     shown = await newPerson(`di-${tag}`, `Di ${tag}`, `di-${tag}@example.org`, "Add person");
     await shown.getByRole("button", { name: /^Mail it to/ }).click();
     await shown.getByText(/was mailed to/).waitFor();

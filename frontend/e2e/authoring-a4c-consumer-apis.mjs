@@ -9,6 +9,9 @@
 // removed shows the contract change, raised from the Schema tab; a new consumer API exposing two
 // types; install and activate with the consumer API section, and the consumer tier serving a record
 // of the new API. 1440px and 390px; axe on the tab, a dialog and the install dialog.
+//
+// Brought up to date (0.14 + 0.17 release review, UX2 / PP-D68): a choice from a list in a cell saves as it is
+// made, so the Served choice has no Save button to press.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -80,12 +83,23 @@ async function journey(label, source) {
   const dialog = () => page.getByRole("dialog").last();
   const centre = page.getByRole("region", { name: "Selected consumer API" });
   const settled = () => page.waitForLoadState("networkidle");
-  const steps = async () => Number((await page.getByText(/^Version \d+$/).first().textContent()).replace(/\D/g, ""));
+  const steps = async () =>
+    Number(
+      (
+        await page
+          .getByText(/^Version \d+$/)
+          .first()
+          .textContent()
+      ).replace(/\D/g, ""),
+    );
   /** One step applied: the draft's version moves on by one. */
   const oneStep = async (action) => {
     const before = await steps();
     await action();
-    await page.getByText(`Version ${before + 1}`, { exact: true }).first().waitFor();
+    await page
+      .getByText(`Version ${before + 1}`, { exact: true })
+      .first()
+      .waitFor();
     await settled();
   };
   const tab = (name) => centre.getByRole("tab", { name: new RegExp(`^${name}`) });
@@ -100,19 +114,28 @@ async function journey(label, source) {
   try {
     const state = await harness.api("/workspaces/default/model");
     const release = await harness.api(`/model-releases/${state.releaseId}?includeModel=true`);
-    const draft = await harness.api("/model-drafts", { name: "A4c consumer APIs", model: release.model, baseReleaseId: release.id });
+    const draft = await harness.api("/model-drafts", {
+      name: "A4c consumer APIs",
+      model: release.model,
+      baseReleaseId: release.id,
+    });
 
     // The pane's second tab, and the definition opened from it by keyboard (D59).
     await page.goto(`${harness.uiUrl}/settings/model/drafts/${draft.id}/editor`);
     await page.getByRole("tab", { name: "Model", exact: true }).waitFor();
     await page.getByRole("tab", { name: "Consumer APIs", exact: true }).click();
     const tree = page.getByRole("tree", { name: "Consumer APIs" });
-    await tree.getByRole("treeitem", { name: new RegExp(definition.name) }).first().focus();
+    await tree
+      .getByRole("treeitem", { name: new RegExp(definition.name) })
+      .first()
+      .focus();
     await page.keyboard.press("Enter");
     await page.waitForURL(/show=consumerApi/);
     await centre.getByRole("heading", { name: definition.name, level: 2 }).waitFor();
     await page.getByRole("button", { name: "Add a consumer API" }).waitFor();
-    checks.push(`${label}: the left pane has Model and Consumer APIs tabs, ＋ adds within the open one; a definition opens from the tree by keyboard`);
+    checks.push(
+      `${label}: the left pane has Model and Consumer APIs tabs, ＋ adds within the open one; a definition opens from the tree by keyboard`,
+    );
 
     // Fields: a field added with a source picked from the list, then its sources changed and put in
     // order in the picklist (the user, A4c); each one step (D51).
@@ -136,13 +159,16 @@ async function journey(label, source) {
       await row.getByRole("button", { name: /Edit Sources/ }).click();
       // A text attribute, so the field's sources share one value type.
       const picker = sources().getByLabel("Add to Sources");
-      const text = await picker.locator("option").evaluateAll(
-        (options) => options.find((option) => / · text$/.test(option.textContent ?? ""))?.value,
-      );
+      const text = await picker
+        .locator("option")
+        .evaluateAll((options) => options.find((option) => / · text$/.test(option.textContent ?? ""))?.value);
       assert.ok(text, "the exposed types offer a text attribute");
       await picker.selectOption(text);
       await sources().getByRole("button", { name: "Add" }).click();
-      await sources().getByRole("button", { name: /^Move .* up$/ }).last().click();
+      await sources()
+        .getByRole("button", { name: /^Move .* up$/ })
+        .last()
+        .click();
       await shot("sources-1440");
       await apply();
       await row.getByText(`${text}, name`).waitFor();
@@ -168,7 +194,9 @@ async function journey(label, source) {
     if (!(await centre.getByRole("region", { name: "Parent", exact: true }).count())) {
       await oneStep(async () => {
         await centre.getByRole("button", { name: "Parent, path and hierarchy…" }).click();
-        await dialog().getByLabel(/^Serve the parent/).check();
+        await dialog()
+          .getByLabel(/^Serve the parent/)
+          .check();
         await apply();
       });
     }
@@ -185,17 +213,18 @@ async function journey(label, source) {
     await oneStep(async () => {
       await parentRow.getByRole("button", { name: /^Edit Served/ }).click();
       await parentSection.locator("select[name=value]").selectOption("onRequest");
-      await parentSection.getByRole("button", { name: "Save", exact: true }).click();
     });
     await parentRow.getByText("On request").waitFor();
     // Its fields changed in the chooser: one step, and the row shows them (the parent's block is edited as the object's is).
     await oneStep(async () => {
       await parentRow.getByRole("button", { name: /^Edit Fields/ }).click();
       const source = dialog().locator(".pairs-field-row select").first();
-      const other = await source.locator("option").evaluateAll(
-        (options, now) => options.find((option) => option.value !== now)?.value,
-        await source.inputValue(),
-      );
+      const other = await source
+        .locator("option")
+        .evaluateAll(
+          (options, now) => options.find((option) => option.value !== now)?.value,
+          await source.inputValue(),
+        );
       await source.selectOption(other);
       await apply();
     });
@@ -222,7 +251,10 @@ async function journey(label, source) {
     if (await xref.isChecked()) {
       const resolving = await resolveSwitch.isChecked();
       await xref.click();
-      await page.getByRole("alertdialog").getByText(/match rules go with it/).waitFor();
+      await page
+        .getByRole("alertdialog")
+        .getByText(/match rules go with it/)
+        .waitFor();
       await oneStep(() => page.getByRole("alertdialog").getByRole("button", { name: "Stop offering XREF" }).click());
       await switchIn(/^XREF/, false);
       await switchIn(/^Resolve/, false);
@@ -261,13 +293,19 @@ async function journey(label, source) {
     await centre.getByRole("cell", { name: "a4c-kind", exact: true }).waitFor();
     await centre.getByRole("button", { name: "Add filter" }).click();
     await dialog().getByLabel("Verb").selectOption("onRelated");
-    await dialog().getByLabel("Related block").locator("option", { hasText: "parent.a4cParentBlock" }).waitFor({ state: "attached" });
+    await dialog()
+      .getByLabel("Related block")
+      .locator("option", { hasText: "parent.a4cParentBlock" })
+      .waitFor({ state: "attached" });
     await dialog().getByRole("button", { name: "Cancel" }).click();
     await oneStep(() => page.getByRole("button", { name: "Undo", exact: true }).click());
     await centre.getByRole("cell", { name: "a4c-kind", exact: true }).waitFor({ state: "detached" });
     await page.getByRole("button", { name: /^Issues and history/ }).click();
     await page.getByRole("tab", { name: "History" }).click();
-    await page.getByText(/Added filter a4c-kind to/).first().waitFor();
+    await page
+      .getByText(/Added filter a4c-kind to/)
+      .first()
+      .waitFor();
     checks.push(
       `${label}: a filter added with its match fields picked as chips and taken back by Undo; the history words the consumer step`,
     );
@@ -281,26 +319,41 @@ async function journey(label, source) {
     await centre.getByRole("link", { name: /Download schema\.json/ }).waitFor();
     await shot("schema-1440");
     await centre.getByRole("button", { name: "Message example", exact: true }).click();
-    const example = JSON.parse(await centre.getByRole("region", { name: "Message example" }).locator("pre").textContent());
+    const example = JSON.parse(
+      await centre.getByRole("region", { name: "Message example" }).locator("pre").textContent(),
+    );
     assert.deepEqual(Object.keys(example).sort(), Object.keys(schema.properties).sort());
-    checks.push(`${label}: Schema and Message example are two documents, each with Copy and Download; the example has the schema's properties`);
+    checks.push(
+      `${label}: Schema and Message example are two documents, each with Copy and Download; the example has the schema's properties`,
+    );
 
     // A released field removed: the contract needs a higher version, raised from the Schema tab (D55).
     await tab("Fields").click();
     await oneStep(async () => {
       await centre.getByRole("button", { name: `Operations for field ${releasedField}` }).click();
       await page.getByRole("menuitem", { name: new RegExp(`^Remove field ${releasedField}`) }).click();
-      await page.getByRole("alertdialog").getByRole("button", { name: new RegExp(`^Remove field ${releasedField}`) }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: new RegExp(`^Remove field ${releasedField}`) })
+        .click();
     });
     const version = definition.contractVersion;
-    await centre.getByText(`Needs contract version ${version + 1}`).first().waitFor();
+    await centre
+      .getByText(`Needs contract version ${version + 1}`)
+      .first()
+      .waitFor();
     await tree.getByText(`Needs v${version + 1}`).waitFor();
     await tab("Schema").click();
     await shot("contract-1440");
     await oneStep(() => centre.getByRole("button", { name: `Raise to version ${version + 1}` }).click());
-    await centre.getByText(`Contract version ${version + 1}`).first().waitFor();
+    await centre
+      .getByText(`Contract version ${version + 1}`)
+      .first()
+      .waitFor();
     assert.equal(await centre.getByText(`Needs contract version ${version + 2}`).count(), 0);
-    checks.push(`${label}: a released field removed needs contract version ${version + 1}, shown in the pane and the panel; raised in one step from the Schema tab`);
+    checks.push(
+      `${label}: a released field removed needs contract version ${version + 1}, shown in the pane and the panel; raised in one step from the Schema tab`,
+    );
 
     // A new consumer API from the tab's ＋ (D53).
     await oneStep(async () => {
@@ -313,7 +366,10 @@ async function journey(label, source) {
       await assertAccessible(page, `a4c-${label}-new-api`);
       await apply("Add consumer API");
     });
-    await tree.getByRole("treeitem", { name: /A4c Feed/ }).first().click();
+    await tree
+      .getByRole("treeitem", { name: /A4c Feed/ })
+      .first()
+      .click();
     await centre.getByRole("heading", { name: "A4c Feed", level: 2 }).waitFor();
     await tab("Fields").click();
     await output("id").waitFor();
@@ -325,8 +381,13 @@ async function journey(label, source) {
     await dialog().getByText("A4c Feed").first().waitFor();
     await assertAccessible(page, `a4c-${label}-install`);
     await shot("install-1440");
-    await dialog().getByRole("button", { name: /and activate in / }).click();
-    await page.getByText(/is installed and active/).first().waitFor({ timeout: 30_000 });
+    await dialog()
+      .getByRole("button", { name: /and activate in / })
+      .click();
+    await page
+      .getByText(/is installed and active/)
+      .first()
+      .waitFor({ timeout: 30_000 });
     const values = (top.attributes ?? [])
       .filter((binding) => binding.required)
       .map((binding) => {
@@ -343,12 +404,16 @@ async function journey(label, source) {
     const served = await fetch(`${harness.apiUrl}/api/consumer/a4c-feed/v1/objects/${record.id}`);
     assert.equal(served.status, 200, await served.clone().text());
     assert.equal((await served.json()).name, "Served by A4c");
-    checks.push(`${label}: install and activate lists each consumer API's contract; the new API serves a record afterwards`);
+    checks.push(
+      `${label}: install and activate lists each consumer API's contract; the new API serves a record afterwards`,
+    );
 
     // 390px: the pane's tab, the definition, no overflow.
     const narrow = await harness.browser.newContext({ hasTouch: true, viewport: { width: 390, height: 844 } });
     const phone = await narrow.newPage();
-    await phone.goto(`${harness.uiUrl}/settings/model/drafts/${draft.id}/editor?show=consumerApi&key=a4c-feed&tab=fields`);
+    await phone.goto(
+      `${harness.uiUrl}/settings/model/drafts/${draft.id}/editor?show=consumerApi&key=a4c-feed&tab=fields`,
+    );
     await phone.getByRole("heading", { name: "A4c Feed", level: 2 }).waitFor();
     assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await assertAccessible(phone, `a4c-${label}-390`);
@@ -359,7 +424,9 @@ async function journey(label, source) {
     await narrow.close();
     checks.push(`${label}: at 390px the definition and the Consumer APIs pane open as tabs; no page overflow`);
   } catch (error) {
-    await page.screenshot({ path: resolve(harness.output, `a4c-${label}-failure.png`), fullPage: true }).catch(() => {});
+    await page
+      .screenshot({ path: resolve(harness.output, `a4c-${label}-failure.png`), fullPage: true })
+      .catch(() => {});
     console.error(harness.log().slice(-3000));
     throw error;
   } finally {

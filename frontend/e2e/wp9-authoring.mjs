@@ -1,5 +1,7 @@
 import { recordAction } from "./record-actions.mjs";
 // Real-backend SC-02/SC-03 and live SC-04 regression. All model/data mutations target a temporary database.
+// 0.17 UX2 (PP-D68): a refused required value hands focus back to the input a moment after the reason shows,
+// so Escape waits for that focus (it is pressed on the field, as a person does).
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
@@ -320,6 +322,7 @@ try {
       await page.keyboard.press("Tab");
       await shown(page.getByRole("form").getByText(`${label} code needs a value.`));
       assert.equal(await page.getByRole("form").count(), 1);
+      await page.waitForFunction(() => document.activeElement?.closest("form") !== null);
       await page.keyboard.press("Escape");
       assert.equal(await page.getByRole("form").count(), 0);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

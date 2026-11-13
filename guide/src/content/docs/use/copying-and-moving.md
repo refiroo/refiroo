@@ -16,7 +16,7 @@ one workspace. Switching workspaces alone never copies records.
 
 ## Access and starting data
 
-Open **Settings › Data operations › Copy and move**. You need access to read the source and
+Open **Settings › Workspaces and models › Copy and move**. You need access to read the source and
 **Copy and move** for the destination; a move also needs **Work in change sets** for the
 source deletion proposal. Review and
 publication need their own workspace permissions. This page does not give you publication

@@ -346,6 +346,7 @@ def permissions() -> list[dict]:
                 f"{rel(path)}:{find_line(path, f'"{key}",')}",
                 "administer",
                 summary=group.description,
+                commonContext=["permission", "group", "role"],
             )
         )
     for key, action in catalogue.ACTIONS.items():
@@ -358,6 +359,7 @@ def permissions() -> list[dict]:
                 "administer",
                 summary=action.description,
                 groups=list(action.groups),
+                commonContext=["permission", "action", "group", "role"],
             )
         )
     for key, groups in catalogue.PREDEFINED_ROLES.items():
@@ -369,6 +371,7 @@ def permissions() -> list[dict]:
                 f"{rel(path)}:{find_line(path, f'    "{key}":')}",
                 "administer",
                 summary="Groups: " + ", ".join(groups),
+                commonContext=["role", "group", "permission"],
             )
         )
     entries.append(
@@ -487,6 +490,8 @@ def screens(data: dict) -> list[dict]:
                 item["source"],
                 "use",
                 routeKind=True,
+                # A route's label is a page's name, often one word ("Home"): it counts where a page names it as a page.
+                commonContext=["page", "screen"],
             )
         )
     for item in routes["pages"]:
@@ -553,6 +558,7 @@ def screens(data: dict) -> list[dict]:
                 menu["source"],
                 file_section(menu["source"]),
                 weak=True if all(words(l) < 2 for l in menu["labels"]) else None,
+                commonContext=file_context(menu["source"]),
             )
         )
     for item in data["confirms"]:
@@ -565,6 +571,7 @@ def screens(data: dict) -> list[dict]:
                 labels,
                 item["source"],
                 file_section(item["source"]),
+                commonContext=file_context(item["source"]),
             )
         )
     return entries
@@ -688,9 +695,91 @@ def model_features() -> list[dict]:
                 "model",
                 context=[parent_name, parent_name.rstrip("s")] if generic else None,
                 weak=True if generic else None,
+                commonContext=[parent_name, parent_name.rstrip("s")] if len(parent) > 1 else ["model"],
                 types=sorted(item["types"]),
             )
         )
+    return entries
+
+
+# A label that is one common word ("Delete", "view", "security") proves nothing on its own: the check
+# (``tools/check.mjs``) counts it only on a page that also names one of the entry's ``commonContext`` words.
+GENERIC_FILE_WORDS = {"page", "panel", "view", "list", "detail", "board", "card", "pane", "dialog", "menu", "tab", "shell", "app", "tsx", "ts"}
+
+
+def file_context(source: str) -> list[str]:
+    """Words of the source file's name that say where a control stands (``ModelReleaseDetail.tsx`` ->
+    model, release); ``menu`` for a file with none."""
+    name = source.rsplit(":", 1)[0].split("/")[-1].split(".")[0]
+    found = [w.lower() for w in re.findall(r"[A-Z][a-z0-9]+|[a-z0-9]+", name)]
+    specific = [w for w in found if w not in GENERIC_FILE_WORDS]
+    # A generic word beside a specific one still says where the control stands (PanelTools -> tools, panel).
+    places = [w for w in found if w in GENERIC_FILE_WORDS and w not in {"tsx", "ts", "app", "shell"}]
+    return specific + places if specific else ["menu"]
+
+
+def mail_kinds() -> list[dict]:
+    """The message kinds the engine sends (``KINDS`` in ``engine/mail/templates.py``)."""
+    path = BACKEND / "app" / "engine" / "mail" / "templates.py"
+    text = path.read_text()
+    names = re.search(r"^KINDS = \(([^)]*)\)", text, re.MULTILINE).group(1)
+    entries = []
+    for constant in [n.strip() for n in names.split(",") if n.strip()]:
+        match = re.search(rf'^{constant} = "([^"]+)"', text, re.MULTILINE)
+        entries.append(
+            entry(
+                "mail-kind",
+                f"mail:{match.group(1)}",
+                [match.group(1)],
+                f"{rel(path)}:{find_line(path, f'{constant} = ')}",
+                "administer",
+                context=None,
+                commonContext=["mail", "message", "e-mail", "email"],
+            )
+        )
+    return entries
+
+
+def search_fields() -> list[dict]:
+    """A search or find box of the frontend: a ``label``/``placeholder`` that starts with Find or Search."""
+    pattern = re.compile(r'(?:label|placeholder)="((?:Find|Search)[^"{}]*)"')
+    found: dict[str, dict] = {}
+    for path in sorted((REPO / "frontend" / "src").rglob("*.tsx")):
+        if path.name.endswith(".test.tsx"):
+            continue
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            for label in pattern.findall(line):
+                found.setdefault(
+                    label,
+                    entry(
+                        "search-field",
+                        f"search:{label}",
+                        [label],
+                        f"{rel(path)}:{number}",
+                        file_section(rel(path)),
+                        commonContext=file_context(rel(path)),
+                    ),
+                )
+    return list(found.values())
+
+
+def build_args() -> list[dict]:
+    """The ``ARG`` lines of the Dockerfiles: values an operator may set when building the image."""
+    entries = []
+    for path in sorted(REPO.glob("*/Dockerfile")):
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            match = re.match(r"ARG ([A-Z][A-Z0-9_]*)(?:=(.*))?$", line)
+            if match:
+                entries.append(
+                    entry(
+                        "build-arg",
+                        match.group(1),
+                        [],
+                        f"{rel(path)}:{number}",
+                        "run",
+                        summary=f"Docker build argument, default {match.group(2) or 'empty'}",
+                    )
+                )
     return entries
 
 
@@ -1040,6 +1129,9 @@ def main() -> int:
         "screen": screens(data),
         "model-feature": model_features(),
         "deployment": deployment(),
+        "mail-kind": mail_kinds(),
+        "search-field": search_fields(),
+        "build-arg": build_args(),
     }
     for old in OUT.glob("*.json"):
         old.unlink()

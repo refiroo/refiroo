@@ -23,7 +23,7 @@ including matching rows beyond those on screen. The count line names its context
 when known: rows × columns for a matrix, records for a tree or mapping grid.
 
 Choose **The type**, **The application** or **The whole workspace** for whole types rather
-than the view's narrowed selection. From **Settings › Data operations › Jobs**, choose types
+than the view's narrowed selection. From **Settings › This instance › Jobs**, choose types
 in a workspace. **Valid on** optionally limits an export by business date; ordinary browser
 lists have no equivalent selector. When a page's search is not included, the dialog says so.
 A filter on a relationship's own values is not carried into a view export; read that notice
@@ -185,7 +185,7 @@ or in the model editor. In the editor, a column's **Readings** row offers
 A loaded list's **Readings** row also offers **Read these columns as rows…**.
 The **Source** pane marks columns that have a reading.
 
-Under **Settings › Data operations › Import profiles**, **Upload the next version…** stores
+Under **Settings › Workspaces and models › Import profiles**, **Upload the next version…** stores
 an XLSX or CSV file and starts a job to read its sheets and columns. While waiting, the page
 says **Checking [file name]: profiling its sheets, then reading it through the profile…**.
 This reading step writes no records. If **The file could not be read** appears, follow its
@@ -270,7 +270,7 @@ has written nothing.*
 
 ## Profiles and recurring keys
 
-In **Settings › Data operations › Import profiles**, **Valid** means the profile fits its
+In **Settings › Workspaces and models › Import profiles**, **Valid** means the profile fits its
 model; **Needs a fix** means a named problem must be resolved. Neither guarantees that every
 row in the next file is valid. **Not loaded yet** means no retained last load is shown.
 Scroll to the end of the catalogue to read more profiles. If there are no profiles, ask a model
@@ -339,7 +339,7 @@ retained; [AI and your data](/docs/use/ai-and-your-data/) explains those rules.
 
 ## Remove an uploaded file or an import profile
 
-Open **Settings › Data operations › Import profiles** and open the profile’s row. **← Import profiles** on the first line returns to the list. People with
+Open **Settings › Workspaces and models › Import profiles** and open the profile’s row. **← Import profiles** on the first line returns to the list. People with
 **Bulk and import** find the deletion actions under **More actions**; without that access the actions are absent.
 Deleting either item does not undo a load or remove records already loaded into a workspace.
 

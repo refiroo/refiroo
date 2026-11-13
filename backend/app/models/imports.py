@@ -510,7 +510,7 @@ class Source(BaseModel):
         min_length=1,
         description=(
             "Columns repeated by blanks: an empty cell takes the nearest filled cell above it in"
-            " the column (0.17 PP-D7). Applied after ``headings`` and before ``unpivot``"
+            " the column, within its heading group (0.17 PP-D7). Applied after ``headings`` and before ``unpivot``"
         ),
     )
     unpivot: Unpivot | None = Field(

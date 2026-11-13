@@ -141,6 +141,11 @@ export function dropOperations(
   return operations;
 }
 
+/** A list's object type renamed from its heading: one setLabel with the name (the editor's and the canvas's alike). */
+export function renameTypeOperations(typeKey: string, name: string): DraftOperation[] {
+  return [{ kind: "setLabel", element: { objectType: typeKey }, name }];
+}
+
 /** Adjust list… (D125, D126): one setSource, and the list renamed after its new header when asked. */
 export function adjustOperations(source: ProfileSource, rectangle: SourceRectangle, rename?: string): DraftOperation[] {
   const operations: DraftOperation[] = [

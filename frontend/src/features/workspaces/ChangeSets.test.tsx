@@ -498,6 +498,8 @@ describe("approval in the change set bar (0.12 A3)", () => {
     const withdraw = vi.spyOn(api, "withdrawSubmission").mockResolvedValue(undefined);
     const refresh = show(["browse", "change-sets"], { ...baseChangeSet, submission: request });
     expect(screen.getByText(/waits for approval/)).toBeVisible();
+    // The submitter's comment is on the band.
+    expect(screen.getByText(/Ready for spring/)).toBeVisible();
     // Who submitted it and when are under Details (0.17 SH1).
     expect(screen.queryByText(/Submitted by Ana Varga/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Details" }));
@@ -507,6 +509,23 @@ describe("approval in the change set bar (0.12 A3)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Withdraw request" }));
     await waitFor(() => expect(withdraw).toHaveBeenCalledWith("change-set-1"));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("puts who and when on the band, and names the publication a change set started from", async () => {
+    vi.spyOn(api, "approvalPolicy").mockResolvedValue(policy);
+    vi.spyOn(api, "publication").mockResolvedValue({ id: "pub-7", publicationNumber: 7 } as Awaited<
+      ReturnType<typeof api.publication>
+    >);
+    show(["browse", "change-sets"], {
+      ...baseChangeSet,
+      source: "publication",
+      derivedFromPublicationId: "pub-7",
+      createdBy: { kind: "user", id: "u-ana", name: "Ana Varga" },
+    });
+    expect(screen.getByText(/Ana Varga/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    expect(await screen.findByText("Started from publication 7")).toBeVisible();
+    expect(screen.queryByText(/pub-7/)).not.toBeInTheDocument();
   });
 
   it("offers a publisher only Submit when a second person must approve", async () => {

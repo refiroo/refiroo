@@ -74,6 +74,7 @@ export function AiAccount<F extends AccountFact, S extends AccountContent<F>>({
   renderFact,
   factsNote,
   emptyFacts,
+  factsHeadingLevel = 4,
 }: {
   current: AccountState<S>;
   idle: ReactNode;
@@ -89,6 +90,8 @@ export function AiAccount<F extends AccountFact, S extends AccountContent<F>>({
   factsNote?: string;
   /** Replaces the account when the facts are none; the surface says so itself. */
   emptyFacts?: ReactNode;
+  /** The facts' heading level: one below the surface's own heading. */
+  factsHeadingLevel?: 3 | 4;
 }) {
   if (current.state === "idle") return <>{idle}</>;
   if (current.state === "asking") return <Skeleton lines={3} label={askingLabel} />;
@@ -115,6 +118,7 @@ export function AiAccount<F extends AccountFact, S extends AccountContent<F>>({
       onTryAgain={onExplain}
       renderFact={renderFact}
       factsNote={factsNote}
+      factsHeadingLevel={factsHeadingLevel}
     />
   );
 }
@@ -126,6 +130,7 @@ function Account<F extends AccountFact>({
   onTryAgain,
   renderFact,
   factsNote,
+  factsHeadingLevel,
 }: {
   summary: AccountContent<F>;
   provider: string;
@@ -133,7 +138,9 @@ function Account<F extends AccountFact>({
   onTryAgain: () => void;
   renderFact?: (fact: F) => ReactNode;
   factsNote?: string;
+  factsHeadingLevel: 3 | 4;
 }) {
+  const FactsHeading = `h${factsHeadingLevel}` as const;
   const [all, setAll] = useState(false);
   const { facts, statements, removedStatements: removed, failure } = summary;
   const number = new Map(facts.map((fact, index) => [fact.id, index + 1]));
@@ -218,9 +225,9 @@ function Account<F extends AccountFact>({
       )}
       {facts.length > 0 && (
         <>
-          <h4 className="impact-facts-heading">
+          <FactsHeading className="impact-facts-heading">
             The facts ({facts.length}, all of them){factsNote ? `, ${factsNote}` : ""}
-          </h4>
+          </FactsHeading>
           <ol className="impact-facts">
             {shown.map((fact) => (
               <li key={fact.id} id={`${prefix}-${fact.id}`} tabIndex={-1} data-kind={fact.kind}>

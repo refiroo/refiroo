@@ -24,6 +24,9 @@ SITE = "https://refiroo.com"
 # document, so an operator's template (``mail_template``) can wrap them instead of this layout.
 CONTENT_OPEN, CONTENT_CLOSE = "rdm-content", "/rdm-content"
 FOOTER_OPEN, FOOTER_CLOSE = "rdm-footer", "/rdm-footer"
+# The greeting a message makes itself ("Hello Ada,"); a template that greets replaces it, so a mail
+# greets once (R17-F24).
+GREETING_OPEN, GREETING_CLOSE = "rdm-greeting", "/rdm-greeting"
 
 PAGE = "#f3f4fb"
 INK = "#24244f"
@@ -59,6 +62,12 @@ def paragraph(text: str, *, small: bool = False, raw: bool = False) -> Block:
         f'<p style="margin:0 0 14px;font-size:{size};line-height:1.6;color:{colour};{word}">'
         f"{text}</p>"
     )
+
+
+def greeting(name: str) -> Block:
+    """The message's own greeting, marked so an operator's template can take its place."""
+    block = paragraph(f"Hello {e(name)},")
+    return Block(f"<!--{GREETING_OPEN}-->{block.html}<!--{GREETING_CLOSE}-->")
 
 
 def button(href: str, label: str) -> Block:

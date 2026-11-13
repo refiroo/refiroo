@@ -6,6 +6,7 @@
 // discard it and the session loads again), a load stopped (nothing loaded, back at the proposal), a published task
 // (the model and the records offered onward), a discarded one, and a task that is not there. Keyboard on one model,
 // pointer on the other; axe on each state; light and dark; 1440px and 390px without sideways scroll.
+// Brought up to date (0.14 + 0.17 release review, RF2-RF6): a new task whose session has said nothing shows the session's "Starting", so the wait is on the Working on it section.
 import assert from "node:assert/strict";
 import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -225,7 +226,8 @@ async function scenario(configuration, index) {
     // ---- 6. a turn stopped before any proposal: stopped, words, discard ----
     await setPlan({ ...plan, hold: "propose" });
     await asking(page, uiUrl, application, "Add another way item type.", !keyboard);
-    await page.getByText("The assistant is designing the model and the load").waitFor();
+    // The session has said nothing yet, so the page reports its own state, "Starting", not the engine's phase.
+    await page.getByRole("heading", { name: "Working on it" }).waitFor();
     await stopButton(page).click();
     await page.getByRole("heading", { name: "You stopped the assistant" }).waitFor();
     await shot("stopped");

@@ -4,11 +4,12 @@
 // writes go through their own tokens, so each entry names them. A Reader of the default workspace opens
 // a record, follows Ana's name in its history to her changes (only the default workspace's), opens a
 // record from an entry, and follows the client's name to its changes. Ana on Home sees Your recent
-// changes and opens all of them: both workspaces, narrowed by workspace, kind and period, Load more
+// changes and opens all of them: both workspaces, narrowed by workspace, kind and period, Show more
 // continuing. A Security administrator without data roles is offered no "See changes" on her page; the
-// harness person, who reads every workspace, is. Keyboard from the filters to Load more; axe; screenshots
+// harness person, who reads every workspace, is. Keyboard from the filters to Show more; axe; screenshots
 // at 1440px light and dark and 390px; no horizontal page scroll at 390px. Applications and types are read
 // from each model, never named.
+// Brought up to date (0.14 + 0.17 release review, UX1): the changes page's foot is the settings log foot, whose button reads Show more; a person's page is headed by the item header (level 1) and its See changes is a More actions item.
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { writeFile } from "node:fs/promises";
@@ -214,12 +215,12 @@ try {
   await shot(page, "reader-wide");
   await axe(page, "z6-changes-reader");
   // An entry's title opens the record in its workspace.
-  await page.getByRole("button", { name: "Load more" }).click();
+  await page.getByRole("button", { name: "Show more" }).click();
   const renamed = page.getByRole("link", { name: `Updated ${record.name} (synced)` });
   await renamed.waitFor();
   await renamed.click();
   await page.getByRole("heading", { level: 1, name: `${record.name} (synced)` }).waitFor();
-  checks.push("Load more continues; an entry's title opens the record it changed");
+  checks.push("Show more continues; an entry's title opens the record it changed");
   // The client's name opens the client's changes.
   await page
     .locator(".history-panel")
@@ -271,22 +272,22 @@ try {
   await page.getByLabel("What").selectOption({ label: "Everything" });
   await page.getByLabel("Period").selectOption({ label: "Last 24 hours" });
   await page.waitForURL(/period=day/);
-  await page.getByRole("button", { name: "Load more" }).waitFor();
+  await page.getByRole("button", { name: "Show more" }).waitFor();
   checks.push(
     "workspace, kind and period narrow the list and stay in the address; a change set entry opens its review",
   );
 
-  // 4. Keyboard: from the filters through the timeline's links to Load more.
+  // 4. Keyboard: from the filters through the timeline's links to Show more.
   await page.getByLabel("Workspace").focus();
   let reached = false;
   for (let stops = 0; stops < 150 && !reached; stops++) {
     await page.keyboard.press("Tab");
-    reached = await page.evaluate(() => document.activeElement?.textContent?.trim() === "Load more");
+    reached = await page.evaluate(() => document.activeElement?.textContent?.trim() === "Show more");
   }
-  expect(reached, "Tab reaches Load more from the filters");
+  expect(reached, "Tab reaches Show more from the filters");
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.querySelectorAll(".history-timeline li").length > 50);
-  checks.push("keyboard: Tab from the filters reaches Load more; Enter loads the next page");
+  checks.push("keyboard: Tab from the filters reaches Show more; Enter loads the next page");
   await dark(page);
   await shot(page, "own-wide-dark");
   await axe(page, "z6-changes-dark");
@@ -306,16 +307,20 @@ try {
   // 6. A person's page offers See changes only to an administrator who would see something.
   const sofia = await person("sofia", "Sofia Lind", [["security-admin", { instance: true }]]);
   await sofia.page.goto(`${uiUrl}/settings/people/${ana.id}`);
-  await sofia.page.getByRole("heading", { level: 2, name: "Ana Varga" }).waitFor();
+  await sofia.page.getByRole("heading", { level: 1, name: "Ana Varga" }).waitFor();
   // The page's actions wait for the permissions; the Security administrator's own action shows they are in.
   await sofia.page.getByRole("button", { name: "Grant", exact: true }).waitFor();
+  // See changes is an item of the page's More actions menu (PP-D63), so the menu is opened before it is looked for.
+  const sofiaMore = sofia.page.getByRole("button", { name: "More actions" });
+  if (await sofiaMore.count()) await sofiaMore.click();
   expect(
-    (await sofia.page.getByRole("link", { name: "See changes" }).count()) === 0,
+    (await sofia.page.getByRole("menuitem", { name: /^See changes/ }).count()) === 0,
     "no See changes without data roles",
   );
   await sofia.context.close();
   await harnessPage.goto(`${uiUrl}/settings/people/${ana.id}`);
-  await harnessPage.getByRole("link", { name: "See changes" }).click();
+  await harnessPage.getByRole("button", { name: "More actions" }).click();
+  await harnessPage.getByRole("menuitem", { name: /^See changes/ }).click();
   await harnessPage.getByRole("heading", { level: 1, name: "Ana Varga's changes" }).waitFor();
   checks.push("See changes is offered on a person's page only to an administrator who reads data, and opens them");
 

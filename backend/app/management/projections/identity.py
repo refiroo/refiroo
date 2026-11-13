@@ -306,6 +306,7 @@ def sign_in_provider_response(
         groupsClaim=provider.groups_claim,
         enabled=provider.enabled,
         signOutOfProvider=provider.sign_out_of_provider,
+        emailsTrusted=provider.emails_trusted,
         redirectUri=providers.redirect_uri(settings, provider.key),
         signedOutUri=providers.signed_out_uri(settings, provider.key),
         people=people,

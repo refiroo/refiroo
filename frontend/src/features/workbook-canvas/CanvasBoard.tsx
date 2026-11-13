@@ -38,6 +38,7 @@ import {
   fieldMenuId,
   type CardHandlers,
   type DroppedColumns,
+  type RenameResult,
 } from "./BoardCard";
 import {
   CARD_WIDTH,
@@ -144,8 +145,8 @@ export function CanvasBoard({
   onRemoveLine: (line: CanvasLine) => void;
   onRefused: (typeKey: string) => void;
   onFold?: (typeKey: string, folded: boolean) => void;
-  onRenameList?: (card: CanvasCard, name: string) => Promise<void>;
-  onRenameField?: (card: CanvasCard, field: CanvasField, name: string) => Promise<void>;
+  onRenameList?: (card: CanvasCard, name: string) => Promise<RenameResult>;
+  onRenameField?: (card: CanvasCard, field: CanvasField, name: string) => Promise<RenameResult>;
   onMoveAttribute?: (from: string, fieldId: string, to: string) => void;
   onReorderAttribute?: (typeKey: string, fieldId: string, besideId: string, after: boolean) => void;
   onStepAttribute?: (card: CanvasCard, field: CanvasField, direction: -1 | 1) => void;
@@ -451,8 +452,9 @@ export function CanvasBoard({
         return true;
       },
       fold: (typeKey, folded) => calls.current.onFold?.(typeKey, folded),
-      renameList: (card, name) => calls.current.onRenameList?.(card, name) ?? Promise.resolve(),
-      renameField: (card, field, name) => calls.current.onRenameField?.(card, field, name) ?? Promise.resolve(),
+      renameList: (card, name) => calls.current.onRenameList?.(card, name) ?? Promise.resolve(undefined),
+      renameField: (card, field, name) =>
+        calls.current.onRenameField?.(card, field, name) ?? Promise.resolve(undefined),
       filter: (typeKey, column) => calls.current.onFilter(typeKey, column),
       refused: (typeKey) => calls.current.onRefused(typeKey),
       columnDrop: (column, typeKey, field) => calls.current.onColumnDrop(column, typeKey, field),

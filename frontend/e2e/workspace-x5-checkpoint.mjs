@@ -23,6 +23,7 @@
 //      release; no sideways scroll at 390px.
 // Beside the cases (D152's agreed basics): the editor's figures, the load and the publish timed at
 // 200 and 2,000 records.
+// Brought up to date (0.14 + 0.17 release review, SH1/UX1): the workspace page's actions are a menu (arrow keys, not Tab), worked with the person's menu step.
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -139,8 +140,7 @@ const optionLabel = async (select, value) => (await select.locator(`option[value
 /** New copy or move from the source workspace's page: the target and a new mapping named. */
 async function openNewMove(who, source, target, mappingName) {
   await page.goto(`${uiUrl}/settings/workspaces/${source.key}`);
-  await page.getByRole("button", { name: "More actions" }).click();
-  await who.press(page.getByRole("menuitem", { name: /^Copy or move data…/ }), "Copy or move data…");
+  await who.menu(page.getByRole("button", { name: "More actions" }), "Copy or move data…", "More actions");
   const dialog = page.getByRole("dialog", { name: "New copy or move" });
   const to = dialog.getByLabel("To workspace");
   await to.locator(`option[value="${target.key}"]`).waitFor({ state: "attached" });

@@ -10,8 +10,11 @@ mailto, so what an operator writes cannot carry script or an event handler. The 
 (``cid:``): an uploaded PNG, JPEG or SVG (no script in it, at most 512 KB), else the refiroo mark.
 """
 
+import hashlib
 import re
+import secrets
 from base64 import b64encode
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html import escape
@@ -19,10 +22,11 @@ from xml.etree import ElementTree
 
 from markdown_it import MarkdownIt
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
-from ...models.database import MailTemplate
+from ...models.database import MailLogo, MailOutbox, MailTemplate
 from ..identity.settings import IdentitySettings
 from . import html as mailhtml
 from . import settings as mail_settings
@@ -48,17 +52,21 @@ This message was sent by [{{product_name}}]({{instance_url}}).
 """
 
 _PLACEHOLDER = re.compile(r"\{\{(.*?)\}\}", re.DOTALL)
-_SVG_UNSAFE = re.compile(
-    r"<\s*(script|foreignobject|iframe|object|embed)\b|\bon[a-z]+\s*=|javascript:|<!\s*(doctype|entity)",
-    re.IGNORECASE,
-)
+# A DTD (entities, external subsets) and processing instructions other than the XML declaration
+# are refused before parsing, so the parser never expands or fetches anything.
+_SVG_PROLOG = re.compile(r"<!\s*(doctype|entity)|<\?(?!xml[\s?])", re.IGNORECASE)
+_SVG_ELEMENTS = {"script", "foreignobject", "iframe", "object", "embed"}
+_CSS_URL = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE | re.DOTALL)
+_ADDRESSED = re.compile(r"^\s*(#|data:image/)", re.IGNORECASE)
 _CONTENT = re.compile(
     rf"<!--{mailhtml.CONTENT_OPEN}-->(.*?)<!--{mailhtml.CONTENT_CLOSE}-->", re.DOTALL
+)
+_GREETING = re.compile(
+    rf"<!--{mailhtml.GREETING_OPEN}-->.*?<!--{mailhtml.GREETING_CLOSE}-->", re.DOTALL
 )
 _FOOTER = re.compile(
     rf"<!--{mailhtml.FOOTER_OPEN}-->(.*?)<!--{mailhtml.FOOTER_CLOSE}-->", re.DOTALL
 )
-_TOKEN = "zzph"
 _PARAGRAPH = '<p style="margin:0 0 14px;font-size:15px;line-height:1.6">'
 _SAFE_LINK = re.compile(r"^(https?:|mailto:)", re.IGNORECASE)
 
@@ -120,12 +128,26 @@ def save(session: Session, markdown: str, expected_version: int | None) -> MailT
     _check_version(row, expected_version, session)
     now = datetime.now(UTC)
     if row is None:
-        row = MailTemplate(id=1, body=markdown, version=1, updated_at=now)
-        session.add(row)
+        row = _first_save(session, body=markdown, now=now)
     elif row.body != markdown:
         row.body, row.version, row.updated_at = markdown, row.version + 1, now
     session.commit()
     return row
+
+
+def _first_save(session: Session, *, now: datetime, **values) -> MailTemplate:
+    """Insert the one row; a first save at the same moment by another request has the row already,
+    so this one is stale (``409 VERSION_CONFLICT``) instead of failing on the key (R17-F26)."""
+    inserted = session.execute(
+        insert(MailTemplate)
+        .values(id=1, version=1, updated_at=now, **values)
+        .on_conflict_do_nothing(index_elements=["id"])
+    ).rowcount
+    if not inserted:
+        session.rollback()
+        current = load(session)
+        raise _stale(current.version if current else 0)
+    return load(session)  # type: ignore[return-value]
 
 
 def remove(session: Session) -> None:
@@ -153,25 +175,71 @@ def check_logo(data: bytes, content_type: str) -> str:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
         pass
-    if text is not None and "<svg" in text.lower():
-        if _SVG_UNSAFE.search(text):
-            raise api_error(
-                422,
-                "MAIL_LOGO_UNSAFE",
-                "The SVG holds script or an external object, which is refused",
-            )
-        try:
-            root = ElementTree.fromstring(data)
-        except ElementTree.ParseError:
-            root = None
-        if root is not None and root.tag.rpartition("}")[2].lower() == "svg":
-            return "image/svg+xml"
+    if text is not None and "<svg" in text.lower() and _check_svg(data, text):
+        return "image/svg+xml"
     raise api_error(
         422,
         "MAIL_LOGO_UNSUPPORTED",
         "The logo must be a PNG, JPEG or SVG image",
         {"accepted": list(LOGO_TYPES)},
     )
+
+
+def _unsafe_svg():
+    return api_error(
+        422,
+        "MAIL_LOGO_UNSAFE",
+        "The SVG holds script or an external object, which is refused",
+    )
+
+
+def _local(name: str) -> str:
+    return name.rpartition("}")[2].rpartition(":")[2].lower()
+
+
+def _css_unsafe(css: str) -> bool:
+    """A style that imports a sheet, escapes its own words or reaches outside the picture."""
+    lowered = css.lower()
+    if "@import" in lowered or "\\" in css or "expression(" in lowered:
+        return True
+    return any(not _ADDRESSED.match(found.group(2)) for found in _CSS_URL.finditer(css))
+
+
+def _check_svg(data: bytes, text: str) -> bool:
+    """Whether ``data`` is an SVG; ``422 MAIL_LOGO_UNSAFE`` when it can run or fetch anything. It is
+    parsed as XML (no DTD, so no entities); no script or foreignObject element in any namespace, no
+    ``on*`` attribute, no link but to the picture itself (``#``) or an inline image, no style that
+    imports or reaches out."""
+    if _SVG_PROLOG.search(text):
+        raise _unsafe_svg()
+    try:
+        root = ElementTree.fromstring(data)
+    except ElementTree.ParseError:
+        return False
+    if _local(root.tag) != "svg":
+        return False
+    for element in root.iter():
+        if not isinstance(element.tag, str):
+            raise _unsafe_svg()
+        name = _local(element.tag)
+        if name in _SVG_ELEMENTS:
+            raise _unsafe_svg()
+        if name == "style" and _css_unsafe(element.text or ""):
+            raise _unsafe_svg()
+        animated = _local(element.get("attributeName", ""))
+        if name in ("set", "animate") and (animated == "href" or animated.startswith("on")):
+            raise _unsafe_svg()
+        for key, value in element.attrib.items():
+            attribute = _local(key)
+            if attribute.startswith("on"):
+                raise _unsafe_svg()
+            if attribute == "href" and not _ADDRESSED.match(value):
+                raise _unsafe_svg()
+            if attribute == "style" and _css_unsafe(value):
+                raise _unsafe_svg()
+            if re.sub(r"[\s\x00-\x20]", "", value).lower().startswith("javascript:"):
+                raise _unsafe_svg()
+    return True
 
 
 def set_logo(
@@ -182,20 +250,56 @@ def set_logo(
     row = load(session, for_update=True)
     _check_version(row, expected_version, session)
     now = datetime.now(UTC)
+    digest = keep_logo(session, data, media_type)
     if row is None:
-        row = MailTemplate(
-            id=1, body=DEFAULT_MARKDOWN, logo=data, logo_type=media_type, version=1, updated_at=now
+        row = _first_save(
+            session,
+            body=DEFAULT_MARKDOWN,
+            logo=data,
+            logo_type=media_type,
+            logo_digest=digest,
+            now=now,
         )
-        session.add(row)
     else:
-        row.logo, row.logo_type, row.version, row.updated_at = (
+        row.logo, row.logo_type, row.logo_digest, row.version, row.updated_at = (
             data,
             media_type,
+            digest,
             row.version + 1,
             now,
         )
     session.commit()
     return row
+
+
+def keep_logo(session: Session, data: bytes, media_type: str) -> str:
+    """Keep a copy of the logo by its SHA-256, which a message rendered with it refers to until it
+    is sent (R17-F22); the digest."""
+    digest = hashlib.sha256(data).hexdigest()
+    session.execute(
+        insert(MailLogo)
+        .values(digest=digest, logo=data, logo_type=media_type)
+        .on_conflict_do_nothing(index_elements=["digest"])
+    )
+    return digest
+
+
+def logo_by_digest(session: Session, digest: str) -> tuple[bytes, str] | None:
+    found = session.execute(
+        select(MailLogo.logo, MailLogo.logo_type).where(MailLogo.digest == digest)
+    ).one_or_none()
+    return None if found is None else (found[0], found[1])
+
+
+def prune_logos(session: Session) -> int:
+    """Delete the logo copies nothing refers to: not the saved logo, not a waiting message's."""
+    wanted = select(MailOutbox.logo_digest).where(
+        MailOutbox.status == "pending", MailOutbox.logo_digest.is_not(None)
+    )
+    saved = select(MailTemplate.logo_digest).where(MailTemplate.logo_digest.is_not(None))
+    return session.execute(
+        delete(MailLogo).where(MailLogo.digest.not_in(wanted), MailLogo.digest.not_in(saved))
+    ).rowcount
 
 
 def clear_logo(session: Session, expected_version: int | None) -> MailTemplate:
@@ -206,7 +310,8 @@ def clear_logo(session: Session, expected_version: int | None) -> MailTemplate:
         session.rollback()
         raise api_error(409, "MAIL_TEMPLATE_NOT_SAVED", "No template is saved: there is no logo")
     if row.logo is not None:
-        row.logo, row.logo_type, row.version = None, None, row.version + 1
+        row.logo, row.logo_type, row.logo_digest = None, None, None
+        row.version += 1
         row.updated_at = datetime.now(UTC)
     session.commit()
     return row
@@ -232,11 +337,11 @@ class Values:
     recipient_name: str
 
 
-def _markdown() -> MarkdownIt:
+def _markdown(prefix: str) -> MarkdownIt:
     md = MarkdownIt("commonmark", {"html": False, "breaks": False})
     md.disable(["image", "html_block", "html_inline"])
     # A link is http, https or mailto, or a placeholder (which stands for such an address).
-    md.validateLink = lambda url: bool(_SAFE_LINK.match(url.strip())) or url.startswith(_TOKEN)
+    md.validateLink = lambda url: bool(_SAFE_LINK.match(url.strip())) or url.startswith(prefix)
     return md
 
 
@@ -256,17 +361,31 @@ _STYLES = (
 )
 
 
-def _tokens(markdown: str) -> tuple[str, dict[str, str]]:
-    """The Markdown with each placeholder replaced by a word Markdown leaves alone."""
-    names: dict[str, str] = {}
+def _tokens(markdown: str) -> tuple[str, str, list[str]]:
+    """The Markdown with each placeholder replaced by a word Markdown leaves alone: a prefix made
+    for this call (so no text can hold it), then the placeholder's index. The prefix and the names."""
+    prefix = f"zzph{secrets.token_hex(6)}x"
+    names: list[str] = []
 
     def swap(match: re.Match[str]) -> str:
-        name = match.group(1).strip()
-        token = f"{_TOKEN}{name.replace('_', '')}zz"
-        names[token] = name
-        return token
+        names.append(match.group(1).strip())
+        return f"{prefix}{len(names) - 1}z"
 
-    return _PLACEHOLDER.sub(swap, markdown), names
+    return _PLACEHOLDER.sub(swap, markdown), prefix, names
+
+
+def _fill(text: str, prefix: str, names: list[str], value: Callable[[str, bool], str]) -> str:
+    """Each token of ``text`` replaced by its value in one pass: a value is never read again, so one
+    that holds a token (or any placeholder text) stays as it is. ``value(name, alone)`` says what a
+    placeholder stands for; ``alone`` is true when it is a paragraph by itself."""
+    token = rf"{prefix}(\d+)z"
+    pattern = re.compile(rf"{re.escape(_PARAGRAPH)}{token}</p>|{token}")
+
+    def put(found: re.Match[str]) -> str:
+        alone = found.group(1) is not None
+        return value(names[int(found.group(1) or found.group(2))], alone)
+
+    return pattern.sub(put, text)
 
 
 def _logo_tag(values: Values, src: str) -> str:
@@ -279,25 +398,27 @@ def _logo_tag(values: Values, src: str) -> str:
 def render_html(markdown: str, values: Values, content_html: str, *, logo_src: str) -> str:
     """The template's Markdown as a whole HTML document around ``content_html``. ``logo_src`` is
     where the logo image is read from (``cid:`` in a message, a data URL in a preview)."""
-    swapped, names = _tokens(markdown)
-    body = _markdown().render(swapped)
+    swapped, prefix, names = _tokens(markdown)
+    body = _markdown(prefix).render(swapped)
     for plain, styled in _STYLES:
         body = body.replace(plain, styled)
     body = body.replace("<a href=", f'<a style="color:{mailhtml.LINK}" href=')
-    text = {
+    html_values = {
+        "content": content_html,
+        "logo": _logo_tag(values, logo_src),
         "product_name": escape(values.product_name),
         "instance_url": escape(values.instance_url, quote=True),
         "recipient_name": escape(values.recipient_name),
     }
-    html_values = {
-        "content": content_html,
-        "logo": _logo_tag(values, logo_src),
-        **text,
-    }
-    for token, name in names.items():
-        if name in ("content", "logo"):
-            body = body.replace(f"{_PARAGRAPH}{token}</p>", html_values[name])
-        body = body.replace(token, html_values[name])
+
+    def value(name: str, alone: bool) -> str:
+        found = html_values.get(name, "")
+        if alone and name not in ("content", "logo"):
+            return f"{_PARAGRAPH}{found}</p>"
+        # Content and the logo are blocks: a paragraph holding only one is replaced by it.
+        return found
+
+    body = _fill(body, prefix, names, value)
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en"><head><meta charset="utf-8">'
@@ -315,24 +436,22 @@ def render_html(markdown: str, values: Values, content_html: str, *, logo_src: s
 
 
 def _plain(markdown: str, values: Values, content_text: str) -> str:
-    """The template as text: placeholders filled, links as ``label (address)``, no Markdown marks."""
-    names = {
-        "product_name": values.product_name,
-        "instance_url": values.instance_url,
-        "recipient_name": values.recipient_name,
-        "logo": "",
-    }
-    done = _PLACEHOLDER.sub(
-        lambda m: names.get(
-            m.group(1).strip(), content_text if m.group(1).strip() == "content" else ""
-        ),
-        markdown,
-    )
-    done = re.sub(r"\[([^\]]*)\]\(([^)]*)\)", lambda m: f"{m.group(1)} ({m.group(2)})", done)
+    """The template as text: placeholders filled, links as ``label (address)``, no Markdown marks.
+    The marks are stripped from the template alone; the values go in afterwards, as they are."""
+    swapped, prefix, names = _tokens(markdown)
+    done = re.sub(r"\[([^\]]*)\]\(([^)]*)\)", lambda m: f"{m.group(1)} ({m.group(2)})", swapped)
     done = re.sub(r"(\*\*|__)(.+?)\1", r"\2", done)
     done = re.sub(r"(?<![\w*])[*_]([^*_\n]+)[*_](?![\w*])", r"\1", done)
     done = re.sub(r"^#{1,6}\s+", "", done, flags=re.MULTILINE)
     done = re.sub(r"^-{3,}\s*$", "--", done, flags=re.MULTILINE)
+    plain = {
+        "product_name": values.product_name,
+        "instance_url": values.instance_url,
+        "recipient_name": values.recipient_name,
+        "content": content_text,
+        "logo": "",
+    }
+    done = _fill(done, prefix, names, lambda name, alone: plain.get(name, ""))
     return re.sub(r"\n{3,}", "\n\n", done).strip() + "\n"
 
 
@@ -342,6 +461,7 @@ def content_of(message: Rendered) -> str | None:
     found = _CONTENT.search(message.html or "")
     if found is None:
         return None
+    content = _GREETING.sub("", found.group(1))
     footer = _FOOTER.search(message.html)
     tail = (
         f'<p style="margin:18px 0 0;font-size:12px;line-height:1.6;color:{mailhtml.FAINT}">'
@@ -349,7 +469,7 @@ def content_of(message: Rendered) -> str | None:
         if footer
         else ""
     )
-    return found.group(1) + tail
+    return content + tail
 
 
 def wrap(
@@ -362,12 +482,14 @@ def wrap(
     content = content_of(message)
     if content is None:
         return message
-    if row.logo is not None and row.logo_type is not None:
-        src = data_url(row.logo, row.logo_type) if preview else f"cid:{LOGO_CID}"
+    if row.logo_type is not None:
+        src = data_url(row.logo, row.logo_type) if preview else f"cid:{LOGO_CID}"  # type: ignore[arg-type]
     else:
         src = data_url(default_mark(), "image/png") if preview else f"cid:{mailhtml.MASCOT_CID}"
     html = render_html(row.body, values, content, logo_src=src)
-    text = _plain(row.body, values, message.body.strip())
+    # The template greets (``Hello {{recipient_name}},`` by default): the message's own greeting goes.
+    body = message.body.strip().removeprefix(f"Hello {values.recipient_name},").strip()
+    text = _plain(row.body, values, body)
     return Rendered(message.kind, message.subject, text, html)
 
 
@@ -381,6 +503,7 @@ def render_draft(session: Session, markdown: str, values: Values, sample: Render
         body=markdown,
         logo=row.logo if row else None,
         logo_type=row.logo_type if row else None,
+        logo_digest=row.logo_digest if row else None,
         version=0,
         updated_at=datetime.now(UTC),
     )
@@ -392,15 +515,25 @@ def apply(
 ) -> Rendered:
     """``message`` inside the saved template, for a person called ``recipient_name``; unchanged when
     no template is saved."""
+    return apply_queued(session, identity, message, recipient_name)[0]
+
+
+def apply_queued(
+    session: Session, identity: IdentitySettings, message: Rendered, recipient_name: str | None
+) -> tuple[Rendered, str | None]:
+    """As ``apply``, and the digest of the logo the HTML refers to (``cid:``), if it does: the
+    message keeps it so it is sent with that logo, not one saved later (R17-F22)."""
     row = load(session)
     if row is None:
-        return message
+        return message, None
     values = Values(
         product(session),
         mail_settings.application_url(identity, mail_settings.load(session)),
         recipient_name or NO_NAME,
     )
-    return wrap(row, message, values)
+    wrapped = wrap(row, message, values)
+    shows_logo = wrapped.html is not None and f"cid:{LOGO_CID}" in wrapped.html
+    return wrapped, row.logo_digest if shows_logo else None
 
 
 def logo_of(session: Session) -> tuple[bytes, str] | None:

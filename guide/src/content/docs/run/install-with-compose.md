@@ -8,6 +8,32 @@ Deploy refiroo on your organisation's Linux server with Docker Compose. This wal
 the application from the tag of the version you run and uses Caddy 2 to obtain and renew public
 HTTPS certificates. Replace `refiroo.example.org` with your own host name throughout.
 
+## Deploy with the script
+
+`scripts/deploy.sh` in the checkout runs the steps of this page for you. Run it from the
+checkout of the version you deploy:
+
+```bash
+scripts/deploy.sh
+```
+
+It asks how the site is reached (**automatic HTTPS**, **your own certificate files**, **behind
+your own proxy** or **local**), the public address, and the first administrator's e-mail and name.
+It then checks Docker, Compose, the ports and the disk, writes the environment file with new
+secrets (readable only by you, never printed), builds the images, prepares the database, starts
+everything, waits until the engine answers, and asks for the administrator's password twice. It
+ends with the address to open and the next steps: a first backup and the
+[production checklist](/docs/run/production-checklist/).
+
+Before it starts, it shows what it will do and asks once. `--dry-run` prints every command
+without running any. Each answer can be given as an option instead, for example
+`--https acme --url https://refiroo.example.org --admin-email you@example.org`; `--help` lists them.
+`--local` sets up a laptop at http://localhost:8080. The script stops without changing anything
+when the environment file or the installation's database already exists: use
+[the upgrade script](/docs/run/upgrades/#upgrade-with-the-script) for an installation that runs.
+
+The sections below are the same steps by hand.
+
 ## 1. Before you start
 
 You need a Linux server, Docker Engine, **Docker Compose 2.24 or newer**, `git`, `openssl` and

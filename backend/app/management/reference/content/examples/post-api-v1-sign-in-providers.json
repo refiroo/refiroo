@@ -10,7 +10,8 @@
       "clientId": "reference-engine",
       "clientSecret": "example-client-secret",
       "groupsClaim": "groups",
-      "enabled": true
+      "enabled": true,
+      "emailsTrusted": true
     }
   },
   "response": {
@@ -24,6 +25,7 @@
       "groupsClaim": "groups",
       "enabled": true,
       "signOutOfProvider": false,
+      "emailsTrusted": true,
       "redirectUri": "http://localhost:8000/oauth/providers/company-sso/callback",
       "signedOutUri": "http://localhost:8000/oauth/providers/company-sso/signed-out",
       "people": 0,

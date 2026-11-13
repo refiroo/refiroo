@@ -208,6 +208,10 @@ describe("the workbook canvas page", () => {
       ]),
     );
     renderCanvas();
+    // The sheet tabs stand beside their menus, so the tablist owns its tabs (a tablist may hold no button).
+    const tablist = await screen.findByRole("tablist", { name: "Sheets" });
+    for (const tab of screen.getAllByRole("tab"))
+      if (tab.closest(".canvas-sheets")) expect(tablist.getAttribute("aria-owns")?.split(" ")).toContain(tab.id);
     // The sheet loads shelves and areas: put the shelf under the area by its menu.
     fireEvent.click(await screen.findByRole("button", { name: "Actions for Shelf" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Put under Area" }));

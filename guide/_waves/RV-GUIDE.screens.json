@@ -242,7 +242,7 @@
       "shows": "The model editor's Add a view to Network dialog (a disposable look at a draft; nothing applied): kind Relationships table, the directed pair Stop to Operator through Operated by, columns of each end, the three relationship attributes, Layout set to Grid with both Layout choices listed, Head the rows by, and Name.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/3c20ac54-48eb-4e71-9533-b42492b78b74/editor?show=application&key=network"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=network"
         },
         {
           "waitFor": {
@@ -277,21 +277,21 @@
         {
           "select": {
             "css": "[role=dialog] select",
-            "nth": 3
+            "nth": 4
           },
           "value": "Grid: each record once, a column group per related record"
         },
         {
           "fill": {
             "css": "[role=dialog] input:not([type=checkbox])",
-            "nth": -1
+            "nth": 0
           },
           "value": "Stops of each operator"
         },
         {
           "expand": {
             "css": "[role=dialog] select",
-            "nth": 3
+            "nth": 4
           },
           "rows": 2
         },

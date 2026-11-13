@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fixedWindow } from "@/lib/hooks/useCursorWindow";
-import { DataTable, columnsToFold } from "@/ui/DataTable";
+import { DataTable, columnsToFold, growWidths } from "@/ui/DataTable";
 import { EditInPlaceCell } from "@/ui/EditInPlace";
 
 interface Row {
@@ -173,5 +173,29 @@ describe("columnsToFold (0.17 SH1)", () => {
     ];
     // 280 + 340 + 110 + 90 = 820 in 500: the id cannot stay, the code and the state can.
     expect(columnsToFold(wide, [280, 340, 110, 90], 500, 0)).toEqual(["id"]);
+  });
+});
+
+describe("growWidths (0.17 R17-F47)", () => {
+  // name (the donor, given what the others left), code, kind, actions.
+  const widths = [500, 90, 120, 48];
+
+  it("widens a column to the longest value drawn, taking the room from the name", () => {
+    expect(growWidths(widths, [undefined, 110, undefined, undefined], 0, 300, 320)).toEqual([480, 110, 120, 48]);
+  });
+
+  it("leaves the columns as they are when the values fit", () => {
+    expect(growWidths(widths, [undefined, undefined, undefined, undefined], 0, 300, 320)).toBeUndefined();
+  });
+
+  it("never takes more than the name has beyond its own width, nor gives a column more than the cap", () => {
+    expect(growWidths([320, 90, 120, 48], [undefined, 110, undefined, undefined], 0, 300, 320)).toEqual([
+      300, 110, 120, 48,
+    ]);
+    expect(growWidths(widths, [undefined, 900, undefined, undefined], 0, 100, 320)).toEqual([270, 320, 120, 48]);
+  });
+
+  it("does nothing when the name has no room to give", () => {
+    expect(growWidths([300, 90, 120, 48], [undefined, 110, undefined, undefined], 0, 300, 320)).toBeUndefined();
   });
 });

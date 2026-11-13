@@ -480,6 +480,11 @@ Settings › Workspaces uses, extracted if needed, not copied.
 
 ## R: Build acceptance and release
 
+**Run together with 0.17's R on 2026-11-12 and 2026-11-13** and released as **0.17.0**; the review covered
+every change since `v0.16.1-alpha.5`, 0.13's release commit, as this section asks. The record is in
+[0.17's plan](BASE_0_17_IMPLEMENTATION_PLAN.md#r-record-2026-11-12-and-2026-11-13-together-with-014); 0.14's
+findings are R17-F27 to F31 (the reference text, its completeness test and the guide's coverage check).
+
 As in every release: a full review of every change since 0.13's release commit (the release-review rule),
 findings fixed; then the announced heavy runs, one at a time on the user's go-ahead, stopping on a failure
 or an odd figure: the backend suite, Vitest, the browser runners, the accessibility and visual gates, the `reference` and `contract`

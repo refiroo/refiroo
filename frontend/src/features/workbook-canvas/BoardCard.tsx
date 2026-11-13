@@ -53,6 +53,9 @@ export function droppedColumn(event: DragEvent): DroppedColumns | undefined {
   return { sheet, header, headers };
 }
 
+/** A rename's result: false when the draft moved on (nothing saved), else the call that puts the old name back. */
+export type RenameResult = void | false | (() => Promise<unknown>);
+
 /** What a card calls back. Stable for the board's life, so a card is redrawn only when its own data changes. */
 export interface CardHandlers {
   select: (pick: CanvasPick | undefined) => void;
@@ -61,8 +64,8 @@ export interface CardHandlers {
   connectMenu: (card: CanvasCard) => void;
   nudge: (card: CanvasCard, key: string) => boolean;
   fold: (typeKey: string, folded: boolean) => void;
-  renameList: (card: CanvasCard, name: string) => Promise<void>;
-  renameField: (card: CanvasCard, field: CanvasField, name: string) => Promise<void>;
+  renameList: (card: CanvasCard, name: string) => Promise<RenameResult>;
+  renameField: (card: CanvasCard, field: CanvasField, name: string) => Promise<RenameResult>;
   filter: (typeKey: string, column?: DroppedColumns) => void;
   refused: (typeKey: string) => void;
   columnDrop: (column: DroppedColumns, typeKey: string, field?: CanvasField) => void;
@@ -241,7 +244,7 @@ function FieldRow({
         {renamable ? (
           <TextInPlace
             value={field.label}
-            label={`Name of the attribute ${field.label}`}
+            label={`Name of the ${field.kind === "relation" ? "relationship" : "attribute"} ${field.label}`}
             savedText="Renamed."
             onSave={(next) => h.renameField(card, field, next)}
           >

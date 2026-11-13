@@ -80,10 +80,14 @@ export function useDraftSteps(draftId: string, options: DraftStepsOptions = {}):
     };
   }, [draftId]);
 
-  const step = useCallback<DraftSteps["step"]>(
-    async (send) => {
+  // Steps go out one after another (PP-D9: the page still takes the next gesture at once): each is sent at the
+  // version the previous answer returned, so two quick gestures of one person never conflict with each other.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const exchange = useCallback(
+    async (send: Send): Promise<StepOutcome> => {
       try {
         const answer = await send(version.current);
+        version.current = answer.version;
         handlers.current.onAnswer?.(answer);
       } catch (cause) {
         if (!isApiError(cause, "VERSION_CONFLICT")) throw cause;
@@ -96,6 +100,14 @@ export function useDraftSteps(draftId: string, options: DraftStepsOptions = {}):
       return "applied";
     },
     [reload],
+  );
+  const step = useCallback<DraftSteps["step"]>(
+    (send) => {
+      const sent = queue.current.then(() => exchange(send));
+      queue.current = sent.catch(() => undefined);
+      return sent;
+    },
+    [exchange],
   );
   const run = useCallback<DraftSteps["run"]>(
     (operations) => step((at) => api.applyModelDraftOperations(draftId, at, operations)),

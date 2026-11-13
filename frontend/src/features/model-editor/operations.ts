@@ -157,35 +157,37 @@ export type OperationField = {
   when?: (values: FieldValues) => boolean;
   /** May follow the values entered so far (what the chosen option means). */
   hint?: string | ((values: FieldValues) => string | undefined);
-} & (
-  | { type: "text"; required?: boolean }
-  /** Options may follow the values chosen so far (a related record's fields after its block). */
-  | { type: "select"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]); required?: boolean }
-  | { type: "checkbox" }
-  /** A JSON document edited as text (a consumer API definition or a part of it). */
-  | { type: "json"; required?: boolean }
-  /** Several items chosen from a grouped picklist: in order (a field's sources) or as a set (a
-   * filter's match fields); the options may follow the values chosen so far (0.10 A4c). */
-  | {
-      type: "choices";
-      ordered: boolean;
-      options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]);
-      /** What none chosen means. */
-      empty?: string;
-      required?: boolean;
-    }
-  /** Output names each reading a source picked from a list, as `output=source` (a related block). */
-  | { type: "pairs"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]); required?: boolean }
-  | {
-      type: "checkboxes";
-      options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]);
-      required?: boolean;
-      /** A search box over the options' names, with this placeholder. */
-      search?: string;
-    }
-  /** Which records a relationship may choose (0.9 K7), per end; an end without a type offers its name. */
-  | { type: "criteria"; ends: Record<End, { typeKey?: string; label: string }> }
-);
+} &
+  /** `markEmpty` gives the input an invalid mark (a red border) while it is blank. */
+  (
+    | { type: "text"; required?: boolean; markEmpty?: boolean }
+    /** Options may follow the values chosen so far (a related record's fields after its block). */
+    | { type: "select"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]); required?: boolean }
+    | { type: "checkbox" }
+    /** A JSON document edited as text (a consumer API definition or a part of it). */
+    | { type: "json"; required?: boolean }
+    /** Several items chosen from a grouped picklist: in order (a field's sources) or as a set (a
+     * filter's match fields); the options may follow the values chosen so far (0.10 A4c). */
+    | {
+        type: "choices";
+        ordered: boolean;
+        options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]);
+        /** What none chosen means. */
+        empty?: string;
+        required?: boolean;
+      }
+    /** Output names each reading a source picked from a list, as `output=source` (a related block). */
+    | { type: "pairs"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]); required?: boolean }
+    | {
+        type: "checkboxes";
+        options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]);
+        required?: boolean;
+        /** A search box over the options' names, with this placeholder. */
+        search?: string;
+      }
+    /** Which records a relationship may choose (0.9 K7), per end; an end without a type offers its name. */
+    | { type: "criteria"; ends: Record<End, { typeKey?: string; label: string }> }
+  );
 
 export interface OperationSpec {
   id: string;
@@ -548,7 +550,11 @@ export function allowRelation(values: FieldValues, from: string, outline: ModelD
 const viewOf = (t: On<"view">, o: ModelDraftOutline) =>
   o.applications.find((item) => item.key === t.applicationKey)?.views.find((item) => item.key === t.view);
 
+/** Every view form starts with its name; it is marked while blank. */
+const nameField: OperationField = { name: "name", label: "Name", type: "text", required: true, markEmpty: true };
+
 const matrixFields = (outline: ModelDraftOutline): OperationField[] => [
+  nameField,
   {
     name: "row",
     label: "Rows",
@@ -603,7 +609,6 @@ const matrixFields = (outline: ModelDraftOutline): OperationField[] => [
     options: (v) => actionOptions(outline, v),
     hint: (v) => actionHint(outline, v),
   },
-  { name: "name", label: "Name", type: "text", required: true },
 ];
 
 const boundAttributes = (outline: ModelDraftOutline, typeKey: string) =>
@@ -626,8 +631,6 @@ function parentRelationOptions(outline: ModelDraftOutline, typeKey: string): Cho
 /** Several fields shown for one kind of view only. */
 const onlyFor = (kind: string, fields: OperationField[]): OperationField[] =>
   fields.map((field) => ({ ...field, when: (values) => values.kind === kind && (field.when?.(values) ?? true) }));
-
-const nameField: OperationField = { name: "name", label: "Name", type: "text", required: true };
 
 const treeFields = (outline: ModelDraftOutline, applicationKey: string): OperationField[] => [
   nameField,
@@ -721,26 +724,33 @@ const addViewKinds = (outline: ModelDraftOutline, applicationKey: string): Choic
             : outline.objectTypes.length > 0,
   );
 
-const addViewFields = (outline: ModelDraftOutline, applicationKey: string): OperationField[] => [
-  {
-    name: "kind",
-    label: "Kind of view",
-    type: "select",
-    options: addViewKinds(outline, applicationKey),
-    required: true,
-  },
-  ...onlyFor("relationMatrix", matrixFields(outline)),
-  ...onlyFor("table", [
-    { name: "type", label: "Type", type: "select", options: tableTypeOptions(outline), required: true },
+const addViewFields = (outline: ModelDraftOutline, applicationKey: string): OperationField[] => {
+  // The name stands first once for every kind; the kind's own form follows without it.
+  const own = (fields: OperationField[]) => fields.filter((field) => field.name !== "name");
+  return [
     {
       ...nameField,
-      hint: "Columns, filters and sorting start from the type's attributes; change them in its preview.",
+      hint: (values) =>
+        values.kind === "table"
+          ? "Columns, filters and sorting start from the type's attributes; change them in its preview."
+          : undefined,
     },
-  ]),
-  ...onlyFor("tree", treeFields(outline, applicationKey)),
-  ...onlyFor("mappingGrid", gridFields(outline)),
-  ...onlyFor("relationTable", tableFields(outline)),
-];
+    {
+      name: "kind",
+      label: "Kind of view",
+      type: "select",
+      options: addViewKinds(outline, applicationKey),
+      required: true,
+    },
+    ...onlyFor("relationMatrix", own(matrixFields(outline))),
+    ...onlyFor("table", [
+      { name: "type", label: "Type", type: "select", options: tableTypeOptions(outline), required: true },
+    ]),
+    ...onlyFor("tree", own(treeFields(outline, applicationKey))),
+    ...onlyFor("mappingGrid", own(gridFields(outline))),
+    ...onlyFor("relationTable", own(tableFields(outline))),
+  ];
+};
 
 const LAYOUT_OPTIONS = [
   { value: "rows", label: "One row per relationship" },
@@ -748,6 +758,7 @@ const LAYOUT_OPTIONS = [
 ];
 
 const tableFields = (outline: ModelDraftOutline): OperationField[] => [
+  nameField,
   {
     name: "binding",
     label: "Relationships",
@@ -795,7 +806,6 @@ const tableFields = (outline: ModelDraftOutline): OperationField[] => [
       { value: "to", label: "The to record" },
     ],
   },
-  { name: "name", label: "Name", type: "text", required: true },
 ];
 
 export const RELATION_DEFAULTS: FieldValues = { relationType: NEW, cardinality: "many-to-one" };

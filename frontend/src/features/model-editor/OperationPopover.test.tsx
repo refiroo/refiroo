@@ -96,6 +96,17 @@ describe("an operation under the control that started it (UX1, PP-D40)", () => {
     host.remove();
   });
 
+  it("marks the view name invalid while it is blank and clears the mark once it holds something", async () => {
+    renderAnchored("application-add-view", { on: "application", applicationKey: "shop" } as OperationTarget, false);
+    const dialog = await screen.findByRole("dialog");
+    const name = within(dialog).getByLabelText("Name", { exact: true });
+    expect(name.getAttribute("aria-invalid")).toBe("true");
+    fireEvent.change(name, { target: { value: "   " } });
+    expect(name.getAttribute("aria-invalid")).toBe("true");
+    fireEvent.change(name, { target: { value: "All bins" } });
+    expect(name.getAttribute("aria-invalid")).toBeNull();
+  });
+
   it("closes on Escape and returns focus to the control", async () => {
     const { run, onClose, host } = renderAnchored("type-key", shelf);
     const popover = await screen.findByRole("dialog", { name: "Change key" });

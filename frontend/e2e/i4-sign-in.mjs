@@ -23,6 +23,7 @@
 // step after a password, renames it, and an administrator removes it from their page. The servers
 // are reached as localhost: WebAuthn takes no IP address as its relying party. Axe on each page,
 // light and dark, and 390px.
+// Brought up to date (0.14 + 0.17 release review, R17-F20): the harness provider sends no email_verified, so it is added with emailsTrusted.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { SHAPED_MODELS, bootShaped } from "./helpers/shaped-models.mjs";
@@ -566,6 +567,7 @@ async function walk(configuration) {
       clientId: "engine",
       clientSecret: provider.secret,
       groupsClaim: "groups",
+      emailsTrusted: true,
       enabled: true,
     });
     const c = {

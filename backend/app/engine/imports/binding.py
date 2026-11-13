@@ -62,7 +62,7 @@ from ..reads.context_sets import record_source, relation_source
 from ..reads.snapshot_reads import SnapshotContext, change_set_context
 from ..records.counterparts import counterpart
 from .cells import attribute_value, cell_text, flag_set, is_empty
-from .places import Place, PlaceReads, resolve_place
+from .places import Place, PlaceReads, PlaceRequest, resolve_places
 from .profiles import check_profile, invalid_profile, source_order
 from .readers import Area, Table, TabularFile, jsonl_lines, open_tabular
 from .readings import apply_readings, clashes, reading_columns, virtual_columns
@@ -1958,13 +1958,16 @@ class _ProfileBinding:
         """The place for each column record a new record may be created under, read once before the
         rows are: a link matrix column that creates (``missing: create``) without a container, and a
         create matrix column (``under``). The answer comes from the context's records and the
-        binding's candidate criteria (:func:`resolve_place`); a place that does not exist yet is
-        created with the first record that goes in it."""
+        binding's candidate criteria (:func:`resolve_places`), for every column record in whole-set
+        statements; a place that does not exist yet is created with the first record that goes in
+        it."""
+        requests: dict[tuple[str, str, str, str, str], PlaceRequest] = {}
         for plan in self.plans:
             source_type = plan.source.objectTypeKey
             if plan.source.under is not None and plan.source.under.creates:
                 under = plan.source.under
-                self._resolve_place(
+                self._place_request(
+                    requests,
                     under.rowObjectTypeKey,
                     under.relationTypeKey,
                     under.direction,
@@ -1986,7 +1989,8 @@ class _ProfileBinding:
                     under = binding.relatedRecord.under
                     specs.append((binding.relatedRecord, under.objectTypeKey, under.value))
                 for spec, column_type, column_value in specs:
-                    self._resolve_place(
+                    self._place_request(
+                        requests,
                         source_type,
                         spec.relationTypeKey,
                         spec.direction,
@@ -1994,9 +1998,23 @@ class _ProfileBinding:
                         column_type,
                         column_value,
                     )
+        found = resolve_places(
+            self.session,
+            self.model,
+            self.job.workspace_key,
+            self.context,
+            list(requests.values()),
+            self.place_reads,
+        )
+        for key, request, place in zip(requests, requests.values(), found, strict=True):
+            self.places[key] = place
+            if place.new is not None and place.container_id is not None:
+                self.new_places[place.container_id] = place
+                self.place_columns[place.container_id] = request.column_record_id
 
-    def _resolve_place(
+    def _place_request(
         self,
+        requests: dict[tuple[str, str, str, str, str], PlaceRequest],
         row_type: str,
         relation_type_key: str,
         direction: str,
@@ -2004,9 +2022,10 @@ class _ProfileBinding:
         column_type: str,
         column_value: str,
     ) -> None:
-        """The place a new ``cell_type`` record under the column record goes, once per column."""
+        """The request for the place a new ``cell_type`` record under the column record goes, once
+        per column."""
         key = (row_type, relation_type_key, direction, cell_type, column_value)
-        if key in self.places:
+        if key in self.places or key in requests:
             return
         outgoing = direction == "outgoing"
         allowed = (
@@ -2015,11 +2034,7 @@ class _ProfileBinding:
             else self.model.allowed_relation(relation_type_key, cell_type, row_type)
         )
         criteria = allowed.candidates_at("to" if outgoing else "from") if allowed else ()
-        place = resolve_place(
-            self.session,
-            self.model,
-            self.job.workspace_key,
-            self.context,
+        requests[key] = PlaceRequest(
             column_record_id=column_value,
             column_type_key=column_type,
             cell_type_key=cell_type,
@@ -2027,12 +2042,7 @@ class _ProfileBinding:
             relation_type_key=relation_type_key,
             direction=direction,
             row_type_key=row_type,
-            reads=self.place_reads,
         )
-        self.places[key] = place
-        if place.new is not None and place.container_id is not None:
-            self.new_places[place.container_id] = place
-            self.place_columns[place.container_id] = column_value
 
     def _virtual_places(self) -> None:
         """The places this load creates, as records of the context: a match by ID finds them, and

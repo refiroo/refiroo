@@ -26,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.engine import Dialect
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, deferred, mapped_column
 from sqlalchemy.types import TypeDecorator
 
 from ..common.time import as_utc
@@ -96,9 +96,7 @@ class ModelRelease(Base):
     schema_version: Mapped[str] = mapped_column(String(40))
     model_hash: Mapped[str] = mapped_column(String(64), unique=True)
     model_json: Mapped[dict[str, Any]] = mapped_column(JSON)
-    installed_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), default=lambda: datetime.now(UTC)
-    )
+    installed_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=lambda: datetime.now(UTC))
     # A retired release is never chosen again; what runs on it keeps running (0.12 MR1, D457).
     # The snapshot stays immutable: only the status and its version change.
     status: Mapped[str] = mapped_column(
@@ -108,8 +106,6 @@ class ModelRelease(Base):
         Integer, nullable=False, default=1, server_default="1"
     )
     retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
-
-
 
 
 class ModelDraft(Base):
@@ -164,7 +160,8 @@ class ModelDraftOperation(Base):
         UniqueConstraint("draft_id", "sequence", name="uq_model_draft_operations_sequence"),
         Index("ix_model_draft_operations_step", "draft_id", "step"),
         CheckConstraint(
-            "num_nonnulls(author_user_id, author_client_id) <= 1", name="ck_model_draft_operations_author_one"
+            "num_nonnulls(author_user_id, author_client_id) <= 1",
+            name="ck_model_draft_operations_author_one",
         ),
         Index(
             "ix_model_draft_operations_author_user",
@@ -468,7 +465,9 @@ class RdmObject(Base):
             "sequence_id",
         ),
         # An exact lookup ignoring case seeks the name (0.9 C4, 20261005_01).
-        Index("ix_objects_workspace_lower_name", "workspace_key", func.lower(literal_column("name"))),
+        Index(
+            "ix_objects_workspace_lower_name", "workspace_key", func.lower(literal_column("name"))
+        ),
         # A lookup's contains match reads the names of its types in its workspace in one probe
         # (0.9 C14, 20261005_02; btree_gin for the key columns).
         Index(
@@ -495,9 +494,7 @@ class RdmObject(Base):
     )
     name: Mapped[str] = mapped_column(String(500), index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
-    created_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), default=lambda: datetime.now(UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(),
         default=lambda: datetime.now(UTC),
@@ -516,7 +513,8 @@ class Publication(Base):
         UniqueConstraint("workspace_key", "publication_number", name="uq_publication_number"),
         CheckConstraint("status IN ('active', 'withdrawn')", name="ck_publication_status"),
         CheckConstraint(
-            "num_nonnulls(published_by_user_id, published_by_client_id) <= 1", name="ck_publications_published_by_one"
+            "num_nonnulls(published_by_user_id, published_by_client_id) <= 1",
+            name="ck_publications_published_by_one",
         ),
         Index(
             "ix_publications_published_by_user",
@@ -529,7 +527,8 @@ class Publication(Base):
             postgresql_where=text("published_by_client_id IS NOT NULL"),
         ),
         CheckConstraint(
-            "num_nonnulls(withdrawn_by_user_id, withdrawn_by_client_id) <= 1", name="ck_publications_withdrawn_by_one"
+            "num_nonnulls(withdrawn_by_user_id, withdrawn_by_client_id) <= 1",
+            name="ck_publications_withdrawn_by_one",
         ),
         Index(
             "ix_publications_withdrawn_by_user",
@@ -589,7 +588,8 @@ class ChangeSet(Base):
     __tablename__ = "change_sets"
     __table_args__ = (
         CheckConstraint(
-            "num_nonnulls(created_by_user_id, created_by_client_id) <= 1", name="ck_change_sets_created_by_one"
+            "num_nonnulls(created_by_user_id, created_by_client_id) <= 1",
+            name="ck_change_sets_created_by_one",
         ),
         Index(
             "ix_change_sets_created_by_user",
@@ -727,7 +727,9 @@ class ChangeSetDecision(Base):
 
     __tablename__ = "change_set_decisions"
     __table_args__ = (
-        CheckConstraint("outcome IN ('approve', 'sendBack')", name="ck_change_set_decisions_outcome"),
+        CheckConstraint(
+            "outcome IN ('approve', 'sendBack')", name="ck_change_set_decisions_outcome"
+        ),
         CheckConstraint(
             "num_nonnulls(decided_by_user_id, decided_by_client_id) <= 1",
             name="ck_change_set_decisions_decided_by_one",
@@ -764,11 +766,16 @@ class Notification(Base):
 
     __tablename__ = "notifications"
     __table_args__ = (
-        CheckConstraint("num_nonnulls(user_id, client_id) = 1", name="ck_notifications_one_principal"),
+        CheckConstraint(
+            "num_nonnulls(user_id, client_id) = 1", name="ck_notifications_one_principal"
+        ),
         Index("ix_notifications_user", "user_id", "sequence_id"),
         Index("ix_notifications_client", "client_id", "sequence_id"),
         Index(
-            "ix_notifications_unread_user", "user_id", "sequence_id", postgresql_where=text("read_at IS NULL")
+            "ix_notifications_unread_user",
+            "user_id",
+            "sequence_id",
+            postgresql_where=text("read_at IS NULL"),
         ),
         Index(
             "ix_notifications_unread_client",
@@ -787,7 +794,9 @@ class Notification(Base):
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
     client_id: Mapped[int | None] = mapped_column(
         ForeignKey("oauth_clients.id", ondelete="CASCADE"), nullable=True
     )
@@ -885,7 +894,12 @@ class AttributeValue(Base):
         Index("ix_attribute_values_key_text", "attribute_type_key", "text_value", "object_id"),
         # An attribute sort reads the records with a value in value order (0.9 C3a, 20261004_04).
         *(
-            Index(f"ix_attribute_values_key_{name}", "attribute_type_key", f"{name}_value", "object_id")
+            Index(
+                f"ix_attribute_values_key_{name}",
+                "attribute_type_key",
+                f"{name}_value",
+                "object_id",
+            )
             for name in ("integer", "decimal", "boolean", "date", "datetime")
         ),
         search_index(LIVE_VALUES),
@@ -969,9 +983,7 @@ class ObjectRelation(Base):
     )
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
-    created_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), default=lambda: datetime.now(UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(),
         default=lambda: datetime.now(UTC),
@@ -1007,7 +1019,11 @@ class PublicationObject(Base):
         ),
         # A consumer read pinned to the publication matches as live reads do (0.9 C6a, 20261005_03):
         # exactly ignoring case, and by contains within one type.
-        Index("ix_publication_objects_lower_name", "publication_id", func.lower(literal_column("name"))),
+        Index(
+            "ix_publication_objects_lower_name",
+            "publication_id",
+            func.lower(literal_column("name")),
+        ),
         Index(
             "ix_publication_objects_type_name_trigram",
             "publication_id",
@@ -1257,7 +1273,8 @@ class SnapshotAttributeValue(Base):
             "owner_id", "object_id", "attribute_type_key", name="uq_snapshot_attribute_value"
         ),
         CheckConstraint(
-            "owner_kind IN ('publication', 'base', 'change_set')", name="ck_snapshot_attribute_owner_kind"
+            "owner_kind IN ('publication', 'base', 'change_set')",
+            name="ck_snapshot_attribute_owner_kind",
         ),
         # A record's value is found by the unique key; an (owner, attribute) read uses the next
         # index's prefix. A separate (owner, attribute) index was dropped in 20261003_01: on rows
@@ -1391,7 +1408,12 @@ class MatrixCellState(Base):
     __tablename__ = "matrix_cell_states"
     __table_args__ = (
         UniqueConstraint(
-            "owner_kind", "owner_id", "shape_key", "row_id", "column_id", name="uq_matrix_cell_state"
+            "owner_kind",
+            "owner_id",
+            "shape_key",
+            "row_id",
+            "column_id",
+            name="uq_matrix_cell_state",
         ),
         CheckConstraint(
             "owner_kind IN ('live', 'history', 'publication', 'base', 'change_set')",
@@ -1561,7 +1583,9 @@ class ConsumerEvent(Base):
         UniqueConstraint(
             "workspace_key", "consumer_api", "position", "ordinal", name="uq_consumer_event_order"
         ),
-        CheckConstraint("change IN ('created', 'updated', 'deleted')", name="ck_consumer_event_change"),
+        CheckConstraint(
+            "change IN ('created', 'updated', 'deleted')", name="ck_consumer_event_change"
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -1617,14 +1641,21 @@ class ConsumerSubscription(Base):
     __tablename__ = "consumer_subscriptions"
     __table_args__ = (
         CheckConstraint(
-            "max_events_per_batch BETWEEN 1 AND 1000", name="ck_consumer_subscription_max_events_per_batch"
+            "max_events_per_batch BETWEEN 1 AND 1000",
+            name="ck_consumer_subscription_max_events_per_batch",
         ),
         CheckConstraint("payload IN ('full', 'identity')", name="ck_consumer_subscription_payload"),
         CheckConstraint("format IN ('rdm', 'cloudevents')", name="ck_consumer_subscription_format"),
-        CheckConstraint("status IN ('active', 'suspended')", name="ck_consumer_subscription_status"),
+        CheckConstraint(
+            "status IN ('active', 'suspended')", name="ck_consumer_subscription_status"
+        ),
         Index("ix_consumer_subscriptions_api", "consumer_api", "sequence_id"),
         Index("ix_consumer_subscriptions_workspace", "workspace_key", "sequence_id"),
-        Index("ix_consumer_subscriptions_due", "next_attempt_at", postgresql_where=text("status = 'active'")),
+        Index(
+            "ix_consumer_subscriptions_due",
+            "next_attempt_at",
+            postgresql_where=text("status = 'active'"),
+        ),
         CheckConstraint(
             "num_nonnulls(created_by_user_id, created_by_client_id) <= 1",
             name="ck_consumer_subscriptions_one_created_by",
@@ -1713,7 +1744,9 @@ class ConsumerWebhookRequest(Base):
             "status IN ('queued', 'sending', 'retrying', 'succeeded', 'failed', 'dropped')",
             name="ck_consumer_webhook_request_status",
         ),
-        UniqueConstraint("subscription_sequence_id", "delivery_id", name="uq_consumer_webhook_request_delivery"),
+        UniqueConstraint(
+            "subscription_sequence_id", "delivery_id", name="uq_consumer_webhook_request_delivery"
+        ),
         Index("ix_consumer_webhook_requests_batch", "subscription_sequence_id", "batch_id"),
         Index("ix_consumer_webhook_requests_created", "created_at"),
     )
@@ -1945,9 +1978,7 @@ class IdempotencyKey(Base):
     """
 
     __tablename__ = "idempotency_keys"
-    __table_args__ = (
-        UniqueConstraint("scope", "workspace_key", "key", name="uq_idempotency_key"),
-    )
+    __table_args__ = (UniqueConstraint("scope", "workspace_key", "key", name="uq_idempotency_key"),)
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     scope: Mapped[str] = mapped_column(String(80), nullable=False)
@@ -1961,7 +1992,6 @@ class IdempotencyKey(Base):
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
-
 
 
 class ImportProfile(Base):
@@ -2055,7 +2085,10 @@ class SourceFileCell(Base):
     __tablename__ = "source_file_cells"
     __table_args__ = (
         PrimaryKeyConstraint(
-            "source_file_id", "sheet_index", "row_number", "column_number",
+            "source_file_id",
+            "sheet_index",
+            "row_number",
+            "column_number",
             name="pk_source_file_cells",
         ),
     )
@@ -2177,7 +2210,8 @@ class ModelMappingOperation(Base):
         UniqueConstraint("mapping_id", "sequence", name="uq_model_mapping_operations_sequence"),
         Index("ix_model_mapping_operations_step", "mapping_id", "step"),
         CheckConstraint(
-            "num_nonnulls(author_user_id, author_client_id) <= 1", name="ck_model_mapping_operations_author_one"
+            "num_nonnulls(author_user_id, author_client_id) <= 1",
+            name="ck_model_mapping_operations_author_one",
         ),
         Index(
             "ix_model_mapping_operations_author_user",
@@ -2384,6 +2418,9 @@ class SignInProvider(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # Signing out of the engine signs the person out of the provider too (I4a, D379).
     sign_out_of_provider: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Its ``email`` claims are taken as they are; otherwise only with ``email_verified: true``
+    # (0.17 R17-F20: an address is the unique sign-in name and a provider may let people set it).
+    emails_trusted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
@@ -2474,9 +2511,7 @@ class MailSettings(Base):
     # The certificate's private key and certificate as one sealed PEM; its identity is in the clear.
     ms_certificate: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     ms_certificate_thumbprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    ms_certificate_expires_at: Mapped[datetime | None] = mapped_column(
-        UTCDateTime(), nullable=True
-    )
+    ms_certificate_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     ms_authority_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     ms_graph_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Managed identity (0.13 MS-D5): `direct` or `federated`; the user-assigned identity's client ID.
@@ -2509,12 +2544,30 @@ class MailTemplate(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
-    logo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    # Deferred: read only where the picture itself is needed (a preview, a test mail).
+    logo: Mapped[bytes | None] = deferred(mapped_column(LargeBinary, nullable=True))
     logo_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # SHA-256 (hex) of ``logo``: the key of its copy in ``mail_logos`` (R17-F22).
+    logo_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
+
+
+class MailLogo(Base):
+    """A logo a queued message was rendered with, by the SHA-256 of its bytes (R17-F22).
+
+    A message's HTML refers to the logo by ``cid:``; the part attached when it is sent must be the
+    one it was rendered with, though the operator has replaced the logo since. Kept while the
+    template or a pending message (``mail_outbox.logo_digest``) refers to it.
+    """
+
+    __tablename__ = "mail_logos"
+
+    digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    logo: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    logo_type: Mapped[str] = mapped_column(String(32), nullable=False)
 
 
 class MailOutbox(Base):
@@ -2541,6 +2594,8 @@ class MailOutbox(Base):
     to_address: Mapped[str] = mapped_column(String(320), nullable=False)
     subject: Mapped[str] = mapped_column(String(300), nullable=False)
     body: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    # The logo (``mail_logos``) the message's HTML was rendered with, when it shows one.
+    logo_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -2607,7 +2662,9 @@ class OAuthClient(Base):
     """
 
     __tablename__ = "oauth_clients"
-    __table_args__ = (CheckConstraint("kind IN ('api', 'agent', 'session')", name="ck_oauth_clients_kind"),)
+    __table_args__ = (
+        CheckConstraint("kind IN ('api', 'agent', 'session')", name="ck_oauth_clients_kind"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
@@ -2918,7 +2975,9 @@ class UserGroup(Base):
     __tablename__ = "user_groups"
     __table_args__ = (
         Index("ux_user_groups_name", func.lower(literal_column("name")), unique=True),
-        CheckConstraint("(provider_id IS NULL) = (claim_value IS NULL)", name="ck_user_groups_source"),
+        CheckConstraint(
+            "(provider_id IS NULL) = (claim_value IS NULL)", name="ck_user_groups_source"
+        ),
         Index(
             "ux_user_groups_provider_claim",
             "provider_id",

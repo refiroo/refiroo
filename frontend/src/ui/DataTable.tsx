@@ -114,6 +114,37 @@ export function columnsToFold(
   return folded;
 }
 
+/**
+ * Columns widened to what the rows now drawn need (0.17 R17-F47). The widths were measured from the rows first
+ * drawn, and another page or scrolled-to rows can hold longer values ("long-9", then "long-20"): such a column
+ * grows to its widest value, up to `cap`, taking the room from the donor column (the name, which was given what
+ * the others left) down to `floor`. Columns only grow, so they do not move back and forth while the list scrolls.
+ * `needs` is each column's width the drawn values ask for (undefined: it needs no more). Returns undefined when
+ * nothing changes.
+ */
+export function growWidths(
+  widths: readonly number[],
+  needs: readonly (number | undefined)[],
+  donor: number,
+  floor: number,
+  cap: number,
+): number[] | undefined {
+  const result = [...widths];
+  let spare = (result[donor] ?? 0) - floor;
+  let changed = false;
+  needs.forEach((need, position) => {
+    if (position === donor || need === undefined || spare <= 0.5) return;
+    const current = result[position] ?? 0;
+    const give = Math.min(Math.min(need, Math.max(cap, current)) - current, spare);
+    if (give <= 0.5) return;
+    result[position] = current + give;
+    spare -= give;
+    changed = true;
+  });
+  if (changed) result[donor] = floor + spare;
+  return changed ? result : undefined;
+}
+
 /** The range a column may be sized to; a stored width outside it is ignored. */
 export const COLUMN_WIDTH = { min: 48, max: 800 } as const;
 
@@ -246,7 +277,13 @@ export function DataTable<Row>({
   // The widths the first rows laid out (see above), for these columns at this room.
   const table = useRef<HTMLTableElement | null>(null);
   const [room, setRoom] = useState(0);
-  const [frozen, setFrozen] = useState<{ key: string; room: number; widths: number[]; folded: string[] }>();
+  const [frozen, setFrozen] = useState<{
+    key: string;
+    room: number;
+    widths: number[];
+    folded: string[];
+    floor: number;
+  }>();
   const freezeKey = [
     columns.map((column) => column.key).join("\n"),
     compact,
@@ -332,9 +369,36 @@ export function DataTable<Row>({
         if (free > 0 && identityPosition >= 0) widths[Number(Boolean(selection)) + identityPosition] += free;
       }
     }
-    setFrozen({ key: freezeKey, room, widths, folded });
+    setFrozen({
+      key: freezeKey,
+      room,
+      widths,
+      folded,
+      floor: identityPosition >= 0 ? (laidOut[Number(Boolean(selection)) + identityPosition] ?? 0) : 0,
+    });
   }, [shown, sized, settledRows, room, freezeKey, oneLine, selection, actions, foldColumns, columns, identity]);
   const leading = Number(Boolean(selection));
+  // A column the rows now drawn do not fit grows (see growWidths), once the columns are laid out.
+  const identityAt = columns.findIndex((column) => column.key === identity);
+  useLayoutEffect(() => {
+    if (!shown || !foldColumns || !oneLine || identityAt < 0 || !window.matchMedia?.(WIDE_LAYOUT).matches) return;
+    const body = table.current?.tBodies[0];
+    if (!body) return;
+    const needs: (number | undefined)[] = shown.widths.map(() => undefined);
+    for (const row of body.querySelectorAll<HTMLTableRowElement>("tr[data-row-key]")) {
+      columns.forEach((column, position) => {
+        const cell = row.cells[leading + position];
+        if (!cell || foldedKey.split("\n").includes(column.key)) return;
+        // The cut may be the cell's own or an element inside it (a value beside its edit controls).
+        let more = cell.scrollWidth - cell.clientWidth;
+        for (const inner of cell.querySelectorAll<HTMLElement>("*"))
+          more = Math.max(more, inner.scrollWidth - inner.clientWidth);
+        if (more > 0) needs[leading + position] = Math.max(needs[leading + position] ?? 0, cell.offsetWidth + more + 2);
+      });
+    }
+    const grown = growWidths(shown.widths, needs, leading + identityAt, shown.floor, NATURAL_CAP);
+    if (grown) setFrozen({ ...shown, widths: grown });
+  }, [shown, foldColumns, oneLine, identityAt, columns, leading, foldedKey, list.items]);
   // Each column's content width, read once from the first drawn row whenever the columns are laid
   // out anew (frozen or sized), so its cells need not measure themselves (ui/tableCell, 0.11 X6).
   const [rooms, setRooms] = useState<{ of: string; widths: Record<string, number> }>();

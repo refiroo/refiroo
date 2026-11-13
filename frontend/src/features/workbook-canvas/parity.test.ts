@@ -7,7 +7,9 @@ import {
   type OperationTarget,
 } from "@/features/model-editor/operations";
 import type { ModelDraftOutline } from "@/types/modelAdmin";
+import { renameTypeOperations } from "@/features/model-editor/lists";
 import { CANVAS_SURFACES } from "./canvasSurfaces";
+import { renameListOperations } from "./canvasView";
 
 const outline = outlineFixture();
 
@@ -75,6 +77,15 @@ describe("the canvas reaches every operation of the editor's table (0.17 CE1, PP
       )
       .map((item) => item.id);
     expect(missing).toEqual(EXPECTED_UNOFFERED);
+  });
+
+  it("renames a list with the operations the editor's heading sends, not only through the same menu", () => {
+    for (const type of outline.objectTypes) {
+      const canvas = renameListOperations({ typeKey: type.key, name: type.name }, "Renamed");
+      expect(canvas).toEqual(renameTypeOperations(type.key, "Renamed"));
+      // The editor's heading sends the name alone: the plural name is left as it is.
+      expect(canvas).toEqual([{ kind: "setLabel", element: { objectType: type.key }, name: "Renamed" }]);
+    }
   });
 
   it("lists every operation of the table once", () => {

@@ -19,6 +19,7 @@
 // 0.12 LS1 (D371, D372): a collection's table page is fitted to the window. The wheel at the last row
 // leaves the window where it is, and the list's footer and the rail end on the window's bottom line,
 // at 1440px and 390px.
+// Brought up to date (0.14 + 0.17 release review): the lens switch asks the mapping coverage for one mapped row under the parent; that probe is not the grid's read.
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -741,7 +742,8 @@ try {
   // D164 (9): the mapping grid walks by wheel without a row jumping, reading its page of 10.
   const gridWalk = await walk(page, grid, 50, 1, "mapping grid", 200);
   coverageReads.stop();
-  const coverageSizes = [...new Set(coverageReads.sizes.filter((size) => size !== null))];
+  // A one-row read is the lens switch asking whether anything is mapped under the parent (lens probe); not the grid's own.
+  const coverageSizes = [...new Set(coverageReads.sizes.filter((size) => size !== null && size !== "1"))];
   assert.deepEqual(coverageSizes, ["10"], `the mapping grid reads ${coverageSizes}`);
   await grid.evaluate((viewport) => {
     viewport.scrollTop = 0;

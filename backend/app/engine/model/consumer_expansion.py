@@ -40,18 +40,22 @@ _VERB_PARTS = {
     "byType": frozenset({"description"}),
     "under": frozenset({"matchOn", "description"}),
     "linkedTo": frozenset({"through", "matchOn", "description"}),
-    "onRelated": frozenset({"matchOn", "keepOnlyMatching", "scoreOnlyMatching", "crosswalk", "description"}),
+    "onRelated": frozenset(
+        {"matchOn", "keepOnlyMatching", "scoreOnlyMatching", "crosswalk", "description"}
+    ),
 }
 
 
 def public_name(type_key: str) -> str:
     """The default public name of a type: its key in PascalCase (``order-line`` →
     ``OrderLine``)."""
-    return "".join(part[:1].upper() + part[1:] for part in re.split(r"[^0-9A-Za-z]+", type_key) if part)
+    return "".join(
+        part[:1].upper() + part[1:] for part in re.split(r"[^0-9A-Za-z]+", type_key) if part
+    )
 
 
 def camel_case(key: str) -> str:
-    """An output name for a source: its words in camelCase (``master-id`` becomes ``masterId``); the
+    """An output name for a source: its words in camelCase (``some-field-key`` becomes ``someFieldKey``); the
     editor proposes the same name (``outputFor``)."""
     parts = [part for part in re.split(r"[^0-9A-Za-z]+", key) if part]
     if not parts:
@@ -101,7 +105,9 @@ def expand(
 
 
 class _Expansion:
-    def __init__(self, model: EngineModel, document: ConsumerApiDocument, base: str | None = None) -> None:
+    def __init__(
+        self, model: EngineModel, document: ConsumerApiDocument, base: str | None = None
+    ) -> None:
         self.model = model
         self.document = document
         self.base = base or f"/consumerApis/{seg(document.key)}"
@@ -112,7 +118,9 @@ class _Expansion:
         self.code_sources: tuple[str, ...] = ()
 
     def fail(self, path: str, message: str, code: str = "INVALID_MODEL") -> NoReturn:
-        raise ModelReferenceError(code, f"{self.base}{path}", f"Consumer API '{self.document.key}': {message}")
+        raise ModelReferenceError(
+            code, f"{self.base}{path}", f"Consumer API '{self.document.key}': {message}"
+        )
 
     def describe(self, part: str, description: str | None) -> None:
         if description:
@@ -137,9 +145,18 @@ class _Expansion:
         match = self._match()
         if match is not None:
             source["match"] = match
-        offered = {name for name in ("objects", "xref", "resolve", "lists", "events") if getattr(operations, name) is not None}
-        if operations.resolve is not None and (operations.objects is None or operations.xref is None):
-            self.fail("/operations/resolve", "batch resolve answers as get by ID and XREF do, so it needs 'objects' and 'xref'")
+        offered = {
+            name
+            for name in ("objects", "xref", "resolve", "lists", "events")
+            if getattr(operations, name) is not None
+        }
+        if operations.resolve is not None and (
+            operations.objects is None or operations.xref is None
+        ):
+            self.fail(
+                "/operations/resolve",
+                "batch resolve answers as get by ID and XREF do, so it needs 'objects' and 'xref'",
+            )
         for name in offered - {"lists"}:
             self.describe(f"operation:{name}", getattr(operations, name).description)
         try:
@@ -165,10 +182,16 @@ class _Expansion:
             types[key] = {"publicName": document.publicNames.get(key) or public_name(key)}
             self.pointers.add(f"/objectTypes/{seg(key)}", f"/exposes/{index}", absorb=True)
             if key in document.publicNames:
-                self.pointers.add(f"/objectTypes/{seg(key)}/publicName", f"/publicNames/{seg(key)}", absorb=True)
+                self.pointers.add(
+                    f"/objectTypes/{seg(key)}/publicName", f"/publicNames/{seg(key)}", absorb=True
+                )
         for key in document.publicNames:
             if key not in types:
-                self.fail(f"/publicNames/{seg(key)}", f"names type '{key}', which is not exposed", "INVALID_REFERENCE")
+                self.fail(
+                    f"/publicNames/{seg(key)}",
+                    f"names type '{key}', which is not exposed",
+                    "INVALID_REFERENCE",
+                )
         return types
 
     # --- the object -------------------------------------------------------------------------------
@@ -186,7 +209,11 @@ class _Expansion:
                 attributes[output] = entry
             else:
                 if role in self.roles:
-                    self.fail(f"{path}/role", f"role '{role}' is given to '{self.roles[role]}' too", "DUPLICATE_KEY")
+                    self.fail(
+                        f"{path}/role",
+                        f"role '{role}' is given to '{self.roles[role]}' too",
+                        "DUPLICATE_KEY",
+                    )
                 self.roles[role] = output
                 internal = f"/object/{role}"
                 entry = {"output": output, "source": sources}
@@ -196,12 +223,19 @@ class _Expansion:
             if default is not None:
                 entry["default"] = default
             self.pointers.add(internal, path, absorb=True)
-            self.pointers.add(f"{internal}/default", f"{path}/default" if isinstance(spec, FieldSpec) else path, absorb=True)
+            self.pointers.add(
+                f"{internal}/default",
+                f"{path}/default" if isinstance(spec, FieldSpec) else path,
+                absorb=True,
+            )
             self.pointers.add(f"{internal}/source", from_path(None), absorb=True)
             for index in range(len(sources)):
                 self.pointers.add(f"{internal}/source/{index}", from_path(index), absorb=True)
         if "id" not in self.roles:
-            self.fail("/object/fields", "a field with role 'id' is needed: the object ID consumers read it by")
+            self.fail(
+                "/object/fields",
+                "a field with role 'id' is needed: the object ID consumers read it by",
+            )
         # Role fields may stand anywhere in ``fields``: the internal form keeps them by role, so they
         # are output first, in role order, and written order orders the other fields (C-D140).
         result["attributes"] = attributes
@@ -210,12 +244,18 @@ class _Expansion:
                 "output": shape.parent.output,
                 "fields": self._parent_fields(shape.parent.fields),
                 "projections": self._blocks(
-                    shape.parent.related, "/object/parent/related", "/object/parent/projections", "parent."
+                    shape.parent.related,
+                    "/object/parent/related",
+                    "/object/parent/projections",
+                    "parent.",
                 ),
             }
             self.pointers.add("/object/parent/projections", "/object/parent/related", absorb=True)
         elif shape.parent is not None:
-            result["parent"] = {"output": "parent", "fields": self._parent_fields(shape.parent, "/object/parent")}
+            result["parent"] = {
+                "output": "parent",
+                "fields": self._parent_fields(shape.parent, "/object/parent"),
+            }
             self.pointers.add("/object/parent", "/object/parent", absorb=True)
         for part in ("path", "hierarchy"):
             value = getattr(shape, part)
@@ -240,14 +280,21 @@ class _Expansion:
                 else:
                     output = output_for(name)
                 if output in result:
-                    self.fail(path, f"parent fields '{name}' and another are both served as '{output}': write the fields with output names", "DUPLICATE_KEY")
+                    self.fail(
+                        path,
+                        f"parent fields '{name}' and another are both served as '{output}': write the fields with output names",
+                        "DUPLICATE_KEY",
+                    )
                 result[output] = {"source": [name]}
                 self.pointers.add(f"{internal}/{seg(output)}", path, absorb=True)
             return result
         for output, spec in fields.items():
             path = f"{base}/{seg(output)}"
             if isinstance(spec, FieldSpec) and spec.role is not None:
-                self.fail(f"{path}/role", f"parent field '{output}' has no role: only the object's fields do")
+                self.fail(
+                    f"{path}/role",
+                    f"parent field '{output}' has no role: only the object's fields do",
+                )
             _role, sources, default, from_path = self._field(output, spec, path, describe=False)
             entry: dict[str, Any] = {"source": sources}
             if default is not None:
@@ -255,7 +302,11 @@ class _Expansion:
             result[output] = entry
             at = f"{internal}/{seg(output)}"
             self.pointers.add(at, path, absorb=True)
-            self.pointers.add(f"{at}/default", f"{path}/default" if isinstance(spec, FieldSpec) else path, absorb=True)
+            self.pointers.add(
+                f"{at}/default",
+                f"{path}/default" if isinstance(spec, FieldSpec) else path,
+                absorb=True,
+            )
             self.pointers.add(f"{at}/source", from_path(None), absorb=True)
             for index in range(len(sources)):
                 self.pointers.add(f"{at}/source/{index}", from_path(index), absorb=True)
@@ -282,10 +333,17 @@ class _Expansion:
             return spec.role, (sources,), spec.default, lambda _index: f"{path}/from"
         if not sources:
             self.fail(f"{path}/from", f"field '{output}' names no source")
-        return spec.role, sources, spec.default, lambda index: f"{path}/from" if index is None else f"{path}/from/{index}"
+        return (
+            spec.role,
+            sources,
+            spec.default,
+            lambda index: f"{path}/from" if index is None else f"{path}/from/{index}",
+        )
 
     def _related(self) -> dict[str, Any]:
-        projections = self._blocks(self.document.object.related, "/object/related", "/projections", "")
+        projections = self._blocks(
+            self.document.object.related, "/object/related", "/projections", ""
+        )
         self.pointers.add("/projections", "/object/related", absorb=True)
         return projections
 
@@ -338,7 +396,10 @@ class _Expansion:
                 own.append(rule.model_dump(mode="json"))
         promoted = []
         for index, item in enumerate(xref.alsoMatchThrough):
-            internal, path = f"/match/promoted/{index}", f"/operations/xref/alsoMatchThrough/{index}"
+            internal, path = (
+                f"/match/promoted/{index}",
+                f"/operations/xref/alsoMatchThrough/{index}",
+            )
             self.pointers.add(internal, path)
             self.pointers.add(f"{internal}/projection", f"{path}/related", absorb=True)
             self.pointers.add(f"{internal}/firstMatch", f"{path}/firstOf")
@@ -357,7 +418,10 @@ class _Expansion:
 
     def _code(self, path: str) -> tuple[str, ...]:
         if "code" not in self.roles:
-            self.fail(path, "'code' stands for the sources of the field with role 'code', and no field has that role")
+            self.fail(
+                path,
+                "'code' stands for the sources of the field with role 'code', and no field has that role",
+            )
         return self.code_sources
 
     # --- how it is filtered -----------------------------------------------------------------------
@@ -370,7 +434,9 @@ class _Expansion:
             verbs = [verb for verb in FILTER_VERBS if getattr(spec, verb) not in (None, False)]
             if len(verbs) != 1:
                 given = f"; it has {', '.join(verbs)}" if verbs else ""
-                self.fail(path, f"filter '{name}' needs exactly one of {', '.join(FILTER_VERBS)}{given}")
+                self.fail(
+                    path, f"filter '{name}' needs exactly one of {', '.join(FILTER_VERBS)}{given}"
+                )
             verb = verbs[0]
             for part in sorted(spec.model_fields_set - _VERB_PARTS[verb] - {verb}):
                 self.fail(f"{path}/{part}", f"'{part}' does not apply to a '{verb}' filter")
@@ -385,7 +451,10 @@ class _Expansion:
             return {"kind": "objectType"}
         if verb == "onRelated":
             if spec.matchOn is None:
-                self.fail(path, "an 'onRelated' filter needs 'matchOn': the fields of the related records it matches")
+                self.fail(
+                    path,
+                    "an 'onRelated' filter needs 'matchOn': the fields of the related records it matches",
+                )
             self.pointers.add(f"{internal}/projection", f"{path}/onRelated", absorb=True)
             self.pointers.add(f"{internal}/matchFields", f"{path}/matchOn")
             self.pointers.add(f"{internal}/requireMatch", f"{path}/keepOnlyMatching", absorb=True)
@@ -408,7 +477,10 @@ class _Expansion:
         }
         if verb == "linkedTo":
             if not spec.through:
-                self.fail(path, "a 'linkedTo' filter needs 'through': itself, a related name or sharedWith:<related>")
+                self.fail(
+                    path,
+                    "a 'linkedTo' filter needs 'through': itself, a related name or sharedWith:<related>",
+                )
             result["via"] = [_via(item) for item in spec.through]
             self.pointers.add(f"{internal}/via", f"{path}/through")
         return result
@@ -428,10 +500,15 @@ class _Expansion:
             if field == "code":
                 self._code(f"{path}/matchOn/{index}")
             for item in expanded:
-                self.pointers.add(f"{internal}/matchFields/{len(fields)}", f"{path}/matchOn/{index}", absorb=True)
+                self.pointers.add(
+                    f"{internal}/matchFields/{len(fields)}", f"{path}/matchOn/{index}", absorb=True
+                )
                 fields.append(item)
         if not fields:
-            self.fail(f"{path}/matchOn", "the filter's types bind none of the code field's sources, so it matches nothing")
+            self.fail(
+                f"{path}/matchOn",
+                "the filter's types bind none of the code field's sources, so it matches nothing",
+            )
         return fields
 
     def _bound(self, types: Sequence[str], attribute: str) -> bool:
@@ -461,7 +538,9 @@ class _Expansion:
             if within is not None:
                 types = within.types
                 self.pointers.add(f"{internal}/parentParameter", f"{path}/within", absorb=True)
-                self.pointers.add(f"{internal}/parentParameter/name", f"{path}/within/filter", absorb=True)
+                self.pointers.add(
+                    f"{internal}/parentParameter/name", f"{path}/within/filter", absorb=True
+                )
                 if types is None:
                     named = self.document.filters.get(within.filter)
                     if named is None or named.under is None:
@@ -471,9 +550,15 @@ class _Expansion:
                             " whose records the list is within",
                         )
                     types = named.under
-                    self.pointers.add(f"{internal}/parentParameter/objectTypes", f"{path}/within/filter", absorb=True)
+                    self.pointers.add(
+                        f"{internal}/parentParameter/objectTypes",
+                        f"{path}/within/filter",
+                        absorb=True,
+                    )
                 else:
-                    self.pointers.add(f"{internal}/parentParameter/objectTypes", f"{path}/within/types")
+                    self.pointers.add(
+                        f"{internal}/parentParameter/objectTypes", f"{path}/within/types"
+                    )
                 item["parentParameter"] = {"name": within.filter, "objectTypes": list(types)}
             lists.append(item)
         return lists
@@ -484,20 +569,36 @@ class _Expansion:
         if declared is None:
             return []
         if not declared.perType and not declared.custom:
-            self.fail("/operations/events", "declares no event: give 'perType' or 'custom', or leave 'events' out")
+            self.fail(
+                "/operations/events",
+                "declares no event: give 'perType' or 'custom', or leave 'events' out",
+            )
         events: list[dict[str, Any]] = []
         if declared.perType:
             for key in self.document.exposes:
                 event = f"{key}-changed"
-                self.pointers.add(f"/events/{seg(event)}", "/operations/events/perType", absorb=True)
-                events.append({"key": event, "objectTypes": [key], "changes": list(PER_TYPE_CHANGES)})
+                self.pointers.add(
+                    f"/events/{seg(event)}", "/operations/events/perType", absorb=True
+                )
+                events.append(
+                    {"key": event, "objectTypes": [key], "changes": list(PER_TYPE_CHANGES)}
+                )
         for index, event in enumerate(declared.custom):
             path = f"/operations/events/custom/{index}"
             self.pointers.add(f"/events/{seg(event.key)}", path)
-            self.pointers.add(f"/events/{seg(event.key)}/watch/projections", f"{path}/watch/related")
-            item: dict[str, Any] = {"key": event.key, "objectTypes": list(event.objectTypes), "changes": list(event.changes)}
+            self.pointers.add(
+                f"/events/{seg(event.key)}/watch/projections", f"{path}/watch/related"
+            )
+            item: dict[str, Any] = {
+                "key": event.key,
+                "objectTypes": list(event.objectTypes),
+                "changes": list(event.changes),
+            }
             if event.watch is not None:
-                item["watch"] = {"fields": list(event.watch.fields), "projections": list(event.watch.related)}
+                item["watch"] = {
+                    "fields": list(event.watch.fields),
+                    "projections": list(event.watch.related),
+                }
             events.append(item)
         return events
 

@@ -13,7 +13,7 @@ import httpx
 import pytest
 from harness_identity import TestClient
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 from scenario import W1, ok, refused
 from test_j39_sign_in import PASSWORD, _bearer, _person, _pkce
 from test_j39_sign_in import _sign_in as browser_sign_in
@@ -61,21 +61,17 @@ async def _connected(app: Any, token: str, use: Any) -> Any:
     """The protocol's client over the application's own event loop."""
     transport = httpx.ASGITransport(app=app)
 
-    def factory(headers=None, timeout=None, auth=None) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            transport=transport,
-            base_url="http://testserver",
-            headers=headers,
-            timeout=timeout,
-            auth=auth,
-        )
+    http_client = httpx.AsyncClient(
+        transport=transport, base_url="http://testserver", headers=_bearer(token)
+    )
 
     async with (
-        streamablehttp_client(
-            "http://testserver/mcp",
-            headers=_bearer(token),
-            httpx_client_factory=factory,
-        ) as (read, write, _),
+        http_client,
+        streamable_http_client("http://testserver/mcp", http_client=http_client) as (
+            read,
+            write,
+            _,
+        ),
         ClientSession(read, write) as session,
     ):
         await session.initialize()

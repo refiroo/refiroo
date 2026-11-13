@@ -45,7 +45,7 @@ See [Releases](/docs/model/releases/) for compatibility and open change sets.
 
 ## Find a model and its workspaces
 
-Open **Settings**, then **Model**. Search by model name. The list separates the model run by the
+Open **Settings**, then **Model**. Search by model name or key in **Search models**. The list separates the model run by the
 default workspace, other models in use and drafts without an installed model. It shows release
 counts, the latest release, drafts and schema. The schema identifies the model language refiroo
 reads; it is separate from the release version you choose for your model.

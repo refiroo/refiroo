@@ -293,7 +293,8 @@ def post_workspace_from_workbook(
     Refused: `409 VERSION_CONFLICT` (the draft changed), `422 INVALID_MODEL` with the draft's
     diagnostics, `422 INVALID_IMPORT_PROFILE` with the profile's problems, `422
     DRAFT_HAS_NO_WORKBOOK`, `409 SOURCE_FILE_PROFILE_NOT_READY`, `409 WORKSPACE_ALREADY_EXISTS`,
-    `404 MODEL_DRAFT_NOT_FOUND`, `422 UNSUPPORTED_SCHEMA_VERSION`.
+    `404 MODEL_DRAFT_NOT_FOUND`, `422 UNSUPPORTED_SCHEMA_VERSION`, `409 DRAFT_HELD_BY_WORKSPACE`, `409
+    AI_TASK_DRAFT_HELD`. A success raises the draft's version, so a repeated request is `409 VERSION_CONFLICT`.
     """
     if not (permissions.allows("model-install", None) or permissions.allows("model-release", None)):
         raise forbidden("model.install", ("model-release", "model-install"), None)

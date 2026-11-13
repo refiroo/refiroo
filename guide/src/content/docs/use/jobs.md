@@ -5,7 +5,7 @@ reader: steward
 ---
 
 A job is work refiroo runs in the background, such as an import, export or change to many
-records. Open **Settings › Data operations › Jobs** to find the jobs you may see across
+records. Open **Settings › This instance › Jobs** to find the jobs you may see across
 workspaces, newest first. On the **Jobs** tab, in **All jobs**, the list shows **Workspace**, **State**, **Items**, **Requested by**,
 **Created**, **Finished** and **Actions**. Open a job to read its progress and results.
 

@@ -77,7 +77,7 @@ def enqueue(
     the operator's e-mail template when one is saved (``recipient_name`` fills its
     ``{{recipient_name}}``). ``409 MAIL_NOT_SET_UP`` without saved settings."""
     mail_settings.require(session)
-    message = mail_template.apply(session, identity, message, recipient_name)
+    message, logo_digest = mail_template.apply_queued(session, identity, message, recipient_name)
     at = now or datetime.now(UTC)
     public_id = str(uuid4())
     row = MailOutbox(
@@ -86,6 +86,7 @@ def enqueue(
         to_address=to_address,
         subject=message.subject,
         body=seal(identity.encryption_key, pack(message), body_context(public_id)),
+        logo_digest=logo_digest,
         status="pending",
         attempts=0,
         created_at=at,

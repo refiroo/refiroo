@@ -15,6 +15,8 @@
 // pane; "Editor: borrowed types shown apart" (c120ff18) shows each type once per application, so the
 // check now asserts it stands once, chosen and selected, and that every pane row has its own key; a type
 // placed in a navigation group stands in the group only, not also in the tree (once 2, now 1 at level 3).
+// Brought up to date (0.14 + 0.17 release review, R17-F2): draft steps are queued, so the stale-editor part
+// waits for the Undo's answer before it reads the version.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -344,9 +346,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       .getByRole("option", { name: new RegExp(`Top level of ${application.name}`), selected: true })
       .waitFor();
     await assertDialogLayout(page, `${label}: Move to… from a drop`);
-    await dialog()
-      .getByRole("button", { name: "Move", exact: true })
-      .click();
+    await dialog().getByRole("button", { name: "Move", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     await page.waitForFunction(
       () => document.querySelector('[data-row^="type:"][aria-level="2"]')?.closest("ul") !== null,
@@ -400,9 +400,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       await dialog()
         .getByRole("option", { name: new RegExp(`Top level of ${otherApp.name}`), selected: true })
         .waitFor();
-      await dialog()
-        .getByRole("button", { name: "Move", exact: true })
-        .click();
+      await dialog().getByRole("button", { name: "Move", exact: true }).click();
       await dialog().waitFor({ state: "hidden" });
       await page.locator(`[data-row^="type:${otherApp.key}:"]`, { hasText: "Shelf A4a" }).first().waitFor();
       assert.equal(
@@ -443,6 +441,16 @@ async function journey(label, source, { emptyDraft = false } = {}) {
 
     // A stale editor: another client applies a step first; the editor asks and applies again (D41).
     const draftId = new URL(page.url()).pathname.split("/")[4];
+    // Steps are sent one after another (R17-F2), so the Undo's answer may come after its row shows: wait for it.
+    for (let wait = 0; ; wait++) {
+      const history = await (
+        await fetch(`${harness.apiUrl}/api/v1/model-drafts/${draftId}/operations?pageSize=100&from=end`)
+      ).json();
+      const last = history.items.reduce((best, item) => (!best || item.sequence > best.sequence ? item : best), null);
+      if (last?.origin?.type === "undo") break;
+      assert.ok(wait < 100, "the Undo was not answered");
+      await page.waitForTimeout(100);
+    }
     const outline = await (await fetch(`${harness.apiUrl}/api/v1/model-drafts/${draftId}/outline`)).json();
     const other = await fetch(`${harness.apiUrl}/api/v1/model-drafts/${draftId}/operations`, {
       method: "POST",

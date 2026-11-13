@@ -109,6 +109,24 @@ def named_by(binding: dict[str, Any]) -> dict[str, Any]:
     return {name: binding[name] for name in ("column", "letter") if name in binding}
 
 
+def names_column(binding: dict[str, Any], columns: set[str]) -> bool:
+    """Whether the binding names one of ``columns`` anywhere: its column or columns, a relationship's
+    ID, version or value columns, or a related record's ID, version or parent column."""
+    names: list[Any] = [binding.get("column"), *(binding.get("columns") or [])]
+    flags = binding.get("relationFlags")
+    if isinstance(flags, dict):
+        names.extend((flags.get("targets") or {}).keys())
+    relation = binding.get("relation")
+    if isinstance(relation, dict):
+        names.extend(relation.get(member) for member in ("idColumn", "versionColumn"))
+        names.extend(item.get("column") for item in relation.get("attributes") or [])
+    related = binding.get("relatedRecord")
+    if isinstance(related, dict):
+        names.extend(related.get(member) for member in ("idColumn", "versionColumn"))
+        names.append((related.get("parent") or {}).get("column"))
+    return any(name in columns for name in names if isinstance(name, str))
+
+
 def reference(binding: dict[str, Any]) -> str | None:
     """A binding's column as one comparable text, whether it names it by header or by letter."""
     if binding.get("column") is not None:

@@ -19,7 +19,6 @@ import { DraftEditingDialogs, DraftEditingNotices } from "@/features/model-edito
 import { DraftPreview } from "@/features/model-editor/DraftPreview";
 import { DraftViewSwitch, draftViewRoute } from "@/features/model-editor/DraftViewSwitch";
 import { DryRunRowsDialog, type DryRunRows } from "@/features/model-editor/DryRunPanel";
-import { dropOperations } from "@/features/model-editor/lists";
 import { usesOf } from "@/features/model-editor/mapping";
 import { refusalText } from "@/features/model-editor/OperationDialog";
 import { ProposeDialog } from "@/features/model-editor/ProposeDialog";
@@ -183,6 +182,8 @@ export function WorkbookCanvas({
   );
   // What a step makes is selected once its answer says what it made (a new list, a new field).
   const afterStep = useRef<(answer: ModelDraftStep) => void>(() => undefined);
+  /** The step the draft's latest answer made: a toast's Undo takes back that step, not whatever came last. */
+  const lastStep = useRef<number>(undefined);
   const live = useRef<{ pick?: CanvasPick; setPick: (pick: CanvasPick | undefined) => void }>({ setPick });
   useEffect(() => {
     live.current = { pick, setPick };
@@ -208,6 +209,7 @@ export function WorkbookCanvas({
     },
     onAnswer: (answer: ModelDraftStep) => {
       if (answer.dryRun) followDryRun.current(answer.dryRun.jobId);
+      lastStep.current = answer.entries[0]?.step;
       afterStep.current(answer);
     },
     onUndone: () => setDrawerTab("history"),
@@ -264,6 +266,11 @@ export function WorkbookCanvas({
 
   /** One gesture: its operations as one request; a refusal is said above the board, nothing changed. */
   const draftName = steps.draft?.name ?? "";
+  /** An Undo that takes back the one step it names (PP-D76: the toolbar's takes the last). */
+  const undoOf = useCallback(
+    (made: number | undefined) => () => void editing.undo(made === undefined ? undefined : [made]),
+    [editing],
+  );
   const act = useCallback(
     async (said: string, operations: DraftOperation[] | (() => Promise<DraftOperation[] | null>)) => {
       setNotice(undefined);
@@ -276,10 +283,12 @@ export function WorkbookCanvas({
           setNotice({ tone: "info", text: "Nothing changed: that is already how the draft reads it." });
           return false;
         }
-        const outcome = await run(outline ? withApplication(sent, outline, draftName) : sent);
+        const { outcome, step: made } = await editing.runAnswered(
+          outline ? withApplication(sent, outline, draftName) : sent,
+        );
         // A step held back because the draft moved on is the editing hook's to say, with its two buttons.
         if (outcome === "stale") return false;
-        toast(said, { actions: [{ label: "Undo", onPress: () => void editing.undo() }] });
+        toast(said, { actions: [{ label: "Undo", onPress: undoOf(made) }] });
         return true;
       } catch (cause) {
         setNotice({ tone: "error", text: refusalText(cause, outline) });
@@ -288,7 +297,7 @@ export function WorkbookCanvas({
         setBusy(false);
       }
     },
-    [run, toast, outline, draftName, editing],
+    [toast, outline, draftName, undoOf, editing],
   );
 
   // An inference that completed: its proposals become steps, as in the editor, and stay marked Proposed.
@@ -486,8 +495,8 @@ export function WorkbookCanvas({
       setPanel({ show: added.id === "add-attribute-type" ? "attributeType" : "relationType", key: made });
       setTab("inspector");
     }
-    toast(`${name} added`, { actions: [{ label: "Undo", onPress: () => void editing.undo() }] });
-  }, [outline, toast, editing]);
+    toast(`${name} added`, { actions: [{ label: "Undo", onPress: undoOf(lastStep.current) }] });
+  }, [outline, toast, undoOf]);
 
   if (steps.loadError) return <Notice tone="error">{steps.loadError}</Notice>;
   if (!outline) return <p className="canvas-loading">Reading the draft…</p>;
@@ -535,11 +544,17 @@ export function WorkbookCanvas({
   }
 
   /** A name changed where it stands: sent as the editor's Rename…; a refusal is thrown to stay under the field. */
+  async function renameWith(operations: DraftOperation[]) {
+    const { outcome, step: made } = await editing.runAnswered(operations);
+    // A rename held back because the draft moved on is the editing hook's to say: no "Renamed." for it.
+    if (outcome === "stale") return false as const;
+    return () => editing.undo(made === undefined ? undefined : [made]);
+  }
   async function renameList(card: CanvasCard, name: string) {
-    await run(renameListOperations(card, name, outline!));
+    return renameWith(renameListOperations(card, name));
   }
   async function renameField(card: CanvasCard, field: CanvasField, name: string) {
-    await run(renameFieldOperations(card, field, name, outline!));
+    return renameWith(renameFieldOperations(card, field, name, outline!));
   }
 
   /** Find: the list or field, centred on the board and selected; a scope that leaves it off widens to the whole model. */
@@ -983,7 +998,6 @@ export function WorkbookCanvas({
     const others = cards.filter((item) => item.typeKey !== card.typeKey);
     const type = outline!.objectTypes.find((item) => item.key === card.typeKey);
     const application = outline!.applications.find((item) => item.key === card.applicationKey);
-    const loadedBy = (profile?.sources ?? []).filter((item) => item.objectTypeKey === card.typeKey);
     const anchor = () => cardAnchor(card.typeKey);
     return [
       ...listEntries(
@@ -1030,22 +1044,18 @@ export function WorkbookCanvas({
         section: "Canvas",
         onAction: () => connect(card.typeKey, { group: { applicationKey: application!.key, key: group.key } }, false),
       })),
-      ...(loadedBy.length
-        ? [
-            {
-              id: "remove",
-              label: "Remove object type",
-              icon: "trash",
-              tone: "danger",
-              section: "Canvas",
-              onAction: () =>
-                void act(
-                  `${card.name} removed`,
-                  loadedBy.flatMap((item) => dropOperations(outline!, profile, item)),
-                ),
-            } satisfies ActionMenuItem,
-          ]
-        : []),
+    ];
+  }
+
+  /** A sheet tab's menu: the object type its drag onto the board makes, by menu and keyboard (PP-D75). */
+  function sheetMenu(name: string): ActionMenuItem[] {
+    return [
+      {
+        id: "new-list",
+        label: "Make an object type of this sheet",
+        section: "New",
+        onAction: () => sheetToSpace(name, { x: 24, y: 24 }),
+      },
     ];
   }
 
@@ -1189,12 +1199,12 @@ export function WorkbookCanvas({
   /** A press on a row number of the preview: that row is the header, for the sources that read the sheet. */
   function headerRowOf(row: number) {
     if (!sheet) return;
-    const readers = (profile?.sources ?? []).filter((item) => item.sheet === sheet.name);
-    if (!readers.length) return;
-    void act(
-      `Row ${row} of ${sheet.name} read as the header`,
-      readers.map((item) => ({ kind: "setSource", source: item.id, headerRow: row })),
-    );
+    // The source whose block the preview shows (the pane reads the first one of the sheet), as Adjust list… does.
+    const owner = (profile?.sources ?? []).find((item) => item.sheet === sheet.name);
+    if (!owner) return;
+    void act(`Row ${row} of ${sheet.name} read as the header`, [
+      { kind: "setSource", source: owner.id, headerRow: row },
+    ]);
   }
 
   /** A field dragged back onto the workbook leaves its columns out. */
@@ -1417,6 +1427,7 @@ export function WorkbookCanvas({
             sheets={sheets}
             sheet={sheet}
             onSheet={setSheetName}
+            menuForSheet={sheetMenu}
             columns={columns}
             profile={profile}
             proposed={proposedElements}

@@ -1,0 +1,92 @@
+[
+ {
+  "kind": "mail-kind",
+  "key": "mail:activation",
+  "labels": [
+   "activation"
+  ],
+  "source": "backend/app/engine/mail/templates.py:22",
+  "section": "administer",
+  "commonContext": [
+   "mail",
+   "message",
+   "e-mail",
+   "email"
+  ]
+ },
+ {
+  "kind": "mail-kind",
+  "key": "mail:password-reset",
+  "labels": [
+   "password-reset"
+  ],
+  "source": "backend/app/engine/mail/templates.py:23",
+  "section": "administer",
+  "commonContext": [
+   "mail",
+   "message",
+   "e-mail",
+   "email"
+  ]
+ },
+ {
+  "kind": "mail-kind",
+  "key": "mail:test",
+  "labels": [
+   "test"
+  ],
+  "source": "backend/app/engine/mail/templates.py:24",
+  "section": "administer",
+  "commonContext": [
+   "mail",
+   "message",
+   "e-mail",
+   "email"
+  ]
+ },
+ {
+  "kind": "mail-kind",
+  "key": "mail:notice",
+  "labels": [
+   "notice"
+  ],
+  "source": "backend/app/engine/mail/templates.py:25",
+  "section": "administer",
+  "commonContext": [
+   "mail",
+   "message",
+   "e-mail",
+   "email"
+  ]
+ },
+ {
+  "kind": "mail-kind",
+  "key": "mail:digest",
+  "labels": [
+   "digest"
+  ],
+  "source": "backend/app/engine/mail/templates.py:26",
+  "section": "administer",
+  "commonContext": [
+   "mail",
+   "message",
+   "e-mail",
+   "email"
+  ]
+ },
+ {
+  "kind": "mail-kind",
+  "key": "mail:security",
+  "labels": [
+   "security"
+  ],
+  "source": "backend/app/engine/mail/templates.py:27",
+  "section": "administer",
+  "commonContext": [
+   "mail",
+   "message",
+   "e-mail",
+   "email"
+  ]
+ }
+]

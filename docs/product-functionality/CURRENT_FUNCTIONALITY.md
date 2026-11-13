@@ -36,11 +36,11 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
 | F24 | Read the API reference | Available at `/docs/api`, each source linked from Settings; the page carries the application's header (logo to the app, Documentation \| API reference, the theme choice) | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
-| F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
-| F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
-| F28 | Send mail | Settings › Integration › Mail | The organisation's mail server (SMTP, or Microsoft 365 through Microsoft Graph, signing in with a client secret, a certificate or a managed identity) saved with its secret sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1, 0.13 MS |
+| F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › People and access › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
+| F27 | Control who can do what | Settings › People and access (People, Groups, Roles, Signing keys) and Settings › Connections › Clients, a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
+| F28 | Send mail | Settings › This instance › Mail | The organisation's mail server (SMTP, or Microsoft 365 through Microsoft Graph, signing in with a client secret, a certificate or a managed identity) saved with its secret sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1, 0.13 MS |
 | F28a | Brand the mail refiroo sends | Settings › This instance › E-mail template (Operator) | One template for the instance: Markdown with placeholders (the message's own text, the product's name, the instance's address, the person's name, the logo) and an uploaded logo, around every mail refiroo sends, with a text version; a preview with sample values, a test to your own address and a reset to the default; until one is saved refiroo's own layout is used | e-mail template |
-| F30 | Reach refiroo from an assistant | Settings › Security › Agent access; an assistant, at `/mcp` | An assistant signs in or uses an agent client, reads, prepares changes in change sets of its own and submits them, works within what its person or client may do, and never approves or publishes |
+| F30 | Reach refiroo from an assistant | Settings › Connections › Agent access; an assistant, at `/mcp` | An assistant signs in or uses an agent client, reads, prepares changes in change sets of its own and submits them, works within what its person or client may do, and never approves or publishes |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -62,8 +62,10 @@ collections in no group first, then each group as a section that folds and unfol
 whether a group starts folded, and each reader's own choice is remembered in their browser. A folded
 group holding the open collection is marked. A group's name opens its page, which lists its
 collections with a search by name; each opens in the data the reader is looking at (live, a change
-set or a publication). A relation matrix can be placed in a group as an entry of its own, named after
-the view and opening the matrix, while its row type's entry stays; and a collection can open on a view
+set or a publication). Any view (a table, a tree, a mapping grid, a relationships table or a relation
+matrix) can be placed in a group as an entry of its own, named after the view and opening it, while its
+source collection's entry stays and the view stays among that collection's view tabs (0.17 NG1); the
+group page's search finds collections and views by name. A collection can open on a view
 the model names for it instead of the application's default. The model editor opens a group as a panel
 with its entries, adds several at once, orders and moves them.
 
@@ -489,7 +491,7 @@ made it; a publication who published it and who withdrew it; a job who asked for
 in the jobs list; and each step in the model editor's history who applied it.
 
 Everything one person or system changed can be read in one place: a name in a record's history
-opens their **Changes** page, as does "See changes" on a person's page in Settings › Security (for
+opens their **Changes** page, as does "See changes" on a person's page in Settings › People and access (for
 an administrator who also reads data) and "See all your changes" under **Your recent changes** on
 Home, which shows one's five latest. The page lists their changes across workspaces, newest first and
 grouped by day: records and relationships, live or in a change set, change sets, publications and
@@ -704,7 +706,7 @@ behind depends on, each listed with its reason; it can be published only after t
 confirmation is refused, leaving the dry run to confirm later, when the mapping changed since,
 either workspace runs another release, or nothing would be created or updated.
 
-In the browser, **Settings › Data operations › Copy and move** lists the saved mappings and the recent
+In the browser, **Settings › Workspaces and models › Copy and move** lists the saved mappings and the recent
 moves, and **New copy or move…** (also **Copy or move data…** on a workspace's page in Settings › Workspaces, with
 that workspace as the source) chooses the source and target workspaces (each named with the model it
 runs) and a saved mapping or a new one, which the engine proposes before the editor opens. The
@@ -923,7 +925,7 @@ the parent of every row it loads, and creates it when asked. A list loaded by na
 among their parent's children.
 
 **The next version of a workbook.** Installing a draft with a workbook saves its import profile;
-Settings › Data operations › **Import profiles** lists the stored profiles beside the selected one: whether it
+Settings › Workspaces and models › **Import profiles** lists the stored profiles beside the selected one: whether it
 still holds against the active model, and its last load (the file, when, what it did with the rows,
 and whether it is live, waiting in a change set, published or discarded, with the change set review
 or the load's job a click away). On a profile's page, **Upload the next
@@ -1119,7 +1121,7 @@ applied or cancelled. Background jobs report progress, survive
 restarts without repeating or skipping an item, and can be cancelled. Jobs and their outcomes are
 kept for a configurable retention.
 
-Settings › Data operations › **Jobs** lists the jobs of every workspace, newest first, with
+Settings › This instance › **Jobs** lists the jobs of every workspace, newest first, with
 their state, result and item counts, and cancels a queued or running job after confirming (while
 the deployment lets jobs be created). It also shows the batch and job limits and how long the
 change feed is kept.
@@ -1146,7 +1148,7 @@ cancelled or failed export has no file.
 
 In the browser, **Export** on a collection page exports what the page shows (its type, its data
 context, its filters and its narrowing to a parent; the search is not carried), with other types of
-the application if wanted, a date, the relationships and a format. Settings › Data operations › Jobs
+the application if wanted, a date, the relationships and a format. Settings › This instance › Jobs
 starts an export of any types of a workspace. A notification says the export started, and
 another when it finished, with Download and the job's page, or that it failed or was cancelled. Each
 job has its own page showing its state and progress as they change, its error, Cancel, and for an
@@ -1232,7 +1234,7 @@ import loads the file as it stands then, so data changed meanwhile counts; cance
 ends without writing.
 
 In the browser, **Import** on a collection page loads a file into the data the page shows, live or
-its change set, and **New import** on Settings › Data operations › Jobs loads one into a chosen
+its change set, and **New import** on Settings › This instance › Jobs loads one into a chosen
 workspace's live data or one of its change sets. The user picks the file, a stored profile or none,
 whether the rows that can load load or nothing does unless every row loads, and whether records the
 file finds are updated; the import is always previewed first, and its page opens at once. It shows
@@ -1311,7 +1313,7 @@ the receiver did not take. A subscription is also paused, with the reason, when 
 is no longer allowed, when a record its filter names no longer exists, or when changes expired
 before they could be sent; the operator can then resume from now on and re-read the data.
 
-Settings › Integration › **Webhooks** does all of this on a page. A webhook has a name of its
+Settings › Connections › **Webhooks** does all of this on a page. A webhook has a name of its
 own. Creating one asks for the name and address, its source (a consumer API, or the workspace's own events: a change set submitted, approved or sent back) and workspace, its events (all,
 or a few chosen from a searchable list) and any filters (added one at a time, their values typed as
 tags), and how requests are made (one event per request or batched, with the object or the
@@ -1396,7 +1398,7 @@ path written out with the API's name and version, every field with its type, the
 takes, its limits and its refusals. A client generated from it reads the API's real answers. When a
 release raises the contract version, the index and the document move to the new version. The author can keep the previous version served beside the new one, with the `Deprecation` header and an announced `Sunset` day, until they stop serving it: each kept version is in the index and answers every route from the current data in its own shape, and a webhook set up under it keeps receiving that shape.
 
-Settings › Integration › **Consumer APIs** shows each consumer API of the active release, read
+Settings › Connections › **Consumer APIs** shows each consumer API of the active release, read
 only: its name in the address, contract version, base URL and OpenAPI document (each with a copy
 button), a link to its source in the API reference, the record types it exposes under their public
 names, its lists and its events; it links to the release that declares it. The bundled example
@@ -1417,7 +1419,7 @@ Evidence: [consumer API design](../CONSUMER_API.md),
 `/docs` renders the management API's OpenAPI document with Scalar, and beside it every consumer API
 the active model declares, each labelled with its name and contract version and switched to from the
 page's source menu. A model release that adds, removes or re-versions a consumer API shows on the next
-page load. Settings › Integration › **API reference** lists the same sources with their versions,
+page load. Settings › Connections › **API reference** lists the same sources with their versions,
 each linked to its source on the page and to its OpenAPI document. The script is bundled, so the page works without internet access and loads nothing from
 elsewhere; a setting loads it from a CDN instead. Its "try it" console calls the engine that served it as the person signed in at the browser, so a
 request is answered or refused as the application would; a client's token can be pasted over theirs.
@@ -1471,7 +1473,7 @@ password?: the person types their e-mail address, is told the same whoever they 
 receives a link to choose a new password only if they have a local password and an address. Systems obtain tokens with a client's credentials (F16).
 
 The organisation's sign-in provider (OpenID Connect: Entra ID, Google, Keycloak and others) is added
-on Settings › Security › Sign-in, with the address to register there shown to copy; the sign-in page
+on Settings › People and access › Sign-in, with the address to register there shown to copy; the sign-in page
 then offers "Continue with" it, and the provider's own multi-factor sign-in applies. A person signing
 in through it for the first time is created with their name and e-mail from the provider, and the
 provider's groups become groups of the engine, listed under the provider, whose membership each
@@ -1483,8 +1485,8 @@ Limits: someone who already has a local account becomes a second person at their
 sign-in, whom an administrator links to the first (their roles and history stay with the first);
 signing out of the engine signs the person out of the provider only where that provider's setting is
 on, and someone removed in the provider keeps an open session until it lapses unless deactivated
-here. What a person may do is F27; people, clients and signing keys are managed in Settings ›
-Security (F27). Local accounts have a password, and an authenticator app with recovery codes that
+here. What a person may do is F27; people and signing keys are managed in Settings ›
+People and access, clients in Settings › Connections (F27). Local accounts have a password, and an authenticator app with recovery codes that
 each person adds on Account and an administrator can require; a sign-in provider brings the
 organisation's own multi-factor sign-in. A person can also add passkeys on Account, made on the
 engine's own page, which sign them in alone or after a password; they lose their use if the engine's
@@ -1539,7 +1541,7 @@ propose, change live, publish and approve; a limited permission is a count that 
 application by application, with the roles giving it; roles across the instance are listed beneath. On a
 narrow screen each workspace stacks. The account menu names the roles held in the workspace open.
 
-A security administrator manages all of it in Settings › Security. **People** lists everyone with
+A security administrator manages all of it in Settings › People and access. **People** lists everyone with
 the roles they hold, searched by name and shown active or deactivated; a person's page edits their
 name and e-mail, makes a one-time password link (shown once, and mailed to the person when mail is set up and they
 have an address), signs them out everywhere, deactivates or restores them, and lists their roles, directly
@@ -1570,7 +1572,7 @@ Access lists such a grant as "Consumer API: *name*" and removes it like any othe
 API's OpenAPI document tells a generated client how to obtain its token. A webhook subscription names
 the person or client that created it; administrators manage it as before.
 
-**Clients** in Settings › Security lists the systems that call the API, each with what it may use
+**Clients** in Settings › Connections lists the systems that call the API, each with what it may use
 (its consumer APIs and where, its roles) and when it last obtained a token, searched by name and
 shown active or deactivated. A new client's ID and secret are shown once. A client's page says who
 created it, renames it, deactivates or restores it, and **rotates its secret**: a new one is shown
@@ -1614,7 +1616,7 @@ Evidence: [authorization contract](../API.md#authorization), [OPERATIONS](../OPE
 **User outcome:** An administrator connects refiroo to the organisation's mail server once, and knows
 it works before anyone depends on it.
 
-An administrator with Security administration opens Settings › Integration › **Mail** and enters the
+An administrator with Security administration opens Settings › This instance › **Mail** and enters the
 mail server: its name and port, how the connection is secured (STARTTLS or TLS; unencrypted only for a
 relay on a trusted network, and then without a login), a user name and password if it asks for one,
 the address mail comes from and the address people reach refiroo at, which the links in mail point to
@@ -1646,7 +1648,13 @@ failure and when it was last tried; a message's text is never shown, and is eras
 has failed, since it holds a one-time link. Without saved settings nothing is sent, and everything
 else works as before. Each change to the settings is recorded as a security event.
 
-**Inbox notices by mail.** On Settings › Notifications a person who has an address can switch on "Email me when
+**Security messages** (0.17 SM1). When a person's password is changed or reset, or an authenticator app or a
+passkey is added or removed, they are mailed a short message saying what changed and when, and that they should
+tell an administrator if it was not them. It holds no code and no link that signs in, a person cannot switch it
+off, and it is not sent when mail is not set up or the person has no e-mail address (the change is made
+either way). It goes through the e-mail template like every other message.
+
+**Inbox notices by mail.** On Settings › You › Notification email a person who has an address can switch on "Email me when
 something arrives in my inbox" (off until then) and, under it, choose which kinds of notice are mailed: one setting for
 each of a change set waiting for approval, one of theirs approved, one of theirs sent back, and a job of theirs that
 finished, failed or waits for confirmation (all on until they switch one off). A kind switched off stops the mail only;
@@ -1664,7 +1672,7 @@ says when the next digest is. One message says how many notices of each kind wai
 that opens the notice, and gives a job's counts while the job is kept; it names no record, change set, workspace, person or
 file, and no AI writes it. No new notice, or everything read before then, gives no mail. A Follow toggle on each workspace card
 on Home puts a notice in the person's inbox when a change set is published there (from a request or directly, not their own);
-Settings › Notifications lists the followed workspaces with Stop following. A follower who loses Browse there is no longer told.
+Settings › You › Notification email lists the followed workspaces with Stop following. A follower who loses Browse there is no longer told.
 
 Limits: the page has no way to send a failed message again; there is no mail for clients, no choice of the digest's hour or an
 evening digest, and no names in a digest (D432); there is no mail provider's
@@ -1691,7 +1699,7 @@ only; also a few sample values; or also the record values a feature needs, up to
 setting that cannot work stops the server from starting and names the setting. With neither the
 assistant's command nor a provider, nothing is sent anywhere and no AI action appears.
 
-On Settings › Administration › **AI**, a person with Operations first sees what is switched on: the assistant
+On Settings › This instance › **AI**, a person with Operations first sees what is switched on: the assistant
 (its command is set or not) and the provider (set or not), each with a line on what it gives. With neither,
 the page says so and nothing is offered. They also see the provider and model, whether a key is set
 (never the key), what may be sent and which features are offered; **Send a test request**
@@ -1841,7 +1849,7 @@ Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPE
 
 ## F30 — Reach refiroo from an assistant
 
-With agent access on, an assistant that speaks MCP connects to this instance's address. A person adds the address to their assistant and signs in on refiroo's own page, which says who asks and where it returns. A system's assistant uses an agent client, created under Settings › Security › **Agent access**, where its access is set like any client's.
+With agent access on, an assistant that speaks MCP connects to this instance's address. A person adds the address to their assistant and signs in on refiroo's own page, which says who asks and where it returns. A system's assistant uses an agent client, created under Settings › Connections › **Agent access**, where its access is set like any client's.
 
 It reads, with Browse in a workspace: the model, records with their relationships and history, a mapping view's unmapped values, the workspace's changes, and each consumer API through a lookup tool of its own. A client holding only a consumer API's grant reads that API alone. Reads are of live data, except those naming a change set the assistant itself prepared (below); it cannot read an older publication.
 

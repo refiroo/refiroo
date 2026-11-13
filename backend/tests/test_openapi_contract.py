@@ -607,9 +607,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # CanvasUpdate; `positions` is optional in the update); no path changed.
     # Re-baselined for SM1 and NG1 (descriptions only): MailMessageResponse.kind names `security`, and a
     # navigation group's view member is any view of the application, not only a relation matrix.
+    # Re-baselined for R17-F20 (additive): a sign-in provider gains `emailsTrusted` (SignInProviderResponse,
+    # SignInProviderCreate, SignInProviderUpdate). The hash is of the tree as it stands (the other
+    # review fixes' description changes are in it too).
+    # Re-baselined for 0.17.0: info.version, and the release review's later description and error-list
+    # fixes (R17-F27 to F29, F14 to F17's refusals); compared against HEAD without prose, the only
+    # structural change in the release review is R17-F20's `emailsTrusted`.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "8aaafb0f5791454d9f16316b6684f9ff9a2696dca1f2a5454bb2003ab783654e"
+        "679df97f1b53d3ba66df422e60d1789d50304fcc4facdb97fcf302a2602fba69"
     )
 
 

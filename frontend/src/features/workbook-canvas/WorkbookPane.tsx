@@ -6,7 +6,7 @@
  * that is on it (rows, blanks filled, headings) and whether it is still as the inference proposed it.
  */
 
-import { useMemo, useRef, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { useId, useMemo, useRef, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { CellGrid } from "@/features/model-editor/CellGrid";
 import { columnLetter, columnNumber } from "@/features/model-editor/lists";
 import { usesOf } from "@/features/model-editor/mapping";
@@ -84,6 +84,7 @@ export function WorkbookPane({
   sheets,
   sheet,
   onSheet,
+  menuForSheet,
   columns,
   profile,
   proposed,
@@ -103,6 +104,8 @@ export function WorkbookPane({
   sheets: readonly SourceSheet[];
   sheet?: SourceSheet;
   onSheet: (name: string) => void;
+  /** A sheet tab's menu: what a drag onto the board does, by menu and keyboard (PP-D75). */
+  menuForSheet?: (name: string) => ActionMenuItem[];
   columns: readonly SourceColumn[];
   profile: DraftProfileDocument | null | undefined;
   proposed: ReadonlySet<string>;
@@ -122,6 +125,7 @@ export function WorkbookPane({
   /** A press on a column with no key held: its panel opens in the inspector (CE1). */
   onOpenColumn?: (header: string) => void;
 }) {
+  const tabs = useId();
   const anchor = useRef<string | undefined>(undefined);
   const named = columns.filter((column) => column.header);
   const order = named.map((column) => column.header ?? "");
@@ -193,25 +197,37 @@ export function WorkbookPane({
       {!sheets.length && !error && (
         <p className="canvas-hint">{hasFile ? "Reading the workbook…" : "This draft has no workbook."}</p>
       )}
-      <div className="canvas-sheets" role="tablist" aria-label="Sheets">
-        {sheets.map((item) => (
-          <button
-            key={item.name}
-            type="button"
-            role="tab"
-            aria-selected={item.name === sheet?.name}
-            className={`canvas-sheet${item.name === sheet?.name ? " current" : ""}`}
-            draggable={canDrag && editable}
-            onDragStart={(event) => {
-              event.dataTransfer.setData(DRAG_SHEET, item.name);
-              event.dataTransfer.effectAllowed = "copy";
-            }}
-            onClick={() => onSheet(item.name)}
-            title="Drag onto the board to make an object type of its rows"
-          >
-            {item.name}
-            <small>{item.rows.toLocaleString("en-US")}</small>
-          </button>
+      <div className="canvas-sheets">
+        {/* The tabs sit beside their actions menus, which a tablist may not hold: the list owns its tabs. */}
+        <div
+          className="visually-hidden"
+          role="tablist"
+          aria-label="Sheets"
+          aria-owns={sheets.map((_, at) => `${tabs}-${at}`).join(" ")}
+        />
+        {sheets.map((item, at) => (
+          <span key={item.name} className="canvas-sheet-item">
+            <button
+              type="button"
+              role="tab"
+              id={`${tabs}-${at}`}
+              aria-selected={item.name === sheet?.name}
+              className={`canvas-sheet${item.name === sheet?.name ? " current" : ""}`}
+              draggable={canDrag && editable}
+              onDragStart={(event) => {
+                event.dataTransfer.setData(DRAG_SHEET, item.name);
+                event.dataTransfer.effectAllowed = "copy";
+              }}
+              onClick={() => onSheet(item.name)}
+              title="Drag onto the board to make an object type of its rows"
+            >
+              {item.name}
+              <small>{item.rows.toLocaleString("en-US")}</small>
+            </button>
+            {editable && menuForSheet && (
+              <ActionMenu label={`Actions for ${item.name}`} items={menuForSheet(item.name)} />
+            )}
+          </span>
         ))}
       </div>
       {sheet && chosen.length > 1 && (

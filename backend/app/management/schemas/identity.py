@@ -277,6 +277,10 @@ class SignInProviderResponse(BaseModel):
     signOutOfProvider: bool = Field(
         description="Signing out of the engine signs the person out of the provider too (I4a)"
     )
+    emailsTrusted: bool = Field(
+        description="Its e-mail addresses are trusted as sent; off: only with `email_verified: "
+        "true` in the ID token (R17-F20)"
+    )
     redirectUri: str = Field(description="The address to register with the provider")
     signedOutUri: str = Field(
         description="The address to register for returning from the provider's sign-out (I4a)"

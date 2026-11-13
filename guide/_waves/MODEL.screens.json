@@ -1031,7 +1031,7 @@
     {
       "name": "model-view-matrix-dialog",
       "shows": "Editing a view: the Change dialog of the 'Municipalities by system' relation matrix view in Systems, with rows, what each cell shows, columns, fields and a live preview. Cancelled.",
-      "height": 1100,
+      "height": 1200,
       "actions": [
         {
           "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=systems"

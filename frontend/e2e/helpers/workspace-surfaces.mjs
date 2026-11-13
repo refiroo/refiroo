@@ -82,7 +82,7 @@ print(json.dumps({'target': generated('a').model, 'leftOut': world.key('C'), 're
   const varying = () => [
     page.getByText(/just now|minutes? ago|\d{1,2}:\d{2}|^[0-9a-f]{8}(-|…)/),
     page.locator(".operations-refresh .settings-note"),
-    page.locator(".operations-processes"),
+    page.locator(".operations-process"),
   ];
   const closeDialogs = async () => {
     for (let step = 0; step < 10; step += 1) {

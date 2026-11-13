@@ -38,7 +38,7 @@ import pytest
 import seeds
 from harness_identity import TestClient
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 from oidc_provider import OidcProvider
 from software_authenticator import SoftwareAuthenticator
 from test_reference_change_sets import Person
@@ -219,19 +219,17 @@ async def _connected(app: Any, token: str, use: Any) -> Any:
 
     transport = httpx.ASGITransport(app=app)
 
-    def factory(headers=None, timeout=None, auth=None) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            transport=transport,
-            base_url="http://testserver",
-            headers=headers,
-            timeout=timeout,
-            auth=auth,
-        )
+    http_client = httpx.AsyncClient(
+        transport=transport, base_url="http://testserver", headers=_bearer(token)
+    )
 
     async with (
-        streamablehttp_client(
-            "http://testserver/mcp", headers=_bearer(token), httpx_client_factory=factory
-        ) as (read, write, _),
+        http_client,
+        streamable_http_client("http://testserver/mcp", http_client=http_client) as (
+            read,
+            write,
+            _,
+        ),
         ClientSession(read, write) as session,
     ):
         await session.initialize()
@@ -1299,6 +1297,7 @@ def test_the_organisations_sign_in_provider_is_connected(security):
                 "clientSecret": idp.client_secret,
                 "groupsClaim": "groups",
                 "enabled": True,
+                "emailsTrusted": True,
             },
             status=201,
             record="companySso",

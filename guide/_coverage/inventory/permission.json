@@ -8,7 +8,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:33",
   "section": "administer",
-  "summary": "Read a workspace: its model, records, relations, history, change sets and publications; export to a file"
+  "summary": "Read a workspace: its model, records, relations, history, change sets and publications; export to a file",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -19,7 +24,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:40",
   "section": "administer",
-  "summary": "Create, change and delete records, values and relationships without a change set"
+  "summary": "Create, change and delete records, values and relationships without a change set",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -30,7 +40,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:47",
   "section": "administer",
-  "summary": "Create, change, validate and discard change sets, and edit records inside them"
+  "summary": "Create, change, validate and discard change sets, and edit records inside them",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -41,7 +56,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:54",
   "section": "administer",
-  "summary": "Publish a change set; withdraw a publication"
+  "summary": "Publish a change set; withdraw a publication",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -52,7 +72,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:61",
   "section": "administer",
-  "summary": "Decide a submitted change set: approve it, which publishes it, or send it back"
+  "summary": "Decide a submitted change set: approve it, which publishes it, or send it back",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -63,7 +88,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:67",
   "section": "administer",
-  "summary": "Batches and imports; import profiles and source files"
+  "summary": "Batches and imports; import profiles and source files",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -74,7 +104,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:74",
   "section": "administer",
-  "summary": "Model-to-model mappings, and moving records between workspaces"
+  "summary": "Model-to-model mappings, and moving records between workspaces",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -85,7 +120,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:81",
   "section": "administer",
-  "summary": "Model drafts and everything on them; reading model releases"
+  "summary": "Model drafts and everything on them; reading model releases",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -96,7 +136,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:87",
   "section": "administer",
-  "summary": "Install a draft as a release, without activating it anywhere"
+  "summary": "Install a draft as a release, without activating it anywhere",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -107,7 +152,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:93",
   "section": "administer",
-  "summary": "Install a draft as a release, activate a release in a workspace, migrate a workspace"
+  "summary": "Install a draft as a release, activate a release in a workspace, migrate a workspace",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -118,7 +168,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:99",
   "section": "administer",
-  "summary": "Create, rename, retire and delete workspaces; set the default workspace"
+  "summary": "Create, rename, retire and delete workspaces; set the default workspace",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -129,7 +184,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:105",
   "section": "administer",
-  "summary": "Consumer API subscriptions and their deliveries"
+  "summary": "Consumer API subscriptions and their deliveries",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -140,7 +200,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:110",
   "section": "administer",
-  "summary": "Read a workspace's change feed"
+  "summary": "Read a workspace's change feed",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -151,7 +216,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:112",
   "section": "administer",
-  "summary": "Processes, readiness, metrics, backup rehearsals and the deployment's settings"
+  "summary": "Processes, readiness, metrics, backup rehearsals and the deployment's settings",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -162,7 +232,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:118",
   "section": "administer",
-  "summary": "People, groups, roles, grants, clients and token signing keys"
+  "summary": "People, groups, roles, grants, clients and token signing keys",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -173,7 +248,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:126",
   "section": "administer",
-  "summary": "Ask the configured AI provider for proposals the person then edits, keeps or removes, and for summaries"
+  "summary": "Ask the configured AI provider for proposals the person then edits, keeps or removes, and for summaries",
+  "commonContext": [
+   "permission",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -183,7 +263,13 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:150",
   "section": "administer",
-  "summary": "Anything a signed-in caller may read about themselves or the engine"
+  "summary": "Anything a signed-in caller may read about themselves or the engine",
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -193,7 +279,13 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:152",
   "section": "administer",
-  "summary": "List the workspaces the caller holds a role in (D288)"
+  "summary": "List the workspaces the caller holds a role in (D288)",
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -203,7 +295,13 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:154",
   "section": "administer",
-  "summary": "Read the data and model changes the caller may see, across workspaces (Z6, D342)"
+  "summary": "Read the data and model changes the caller may see, across workspaces (Z6, D342)",
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
+  ]
  },
  {
   "kind": "permission",
@@ -217,6 +315,12 @@
   "summary": "Read a workspace's model",
   "groups": [
    "browse"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -231,6 +335,12 @@
   "summary": "Read a workspace",
   "groups": [
    "browse"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -245,6 +355,12 @@
   "summary": "Read records, relationships, history and queries",
   "groups": [
    "browse"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -259,6 +375,12 @@
   "summary": "Read change sets and their changes",
   "groups": [
    "browse"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -273,6 +395,12 @@
   "summary": "Read publications",
   "groups": [
    "browse"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -287,6 +415,12 @@
   "summary": "Export records to a file",
   "groups": [
    "browse"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -302,6 +436,12 @@
   "groups": [
    "edit-live",
    "change-sets"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -316,6 +456,12 @@
   "summary": "Create, change, validate and discard change sets",
   "groups": [
    "change-sets"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -330,6 +476,12 @@
   "summary": "Publish a change set",
   "groups": [
    "publish"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -344,6 +496,12 @@
   "summary": "Submit a change set for publication, or withdraw its submission",
   "groups": [
    "change-sets"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -359,6 +517,12 @@
   "groups": [
    "change-sets",
    "approve"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -373,6 +537,12 @@
   "summary": "Approve a submitted change set, which publishes it, or send it back",
   "groups": [
    "approve"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -387,6 +557,12 @@
   "summary": "Change a workspace's approval policy",
   "groups": [
    "workspace-admin"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -401,6 +577,12 @@
   "summary": "Withdraw a publication",
   "groups": [
    "publish"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -415,6 +597,12 @@
   "summary": "Send a batch or an import",
   "groups": [
    "bulk"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -429,6 +617,12 @@
   "summary": "Read and change import profiles",
   "groups": [
    "bulk"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -443,6 +637,12 @@
   "summary": "Upload, read and delete source files",
   "groups": [
    "bulk"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -457,6 +657,12 @@
   "summary": "Read and change model-to-model mappings",
   "groups": [
    "copy-move"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -471,6 +677,12 @@
   "summary": "Move records into another workspace",
   "groups": [
    "copy-move"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -485,6 +697,12 @@
   "summary": "Author model drafts",
   "groups": [
    "model-authoring"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -500,6 +718,12 @@
   "groups": [
    "model-authoring",
    "model-release"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -515,6 +739,12 @@
   "groups": [
    "model-release",
    "model-install"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -529,6 +759,12 @@
   "summary": "Activate a release in a workspace, or migrate it",
   "groups": [
    "model-release"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -543,6 +779,12 @@
   "summary": "Create, change and delete workspaces",
   "groups": [
    "workspace-admin"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -557,6 +799,12 @@
   "summary": "Create a workspace from a workbook's draft: install it, create the workspace, load the workbook",
   "groups": [
    "workspace-admin"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -571,6 +819,12 @@
   "summary": "Read a workspace's change feed",
   "groups": [
    "feed"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -585,6 +839,12 @@
   "summary": "Manage consumer API subscriptions",
   "groups": [
    "integration-admin"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -599,6 +859,12 @@
   "summary": "Read the running service's state and settings",
   "groups": [
    "operations"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -613,6 +879,12 @@
   "summary": "Send the AI provider a test request",
   "groups": [
    "operations"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -627,6 +899,12 @@
   "summary": "Edit the e-mail template, its logo and send a test of it",
   "groups": [
    "operations"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -641,6 +919,12 @@
   "summary": "Manage people, groups, roles, grants and keys",
   "groups": [
    "security-admin"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -655,6 +939,12 @@
   "summary": "Read agent access: its settings, assistants, agent clients and calls",
   "groups": [
    "security-admin"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -669,6 +959,12 @@
   "summary": "Register, block and restore the assistants people sign in with",
   "groups": [
    "security-admin"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -688,6 +984,12 @@
    "model-release",
    "change-sets",
    "model-authoring"
+  ],
+  "commonContext": [
+   "permission",
+   "action",
+   "group",
+   "role"
   ]
  },
  {
@@ -698,7 +1000,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:354",
   "section": "administer",
-  "summary": "Groups: browse"
+  "summary": "Groups: browse",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",
@@ -708,7 +1015,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:355",
   "section": "administer",
-  "summary": "Groups: browse, change-sets"
+  "summary": "Groups: browse, change-sets",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",
@@ -718,7 +1030,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:356",
   "section": "administer",
-  "summary": "Groups: browse, edit-live, change-sets, publish, bulk, ai-proposals"
+  "summary": "Groups: browse, edit-live, change-sets, publish, bulk, ai-proposals",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",
@@ -728,7 +1045,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:357",
   "section": "administer",
-  "summary": "Groups: browse, edit-live, change-sets, publish, approve, bulk, feed, copy-move, ai-proposals"
+  "summary": "Groups: browse, edit-live, change-sets, publish, approve, bulk, feed, copy-move, ai-proposals",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",
@@ -739,7 +1061,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:368",
   "section": "administer",
-  "summary": "Groups: model-authoring, model-install, model-release, ai-proposals"
+  "summary": "Groups: model-authoring, model-install, model-release, ai-proposals",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",
@@ -750,7 +1077,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:369",
   "section": "administer",
-  "summary": "Groups: workspace-admin, ai-proposals"
+  "summary": "Groups: workspace-admin, ai-proposals",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",
@@ -761,7 +1093,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:370",
   "section": "administer",
-  "summary": "Groups: integration-admin, feed, ai-proposals"
+  "summary": "Groups: integration-admin, feed, ai-proposals",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",
@@ -771,7 +1108,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:371",
   "section": "administer",
-  "summary": "Groups: operations"
+  "summary": "Groups: operations",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",
@@ -782,7 +1124,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:372",
   "section": "administer",
-  "summary": "Groups: security-admin"
+  "summary": "Groups: security-admin",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",
@@ -792,7 +1139,12 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:375",
   "section": "administer",
-  "summary": "Groups: browse, change-sets"
+  "summary": "Groups: browse, change-sets",
+  "commonContext": [
+   "role",
+   "group",
+   "permission"
+  ]
  },
  {
   "kind": "permission",

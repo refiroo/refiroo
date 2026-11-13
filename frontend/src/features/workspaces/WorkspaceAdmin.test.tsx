@@ -756,7 +756,8 @@ describe("WorkspaceAdmin tabs, applications and activity", () => {
       .mockResolvedValueOnce({ items: [change("c", "2026-10-24T08:00:00Z", "Gamma")], nextCursor: null } as never);
     renderAdmin("retail", { route: { ...LIST, workspaceKey: "retail", workspaceTab: "activity" } });
     const log = await screen.findByRole("group", { name: "Activity" });
-    expect(within(log).getAllByRole("heading", { level: 3 })).toHaveLength(2);
+    // The day headings are h2 under the page's h1 (R17-F46).
+    expect(within(log).getAllByRole("heading", { level: 2 })).toHaveLength(2);
     expect(within(log).getByText("Added Alpha")).toBeInTheDocument();
     expect(within(log).getAllByText(/Ana Varga/).length).toBe(2);
     expect(api.changes).toHaveBeenCalledWith(expect.objectContaining({ workspaceKey: "retail" }));

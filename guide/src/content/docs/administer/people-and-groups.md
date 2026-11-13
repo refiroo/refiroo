@@ -10,7 +10,7 @@ Security administrator role. That role manages access; it does not itself allow 
 
 ## People and their sign-in
 
-Use **Search people** (**Name or e-mail**) to find a person. The list also shows their roles. **Active** and **Deactivated** show
+Use **Search people** (**Name or e-mail**) to find a person. When adding members to a group, **Search people by name or e-mail** finds them the same way. The list also shows their roles. **Active** and **Deactivated** show
 separate lists and counts. Open a person’s row to see their own page with sign-in methods, roles, groups and recent activity. The first line, **← People**, returns to the list.
 A person has one identity in refiroo and can hold different roles in different workspaces.
 

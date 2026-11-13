@@ -10,7 +10,9 @@ The first turn reads the person's words for a mode and keeps it in the folder fo
   the load imports the workbook through that profile into the change set, so the engine saves it;
 - `BESIDE`: the proposal's check is a dry run through a profile with no key, so its rows do not find their
   records and are created beside them (those whose code is held are refused as duplicates), which the engine
-  warns of on the proposal."""
+  warns of on the proposal.
+
+Either way the profile is stored on the draft before the check, which reads the draft's own (0.17 PL3b)."""
 
 import json
 import os
@@ -93,9 +95,17 @@ def checked_by_dry_run(draft, keyed):
         data={"request": json.dumps({"owner": {"draftId": draft}, "workspaceKey": "default"})},
     )
     until(f"/source-files/{upload['id']}", lambda found: found["profile"]["state"] == "completed")
+    # The profile is stored on the draft and the dry run is given the profile the draft answers with: the engine refuses a design whose
+    # check no stored profile reproduces (0.17 PL3b).
+    held = call(f"/model-drafts/{draft}")
+    call(
+        f"/model-drafts/{draft}/operations",
+        {"expectedVersion": held["version"], "operations": [{"kind": "setProfile", **profile(keyed)}]},
+    )
+    stored = call(f"/model-drafts/{draft}/profile")["definition"]
     call(
         f"/model-drafts/{draft}/dry-run",
-        {"sourceFileId": upload["id"], "workspaceKey": "default", "profile": profile(keyed), "onExisting": "overwrite"},
+        {"sourceFileId": upload["id"], "workspaceKey": "default", "profile": stored, "onExisting": "overwrite"},
     )
     until(f"/model-drafts/{draft}/dry-run", lambda found: found["state"] == "completed")
 

@@ -279,6 +279,12 @@ for _test, _routes in {
         "get /import-profiles/{profile_key}/check/missing-records",
         "get /import-profiles/{profile_key}/check/rows",
     ],
+    # Added with 0.17 PP-D26 (a preview read again) and the 0.17 deletion-impact read: the first
+    # starts a new preview and the second reads what a delete would take; neither writes a record.
+    _NO_RECORD + ": an import preview is read again; a record's deletion impact is read": [
+        "post /jobs/{job_id}/reread",
+        "get /objects/{object_type_key}/{object_id}/deletion-impact",
+    ],
     _NO_RECORD + ": a mapping relates two models": [
         "get /model-mappings",
         "post /model-mappings",
@@ -601,6 +607,7 @@ CLASSIFICATION: dict[tuple[str, str], Route] = {
     ("get", "/openapi.json"): Route(OPEN, "the contract a client needs before it has a token (D412)", {200}),
     ("get", "/docs/api"): Route(OPEN, "the API reference page; its console signs in by session (C1)", {200}),
     ("get", "/docs/api/"): Route(OPEN, "the API reference page at its trailing-slash address", {200}),
+    ("get", "/docs/api/examples/{slug}/{part}.json"): Route(OPEN, "a recorded example's body, public reference content the page links to", {404}),
     ("get", "/docs/api/scalar/standalone.js"): Route(OPEN, "the page's bundled script", {200}),
     ("get", "/brand/{name}"): Route(OPEN, "the mark on the engine's own pages", {404}),
     ("get", "/oauth/authorize"): Route(OPEN, "the sign-in page", {400}, valid={200}),
@@ -1019,10 +1026,15 @@ def test_a_reset_by_mail_does_not_skip_the_second_factor(world, smtp):  # noqa: 
     other = ok(_exchange(second, _code(signed), verifier))["access_token"]
     assert _open_sessions(world, ada["id"]) == 2
 
+    # Turning the authenticator app on was told to her by mail (0.17 SM1, J46.13): that message is
+    # sent first, so what follows is the reset's own.
+    assert send_mail(world) == 1
+    told = len(smtp.messages)
+
     browser = _browser(world)
     assert _ask(browser, "ada@example.org")["status"] == "requested"
     assert send_mail(world) == 1
-    [mail] = smtp.messages
+    [mail] = smtp.messages[told:]
     link = next(
         line
         for line in mail.get_body(("plain",)).get_content().splitlines()

@@ -12,6 +12,7 @@ import {
   operationsFor,
   type OperationTarget,
 } from "@/features/model-editor/operations";
+import { renameTypeOperations } from "@/features/model-editor/lists";
 import type { CanvasSelection, EditorSelection } from "@/types";
 import type { DraftOperation, ModelDraftOutline } from "@/types/modelAdmin";
 import { type CanvasCard, type CanvasField, type CanvasLine, type Position } from "./canvasModel";
@@ -119,19 +120,9 @@ export function findIn(outline: ModelDraftOutline, query: string): FindHit[] {
 
 // --- by hand: the operations the editor's table builds ---
 
-/** A list renamed where it stands: the editor's Rename…, whose plural follows the name while it was the name's own. */
-export function renameListOperations(
-  card: Pick<CanvasCard, "typeKey" | "name">,
-  name: string,
-  outline: ModelDraftOutline,
-): DraftOperation[] {
-  const rename = operationById("type-rename");
-  const target: OperationTarget = { on: "objectType", objectType: card.typeKey };
-  if (!rename) return [];
-  const values = initialValues(rename, target, outline);
-  const plural = typeof values.pluralName === "string" ? values.pluralName : "";
-  const pluralName = !plural || plural === `${card.name}s` ? `${name.trim()}s` : plural;
-  return rename.build({ ...values, name: name.trim(), pluralName }, target as never, outline);
+/** A list renamed where it stands: the editor's heading rename, the same operations. */
+export function renameListOperations(card: Pick<CanvasCard, "typeKey" | "name">, name: string): DraftOperation[] {
+  return renameTypeOperations(card.typeKey, name.trim());
 }
 
 /** A field renamed where it stands: the editor's Rename… of its attribute, or of its relationship's type. */

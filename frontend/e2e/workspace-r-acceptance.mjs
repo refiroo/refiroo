@@ -20,6 +20,7 @@
 //        validated and published; the target holds the records under their parents, the source is
 //        unchanged.
 // Throughout: no console error, Error: text or unexpected 4xx/5xx; at 390px no sideways scroll.
+// Brought up to date (0.14 + 0.17 release review, SH1/UX1): the workspace page's actions are a menu (arrow keys, not Tab), worked with the person's menu step.
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -320,8 +321,7 @@ async function j38(variant) {
 
   // A new mapping proposed from the source's page.
   await page.goto(`${uiUrl}/settings/workspaces/${source.key}`);
-  await page.getByRole("button", { name: "More actions" }).click();
-  await keys.press(page.getByRole("menuitem", { name: /^Copy or move data…/ }), "Copy or move data…");
+  await keys.menu(page.getByRole("button", { name: "More actions" }), "Copy or move data…", "More actions");
   const opening = page.getByRole("dialog", { name: "New copy or move" });
   const to = opening.getByLabel("To workspace");
   await to.locator(`option[value="${target.key}"]`).waitFor({ state: "attached" });

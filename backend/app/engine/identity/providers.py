@@ -173,6 +173,7 @@ def create_provider(
             groups_claim=_groups_claim(payload.groupsClaim),
             enabled=payload.enabled,
             sign_out_of_provider=payload.signOutOfProvider,
+            emails_trusted=payload.emailsTrusted,
         )
         session.add(provider)
         session.flush()
@@ -180,7 +181,8 @@ def create_provider(
             session, "sign-in-provider", provider.key, "created",
             details={"name": provider.name, "issuer": provider.issuer,
                      "groupsClaim": provider.groups_claim, "enabled": provider.enabled,
-                     "signOutOfProvider": provider.sign_out_of_provider},
+                     "signOutOfProvider": provider.sign_out_of_provider,
+                     "emailsTrusted": provider.emails_trusted},
         )  # fmt: skip
         return provider
 
@@ -255,6 +257,8 @@ def update_provider(
             _end_sessions(session, provider.key, now)
         provider.enabled = enabled
         provider.sign_out_of_provider = sign_out
+        if payload.emailsTrusted is not None:
+            provider.emails_trusted = payload.emailsTrusted
         provider.version += 1
         provider.updated_at = now
         security_events.record(
@@ -263,6 +267,7 @@ def update_provider(
                 sorted(fields), name=provider.name, issuer=provider.issuer,
                 groupsClaim=provider.groups_claim, enabled=provider.enabled,
                 signOutOfProvider=provider.sign_out_of_provider,
+                emailsTrusted=provider.emails_trusted,
             ),
         )  # fmt: skip
         return provider

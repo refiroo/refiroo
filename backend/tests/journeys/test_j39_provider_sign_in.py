@@ -50,6 +50,7 @@ def _provider(world, idp: OidcProvider, key: str = "harness", **changes) -> dict
         "clientSecret": idp.client_secret,
         "groupsClaim": "groups",
         "enabled": True,
+        "emailsTrusted": True,
         **changes,
     }
     return ok(world.api.post("/sign-in-providers", body), 201)
@@ -479,7 +480,7 @@ def test_a_first_sign_in_needs_the_providers_email_and_a_free_address(world, idp
         0
     ]
     _cannot(taken, "security administrator")
-    assert "ana@example.org" in taken.text.lower()
+    assert "ana@example.org" not in taken.text.lower()  # the refusal does not tell who has it
     assert ok(world.api.get("/users", q="Ana Provider"))["items"] == []
     assert [e["details"]["reason"] for e in _failures(world)] == ["email_taken", "no_email"]
 
@@ -552,3 +553,62 @@ def test_two_first_sign_ins_of_the_same_new_person_at_once_make_one_person(world
     [pat] = ok(world.api.get("/users", q="pat@example.org"))["items"]
     assert [i["subject"] for i in pat["identities"]] == ["p-1"]
     assert not _failures(world)
+
+
+@pytest.mark.journey("J39")
+def test_an_address_the_provider_has_not_confirmed_is_not_taken_as_a_sign_in_name(world, idp):
+    """Given a provider whose addresses are not trusted (the default) and a person who holds
+    ana@example.org. When someone signs in through it for the first time with an address that is
+    unverified, or has no `email_verified`, then the page refuses it, tells them to ask an
+    administrator, names no address, and nobody is created; when the claim is verified and free the
+    person is created; a verified address another person holds is refused without naming it; and
+    at a later sign-in an unverified new address is not taken. A trusted provider takes an address
+    that says nothing, but never one that says `email_verified: false`."""
+    created = _provider(world, idp, emailsTrusted=False)
+    assert created["emailsTrusted"] is False
+    ana = _person(world, "ana")
+
+    for claim in ({"email_verified": "false"}, {}):
+        refusal = _through(
+            _browser(world), idp, sub="s-1", name="Sam", email="sam@example.org", **claim
+        )[0]
+        _cannot(refusal, "administrator")
+        assert "sam@example.org" not in refusal.text.lower()
+    assert ok(world.api.get("/users", q="Sam"))["items"] == []
+    assert [e["details"]["reason"] for e in _failures(world)] == ["email_unverified"] * 2
+
+    token = _signed_in(
+        world, idp, sub="s-1", name="Sam", email="sam@example.org", email_verified="true"
+    )
+    assert ok(world.api.client.get("/api/v1/me", headers=_bearer(token)))["email"] == (
+        "sam@example.org"
+    )
+    taken = _through(
+        _browser(world), idp, sub="s-2", name="Imp", email="ANA@example.org", email_verified="true"
+    )[0]
+    _cannot(taken, "security administrator")
+    assert "ana@example.org" not in taken.text.lower()
+    assert ok(world.api.get(f"/users/{ana['id']}"))["email"] == "ana@example.org"
+
+    _signed_in(world, idp, sub="s-1", name="Sam", email="other@example.org")
+    sam = ok(world.api.get("/users", q="Sam"))["items"][0]
+    assert sam["email"] == "sam@example.org"
+    _signed_in(world, idp, sub="s-1", name="Sam", email="moved@example.org", email_verified="true")
+    assert ok(world.api.get(f"/users/{sam['id']}"))["email"] == "moved@example.org"
+
+    version = ok(world.api.get("/sign-in-providers/harness"))["version"]
+    trusted = ok(
+        world.api.patch(
+            "/sign-in-providers/harness", {"expectedVersion": version, "emailsTrusted": True}
+        )
+    )
+    assert trusted["emailsTrusted"] is True
+    _signed_in(world, idp, sub="s-3", name="Tia", email="tia@example.org")
+    _cannot(
+        _through(
+            _browser(world), idp, sub="s-4", name="Una", email="una@example.org",
+            email_verified="false",
+        )[0],
+        "administrator",
+    )  # fmt: skip
+    assert ok(world.api.get("/users", q="Una"))["items"] == []

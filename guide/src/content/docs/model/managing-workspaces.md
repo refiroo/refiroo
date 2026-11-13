@@ -34,7 +34,7 @@ an administrator must make another workspace the default first.
 
 ## Create or rename a workspace
 
-1. Open **Settings › Workspaces**. Search the list before creating another dataset. Active
+1. Open **Settings › Workspaces**. Search the list with **Search workspaces** (by name or key) before creating another dataset. Active
    workspaces appear first, then retired ones.
 2. Choose **New workspace**. Complete its name and key. The key forms its address; choose it
    carefully. Use the default workspace's model, or choose another usable installed release.

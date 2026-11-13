@@ -10,60 +10,34 @@ the items that create the place and the record in one load. The records and cell
 worked out from are read once for the import (:class:`PlaceReads`), not once per column record.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, literal, select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from ...models.schema import CandidateCriterion, EngineModel
 from ..model.candidate_places import DerivedPlace, choose_container, derive_place, propose_place
-from ..model.candidates import meets_criteria
-from ..model.consumer_contract import split_ancestor_reference
 from ..model.traversal import ancestor_type_keys, parent_type_keys
 from ..reads.context_sets import record_source, relation_source
+from ..reads.model_query import candidate_place_filters
 from ..reads.snapshot_reads import SnapshotContext
 
 MAX_DEPTH = 64
 
 
 class PlaceReads:
-    """What the places of one import are worked out from, each read once by one statement and kept:
-    the records of a set of types, the cells of a view held by every container, and the containers
-    that hold cells of a view under any column record. Every column of the import that asks for the
-    same set reuses the answer."""
+    """What the places of one import are worked out from, each read by whole-set statements and
+    kept: the cells of a view held by every container, and the containers that hold cells of a view
+    under any column record. Every column of the import that asks for the same set reuses the
+    answer."""
 
     def __init__(self) -> None:
-        self._rows: dict[tuple[str, ...], dict[str, Any]] = {}
         self._counts: dict[tuple[str, str, str, str], dict[str, int]] = {}
         self._used: dict[tuple[Any, ...], list[Any]] = {}
-
-    def rows(
-        self,
-        session: Session,
-        workspace_key: str,
-        context: SnapshotContext | None,
-        types: list[str],
-    ) -> dict[str, Any]:
-        key = tuple(types)
-        if key not in self._rows:
-            source = record_source(workspace_key, context, types)
-            self._rows[key] = {
-                row.object_id: row
-                for row in session.execute(
-                    select(
-                        source.c.object_id,
-                        source.c.object_type_key,
-                        source.c.name,
-                        source.c.parent_object_id,
-                        source.c.attributes,
-                    )
-                )
-            }
-        return self._rows[key]
 
     def cells_in_use(
         self,
@@ -121,6 +95,20 @@ class PlaceReads:
 
 
 @dataclass(frozen=True)
+class PlaceRequest:
+    """One column record a new ``cell_type_key`` record may be created under, and the view it is
+    created for."""
+
+    column_record_id: str
+    column_type_key: str
+    cell_type_key: str
+    criteria: tuple[CandidateCriterion, ...]
+    relation_type_key: str
+    direction: str
+    row_type_key: str
+
+
+@dataclass(frozen=True)
 class Place:
     """Where new records under one column record go: an existing ``container_id``, or a place to
     create (``new``, with ``container_id`` the ID it will have). ``container_id`` is ``None`` when the
@@ -135,169 +123,265 @@ class Place:
     message: str | None = None
 
 
-def resolve_place(
+def resolve_places(
     session: Session,
     model: EngineModel,
     workspace_key: str,
     context: SnapshotContext | None,
-    *,
-    column_record_id: str,
-    column_type_key: str,
-    cell_type_key: str,
-    criteria: tuple[CandidateCriterion, ...],
-    relation_type_key: str,
-    direction: str,
-    row_type_key: str,
+    requests: Sequence[PlaceRequest],
     reads: PlaceReads | None = None,
-) -> Place:
-    """The place for a new ``cell_type_key`` record under the ``column_record_id`` record."""
-    container_types = {
-        key
-        for key in ancestor_type_keys(model, cell_type_key)
-        if key != column_type_key and column_type_key in ancestor_type_keys(model, key)
-    }
-    direct = parent_type_keys(model, cell_type_key)
-    types = sorted(container_types | {column_type_key} | ancestor_type_keys(model, column_type_key))
+) -> list[Place]:
+    """The place for a new record under each requested column record, in order. The records under
+    the column records, the criteria and the ancestor chains are worked out by statements over the
+    whole set of column records of a view (recursive CTEs), so the statements do not grow with the
+    number of column records."""
     reads = reads or PlaceReads()
-    rows = reads.rows(session, workspace_key, context, types)
-    ancestor_criteria = tuple(
-        item for item in criteria if split_ancestor_reference(item.field) is not None
-    )
-    found: list[Any] = []
-    for row in rows.values():
-        if row.object_type_key not in direct:
-            continue
-        chain = _chain(rows, row.object_id, column_record_id)
-        if chain is None:
-            continue
-        ancestors = [
-            (item.object_type_key, item.name, lambda item=item: dict(item.attributes or {}))
-            for item in chain
+    groups: dict[tuple[Any, ...], list[int]] = {}
+    for index, request in enumerate(requests):
+        key = (
+            request.column_type_key,
+            request.cell_type_key,
+            request.relation_type_key,
+            request.direction,
+            request.row_type_key,
+            tuple(item.model_dump_json() for item in request.criteria),
+        )
+        groups.setdefault(key, []).append(index)
+    places: list[Place | None] = [None] * len(requests)
+    for indexes in groups.values():
+        group = [requests[index] for index in indexes]
+        view = _View(session, model, workspace_key, context, group, reads)
+        for index, request in zip(indexes, group, strict=True):
+            places[index] = view.place(request)
+    return [place for place in places if place is not None]
+
+
+class _View:
+    """The column records of one view (one column type, cell type, relationship and criteria)."""
+
+    def __init__(
+        self,
+        session: Session,
+        model: EngineModel,
+        workspace_key: str,
+        context: SnapshotContext | None,
+        requests: list[PlaceRequest],
+        reads: PlaceReads,
+    ) -> None:
+        self.session, self.model, self.workspace_key = session, model, workspace_key
+        self.context, self.reads = context, reads
+        first = requests[0]
+        self.first = first
+        self.column_ids = sorted({item.column_record_id for item in requests})
+        self.container_types = sorted(
+            key
+            for key in ancestor_type_keys(model, first.cell_type_key)
+            if key != first.column_type_key
+            and first.column_type_key in ancestor_type_keys(model, key)
+        )
+        self.direct = parent_type_keys(model, first.cell_type_key)
+        self.types = sorted(
+            set(self.container_types)
+            | {first.column_type_key}
+            | ancestor_type_keys(model, first.column_type_key)
+        )
+        self.found: dict[str, list[Any]] = {}
+        self.own: dict[str, set[str]] = {}
+        self._read_under()
+        self._chains: dict[str, list[Any]] | None = None
+
+    def _read_under(self) -> None:
+        """Per column record, the containers under it (itself included) and which of them meet the
+        ancestor criteria: one statement for every column record of the view."""
+        source = record_source(self.workspace_key, self.context, self.types)
+        starts = sorted(set(self.container_types) | self.direct)
+        walk = (
+            select(
+                source.c.object_id.label("start_id"),
+                source.c.object_id.label("at_id"),
+                source.c.parent_object_id.label("parent_id"),
+                literal(0).label("depth"),
+            )
+            .where(source.c.object_type_key.in_(starts))
+            .cte("place_walk", recursive=True)
+        )
+        walk = walk.union_all(
+            select(
+                walk.c.start_id,
+                source.c.object_id,
+                source.c.parent_object_id,
+                walk.c.depth + 1,
+            )
+            .select_from(walk.join(source, source.c.object_id == walk.c.parent_id))
+            .where(walk.c.depth < MAX_DEPTH - 1)
+        )
+        cell_type = self.model.object_type(self.first.cell_type_key)
+        filters = (
+            candidate_place_filters(
+                self.model,
+                cell_type,
+                self.first.criteria,
+                workspace_key=self.workspace_key,
+                context=self.context,
+            )
+            if cell_type is not None
+            else []
+        )
+        meets = (
+            and_(*(item.predicate(source.c.object_id) for item in filters))
+            if filters
+            else literal(True)
+        )
+        statement = (
+            select(
+                walk.c.at_id.label("column_id"),
+                source.c.object_id,
+                source.c.object_type_key,
+                source.c.name,
+                meets.label("meets"),
+            )
+            .select_from(walk.join(source, source.c.object_id == walk.c.start_id))
+            .where(walk.c.at_id.in_(self.column_ids))
+            .distinct()
+        )
+        for row in self.session.execute(statement):
+            self.own.setdefault(row.column_id, set()).add(row.object_id)
+            if row.object_type_key in self.direct and row.meets:
+                self.found.setdefault(row.column_id, []).append(row)
+
+    def chains(self) -> dict[str, list[Any]]:
+        """Per column record, it and the records above it (root last): one statement, read when a
+        place has to be proposed or explained."""
+        if self._chains is None:
+            source = record_source(self.workspace_key, self.context, self.types)
+            walk = (
+                select(
+                    source.c.object_id.label("column_id"),
+                    source.c.object_id.label("at_id"),
+                    source.c.parent_object_id.label("parent_id"),
+                    source.c.object_type_key,
+                    source.c.name,
+                    source.c.attributes,
+                    literal(0).label("depth"),
+                )
+                .where(source.c.object_id.in_(self.column_ids))
+                .cte("place_chain", recursive=True)
+            )
+            walk = walk.union_all(
+                select(
+                    walk.c.column_id,
+                    source.c.object_id,
+                    source.c.parent_object_id,
+                    source.c.object_type_key,
+                    source.c.name,
+                    source.c.attributes,
+                    walk.c.depth + 1,
+                )
+                .select_from(walk.join(source, source.c.object_id == walk.c.parent_id))
+                .where(walk.c.depth < MAX_DEPTH - 1)
+            )
+            chains: dict[str, list[Any]] = {}
+            for row in self.session.execute(select(walk).order_by(walk.c.column_id, walk.c.depth)):
+                chains.setdefault(row.column_id, []).append(row)
+            self._chains = chains
+        return self._chains
+
+    def place(self, request: PlaceRequest) -> Place:
+        found = self.found.get(request.column_record_id, [])
+        criteria = request.criteria
+        found_ids = {row.object_id for row in found}
+        view = (
+            request.cell_type_key,
+            request.relation_type_key,
+            request.direction,
+            request.row_type_key,
+        )
+        counts = (
+            {
+                container: count
+                for container, count in self.reads.cells_in_use(
+                    self.session, self.workspace_key, self.context, *view
+                ).items()
+                if container in found_ids
+            }
+            if found
+            else {}
+        )
+        place = derive_place(self.model, request.column_type_key, request.cell_type_key, criteria)
+        by_id = {row.object_id: row for row in found}
+        chosen = choose_container(list(by_id), counts, fixed=place is not None)
+        if chosen is not None:
+            return Place(chosen, name=by_id[chosen].name, type_key=by_id[chosen].object_type_key)
+        if not found and place is not None:
+            return Place(str(uuid4()), place, place.name, place.object_type_key)
+        if place is None:
+            # Neither the rules nor the data give a place: propose a new container (PP-D28), which
+            # the import creates with the first record that goes in it, the preview saying so first.
+            proposed = self._proposal(request)
+            if proposed is not None:
+                return Place(str(uuid4()), proposed, proposed.name, proposed.object_type_key)
+        return Place(
+            None,
+            several=len(found) > 1,
+            message=self._none(
+                request,
+                bool(found),
+                sum(1 for item in counts.values() if item > 0) > 1,
+            ),
+        )
+
+    def _proposal(self, request: PlaceRequest) -> DerivedPlace | None:
+        """The container to propose under the column record (:func:`propose_place`), from the
+        containers that hold cells of the view under other column records."""
+        own = self.own.get(request.column_record_id, set())
+        used = [
+            item
+            for item in self.reads.used_containers(
+                self.session,
+                self.workspace_key,
+                self.context,
+                self.container_types,
+                request.cell_type_key,
+                request.relation_type_key,
+                request.direction,
+                request.row_type_key,
+            )
+            if item.object_id not in own
         ]
-        if not ancestor_criteria or meets_criteria(model, ancestor_criteria, ("", dict), ancestors):
-            found.append(row)
-    # Where the criteria fix the one place and one container is it, that one; otherwise the container
-    # that already holds cells of the view (PP-D24). A container holding none is never used.
-    found_ids = {row.object_id for row in found}
-    counts = (
-        {
-            container: count
-            for container, count in reads.cells_in_use(
-                session,
-                workspace_key,
-                context,
-                cell_type_key,
-                relation_type_key,
-                direction,
-                row_type_key,
-            ).items()
-            if container in found_ids
-        }
-        if found
-        else {}
-    )
-    place = derive_place(model, column_type_key, cell_type_key, criteria)
-    by_id = {row.object_id: row for row in found}
-    chosen = choose_container(list(by_id), counts, fixed=place is not None)
-    if chosen is not None:
-        return Place(chosen, name=by_id[chosen].name, type_key=by_id[chosen].object_type_key)
-    if not found and place is not None:
-        return Place(str(uuid4()), place, place.name, place.object_type_key)
-    if place is None:
-        # Neither the rules nor the data give a place: propose a new container (PP-D28), which the
-        # import creates with the first record that goes in it, the preview saying so first.
-        proposed = _proposal(
-            session,
-            model,
-            workspace_key,
-            context,
-            rows=rows,
-            column_record_id=column_record_id,
-            column_type_key=column_type_key,
-            cell_type_key=cell_type_key,
-            criteria=criteria,
-            relation_type_key=relation_type_key,
-            direction=direction,
-            row_type_key=row_type_key,
-            reads=reads,
-            own={
-                row.object_id
-                for row in rows.values()
-                if _chain(rows, row.object_id, column_record_id)
-            },
-        )
-        if proposed is not None:
-            return Place(str(uuid4()), proposed, proposed.name, proposed.object_type_key)
-    return Place(
-        None,
-        several=len(found) > 1,
-        message=_none(
-            model,
-            rows,
-            column_record_id,
-            direct,
-            bool(found),
-            sum(1 for item in counts.values() if item > 0) > 1,
-        ),
-    )
-
-
-def _proposal(
-    session: Session,
-    model: EngineModel,
-    workspace_key: str,
-    context: SnapshotContext | None,
-    *,
-    rows: dict[str, Any],
-    column_record_id: str,
-    column_type_key: str,
-    cell_type_key: str,
-    criteria: tuple[CandidateCriterion, ...],
-    relation_type_key: str,
-    direction: str,
-    row_type_key: str,
-    own: set[str],
-    reads: PlaceReads,
-) -> DerivedPlace | None:
-    """The container to propose under the column record (:func:`propose_place`), from the containers
-    that hold cells of the view under other column records, read once for the import."""
-    container_types = sorted(
-        key
-        for key in ancestor_type_keys(model, cell_type_key)
-        if key != column_type_key and column_type_key in ancestor_type_keys(model, key)
-    )
-    used = [
-        item
-        for item in reads.used_containers(
-            session,
-            workspace_key,
-            context,
-            container_types,
-            cell_type_key,
-            relation_type_key,
-            direction,
-            row_type_key,
-        )
-        if item.object_id not in own
-    ]
-    chain: list[tuple[str, str, Callable[[], dict[str, Any]]]] = []
-    at: str | None = column_record_id
-    for _ in range(MAX_DEPTH):
-        item = rows.get(at) if at is not None else None
-        if item is None:
-            break
-        chain.append(
+        chain: list[tuple[str, str, Callable[[], dict[str, Any]]]] = [
             (item.object_type_key, item.name, lambda item=item: dict(item.attributes or {}))
+            for item in self.chains().get(request.column_record_id, [])
+        ]
+        return propose_place(
+            self.model,
+            request.column_type_key,
+            request.cell_type_key,
+            request.criteria,
+            [(item.object_type_key, item.name) for item in used],
+            chain,
         )
-        at = item.parent_object_id
-    return propose_place(
-        model,
-        column_type_key,
-        cell_type_key,
-        criteria,
-        [(item.object_type_key, item.name) for item in used],
-        chain,
-    )
+
+    def _none(self, request: PlaceRequest, any_found: bool, tied: bool) -> str:
+        """No place for a new record, in plain words."""
+        chain = self.chains().get(request.column_record_id, [])
+        column_name = chain[0].name if chain else "this column"
+        kinds = sorted(
+            self.model.object_type(key).name.lower()
+            for key in self.direct
+            if self.model.object_type(key)
+        )
+        kind = kinds[0] if kinds else "container"
+        if tied:
+            return (
+                f"Several {kind}s under {column_name} hold the same number of cells of this view; "
+                "choose one in the app"
+            )
+        if any_found:
+            return (
+                f"No {kind} under {column_name} holds cells of this view yet; "
+                "create the first one in the app"
+            )
+        return f"No {kind} under {column_name} can hold a new record here; create one in the app"
 
 
 def _used_containers(
@@ -368,40 +452,3 @@ def _cells_in_use(
             .group_by(cells.c.parent_object_id)
         ).all()
     )
-
-
-def _none(
-    model: EngineModel,
-    rows: dict[str, Any],
-    column_record_id: str,
-    direct: set[str],
-    any_found: bool,
-    tied: bool,
-) -> str:
-    """No place for a new record, in plain words."""
-    column = rows.get(column_record_id)
-    column_name = column.name if column is not None else "this column"
-    kinds = sorted(model.object_type(key).name.lower() for key in direct if model.object_type(key))
-    kind = kinds[0] if kinds else "container"
-    if tied:
-        return (
-            f"Several {kind}s under {column_name} hold the same number of cells of this view; "
-            "choose one in the app"
-        )
-    if any_found:
-        return f"No {kind} under {column_name} holds cells of this view yet; create the first one in the app"
-    return f"No {kind} under {column_name} can hold a new record here; create one in the app"
-
-
-def _chain(rows: dict[str, Any], object_id: str, column_record_id: str) -> list[Any] | None:
-    """The record and the records above it up to the root, or ``None`` when it does not stand under
-    the column record. The criteria read any ancestor, so the chain runs past the column record."""
-    chain: list[Any] = []
-    at: str | None = object_id
-    for _ in range(MAX_DEPTH):
-        row = rows.get(at) if at is not None else None
-        if row is None:
-            break
-        chain.append(row)
-        at = row.parent_object_id
-    return chain if any(item.object_id == column_record_id for item in chain) else None

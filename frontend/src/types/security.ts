@@ -333,6 +333,8 @@ export interface SignInProvider {
   enabled: boolean;
   /** Signing out of the engine signs the person out of the provider too (I4a, D379). */
   signOutOfProvider: boolean;
+  /** Its e-mail addresses are taken as sent; off: only with `email_verified: true` (R17-F20). */
+  emailsTrusted: boolean;
   /** The address to register with the provider. */
   redirectUri: string;
   /** The address to register for returning from the provider's sign-out (I4a). */
@@ -357,6 +359,7 @@ export interface SignInProviderCreate {
   groupsClaim?: string | null;
   enabled?: boolean;
   signOutOfProvider?: boolean;
+  emailsTrusted?: boolean;
 }
 
 /** Whether people sign in with a password (D365). */

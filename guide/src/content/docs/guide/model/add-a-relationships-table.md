@@ -12,7 +12,7 @@ result people use.
 
 ## Choose the relationship and columns
 
-1. Select an application in the draft and choose **Add a view…**.
+1. Select an application in the draft and choose **Add a view…**. Enter **Name** first; it is red while empty.
 2. In **Kind of view**, choose **Relationships table: each relationship in a row, with its own attributes**. If it is absent, allow a relationship
    between two types first. Containment is not offered for this view.
 3. In **Relationships**, choose the directed pair and relation. Read the arrow: the from end
@@ -30,7 +30,7 @@ result people use.
    link records. The first selected to-record field labels each grid column group.
 7. For rows, **Head the rows by** chooses **Nothing: one list**, **The from record** or **The to
    record**. Group headings include counts. This choice does not group the grid.
-8. Enter **Name** and choose **Add view**. Check the saved step, **Views** and **Issues**. The
+8. Choose **Add view**. Check the saved step, **Views** and **Issues**. The
    application lists either endpoint type if it was not already listed. No data is created.
 
 ![Add a relationships table with its directed pair, endpoint fields, relationship attributes and Layout choices](/docs/screens/model-add-relationships-table-layout.png)

@@ -12,6 +12,7 @@ The session is a process of the assistant worker in a folder of its own, kept fo
 stream says what it is doing now; what it has reached is read from what the engine recorded of it.
 """
 
+import contextlib
 import fcntl
 import grp
 import ipaddress
@@ -1338,6 +1339,19 @@ def _stop_earlier(earlier: dict[str, Any] | None) -> None:
             return
 
 
+def _reap(process: subprocess.Popen[str]) -> None:
+    """Collects the session the engine just ended, so it does not stay a zombie of the engine's
+    process until it exits (and is not reported as still running when its handle goes); a session
+    that has not gone yet is killed first. It never raises."""
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(OSError):
+            os.killpg(process.pid, signal.SIGKILL)
+        with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+            process.wait(timeout=5)
+
+
 def _provider() -> str:
     command = _base_command()
     return "claude-code" if Path(command[0]).name == "claude" else Path(command[0]).name
@@ -1734,6 +1748,7 @@ def _turn_as(
             _await_its_jobs(session, ctx, started, client)
         except BaseException as error:
             _stop_earlier({"pid": process.pid, "session": session_id})
+            _reap(process)
             failure = (
                 ("timeout", "The session took too long.")
                 if isinstance(error, SessionTimedOut)

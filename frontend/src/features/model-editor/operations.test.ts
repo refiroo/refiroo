@@ -217,10 +217,29 @@ describe("the editor's operation descriptors (D38)", () => {
     });
   });
 
+  it("starts every view form with its name, for each kind and when the view is changed", () => {
+    const add = operationById("application-add-view")!;
+    const target = TARGETS.application as never;
+    for (const kind of ["table", "tree", "mappingGrid", "relationMatrix", "relationTable"]) {
+      const shown = visibleFields(add, TARGETS.application, outline, { kind });
+      expect(shown.filter((field) => field.name === "name")).toHaveLength(1);
+      expect(shown[0]).toMatchObject({ name: "name", markEmpty: true });
+    }
+    for (const id of ["view-matrix-change", "view-tree-change", "view-grid-change"]) {
+      expect(
+        operationById(id)!.fields!({ on: "view", applicationKey: "shop", view: "v" } as never, outline)[0]?.name,
+      ).toBe("name");
+    }
+    expect(add.fields!(target, outline)).toBeTruthy();
+  });
+
   it("adds a table, a tree and a mapping grid to an application, listing the types they need", () => {
     const add = operationById("application-add-view")!;
     const target = TARGETS.application;
-    const offered = fieldOptions(add.fields!(target as never, outline)[0] as never, {}).map((item) => item.value);
+    const offered = fieldOptions(
+      add.fields!(target as never, outline).find((field) => field.name === "kind") as never,
+      {},
+    ).map((item) => item.value);
     expect(offered).toEqual(expect.arrayContaining(["table", "tree", "mappingGrid"]));
     expect(add.build({ kind: "table", type: "bin", name: "All bins" }, target as never, outline)).toEqual([
       {

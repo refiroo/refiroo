@@ -27,6 +27,7 @@ import { YES_NO } from "@/features/model-editor/EditableCell";
 import { describeCandidates } from "@/features/model-editor/candidates";
 import { EditInPlaceValue } from "@/ui/EditInPlace";
 import { EditableText } from "@/features/model-editor/EditableText";
+import { renameTypeOperations } from "@/features/model-editor/lists";
 import type { RunStep, StepOutcome } from "@/features/model-editor/OperationDialog";
 import { Facts, type Fact } from "@/features/model-editor/Facts";
 import { EmptyState } from "@/ui/EmptyState";
@@ -308,7 +309,7 @@ export function ElementPanel({
           tile={<HueTile hue={draftTypeHue(outline, type.key)} icon={type.icon ?? undefined} size={40} />}
           title={type.name}
           outline={outline}
-          rename={(name) => run([{ kind: "setLabel", element: { objectType: type.key }, name }])}
+          rename={(name) => run(renameTypeOperations(type.key, name))}
           mark={type.mark}
           proposed={Boolean(proposed)}
           facts={keyFacts(type.key, type.mark)}

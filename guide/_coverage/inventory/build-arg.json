@@ -1,0 +1,34 @@
+[
+ {
+  "kind": "build-arg",
+  "key": "CLAUDE_CODE_VERSION",
+  "labels": [],
+  "source": "backend/Dockerfile:24",
+  "section": "run",
+  "summary": "Docker build argument, default 2.1.295"
+ },
+ {
+  "kind": "build-arg",
+  "key": "ASSISTANT_USERS",
+  "labels": [],
+  "source": "backend/Dockerfile:51",
+  "section": "run",
+  "summary": "Docker build argument, default 8"
+ },
+ {
+  "kind": "build-arg",
+  "key": "REFIROO_BUILD_COMMIT",
+  "labels": [],
+  "source": "backend/Dockerfile:92",
+  "section": "run",
+  "summary": "Docker build argument, default empty"
+ },
+ {
+  "kind": "build-arg",
+  "key": "REFIROO_BUILD_TAG",
+  "labels": [],
+  "source": "backend/Dockerfile:93",
+  "section": "run",
+  "summary": "Docker build argument, default empty"
+ }
+]

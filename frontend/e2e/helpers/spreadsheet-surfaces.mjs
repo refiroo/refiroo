@@ -201,7 +201,8 @@ export async function visitSpreadsheetSurfaces(visit) {
         "editor-adjust-list-dialog",
         async () => {
           await centre().getByRole("button", { name: "Adjust list…" }).click();
-          await dialog().getByRole("button", { name: /^Adjust|^Apply/ }).first().waitFor();
+          // The dialog's action is "Save" since UX2 (it read Adjust/Apply before).
+          await dialog().getByRole("button", { name: "Save", exact: true }).waitFor();
         },
       ],
       [
@@ -220,7 +221,8 @@ export async function visitSpreadsheetSurfaces(visit) {
         async () => {
           await reachRow();
           await cell().click();
-          await dialog().getByRole("button", { name: "Save" }).waitFor();
+          // The related records dialog's action reads "Apply" (it was "Save" before 0.17's PL wording).
+          await dialog().getByRole("button", { name: "Apply", exact: true }).waitFor();
         },
       ],
     ];
