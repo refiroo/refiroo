@@ -12,7 +12,7 @@ certifi==2026.10.23       # via httpcore, httpx
 cffi==2.1.1 ; platform_python_implementation != 'PyPy'  # via cryptography
 click==8.5.1              # via uvicorn
 colorama==0.4.6 ; sys_platform == 'win32'  # via pytest
-coverage==7.17.2          # via pytest-testmon
+coverage==7.17.2          # via rdm-engine-backend (pyproject.toml)
 cryptography==47.0.0      # via pyjwt, pyopenssl, webauthn, rdm-engine-backend (pyproject.toml)
 et-xmlfile==2.0.0         # via openpyxl
 execnet==2.1.2            # via pytest-xdist
@@ -54,8 +54,7 @@ pydantic-settings==2.16.2  # via mcp, openapi-schema-validator, openapi-spec-val
 pygments==2.21.0          # via pytest
 pyjwt==2.15.1             # via mcp, rdm-engine-backend (pyproject.toml)
 pyopenssl==26.2.0         # via webauthn
-pytest==8.4.2             # via pytest-testmon, pytest-xdist, rdm-engine-backend (pyproject.toml)
-pytest-testmon==2.3.0     # via rdm-engine-backend (pyproject.toml)
+pytest==8.4.2             # via pytest-xdist, rdm-engine-backend (pyproject.toml)
 pytest-xdist==3.8.0       # via rdm-engine-backend (pyproject.toml)
 python-dotenv==1.2.4      # via pydantic-settings, uvicorn
 python-multipart==0.0.33  # via mcp, rdm-engine-backend (pyproject.toml)

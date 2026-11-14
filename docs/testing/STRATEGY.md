@@ -78,9 +78,13 @@ The code is a hierarchy: each piece is part of something larger, and every piece
 | Data the code reads: the model schema, a migration, the starter model, seed code, configuration | treated as the bottom: everything that reads it |
 | Anything, at release | everything |
 
-Selection uses coverage, not file names: `pytest-testmon` records which code each test executes and
-selects the tests whose code changed. Changes coverage cannot see (the rows of the last table line
-but one) are rules in the execution guide.
+Selection reads the imports, not file names (TS4): `python -m tests.affected` selects the test
+modules that import the changed code, directly or through other modules (the closure stops at
+`app.main`, which mounts every router), and the tests that start the application and reach the code
+over HTTP, which no import shows, from a map of test module to executed code recorded with coverage
+(`python -m tests.journey_trace --record`, `tests/reach_map.json`, checked by a harness test).
+Changes imports cannot see (the rows of the last table line but one) are rules in the execution
+guide. It prints the selection's expected time from the recorded durations first.
 
 ## Traceability
 
@@ -111,7 +115,7 @@ but one) are rules in the execution guide.
    approval, never to fit the code.
 5. **Unit tests for the new code's purpose** are written with the code, edge cases and combinations
    included.
-6. **Evidence:** the selected run (testmon plus the journeys linked to the change), its counts, and
+6. **Evidence:** the selected run (`tests.affected`'s selection: the importing tests plus the journeys linked to the change, with its expected time), its counts, and
    what was not run and why.
 
 **Proportion (decided 2026-10-03).** The tests serve the feature, never the other way round. A

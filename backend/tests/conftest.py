@@ -13,7 +13,9 @@ session database. Timing-based checks are ``serial``: a parallel run leaves them
 command that runs them, in a second, non-parallel invocation. Full-size budgets are ``budget``: a run
 leaves them out unless its ``-m`` expression names ``budget`` (H3). The summary lists every test
 over 10 s outside ``budget`` and the run's wall time, against the time ceilings in
-``docs/TEST_HARNESS_PLAN.md``.
+``docs/TEST_HARNESS_PLAN.md``; a run no path, ``-k``, ``-m`` or ``--journey`` narrows also lists its ten
+slowest modules. The run's own process writes each passed test's duration (outside ``budget`` and
+``serial``) to ``durations.json`` beside the server's data (``durations.py``, TS4).
 
 Journey tests live in ``tests/journeys/`` and name the journeys they walk; unit tests live in
 ``tests/unit/`` in folders that mirror the code they test (``layout.py``, H4b). A journey test without
@@ -28,6 +30,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import durations
 import layout
 import postgres_server
 import pytest
@@ -35,11 +38,6 @@ import run_ids
 import seeds
 from xdist.scheduler import LoadFileScheduling
 
-# Test selection (pytest-testmon, H4b) records which code each test executes through Coverage.py.
-# Its default on Python 3.14, sys.monitoring, loses the lines that run in the TestClient's request
-# threads when testmon switches from one test to the next (an API test recorded 5-13 of its 38-66
-# modules); the C tracer records them. Set before testmon starts coverage; workers inherit it.
-os.environ.setdefault("COVERAGE_CORE", "ctrace")
 _WORKER = os.environ.get("PYTEST_XDIST_WORKER")
 # Named for the run (a worker inherits its controller's ID), so a starting run drops only the
 # databases of runs that ended (TS2).
@@ -49,6 +47,10 @@ _SERIAL_LEFT_OUT = pytest.StashKey[int]()
 _STARTED_AT = pytest.StashKey[float]()
 # Each test's setup, call and teardown added up, by node ID (the slow-test report, H3).
 _DURATIONS: dict[str, float] = {}
+# What the durations file (``durations.py``, TS4) takes: tests outside ``budget`` and ``serial`` whose
+# call passed, so a wait for a lock or a failure does not stand for the test's time.
+_RECORDED: dict[str, float] = {}
+_PASSED: set[str] = set()
 
 # A worker inherits the run's environment, including the URL this module set in the run's own
 # process; it replaces it with its own session database, so no two workers share one.
@@ -336,6 +338,16 @@ def _names_budget(config: pytest.Config) -> bool:
     return re.search(r"\bbudget\b", config.option.markexpr or "") is not None
 
 
+def _is_full_suite(config: pytest.Config) -> bool:
+    """No path, ``-k``, ``-m`` or ``--journey`` narrows the run (its serial part left out is no narrowing)."""
+    return (
+        config.args_source != pytest.Config.ArgsSource.ARGS
+        and not config.option.markexpr
+        and not config.option.keyword
+        and not config.getoption("journey")
+    )
+
+
 def _deselect(config: pytest.Config, items: list[pytest.Item], marker: str) -> int:
     chosen = [item for item in items if item.get_closest_marker(marker)]
     if chosen:
@@ -465,6 +477,11 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     if "budget" in report.keywords:
         return
     _DURATIONS[report.nodeid] = _DURATIONS.get(report.nodeid, 0.0) + report.duration
+    if "serial" in report.keywords:
+        return
+    _RECORDED[report.nodeid] = _RECORDED.get(report.nodeid, 0.0) + report.duration
+    if report.when == "call" and report.passed:
+        _PASSED.add(report.nodeid)
 
 
 def pytest_sessionfinish(session: pytest.Session) -> None:
@@ -474,6 +491,9 @@ def pytest_sessionfinish(session: pytest.Session) -> None:
     if _is_worker(session.config):
         session.config.workeroutput["seed_activity"] = [list(entry) for entry in seeds.ACTIVITY]
         session.config.workeroutput["serial_left_out"] = session.config.stash[_SERIAL_LEFT_OUT]
+    elif durations.enabled():
+        # Once, in the run's own process (under -n from the reports its workers sent), never by a worker.
+        durations.record({nodeid: _RECORDED[nodeid] for nodeid in _PASSED})
 
 
 @pytest.hookimpl(optionalhook=True)
@@ -520,6 +540,14 @@ def pytest_terminal_summary(terminalreporter, config: pytest.Config) -> None:
         terminalreporter.write_line(f"{seconds:7.1f} s  {nodeid}")
     if not slow:
         terminalreporter.write_line("none")
+    if _is_full_suite(config):
+        modules: dict[str, float] = {}
+        for nodeid, seconds in _DURATIONS.items():
+            module = nodeid.split("::", 1)[0]
+            modules[module] = modules.get(module, 0.0) + seconds
+        terminalreporter.write_sep("-", "ten slowest modules")
+        for module, seconds in sorted(modules.items(), key=lambda entry: -entry[1])[:10]:
+            terminalreporter.write_line(f"{seconds:7.1f} s  {module}")
     wall = time.monotonic() - config.stash[_STARTED_AT]
     terminalreporter.write_line(f"wall time {int(wall // 60)} min {wall % 60:.0f} s")
 

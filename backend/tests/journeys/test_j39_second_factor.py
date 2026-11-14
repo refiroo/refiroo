@@ -132,16 +132,17 @@ def test_a_person_sets_up_an_authenticator_app_and_signs_in_with_it(world):
     events = ok(world.api.get("/security-events", aggregateType="sign-in"))["items"]
     assert any(e["action"] == "failed" and e["details"].get("reason") == "code" for e in events)
     # The code that confirmed the app is spent; the next step's is the first that signs in.
-    signed = _second(browser, _step(wrong), code=_totp(secret, ahead=1))
+    # One code for the sign-in and its replay: computed twice, a 30 s step boundary between the two
+    # calls (a loaded run) makes the second a different, valid code.
+    next_code = _totp(secret, ahead=1)
+    signed = _second(browser, _step(wrong), code=next_code)
     access = ok(_exchange(browser, _code(signed), verifier))["access_token"]
     me = ok(world.api.client.get("/api/v1/me", headers=_bearer(access)))
     assert me["signedInWith"] == "password" and me["email"] == "mei@example.org"
 
     again = _browser(world)
     verifier, challenge = _pkce()
-    replay = _second(
-        again, _step(_password_step(again, "mei", challenge)), code=_totp(secret, ahead=1)
-    )
+    replay = _second(again, _step(_password_step(again, "mei", challenge)), code=next_code)
     assert replay.status_code == 401 and "That code is not right" in replay.text
 
     third = _browser(world)

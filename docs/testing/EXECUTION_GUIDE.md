@@ -148,12 +148,12 @@ go-ahead.
 ### Backend: journey tests, unit tests and selection by change (H4b)
 
 Delivered 2026-10-02 for the [testing strategy](STRATEGY.md). **From 2026-10-03 it is a package's
-selection:** the tests whose code changed (`--testmon`) and the journey tests of the journeys the
-package touches (`--journey`). The group selection below is the fallback, for a change coverage
-cannot see and for the older modules.
+selection:** the tests the change needs (`python -m tests.affected`, TS4) and the journey tests of
+the journeys the package touches (`--journey`). The group selection below is the fallback, for a
+change the imports cannot see and for the older modules.
 
 ```sh
-cd backend && .venv/bin/python -m pytest -n auto --testmon -q    # the tests whose code changed
+cd backend && .venv/bin/python -m tests.affected                   # what the change needs, with its expected time
 .venv/bin/python -m pytest -n auto -q --journey J11 --journey J24   # the journeys it touches
 ```
 
@@ -170,26 +170,59 @@ cd backend && .venv/bin/python -m pytest -n auto --testmon -q    # the tests who
   `tests/unit/engine/records/test_rules.py` tests `app/engine/records/rules.py`
   (`test_rules__<topic>.py` splits one), and `tests/unit/harness/` tests the harness modules in
   `tests/`. A unit test that mirrors no module fails collection.
-- **Selection by change** (`pytest-testmon`): `--testmon` records which code each test executes
-  in `backend/.testmondata` and, on the next run, selects the tests whose code changed. Testmon
-  turns its selection off under `-m` unless `--testmon-forceselect` is given. Coverage runs on the
-  C tracer for this (`COVERAGE_CORE=ctrace`, set in `conftest.py`): Python 3.14's default
-  `sys.monitoring` core lost the code that runs in the TestClient's request threads.
+- **Selection by change** (TS4, `tests/affected.py`): the app's imports and the tests' own are read
+  the way `test_boundaries.py` reads them (`tests/import_graph.py`). A changed app module selects
+  every test module that imports it directly or through other app modules (importing a module also
+  runs its packages' `__init__.py`); a changed test module selects itself and the tests importing
+  it; a changed helper in `tests/` selects the tests importing it (a helper's imports inside a
+  function, as `seeds.py` imports the app to build a seed, are not edges). The closure **stops at
+  `app.main`**, the one module that mounts every router (the `__init__.py` files of `consumer`,
+  `management` and `management/routers` import nothing): followed, every change would reach every
+  test that creates the application. A test module that reaches `app.main` through any import (a
+  helper's lazy import too: `scenario.py` starts the app inside a function) **starts the
+  application**; it is selected for an app change by its own imports below the cut and by the
+  checked **reach map** (`tests/reach_map.json`: such a test module → the app modules it executes,
+  journeys and older modules alike). A selection holding such a module runs on four workers. The map is recorded with Coverage.py, one context per test, on the C
+  tracer (`COVERAGE_CORE=ctrace`, set by the recording run only: Python 3.14's default
+  `sys.monitoring` core lost the code that runs in the TestClient's request threads). A harness
+  test fails when the map names an app module or test module that no longer exists or lacks a
+  test module that starts the application, and says the command that regenerates it. A module
+  that starts the service as a process of its own, or holds only `budget` tests, is listed with no
+  code and an app change does not select it (`tests.affected` says so). With no map every module
+  that starts the application is selected. A data file under `app/` or
+  `tests/` (a brand image, a reference text) selects by the modules of its nearest folder.
 - **What a change requires:** `.venv/bin/python -m tests.affected` (or `… tests.affected <commit>`)
-  lists each changed file with what it selects and prints the commands. Code goes to testmon; what
-  coverage cannot see selects its readers: a migration, the starter model, seed code, the test
-  server and the harness (`conftest.py`, `layout.py`) select everything; the journey catalogue and
-  the API inventory select the tests that read them; documentation and the frontend select nothing
-  here.
-- **Trace report:** `.venv/bin/python -m tests.journey_trace` (`--modules` for the full lists)
-  reads the testmon data and the journey markers: the modules each journey reaches, the modules no
-  journey reaches, the modules no test reaches, and the declaration-only modules no trace can see.
+  lists each changed file with what it selects, the selected test modules, the **expected time**
+  and the commands. What imports cannot see selects its readers: a migration, the starter model,
+  seed code, the test server and the harness (`conftest.py`, `layout.py`) select everything; the
+  inputs of the `schema` seed (the identity modules that make the harness's client, the
+  authorization modules, `harness_identity.py`) select everything, since every test clones that
+  seed as its session database; the volume seed's inputs (`matrix_states.py`, `snapshot_values.py`,
+  `bootstrap.py`) select the test modules using `volume_fixture.py`; the journey catalogue and the
+  API inventory select the tests that read them; documentation and the frontend select nothing here.
+- **Expected time:** every pytest run writes each test's duration to `durations.json` in the test
+  server's data root (`backend/.test-postgres`, local volume; not in git; not written in CI or
+  against an external server). The run's own process writes it once, merged under a lock so runs
+  side by side keep each other's tests, the latest value per node ID; `budget` and `serial` tests
+  are left out. `tests.affected` prints, before the commands, the selection's time on its workers
+  (the larger of the longest unit, a module or one journey test, and the sum over the workers; the
+  sum without `-n`), how many selected test functions have no recorded duration, and a line when
+  the time is over the 3-minute package ceiling: announce such a run with its time first.
+- **Slowest modules:** a run without a path, `-k`, `-m` or `--journey` ends with its ten slowest
+  modules and their summed time (the serial part left out is no narrowing).
+- **Trace report:** `.venv/bin/python -m tests.journey_trace --record` runs the test modules that
+  start the application and are not in the map yet (`--all`: all of them, `--suite`: the whole
+  suite) under coverage, merges the data into `journey-coverage/` beside the server's data and
+  refreshes the reach map; `.venv/bin/python -m tests.journey_trace` (`--modules`
+  for the full lists) reads the same data and the journey markers: the modules each journey reaches,
+  the modules no journey reaches, the modules no test reaches (after `--suite`), and the
+  declaration-only modules no trace can see. Rerecord after a journey test or the code it reaches
+  changes enough to matter; the checked map says when a name is stale.
 
 ```sh
-cd backend && .venv/bin/python -m tests.affected        # what this change requires
-.venv/bin/python -m pytest -n auto --testmon -q         # the tests whose code changed
-.venv/bin/python -m pytest -m serial --testmon --testmon-forceselect -q
-.venv/bin/python -m tests.journey_trace                 # code by journey; code no test reaches
+cd backend && .venv/bin/python -m tests.affected        # what this change requires, and how long
+.venv/bin/python -m tests.journey_trace --record        # record what the reach map lacks, four workers
+.venv/bin/python -m tests.journey_trace                 # code by journey; code no journey reaches
 ```
 
 ### Backend: pytest markers from one manifest

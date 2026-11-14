@@ -1,20 +1,32 @@
-"""Which code each journey reaches, and which code no journey or no test reaches (H4b).
+"""Which code each journey reaches, and which code no journey or no test reaches (H4b, TS4).
 
-    .venv/bin/python -m tests.journey_trace           # from the last testmon run's data
+    .venv/bin/python -m tests.journey_trace --record   # record the tests the map lacks, write the map
+    .venv/bin/python -m tests.journey_trace --record --all    # record every test module that starts the app
+    .venv/bin/python -m tests.journey_trace --record --suite  # the whole suite (not budget), same map
+    .venv/bin/python -m tests.journey_trace           # the report, from the last recording
     .venv/bin/python -m tests.journey_trace --modules  # also list every module per journey
 
 Every piece of code traces to a journey (docs/testing/STRATEGY.md). The links are not kept by hand:
-``pytest --testmon`` records which files each test executed (``backend/.testmondata``), and the
-journey markers say which journeys a test walks. A module no journey test reaches is either dead code
-or serves a journey nobody wrote down; a module no test reaches at all is untested.
+``--record`` runs the tests under Coverage.py with one context per test (``journey_coverage.py``),
+combines the data in ``journey-coverage/`` beside the test server's data (not in git) and writes
+``reach_map.json``: each test module that starts the application (one that reaches ``app.main``
+through any import, ``affected.build_graph``) and the app modules it executes. ``tests.affected``
+reads the map to select the tests that reach a changed app module over HTTP, and a harness test
+checks it (an app module or a test module that no longer exists, a module that starts the
+application missing from it). Without ``--all`` only the modules the data holds no test of are run
+and their data is merged into what was recorded before. The journey
+markers say which journeys a test walks. A module no journey test reaches is either dead code or
+serves a journey nobody wrote down; a module no test reaches at all is untested.
 
-The report is as complete as the testmon data: tests that have not run under ``--testmon`` since
-their code changed are missing from it, and it says how many tests the data holds.
+The report holds what the recordings ran: the tests that start the application; ``--record --suite``
+also covers the others.
 """
 
 import ast
 import json
-import sqlite3  # testmon's data file, not the engine's database
+import os
+import shutil
+import sqlite3  # coverage's data file, not the engine's database
 import subprocess
 import sys
 from collections import defaultdict
@@ -24,14 +36,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import layout
+import postgres_server
 
-DATA = layout.BACKEND / ".testmondata"
-# testmon's schema (pytest-testmon 2.x, pinned in pyproject.toml).
+DIRECTORY = postgres_server.ROOT / "journey-coverage"
+DATA = DIRECTORY / "coverage"
+MAP = layout.TESTS / "reach_map.json"
+COMMAND = "python -m tests.journey_trace --record"
+WORKERS = "4"
 _EXECUTED = """
-    SELECT te.test_name, ff.filename
-    FROM test_execution te
-    JOIN test_execution_file_fp link ON link.test_execution_id = te.id
-    JOIN file_fp ff ON ff.id = link.fingerprint_id
+    SELECT context.context, file.path
+    FROM line_bits
+    JOIN context ON context.id = line_bits.context_id
+    JOIN file ON file.id = line_bits.file_id
+    WHERE context.context != ''
 """
 _COLLECT = """
 import json, sys, pytest
@@ -46,23 +63,111 @@ class Journeys:
                 self.found[item.nodeid] = ids
 
 plugin = Journeys()
-code = pytest.main(["--collect-only", "-q", "-p", "no:testmon", "tests/journeys"], plugins=[plugin])
+code = pytest.main(["--collect-only", "-q", "tests/journeys"], plugins=[plugin])
 print("JOURNEYS=" + json.dumps(plugin.found))
 """
 
 
+def record(everything: bool, redo: bool = False) -> None:
+    """Run the test modules that start the application and are not in the map yet (``redo``: all of
+    them; ``everything``: the whole suite) under coverage, merge the data with what was recorded
+    before and write the map."""
+    import affected
+
+    starting = sorted(affected.build_graph().starting)
+    # What the data holds a test of; a module with none (it starts the service as a process of its
+    # own, or holds only budget tests) is run again, which costs little.
+    known = {test.split("::", 1)[0] for test in executed_files()} if DATA.exists() else set()
+    if everything:
+        targets, redo = ["tests"], True
+    else:
+        targets = starting if redo else [m for m in starting if m not in known]
+    if redo:
+        shutil.rmtree(DIRECTORY, ignore_errors=True)
+    DIRECTORY.mkdir(parents=True, exist_ok=True)
+    for stray in DIRECTORY.glob("coverage.*"):
+        stray.unlink()
+    environment = {
+        **os.environ,
+        "RDM_JOURNEY_COVERAGE": str(DIRECTORY),
+        "PYTHONPATH": os.pathsep.join(
+            [str(layout.TESTS), *filter(None, [os.environ.get("PYTHONPATH")])]
+        ),
+    }
+    print(f"Recording {len(targets)} of {len(starting)} test modules that start the application")
+    for marks in ([], ["-m", "serial"]) if targets else ():
+        command = [sys.executable, "-m", "pytest", "-p", "journey_coverage", "-q", *targets, *marks]
+        if not marks:
+            command[3:3] = ["-n", WORKERS]
+        code = subprocess.run(command, cwd=layout.BACKEND, env=environment, check=False).returncode
+        if code == 1:  # tests failed: what they executed before failing is in the data
+            print("Some tests failed in the recording run; the map holds what they executed.")
+        elif code not in (0, 5):  # 5: the serial part holds no test
+            raise SystemExit(f"The recording run did not finish (pytest exit {code}); no map.")
+    combine()
+    write_map(reach_map(starting))
+    print(f"Wrote {MAP.relative_to(layout.BACKEND.parent)} from {DATA}")
+
+
+def combine() -> None:
+    """The data files of the recording's processes in the one file, which keeps what was in it."""
+    from coverage import CoverageData
+    from coverage.data import combine_parallel_data
+
+    data = CoverageData(basename=str(DATA))
+    data.read()  # without it the first update erases the file: coverage starts a data object empty
+    combine_parallel_data(data, data_paths=[str(DIRECTORY)])
+    data.write()
+
+
+def reach_map(starting: list[str]) -> dict[str, list[str]]:
+    """Test module that starts the application -> the app modules its tests executed, from the
+    recorded data. A module that starts the service as a process of its own, or holds only
+    ``budget`` tests, executes no app code in a recording: it is listed with none."""
+    reached: dict[str, set[str]] = {module: set() for module in starting}
+    for test, files in executed_files().items():
+        module = test.split("::", 1)[0]
+        if module in reached:
+            reached[module].update(files)
+    return {module: sorted(files) for module, files in sorted(reached.items())}
+
+
+def map_problems(mapping: dict[str, list[str]], starting: set[str]) -> list[str]:
+    """What is wrong with ``mapping``: an app module or a test module that no longer exists, or a
+    test module that starts the application (``starting``) and is missing from it (checked by
+    ``tests/unit/harness/test_journey_trace.py``)."""
+    found = [
+        f"{test} reaches {module}, which no longer exists"
+        for test, modules in mapping.items()
+        for module in modules
+        if not (layout.BACKEND / module).is_file()
+    ]
+    found += [
+        f"{test} no longer exists" for test in mapping if not (layout.BACKEND / test).is_file()
+    ]
+    found += [f"{test} is missing from the map" for test in sorted(starting - set(mapping))]
+    return found
+
+
+def write_map(mapping: dict[str, list[str]]) -> None:
+    """One line per test module, so a change shows as a changed line."""
+    lines = [f" {json.dumps(module)}: {json.dumps(files)}" for module, files in mapping.items()]
+    MAP.write_text("{\n" + ",\n".join(lines) + "\n}\n")
+
+
 def executed_files() -> dict[str, set[str]]:
-    """Test node ID → the app modules it executed, from the testmon data."""
+    """Test node ID → the app modules it executed, from the recorded coverage data."""
     if not DATA.exists():
-        raise SystemExit(
-            f"No testmon data at {DATA}. Run the suite once with --testmon "
-            "(python -m pytest -n auto --testmon), then run this report again."
-        )
+        raise SystemExit(f"No coverage data at {DATA}. Record it: {COMMAND}, then run this again.")
     with sqlite3.connect(DATA) as connection:
         rows = connection.execute(_EXECUTED).fetchall()
     executed: dict[str, set[str]] = defaultdict(set)
-    for test, filename in rows:
-        if filename.startswith("app/") and filename.endswith(".py"):
+    for test, path in rows:
+        try:
+            filename = Path(path).resolve().relative_to(layout.BACKEND).as_posix()
+        except ValueError:
+            continue
+        if filename.startswith("app/") and "/migrations/" not in filename:
             executed[test].add(filename)
     return executed
 
@@ -116,7 +221,7 @@ def report(show_modules: bool) -> str:
 
     lines = [
         (
-            f"tests in the testmon data that executed app code: {len(executed)}; journey tests: "
+            f"tests in the recorded data that executed app code: {len(executed)}; journey tests: "
             f"{len(journeys)}; app modules with functions: {len(modules)} (migrations, package "
             f"files and {len(declarations)} declaration-only modules left out)"
         ),
@@ -137,12 +242,21 @@ def report(show_modules: bool) -> str:
     lines += ["", f"Reached by no journey test: {len(no_journey)} of {len(modules)} modules"]
     if journeys:
         lines.extend(f"  {module}" for module in no_journey)
-    lines += ["", f"Reached by no test at all: {len(no_test)} modules"]
-    lines.extend(f"  {module}" for module in no_test)
+    if any(not test.startswith("tests/journeys/") for test in executed):
+        lines += ["", f"Reached by no test at all: {len(no_test)} modules"]
+        lines.extend(f"  {module}" for module in no_test)
+    else:
+        lines += [
+            "",
+            f"Reached by no test at all: not known, the recording ran the journey tests only ({COMMAND} --suite)",
+        ]
     lines += ["", f"Declarations only, not traceable (run at import): {len(declarations)}"]
     lines.extend(f"  {module}" for module in declarations)
     return "\n".join(lines)
 
 
 if __name__ == "__main__":
-    print(report("--modules" in sys.argv))
+    if "--record" in sys.argv:
+        record("--suite" in sys.argv, "--all" in sys.argv)
+    else:
+        print(report("--modules" in sys.argv))

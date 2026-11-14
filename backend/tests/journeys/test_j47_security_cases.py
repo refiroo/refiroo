@@ -561,8 +561,11 @@ def test_no_message_holds_a_password_a_code_or_a_record(world, smtp):  # noqa: F
     assert len(smtp.messages) >= 3
     for mail in smtp.messages:
         texts = _texts(mail)
+        # A reset link's token is random: four digits of the record's name can occur inside it by
+        # chance. The tokens' own checks follow; everything else is searched for the secrets.
+        around = [re.sub(r"token=[A-Za-z0-9_-]+", "token=", text) for text in texts]
         for secret in forbidden:
-            assert not any(secret in text for text in texts), (mail["Subject"], secret)
+            assert not any(secret in text for text in around), (mail["Subject"], secret)
         for token in links:
             assert sum(text.count(token) for text in _plain(mail)) <= 1, mail["Subject"]
             # In any part the token is only ever inside its whole link, however often it is shown.

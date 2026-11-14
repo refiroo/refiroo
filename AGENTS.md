@@ -269,8 +269,9 @@ Keep validation proportional to the changed behavior. Choose the smallest existi
 exercise the acceptance criteria and affected execution paths; add meaningful regression coverage
 for defects. Finish implementation and review the final diff before running final package checks.
 Select them with [the execution guide](docs/testing/EXECUTION_GUIDE.md): for the backend, the tests
-whose code changed (`pytest --testmon`) and the journey tests of the journeys the package touches
-(`--journey`), with the group markers as the fallback; Vitest projects and browser runners as
+the change needs (`python -m tests.affected`: the test modules importing the changed code, the
+tests that start the app and reach it, with the expected time first) and the journey tests of the journeys the
+package touches (`--journey`), with the group markers as the fallback; Vitest projects and browser runners as
 listed there. Register a new older-style backend module in `TEST_GROUPS` in
 `backend/tests/conftest.py` (journey and unit tests need no entry) and a new browser runner in that
 guide.

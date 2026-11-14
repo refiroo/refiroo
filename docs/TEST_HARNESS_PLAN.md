@@ -42,7 +42,7 @@ of any limit on it.
 | Run | When | Ceiling (wall time, this machine) |
 | --- | --- | --- |
 | Focused tests while iterating | any time | seconds: one module or case, without `-n` (`-n 4` when it holds journey or assistant tests, TS3) |
-| A package's checks: testmon's selection and the journeys it touches, or its boundary's groups (EXECUTION_GUIDE §2) | end of a package | **3 minutes**, with `-n auto` and the groups' serial part (2 minutes until 0.11 S1: `move or jobs or startup` holds 1,542 s of test work, 2 min 36 s; D127) |
+| A package's checks: `tests.affected`'s selection (the test modules importing the change, the journeys reaching it; it prints its expected time first, TS4) and the journeys it touches, or its boundary's groups (EXECUTION_GUIDE §2) | end of a package | **3 minutes**, with `-n auto` and the groups' serial part (2 minutes until 0.11 S1: `move or jobs or startup` holds 1,542 s of test work, 2 min 36 s; D127) |
 | Build acceptance: the full backend suite without `budget` | end of a build | **11 minutes**, with `-n 6`, parallel part plus serial part (5 minutes until 0.11 S1, which measured 10 min 15 s at 5,950 cases; D126) |
 | Full-size budgets (`-m budget`) | a release's acceptance only, once | announced with its expected time before it starts (2 min 39 s at PG5, 2026-10-03; PG-D17's target is under a minute per context) |
 
@@ -328,7 +328,7 @@ decision.
   collection.
 - The layout `tests/journeys/` and `tests/unit/<tier>/<module>`; `TEST_GROUPS` keeps only what the
   layout and markers cannot say.
-- `pytest-testmon` (dev dependency): a change selects the unit tests that execute the changed code
+- Selection by change (from TS4 the import graph, stopping at `app.main`, and the reach map of the tests that start the application; H4b used `pytest-testmon`, removed in TS4): a change selects the unit tests that import the changed code
   and the journeys linked to it. Changes coverage cannot see (the model schema, migrations, the
   starter model, seed code, configuration) select everything that reads them, by rules in the
   execution guide.
@@ -356,8 +356,8 @@ each running what the strategy's table says; the trace report recorded.
   header, raised error code and setting must be in API_JOURNEYS.md, and every journey it cites must
   exist. The routes table now names every operation in full. Shown by deleting one route and one
   code from the inventory: both named, then restored.
-- **Selection by change:** `pytest-testmon` (2.2) as a dev dependency. **Coverage runs on the C
-  tracer** (`COVERAGE_CORE=ctrace`, set in `conftest.py`): on Python 3.14 the default
+- **Selection by change** (H4b; replaced in TS4 by the import graph, `pytest-testmon` removed): `pytest-testmon` (2.2) as a dev dependency. **Coverage runs on the C
+  tracer** (`COVERAGE_CORE=ctrace`; since TS4 set only by the recording run, `tests/journey_coverage.py`): on Python 3.14 the default
   `sys.monitoring` core lost the code run in the TestClient's request threads when testmon switched
   tests (an API test recorded 5–13 app modules of the 38–66 it ran). `python -m tests.affected`
   prints what a change requires, with the rules for what coverage cannot see.

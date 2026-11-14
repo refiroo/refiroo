@@ -16,6 +16,8 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+import import_graph
+
 APP = Path(__file__).resolve().parents[1] / "app"
 
 # Which app modules a tier may import, by module prefix. A module belongs to the longest prefix that
@@ -95,30 +97,12 @@ ALLOWLIST: set[str] = {
 }
 
 
-def _modules() -> dict[str, Path]:
-    found = {}
-    for path in APP.rglob("*.py"):
-        parts = list(path.relative_to(APP.parent).with_suffix("").parts)
-        if parts[-1] == "__init__":
-            parts.pop()
-        found[".".join(parts)] = path
-    return found
-
-
+_modules = import_graph.modules
 MODULES = _modules()
 
 
-def _package(module: str) -> str:
-    return module if MODULES[module].name == "__init__.py" else module.rsplit(".", 1)[0]
-
-
 def _resolve(module: str, node: ast.ImportFrom) -> str:
-    if node.level == 0:
-        return node.module or ""
-    parts = _package(module).split(".")
-    if node.level > 1:
-        parts = parts[: len(parts) - (node.level - 1)]
-    return ".".join(parts + ([node.module] if node.module else []))
+    return import_graph.resolve(MODULES, module, node)
 
 
 def _tier(module: str, table) -> str | None:
@@ -132,27 +116,7 @@ def _within(module: str, prefixes) -> bool:
 
 def _scan():
     """Every app import as (importer, target module, imported name or None, at module level)."""
-    imports = []
-    for module, path in MODULES.items():
-        tree = ast.parse(path.read_text())
-        top = {id(node) for node in tree.body}
-        # An import under ``if TYPE_CHECKING:`` or ``try:`` at module level is still module level.
-        for node in tree.body:
-            if isinstance(node, (ast.If, ast.Try)):
-                top.update(id(child) for child in ast.walk(node))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom):
-                base = _resolve(module, node)
-                for alias in node.names:
-                    target = f"{base}.{alias.name}"
-                    if target in MODULES:
-                        imports.append((module, target, None, id(node) in top))
-                    else:
-                        imports.append((module, base, alias.name, id(node) in top))
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    imports.append((module, alias.name, None, id(node) in top))
-    return imports
+    return import_graph.scan(MODULES)
 
 
 def _violations() -> set[str]:
