@@ -12,6 +12,24 @@ from ..records.attributes import validate_attributes, validate_object_attribute_
 from ..records.refusals import CHANGE_SET, Refusals
 from .access import EffectiveChangeSetMembership, effective_change_set_membership
 
+# A refusal body lists at most this many findings of each code; the rest are counted, never listed.
+LISTED_PER_CODE = 20
+
+
+def cap_per_code(items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """The first ``LISTED_PER_CODE`` findings of each ``code``, in their order, and how many of each
+    code were left out (only the codes with some left out)."""
+    seen: Counter[str] = Counter()
+    kept: list[dict[str, Any]] = []
+    for item in items:
+        code = str(item.get("code"))
+        seen[code] += 1
+        if seen[code] <= LISTED_PER_CODE:
+            kept.append(item)
+    return kept, {
+        code: count - LISTED_PER_CODE for code, count in seen.items() if count > LISTED_PER_CODE
+    }
+
 
 @dataclass(frozen=True)
 class _Loaded:

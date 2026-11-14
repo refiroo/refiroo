@@ -616,9 +616,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for the export lists fix: RelationValue (an import profile's relationship value)
     # gains the optional valueMap, as a column has; nothing else.
     # Re-baselined for 0.17.1: info.version only.
+    # Re-baselined for FX2 (descriptions only; the hash is of the tree as it stands, every FX2 lane's
+    # prose in it): the capped conflict lists of a refused publication (`conflictsLeftOut`,
+    # `DIAGNOSTICS_LEFT_OUT`), the resolve body limit, `DUPLICATE_EDGE` in a migration preview; and
+    # `GET /ai/status` gains `assistantNetwork` and `assistantNetworkNote` (SR-D6).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "6a72601e00ac1cd51cdbc3520e02706dc774d0ad0f3a9776aa487852663b6132"
+        "91c94cc295036741a412970cbe6434024d8b913512f2a238b4e0544a5fd01d3f"
     )
 
 

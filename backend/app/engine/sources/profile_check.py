@@ -489,11 +489,16 @@ def _follow_readings(
 
 
 def previous_file(session: Session, profile_key: str, source: SourceFile) -> SourceFile | None:
-    """The file the profile read before ``source``: its own earlier file, else the stored file its
-    last import read; ``None`` when neither is profiled."""
+    """The file the profile read before ``source``, in the same workspace: its own earlier file,
+    else the stored file its last import read there; ``None`` when neither is profiled. A check in
+    one workspace never compares with another's file."""
     for found in session.scalars(
         select(SourceFile)
-        .where(SourceFile.profile_key == profile_key, SourceFile.id < source.id)
+        .where(
+            SourceFile.profile_key == profile_key,
+            SourceFile.id < source.id,
+            SourceFile.workspace_key.is_not_distinct_from(source.workspace_key),
+        )
         .order_by(SourceFile.id.desc())
         .limit(1)
     ):
@@ -503,6 +508,7 @@ def previous_file(session: Session, profile_key: str, source: SourceFile) -> Sou
         select(Job.parameters["sourceFileId"].as_string())
         .where(
             Job.kind == "import",
+            Job.workspace_key.is_not_distinct_from(source.workspace_key),
             Job.parameters["profile"]["key"].as_string() == profile_key,
             Job.parameters["sourceFileId"].as_string().is_not(None),
             Job.parameters["sourceFileId"].as_string() != source.public_id,

@@ -114,10 +114,10 @@ session. It passes only named variables: the temporary API token, `LANG`, `LC_*`
 `TMPDIR`, `CLAUDE_CONFIG_DIR`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
 `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL`,
 `ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`,
-`ANTHROPIC_DEFAULT_HAIKU_MODEL` and `NODE_EXTRA_CA_CERTS`. The switch
+`ANTHROPIC_DEFAULT_HAIKU_MODEL`, `NODE_EXTRA_CA_CERTS`, and `HTTPS_PROXY` and `NO_PROXY`, which the engine sets itself. The switch
 `CLAUDE_CODE_USE_BEDROCK` is passed when set; only when it is on are `AWS_REGION`,
 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` and `AWS_PROFILE`
-passed too. Other variables, including `HTTPS_PROXY`, are not passed. The session user cannot
+passed too. Other variables are not passed. In the shipped container deployment the session also reaches only this engine and the AI provider's hosts (`AI_AGENT_ALLOWED_HOSTS` adds more); a container without the `NET_ADMIN` capability leaves its network open, which `GET /api/v1/ai/status` and a log warning say (see Operations). The session user cannot
 read the engine's job-file directory or its process environment.
 
 **The provider's key or token still reaches the session.** Claude Code calls the provider itself.

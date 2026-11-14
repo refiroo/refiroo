@@ -228,7 +228,16 @@ class MailSender:
                 permanent=True,
             )
         logo = self._logo(message, html)
-        built = build(connection, message.to_address, message.subject, body, html, logo)
+        try:
+            built = build(connection, message.to_address, message.subject, body, html, logo)
+        except (ValueError, TypeError) as error:
+            # A header the message cannot carry (an address or subject with a line break): this
+            # message fails for good, the round goes on with the others.
+            return MailError(
+                UNREADABLE,
+                f"The message cannot be built: {error}",
+                permanent=True,
+            )
         try:
             deliver(connection, built, timeout=self.timeout_seconds)
         except MailError as error:

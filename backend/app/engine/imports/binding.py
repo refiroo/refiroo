@@ -600,7 +600,12 @@ def _bind_jsonl(session: Session, path: Path, rows: _RowCounter) -> None:
             else:
                 dumped = item.model_dump(mode="json", exclude_unset=True)
                 dumped["ref"] = ref
-                items.add(0, 0, 0, number, 0, ref, dumped)
+                if _holds_unstorable(dumped):
+                    errors.add(
+                        0, number, ref, _error("INVALID_CELL", _UNSTORABLE_MESSAGE.format("Line"))
+                    )
+                else:
+                    items.add(0, 0, 0, number, 0, ref, dumped)
         if len(items.rows) + len(errors.rows) >= CHUNK_ROWS:
             items.flush()
             errors.flush()
@@ -650,7 +655,25 @@ def _bind_table_layout(
                 ref = f"{sheet}!{number}"
                 if guarded:
                     cells = _unquoted(cells, guarded)
+                unstorable = next(
+                    (
+                        name
+                        for name, position in columns.items()
+                        if position < len(cells)
+                        and isinstance(cells[position], str)
+                        and _UNSTORABLE.search(cells[position])
+                    ),
+                    None,
+                )
                 try:
+                    if unstorable is not None:
+                        raise _RowError(
+                            _error(
+                                "INVALID_CELL",
+                                _UNSTORABLE_MESSAGE.format(f"Column {unstorable}"),
+                                column=unstorable,
+                            )
+                        )
                     item = _layout_item(model, columns, cells, partial(report.cell, src))
                 except _RowError as error:
                     errors.add(src, number, ref, error.body)
@@ -723,6 +746,89 @@ def _cell(columns: dict[str, int], cells: list[Any], name: str) -> Any:
     return None if is_empty(value) else value
 
 
+# A character PostgreSQL cannot store in a text or JSON value: NUL, and a surrogate half that no
+# pair completes (a lone one cannot be encoded as UTF-8).
+_UNSTORABLE = re.compile("[\x00\ud800-\udfff]")
+
+
+_UNSTORABLE_MESSAGE = "{} holds a character that cannot be stored (a NUL or an unpaired surrogate)"
+
+
+def _holds_unstorable(value: Any) -> bool:
+    if isinstance(value, str):
+        return _UNSTORABLE.search(value) is not None
+    if isinstance(value, dict):
+        return any(_holds_unstorable(k) or _holds_unstorable(v) for k, v in value.items())
+    if isinstance(value, list):
+        return any(_holds_unstorable(v) for v in value)
+    return False
+
+
+def _unstorable(plan: _Plan, cells: list[Any], failures: list[dict[str, Any]]) -> list[Any]:
+    """``cells`` with each one that holds an unstorable character emptied, and a refusal of its
+    column in ``failures``: the character would fail the whole bind at the ``COPY``."""
+    found = [
+        position
+        for position, value in enumerate(cells)
+        if isinstance(value, str) and _UNSTORABLE.search(value)
+    ]
+    if not found:
+        return cells
+    names = {position: name for name, position in reversed(plan.columns.items())}
+    cells = list(cells)
+    for position in found:
+        cells[position] = None
+        name = names.get(position)
+        if name is not None:
+            failures.append(
+                _error(
+                    "INVALID_CELL",
+                    _UNSTORABLE_MESSAGE.format(f"Column {name}"),
+                    column=name,
+                )
+            )
+    return cells
+
+
+def _key_cell_failed(source: Source, failures: list[dict[str, Any]]) -> bool:
+    """Whether a cell of the source's key failed to read, as against being empty."""
+    key = source.key
+    columns = {name for name in (key.column, key.nameColumn) if name is not None}
+    keyed = set(key.attributeTypeKeys or [])
+    if key.attributeTypeKey is not None:
+        keyed.add(key.attributeTypeKey)
+    columns |= {b.column for b in source.columns if b.attributeTypeKey in keyed}
+    if key.field == "name":
+        columns |= {b.column for b in source.columns if b.field == "name"}
+    return any(
+        failure["code"] != "MISSING_RECORD_KEY" and failure["details"].get("column") in columns
+        for failure in failures
+    )
+
+
+# A match value is a key of the matches' unique index, whose entries PostgreSQL limits to about 2.7 KB:
+# a longer value would fail the whole bind, and no name or key is that long.
+_MATCH_VALUE_BYTES = 2000
+
+
+def _short_enough(value: Any, column_name: str | None) -> None:
+    """Refuse a match value too long to be looked up."""
+    # A character is at most four bytes: only a long text is encoded to be measured.
+    if (
+        isinstance(value, str)
+        and len(value) * 4 > _MATCH_VALUE_BYTES
+        and len(value.encode("utf-8", "replace")) > _MATCH_VALUE_BYTES
+    ):
+        raise _RowError(
+            _error(
+                "INVALID_CELL",
+                f"Column {column_name} holds a value too long to find a record by"
+                f" (over {_MATCH_VALUE_BYTES} bytes)",
+                column=column_name,
+            )
+        )
+
+
 def _uuid(value: Any, column_name: str) -> str:
     try:
         return str(UUID(cell_text(value).strip()))
@@ -736,7 +842,9 @@ def _version(value: Any, column_name: str, lowest: int = 1) -> int:
     """A version cell: a record's or a relationship's from 1, a relation set's from 0 (a set no
     write has touched yet)."""
     text_value = cell_text(value).strip()
-    if not text_value.isdigit() or int(text_value) < lowest:
+    # ``isdigit`` accepts digits ``int`` does not (superscripts) and other scripts' digits ``int``
+    # reads: only ASCII digits are a version.
+    if not (text_value.isascii() and text_value.isdigit()) or int(text_value) < lowest:
         raise _RowError(
             _error(
                 "INVALID_CELL",
@@ -1082,6 +1190,7 @@ class _ProfileBinding:
         self.report.row(plan.order)
         state = _RowState()
         failures: list[dict[str, Any]] = []
+        cells = _unstorable(plan, cells, failures)
         for binding in source.columns:
             if binding.ignore:
                 continue
@@ -1216,8 +1325,14 @@ class _ProfileBinding:
                     "value": place.container_id,
                     "column": source.key.column,
                 }
-        if key_value is None and source.key is not None and source.rowsWithoutKey == "skip":
+        if (
+            key_value is None
+            and source.key is not None
+            and source.rowsWithoutKey == "skip"
+            and not _key_cell_failed(source, failures)
+        ):
             # A row without a key is no record of the source (0.10 A7, D110): counted, not loaded.
+            # A key cell that fails is no empty one: the row is refused below, as any refused row.
             self.report.skip(plan.order)
             return
         expected_version = None
@@ -1236,8 +1351,9 @@ class _ProfileBinding:
         error = None
         if failures:
             error = _cells_error(failures)
+            # The row keeps the key it read: a refused row still names its record, so the record is
+            # not counted as missing from the file (no delete item under ``missing: "delete"``).
             state.links, state.related = [], {}
-            key_value, key_kind, key_attr, key_column = None, None, None, None
         self.rows.add(
             row_id,
             plan.order,
@@ -1328,6 +1444,9 @@ class _ProfileBinding:
     ) -> tuple[Any, bool]:
         """The cell, through the binding's value map; ``True`` when the map replaced it."""
         raw = _cell(plan.columns, cells, column_name)
+        if binding.relation is not None and binding.relation.split is not None:
+            # A split cell is mapped piece by piece (:meth:`_relations`), never as a whole first.
+            return raw, False
         if binding.valueMap is not None and raw is not None:
             mapping = self.profile.valueMaps[binding.valueMap]
             key = cell_text(raw)
@@ -1362,6 +1481,7 @@ class _ProfileBinding:
             value = _uuid(raw, column_name)
         else:
             value = cell_text(raw)
+        _short_enough(value, column_name)
         return {
             "type": object_type_key,
             "field": match.field or "",
@@ -1539,6 +1659,7 @@ class _ProfileBinding:
         guesses it from the column's records once they are read (PP-D26). Kept for the report like any
         match; a value that finds none creates one in the place the model gives when the binding
         allows it (PP-D24)."""
+        _short_enough(cell_text(piece), column_name)
         place = self._place(plan.source.objectTypeKey, relation, within.value, within.container)
         container = place.container_id if place is not None and place.container_id else ""
         found = {

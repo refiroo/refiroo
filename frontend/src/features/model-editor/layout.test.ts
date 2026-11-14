@@ -433,6 +433,22 @@ describe("the settings of a page, a table and a panel (0.13 ED)", () => {
     expect(panelSettingsSpec(model, place, panel("details", "main", 10, []))).toBeUndefined();
   });
 
+  it("saves no step for a relations panel that already reads as the form says (none and an empty list are the same)", () => {
+    const relations = {
+      key: "related",
+      title: "Related",
+      type: "relations",
+      region: "main",
+      order: 20,
+      visible: true,
+      config: { relationTypeKeys: [], direction: "both", showRelationshipColumn: false },
+    } as unknown as PanelDefinition;
+    const spec = panelSettingsSpec(model, place, relations)!;
+    expect(
+      spec.build({ relations: [], direction: "both", relationshipColumn: false, sortFields: [] }, none, none),
+    ).toEqual([]);
+  });
+
   it("offers a table the boolean attributes of its type as the one that marks a record inactive (0.13 LB)", () => {
     const flagged = {
       attributeTypes: [

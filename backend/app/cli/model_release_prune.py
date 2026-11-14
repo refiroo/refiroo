@@ -7,7 +7,8 @@ import profile or model mapping was made under it (0.12 MR1, D457). By default t
 the retired ones among those; ``--unused`` also deletes active ones, such as releases installed for
 a try and never activated. Their drafts stay, without their link to the release. One statement for
 the whole set, in one transaction; it takes the installation lock, so it waits for an install in
-progress. Exit status 0.
+progress. Exit status 0; 1 when the database cannot start or a release was referred to
+meanwhile (nothing is deleted then).
 """
 
 import argparse
@@ -15,6 +16,7 @@ import sys
 
 from ..db import DatabaseStartupError, SessionLocal, create_database, lock_installation
 from ..engine.model.release_lifecycle import deletable_releases, delete_unreferenced
+from ..errors import ApiError
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,6 +45,10 @@ def main(argv: list[str] | None = None) -> int:
                 session.commit()
     except DatabaseStartupError as exc:
         print(str(exc), file=sys.stderr)
+        return 1
+    except ApiError as exc:
+        # A release was referred to after it was listed: nothing was deleted.
+        print(f"{exc.message}. Nothing was deleted; run the command again.", file=sys.stderr)
         return 1
     which = "unused" if arguments.unused else "retired and unused"
     if not releases:

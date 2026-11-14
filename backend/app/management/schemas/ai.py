@@ -96,6 +96,12 @@ class AiStatusResponse(BaseModel):
     configured: bool
     # Whether the assistant's session can run (``AI_AGENT_COMMAND``, AP-D38); it needs no provider.
     assistant: bool = False
+    # Where the session runs in a container (0.17 SR-D6): ``restricted`` (it reaches only this engine and
+    # the AI provider's hosts), ``unrestricted`` (the container has no NET_ADMIN: it can reach any host)
+    # or ``failed`` (the rule could not be set: assistant turns do not start); ``null`` without the
+    # assistant or outside a container. ``assistantNetworkNote`` says why, for the last two.
+    assistantNetwork: Literal["restricted", "unrestricted", "failed"] | None = None
+    assistantNetworkNote: str | None = None
     provider: str | None
     model: str | None
     endpoint: str | None

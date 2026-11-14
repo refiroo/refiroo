@@ -728,6 +728,13 @@ def test_batch_resolve_refusals(world):
             "items": 6,
         }
         assert _statuses(_resolve(world, {"items": [{"query": "led-7"}] * 5})) == ["found"] * 5
+        # The body is bounded too: 16 KiB for each item the setting allows (5 items, 80 KiB).
+        oversized = {"items": [{"query": "led-7" + "x" * 90_000}]}
+        error = refused(consumer_resolve(world, oversized), 413, "BATCH_TOO_LARGE")
+        assert error["details"] == {
+            "setting": "CONSUMER_RESOLVE_MAX_ITEMS",
+            "maximumBytes": 5 * 16 * 1024,
+        }
     finally:
         state.consumer_resolve_max_items = saved
 
@@ -1068,6 +1075,48 @@ def test_a_promoted_match_reads_the_relationship_it_passes_through(world):
     assert _scored(world, _xref(world, query="front desk")) == [("Front ledger", 55)]
     assert _scored(world, _xref(world, query="Back office")) == [("Back ledger", 55)]
     _same_as_get_by_id(world, _xref(world, query="Back office"))
+
+
+@pytest.mark.journey("J29.1")
+@pytest.mark.structures(*CAPI, "Bscope.note")
+def test_another_workspaces_relationships_never_use_up_a_lookups_bound(world, monkeypatch):
+    """Given a relationship text rule and a bound of 1 on the matches read for a term. When the
+    second workspace holds two relationships carrying the same text and the default one holds one.
+    Then the default workspace's lookup finds its own relationship, not `QUERY_TOO_BROAD`."""
+    from scenario import W1, W2
+
+    from app.engine.reads import consumer_xref
+
+    monkeypatch.setattr(consumer_xref, "MATCH_LIMIT", 1)
+    for workspace in (W2, W1):
+        owner = _ledger(world, f"Owner {workspace}", f"OW-{workspace[:2]}", workspace=workspace)
+        region = world.made(
+            "G",
+            f"Region {workspace}",
+            workspace=workspace,
+            values={"K.code": f"RG-{workspace[:2]}"},
+        )
+        permit = world.made(
+            "D",
+            f"Zone {workspace}",
+            parent=world.dependant_parent(region["id"], workspace),
+            workspace=workspace,
+            relations=[world.owner("Bown", owner["id"])],
+        )
+        names = ("first", "second") if workspace == W2 else ("only",)
+        for name in names:
+            ledger = _ledger(
+                world,
+                f"Ledger {name} {workspace}",
+                f"LD-{name[:2]}-{workspace[:2]}",
+                workspace=workspace,
+            )
+            ok(
+                world.relate("Bscope", ledger["id"], permit["id"], {"Bscope.note": "Shared text"}),
+                201,
+            )
+
+    assert _scored(world, _xref(world, query="shared text")) == [(f"Ledger only {W1}", 55)]
 
 
 @pytest.mark.journey("J29.7")

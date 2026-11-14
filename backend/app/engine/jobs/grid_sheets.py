@@ -274,8 +274,17 @@ class GridSheets(_Relationships):
     ) -> None:
         state, config = self.view.state, self.config
         to_source = record_source(workspace_key, context, [config.toObjectTypeKey])
-        found = set(session.scalars(select(to_source.c.object_id)))
         named = list(state.columnIds or [])
+        # Only the named columns are read back; the whole set is counted in the database.
+        found = (
+            set(
+                session.scalars(
+                    select(to_source.c.object_id).where(to_source.c.object_id.in_(named))
+                )
+            )
+            if named
+            else set()
+        )
         for index, key in enumerate(named):
             if key not in found:
                 raise invalid_layout(
@@ -286,7 +295,7 @@ class GridSheets(_Relationships):
             raise invalid_layout("Each column is named once", "/view/state/columnIds")
         if state.toWhere:
             self.to_ids(session, workspace_key, context, state.toWhere, "/view/state/toWhere")
-        count = len(named) or len(found)
+        count = len(named) or session.scalar(select(func.count()).select_from(to_source)) or 0
         wide = len(config.fromColumns) + 1 + count * (1 + len(config.attributeColumns) + 1)
         if wide > xlsx.SHEET_COLUMNS:
             raise invalid_layout(

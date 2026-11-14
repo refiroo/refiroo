@@ -27,15 +27,20 @@ SHEET_ROWS = 1_048_576 - 2
 PLAIN_ROWS = 1_048_576 - 1
 # The most columns a sheet holds.
 SHEET_COLUMNS = 16_384
+# The value sheets a link matrix writes, one per column: a workbook is kept to 255 sheets, with the
+# matrix, About, the lists and the profile beside them.
+VALUE_SHEETS = 250
 # The most characters a cell holds.
 CELL_CHARACTERS = 32_767
 # What a sheet's title may not hold, and its length.
-_TITLE_ILLEGAL = re.compile(r"[\\/?*\[\]:]")
+_TITLE_ILLEGAL = re.compile(r"[\\/?*\[\]:\x00-\x1f\x7f]")
 TITLE_LENGTH = 31
 # Excel's day 0 for the 1900 date system, as the day number every date cell counts from.
 _EPOCH = date(1899, 12, 30).toordinal()
+# The first day the date cells above count exactly (see :func:`cell`).
+_FIRST_DATE = date(1900, 3, 1)
 # XML 1.0 cannot hold these characters; XLSX writes them as ``_xHHHH_``, which Excel reads back.
-_XML_ILLEGAL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+_XML_ILLEGAL = re.compile("[\x00-\x08\x0b-\x1f\ufffe\uffff]")
 _XML_ESCAPE = re.compile(r"_(x[0-9A-Fa-f]{4})_")
 _MARKUP = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})
 # Rows are joined and written in blocks of about this many characters.
@@ -96,8 +101,12 @@ def cell(ref: str, value: str | None, value_type: str, style: int | None = None)
     if value_type == "boolean":
         return f'<c r="{ref}"{_style(style)} t="b"><v>{1 if value == "true" else 0}</v></c>'
     if value_type == "date":
-        days = date.fromisoformat(value).toordinal() - _EPOCH
-        return f'<c r="{ref}" s="{style or DATE_STYLE}"><v>{days}</v></c>'
+        day = date.fromisoformat(value)
+        if day < _FIRST_DATE:
+            # The 1900 date system has no day before 1 March 1900 that reads back as itself (its
+            # day 60 is a 29 February that never was): the ISO text, which an import reads as a date.
+            return text_cell(ref, value, style)
+        return f'<c r="{ref}" s="{style or DATE_STYLE}"><v>{day.toordinal() - _EPOCH}</v></c>'
     return text_cell(ref, value, style)
 
 
@@ -332,7 +341,7 @@ class Workbook:
                 else sheet_title(sheet.title if page == 1 else f"{sheet.title} {page}", self.titles)
             )
             titles.append(title)
-            self._plain_page(title, sheet, count, rows)
+            self._plain_page(title, sheet, count, rows, first_page=page == 1)
         return titles
 
     def reserve(self, title: str) -> str:
@@ -459,7 +468,12 @@ class Workbook:
         self._sheet(title, body(), dimension=f"A1:{last_column}{last_row}", frozen=2, after=after)
         self._sheets[-1].table = (table, ref, sheet.keys, True)
 
-    def _plain_page(self, title: str, sheet: PlainSheet, count: int, rows: Iterator) -> None:
+    def _plain_page(
+        self, title: str, sheet: PlainSheet, count: int, rows: Iterator, *, first_page: bool = True
+    ) -> None:
+        # A table's name is the workbook's alone: a later page (rows past a sheet's last) is no table
+        # and takes the filter instead.
+        table = sheet.table if first_page else None
         letters = [column(index) for index in range(1, len(sheet.labels) + 1)]
         header_row = 2 if sheet.groups else 1
         last_row = header_row + max(count, 1)
@@ -503,7 +517,7 @@ class Workbook:
             + f' sqref="{letter}{header_row + 1}:{letter}{last_row}"><formula1>{source.translate(_MARKUP)}</formula1></dataValidation>'
             for letter, source in sheet.lists
         )
-        after = "" if sheet.table else f'<autoFilter ref="{filtered}"/>'
+        after = "" if table else f'<autoFilter ref="{filtered}"/>'
         if merges:
             after += (
                 f'<mergeCells count="{len(merges)}">'
@@ -515,7 +529,7 @@ class Workbook:
             if validations
             else ""
         )
-        if sheet.table:
+        if table:
             after += '<tableParts count="1"><tablePart r:id="rId1"/></tableParts>'
         self._sheet(
             title,
@@ -526,9 +540,8 @@ class Workbook:
             before=f"<cols>{cols}</cols>",
             after=after,
         )
-        if sheet.table:
-            # The first page names the table; a later page (rows past a sheet's last) is no table.
-            self._sheets[-1].table = (sheet.table, filtered, sheet.labels, False)
+        if table:
+            self._sheets[-1].table = (table, filtered, sheet.labels, False)
         else:
             self._sheets[-1].filtered = filtered
         self._sheets[-1].hidden = sheet.hidden_sheet

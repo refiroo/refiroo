@@ -4,8 +4,11 @@ Once a second it claims the active subscriptions that have something to deliver 
 handles each: one batch, sent and recorded. Several processes share the work through a lease in the
 subscription's row (C-D106): a claim sets ``lease_owner`` for 60 s on subscriptions no one else
 holds, picked ``FOR UPDATE SKIP LOCKED``, least recently handled first. No row lock is held while a
-request is in flight, so an operator's edit never waits for a receiver. On its thread, the claimed
-subscriptions are sent by four senders, each one at a time, so a slow receiver delays only its own.
+request is in flight, so an operator's edit never waits for a receiver. On its thread, four senders
+each handle one subscription at a time and a sender that finishes claims the next due one at once,
+so a slow receiver holds only its own sender. A subscription whose step fails inside the engine (not
+a receiver's answer) is left alone for a growing wait, ``RETRY_SECONDS`` doubling up to
+``MAX_BACKOFF_SECONDS``, and logged, never retried every second.
 
 **One step** (``dispatch_one``). A subscription whose next events expired is suspended
 ``EVENTS_EXPIRED`` (C-D110); one with
@@ -33,16 +36,16 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import String, cast, exists, or_, select, tuple_, update
+from sqlalchemy import String, cast, exists, or_, select, true, tuple_, update
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from ...common.outage import OutageLog
+from ...common.outage import OutageLog, database_unavailable
 from ...models.database import (
     ConsumerEvent,
     ConsumerEventCheckpoint,
@@ -79,6 +82,8 @@ LEASE_SECONDS = 60
 SENDERS = 4
 POLL_SECONDS = 1.0
 RETRY_SECONDS = 2.0
+# The longest a subscription whose step keeps failing is left alone between its tries.
+MAX_BACKOFF_SECONDS = 300.0
 THREAD_NAME = "rdm-webhook-dispatcher"
 # How often a dispatcher prunes the delivery log (C-D118).
 PRUNE_EVERY = timedelta(hours=1)
@@ -128,12 +133,18 @@ class EventDispatcher:
         self._pruned_at: datetime | None = None
         self._thread: threading.Thread | None = None
         self._pool: ThreadPoolExecutor | None = None
+        # Subscriptions whose step failed: the failures in a row and when each is tried again
+        # (monotonic seconds), by sequence ID.
+        self._failing: dict[int, tuple[int, float]] = {}
 
     # --- claiming ---------------------------------------------------------------------------------
 
-    def claim(self, now: datetime) -> list[int]:
-        """Lease up to ``senders`` active subscriptions that are due and have a batch pending or
-        events after their acknowledged position; their sequence IDs."""
+    def claim(
+        self, now: datetime, limit: int | None = None, skip: frozenset[int] = frozenset()
+    ) -> list[int]:
+        """Lease up to ``limit`` (``senders``) active subscriptions that are due and have a batch
+        pending or events after their acknowledged position, except those in ``skip``; their
+        sequence IDs."""
         subscription, event, checkpoint = ConsumerSubscription, ConsumerEvent, ConsumerEventCheckpoint
         # Correlated to the subscription row by hand: inside UPDATE … IN (SELECT …) SQLAlchemy
         # would otherwise list the table again in the subquery's FROM.
@@ -176,9 +187,10 @@ class EventDispatcher:
                 or_(subscription.next_attempt_at.is_(None), subscription.next_attempt_at <= now),
                 or_(subscription.lease_owner.is_(None), subscription.lease_expires_at < now),
                 or_(subscription.pending_position.is_not(None), waiting, waiting_workspace),
+                subscription.sequence_id.not_in(skip) if skip else true(),
             )
             .order_by(subscription.lease_expires_at.asc().nulls_first(), subscription.sequence_id)
-            .limit(self.senders)
+            .limit(self.senders if limit is None else limit)
             .with_for_update(skip_locked=True)
         )
         with self.session_factory() as session:
@@ -529,16 +541,13 @@ class EventDispatcher:
     # --- runs -------------------------------------------------------------------------------------
 
     def run_once(self, now: datetime | None = None) -> bool:
-        """Handle every subscription claimed now; whether any changed."""
+        """Handle every subscription claimed now, one after the other (a test's step; the thread
+        hands them to its senders in ``_pump``); whether any changed."""
         at = now or datetime.now(UTC)
         self.prune(at)
         claimed = self.claim(at)
-        if not claimed:
-            return False
-        if self._pool is not None and len(claimed) > 1:
-            results = list(self._pool.map(lambda sequence_id: self.dispatch_one(sequence_id, at), claimed))
-        else:
-            results = [self.dispatch_one(sequence_id, at) for sequence_id in claimed]
+        # Every one is handled, not only until the first that changed.
+        results = [self.dispatch_one(sequence_id, at) for sequence_id in claimed]
         return any(results)
 
     def prune(self, now: datetime) -> None:
@@ -592,16 +601,77 @@ class EventDispatcher:
 
     def _loop(self) -> None:
         outage = OutageLog(logger, "The webhook dispatcher", RETRY_SECONDS)
+        running: dict[Future[bool], int] = {}
         while not self._stopping.is_set():
-            wait = POLL_SECONDS
+            wait_seconds = POLL_SECONDS
+            progressed = False
             try:
-                while self.run_once() and not self._stopping.is_set():
-                    pass
+                progressed = self._pump(running)
                 outage.succeeded()
             except Exception as exc:  # noqa: BLE001 - every failure is logged by OutageLog
                 outage.failed(exc)
-                wait = RETRY_SECONDS
-            self._stopping.wait(wait)
+                wait_seconds = RETRY_SECONDS
+            if progressed:
+                continue
+            if running:
+                # Wake as soon as a sender is free, to claim the next due subscription for it.
+                wait(set(running), timeout=wait_seconds, return_when=FIRST_COMPLETED)
+            else:
+                self._stopping.wait(wait_seconds)
+
+    def _pump(self, running: dict[Future[bool], int]) -> bool:
+        """Collect the senders that finished and hand each free sender a due subscription; whether
+        anything finished having changed a subscription, or was handed out."""
+        assert self._pool is not None
+        progressed = False
+        outage: Exception | None = None
+        for future in [item for item in running if item.done()]:
+            sequence_id = running.pop(future)
+            try:
+                progressed = future.result() or progressed
+            except Exception as exc:  # noqa: BLE001 - the subscription waits out a backoff
+                self._step_failed(sequence_id, exc)
+                if database_unavailable(exc):
+                    outage = outage or exc
+            else:
+                self._failing.pop(sequence_id, None)
+        if outage is not None:
+            raise outage
+        at = datetime.now(UTC)
+        self.prune(at)
+        free = self.senders - len(running)
+        if free > 0:
+            now = time.monotonic()
+            skip = frozenset(
+                key for key, (_count, retry_at) in self._failing.items() if retry_at > now
+            )
+            for sequence_id in self.claim(at, free, skip):
+                running[self._pool.submit(self.dispatch_one, sequence_id, at)] = sequence_id
+                progressed = True
+        return progressed
+
+    def _step_failed(self, sequence_id: int, exc: Exception) -> None:
+        """A subscription's step failed inside the engine: it is left alone for a growing wait, and
+        the failure is logged (in full the first time, then a line at the wait's growth)."""
+        failed = self._failing.get(sequence_id, (0, 0.0))[0] + 1
+        wait_seconds = min(RETRY_SECONDS * 2 ** (failed - 1), MAX_BACKOFF_SECONDS)
+        self._failing[sequence_id] = (failed, time.monotonic() + wait_seconds)
+        if failed == 1:
+            logger.error(
+                "Webhook subscription step %s failed inside the engine; it is tried again in "
+                "%.0f s, the wait growing while it fails",
+                sequence_id,
+                wait_seconds,
+                exc_info=exc,
+            )
+        else:
+            logger.warning(
+                "Webhook subscription step %s failed again (%s in a row): %s; next try in %.0f s",
+                sequence_id,
+                failed,
+                exc,
+                wait_seconds,
+            )
 
 
 def _pending(subscription: ConsumerSubscription) -> Key | None:

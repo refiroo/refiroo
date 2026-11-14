@@ -36,7 +36,15 @@ from ...model.workspace_models import load_assignment
 from ...sources.dry_run import is_items_run
 from ...sources.profile_export import definition as exported_profile
 from ..cell_coverage import cells_left_out
-from ..store import finish, held_by_another, held_counts, load_task, note, title_of
+from ..store import (
+    drafted_by_client,
+    finish,
+    held_by_another,
+    held_counts,
+    load_task,
+    note,
+    title_of,
+)
 from .files import (
     drop,
     ensure_folder,
@@ -605,19 +613,7 @@ def _send_back(
 
 def _drafted_by(session: Session, task: AiTask, draft: ModelDraft) -> bool:
     """Whether the task's own client created this draft, as the engine recorded it."""
-    if task.client_id is None:
-        return False
-    return (
-        session.scalar(
-            select(AuditEvent.sequence_id).where(
-                AuditEvent.aggregate_type == "model_draft",
-                AuditEvent.action == "created",
-                AuditEvent.aggregate_id == draft.public_id,
-                AuditEvent.actor_client_id == task.client_id,
-            )
-        )
-        is not None
-    )
+    return drafted_by_client(session, task.client_id, draft.public_id)
 
 
 QUESTION_MAX = 2000
@@ -708,7 +704,8 @@ def _proposal_landed(
     task = load_task(session, task_id, for_update=True)
     try:
         proposal = json.loads(read_work(folder, PROPOSAL) or "")
-    except ValueError:
+    except ValueError, RecursionError:
+        # A proposal nested past the parser's depth is no proposal, as a malformed one is not.
         proposal = None
     stated_title = title_of(proposal)
     if task.title is None and stated_title is not None:

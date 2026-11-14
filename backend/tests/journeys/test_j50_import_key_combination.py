@@ -168,3 +168,26 @@ def test_a_profile_keyed_by_a_combination_is_checked(world):
     assert ("/sources/0/key/attributeTypeKeys", "UNKNOWN_ATTRIBUTE") in {
         (p["path"], p["code"]) for p in error["details"]["problems"]
     }, error
+
+
+@pytest.mark.journey("J50.42")
+@pytest.mark.structures("K", "K.code", "K.rank")
+def test_a_key_cell_that_fails_is_refused_even_with_rows_without_key_skip(world):
+    """FX2. Given a file whose rank, a key cell, is not a number on one row. When it is loaded with
+    rowsWithoutKey skip. Then that row is refused with the value's own code and counted rejected,
+    not skipped; the other rows load. Under atomic the import stops at it."""
+    workspace = _workspace(world)
+    rows = ["Alpha,A,1", "Broken,A,many", "Beta,B,1"]
+    skipping = _loaded(world, rows, workspace, _profile(world, rowsWithoutKey="skip"))
+    assert (skipping["counts"]["rejected"], skipping["counts"]["created"]) == (1, 2), skipping
+    assert skipping["bindingReport"][0]["skippedRows"] == 0
+    assert _row_codes(world, skipping) == ["INVALID_ATTRIBUTE_VALUE"]
+    assert _names(world, workspace) == ["Alpha", "Beta"]
+
+    other = _workspace(world)
+    job = ok(
+        _send(world, rows, other, _profile(world, rowsWithoutKey="skip"), policy="atomic"), 202
+    )
+    world.api.client.app.state.job_worker.run_until_idle()
+    atomic = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert atomic["counts"]["created"] == 0 and _names(world, other) == [], atomic

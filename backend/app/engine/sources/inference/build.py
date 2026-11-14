@@ -13,7 +13,7 @@ added; columns of one workbook that share a header and a value type share one gl
 
 import copy
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 from uuid import uuid4
@@ -40,16 +40,25 @@ FIELDS_LEAST = 2
 DIFFERENCES_LISTED = 50
 
 
+class Differences(list[dict[str, Any]]):
+    """The first ``DIFFERENCES_LISTED`` differences, read from the database with the count of all of
+    them in ``total``: a file with a hundred thousand missing values lists fifty and counts the rest."""
+
+    def __init__(self, listed: Sequence[dict[str, Any]] = (), total: int | None = None) -> None:
+        super().__init__(listed)
+        self.total = len(self) if total is None else total
+
+
 class Stored(Protocol):
     """What a workbook's columns hold that the workspace's records do not (0.10 A7, D112): asked of
     the staged cells and the records by set statements (``run.py``)."""
 
-    def missing(self, sheet: str, column: str, type_key: str, attribute: str | None) -> list[dict[str, Any]]:
+    def missing(self, sheet: str, column: str, type_key: str, attribute: str | None) -> Differences:
         """The column's values (placeholders aside) that no record of the type holds, by name or by
         the attribute, with their rows."""
         ...
 
-    def drift(self, sheet: str, code: str, name: str, type_key: str, attribute: str) -> list[dict[str, Any]]:
+    def drift(self, sheet: str, code: str, name: str, type_key: str, attribute: str) -> Differences:
         """Each code a record of the type holds whose names in the file differ from the record's."""
         ...
 
@@ -744,15 +753,15 @@ class Builder:
         )
         proposal.binds[code.header] = (row.source, "relation")
         proposal.operations = operations
-        drift = self.stored.drift(table.name, code.header, name_column.header, target, attribute) if self.stored else []
-        missing = self.stored.missing(table.name, code.header, target, attribute) if self.stored else []
+        drift = self.stored.drift(table.name, code.header, name_column.header, target, attribute) if self.stored else Differences()
+        missing = self.stored.missing(table.name, code.header, target, attribute) if self.stored else Differences()
         proposal.evidence = {
             **finding.evidence,
             "acrossFiles": True,
             "drift": drift[:DIFFERENCES_LISTED],
-            "driftCodes": len(drift),
+            "driftCodes": drift.total,
             "missing": missing[:DIFFERENCES_LISTED],
-            "missingValues": len(missing),
+            "missingValues": missing.total,
         }
         proposal.summary = (
             f"{code.header} holds the {attribute_name} of the stored {name} records: each {row.name} refers to the one of its code, "
@@ -762,12 +771,12 @@ class Builder:
             listed = "; ".join(
                 f"{d['code']} is {d['stored']}, here {' and '.join(n['value'] for n in d['names'] if n['value'] != d['stored'])}" for d in drift[:5]
             )
-            proposal.summary += f" {len(drift)} codes are named otherwise in this file ({listed})."
-            self.warnings.append(f"{name_column.header} of sheet '{table.name}' names {len(drift)} {name} codes otherwise than the stored records: {listed}")
+            proposal.summary += f" {drift.total} codes are named otherwise in this file ({listed})."
+            self.warnings.append(f"{name_column.header} of sheet '{table.name}' names {drift.total} {name} codes otherwise than the stored records: {listed}")
         if missing:
             listed = ", ".join(f"{m['value']} ({m['rows']})" for m in missing[:5])
-            proposal.summary += f" {len(missing)} codes are not stored yet ({listed}): their rows are refused until they are."
-            self.warnings.append(f"{code.header} of sheet '{table.name}' names {len(missing)} {name} codes the stored records lack: {listed}")
+            proposal.summary += f" {missing.total} codes are not stored yet ({listed}): their rows are refused until they are."
+            self.warnings.append(f"{code.header} of sheet '{table.name}' names {missing.total} {name} codes the stored records lack: {listed}")
         source = self.key(proposal, "altSource", "sources", f"{table.name} {target}")
         proposal.alternatives = [
             {
@@ -952,20 +961,20 @@ class Builder:
         if self.stored is None or not self.stored.holds_records(target):
             return
         missing = self.stored.missing(table.name, column.header, target, attribute)
-        proposal.evidence = {**proposal.evidence, "missing": missing[:DIFFERENCES_LISTED], "missingValues": len(missing)}
+        proposal.evidence = {**proposal.evidence, "missing": missing[:DIFFERENCES_LISTED], "missingValues": missing.total}
         if not missing:
             return
         name = (self._type(target) or {}).get("name") or target
-        listed = ", ".join(f"{m['value']} ({m['rows']})" for m in missing[:5]) + (", …" if len(missing) > 5 else "")
-        sentence = f"{len(missing)} of its values are not {name} records yet ({listed}): their rows are refused until they are."
+        listed = ", ".join(f"{m['value']} ({m['rows']})" for m in missing[:5]) + (", …" if missing.total > 5 else "")
+        sentence = f"{missing.total} of its values are not {name} records yet ({listed}): their rows are refused until they are."
         proposal.summary += f" {sentence}"
         self.missing_sentences[(table.name, column.header)] = sentence
-        self.warnings.append(f"{column.header} of sheet '{table.name}' names {len(missing)} {name} values the stored records lack: {listed}")
+        self.warnings.append(f"{column.header} of sheet '{table.name}' names {missing.total} {name} values the stored records lack: {listed}")
         if lookup is not None:
             created = {**lookup, "missing": "create"}
             proposal.alternatives.append(
                 {
-                    "label": f"Create the {len(missing)} missing {name} values on load",
+                    "label": f"Create the {missing.total} missing {name} values on load",
                     "operations": [{"kind": "mapColumn", "source": row.source, "column": column.header, "binding": {"relation": created}}],
                 }
             )

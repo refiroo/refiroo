@@ -42,6 +42,7 @@ import {
   sameSheetJoin,
   columnAsListOperations,
   dropPlace,
+  freshCardOf,
   BOARD_EDGE,
 } from "./canvasModel";
 import { columnDropOperations, niceName } from "@/features/model-editor/columnDrop";
@@ -960,17 +961,60 @@ describe("groupOperations (0.17 NG1)", () => {
   const outline = outlineFixture();
 
   it("places a list or a view of any kind through the same operation, in a group or a new one", () => {
-    expect(groupOperations("bin", "shop", { key: "lists" }, outline)).toEqual([
-      { kind: "placeCollection", applicationKey: "shop", collection: "bin", group: "lists" },
+    expect(groupOperations("shelf", "shop", { key: "lists" }, outline)).toEqual([
+      { kind: "placeCollection", applicationKey: "shop", collection: "shelf", group: "lists" },
     ]);
     expect(groupOperations({ view: "bins" }, "shop", { key: "lists" }, outline)).toEqual([
       { kind: "placeCollection", applicationKey: "shop", view: "bins", group: "lists" },
     ]);
-    expect(groupOperations({ view: "bins" }, "shop", null, outline)).toEqual([
-      { kind: "placeCollection", applicationKey: "shop", view: "bins", group: null },
-    ]);
     const [add, place] = groupOperations({ view: "bins" }, "shop", { label: "Fresh" }, outline);
     expect(add).toMatchObject({ kind: "addNavigationGroup", label: "Fresh" });
     expect(place).toMatchObject({ kind: "placeCollection", view: "bins" });
+  });
+
+  it("sends nothing for an entry dropped where it already stands", () => {
+    const base = outlineFixture();
+    const outline = {
+      ...base,
+      applications: base.applications.map((application) =>
+        application.key === "shop"
+          ? {
+              ...application,
+              navigation: {
+                ...application.navigation,
+                groups: [
+                  {
+                    key: "lists",
+                    label: "Lists",
+                    collapsed: false,
+                    collections: ["shelf", "bin"],
+                    entries: [{ collection: "shelf" }, { collection: "bin" }],
+                    mark: "none",
+                  },
+                ],
+              },
+            }
+          : application,
+      ),
+    } as unknown as typeof base;
+    // Last in its group: a placement without a position would put it there again.
+    expect(groupOperations("bin", "shop", { key: "lists" }, outline)).toEqual([]);
+    // Not last: the drop moves it to the end, which is a change.
+    expect(groupOperations("shelf", "shop", { key: "lists" }, outline)).toHaveLength(1);
+    // In no group and dropped on the ungrouped part.
+    expect(groupOperations("area", "shop", null, outline)).toEqual([]);
+    expect(groupOperations("bin", "shop", null, outline)).toHaveLength(1);
+  });
+});
+
+describe("freshCardOf (a menu drop's card)", () => {
+  const card = (typeKey: string) => ({ typeKey }) as never;
+
+  it("is the card the step added, not a card of a laid-out board that has no kept place", () => {
+    const before = new Set(["area", "shelf"]);
+    // Nothing is stored for any card; the drop adds "bin".
+    expect(freshCardOf([card("area"), card("shelf"), card("bin")], before)?.typeKey).toBe("bin");
+    // The step has not added its card yet: no card is chosen.
+    expect(freshCardOf([card("area"), card("shelf")], before)).toBeUndefined();
   });
 });

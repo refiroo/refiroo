@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import ApiError, api_error
 from ...models.commands import ClientCreate, ClientSecretCreate, ClientUpdate
-from ...models.database import AuditEvent, OAuthClient, OAuthClientSecret, SignInFailure
+from ...models.database import AuditEvent, Grant, OAuthClient, OAuthClientSecret, SignInFailure
 from ..authorization.administration import grant_roles
 from ..reads.object_query import name_contains
 from . import security_events, sign_in
@@ -123,8 +123,11 @@ def create_session_client(session: Session, name: str) -> OAuthClient:
 
 
 def retire_session_client(session: Session, client_id: int | None) -> None:
-    """A finished task's client goes inactive and stays, as audit entries name it. The caller commits."""
+    """A finished task's client goes inactive and stays, as audit entries name it; the grants it
+    still holds (a turn that ended without its cleanup) go. The caller commits."""
     client = session.get(OAuthClient, client_id) if client_id is not None else None
+    if client is not None:
+        session.execute(delete(Grant).where(Grant.client_id == client.id))
     if client is not None and client.active:
         client.active = False
         _touch(client)

@@ -52,7 +52,7 @@ from ...workspaces.catalogue import resolve_workspace
 from ..draft_profile import current_source
 from ..profiling import PLACEHOLDER_VALUES
 from ..store import compared_workspace, require_profile
-from .build import Builder, Proposal
+from .build import DIFFERENCES_LISTED, Builder, Differences, Proposal
 from .compare import (
     bound,
     created_elements,
@@ -308,7 +308,7 @@ class StoredRecords:
             )
         )
 
-    def missing(self, sheet: str, column: str, type_key: str, attribute: str | None) -> list[dict[str, Any]]:
+    def missing(self, sheet: str, column: str, type_key: str, attribute: str | None) -> Differences:
         stored = (
             "SELECT 1 FROM attribute_values a JOIN objects o ON o.id = a.object_id"
             " AND o.workspace_key = :workspace AND o.object_type_key = :type"
@@ -319,18 +319,20 @@ class StoredRecords:
         found = self.session.execute(
             text(
                 f"""
-                SELECT c.text, count(*) AS n FROM source_file_cells c
+                SELECT c.text, count(*) AS n, count(*) OVER () AS total FROM source_file_cells c
                 WHERE c.source_file_id = :file AND c.sheet_index = :sheet AND c.column_number = :column
                   AND c.row_number > :header AND lower(btrim(c.text)) <> ALL(:placeholders)
                   AND NOT EXISTS ({stored})
-                GROUP BY c.text ORDER BY n DESC, c.text
+                GROUP BY c.text ORDER BY n DESC, c.text LIMIT :listed
                 """
             ),
-            self._cells(sheet, column) | {"type": type_key, "attribute": attribute, "placeholders": list(PLACEHOLDER_VALUES)},
-        )
-        return [{"value": value, "rows": rows} for value, rows in found]
+            self._cells(sheet, column)
+            | {"type": type_key, "attribute": attribute, "placeholders": list(PLACEHOLDER_VALUES), "listed": DIFFERENCES_LISTED},
+        ).all()
+        # The window count is taken over the groups, before the limit: the whole number of values.
+        return Differences([{"value": value, "rows": rows} for value, rows, _ in found], found[0][2] if found else 0)
 
-    def drift(self, sheet: str, code: str, name: str, type_key: str, attribute: str) -> list[dict[str, Any]]:
+    def drift(self, sheet: str, code: str, name: str, type_key: str, attribute: str) -> Differences:
         names = self._cells(sheet, name)
         found = self.session.execute(
             text(
@@ -349,15 +351,17 @@ class StoredRecords:
                         AND o.object_type_key = :type
                     WHERE v.attribute_type_key = :attribute)
                 SELECT p.code, s.name, json_agg(json_build_object('value', p.name, 'count', p.n)
-                                                ORDER BY p.n DESC, p.name)
+                                                ORDER BY p.n DESC, p.name),
+                    count(*) OVER () AS total
                 FROM pairs p JOIN stored s ON s.code = p.code
                 GROUP BY p.code, s.name HAVING bool_or(p.name IS DISTINCT FROM s.name)
-                ORDER BY p.code
+                ORDER BY p.code LIMIT :listed
                 """
             ),
-            self._cells(sheet, code) | {"name_column": names["column"], "type": type_key, "attribute": attribute},
-        )
-        return [{"code": value, "stored": stored, "names": listed} for value, stored, listed in found]
+            self._cells(sheet, code)
+            | {"name_column": names["column"], "type": type_key, "attribute": attribute, "listed": DIFFERENCES_LISTED},
+        ).all()
+        return Differences([{"code": value, "stored": stored, "names": listed} for value, stored, listed, _ in found], found[0][3] if found else 0)
 
 
 def _identifiers(session: Session, source: SourceFile, workbook: Any, workspace: str) -> dict[tuple[str, str], dict[str, str]]:

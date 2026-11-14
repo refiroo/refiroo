@@ -115,6 +115,27 @@ def invalid_layout(message: str, path: str) -> Any:
     return api_error(422, "INVALID_EXPORT_LAYOUT", message, {"path": path})
 
 
+def text_too_long(sheet: str, row: int, record: str | None, field: str, length: int) -> Any:
+    """An export's text that a cell of a workbook cannot hold whole: the record and the field it
+    sits in, so the text can be shortened where it is stored."""
+    who = f"record {record}" if record else f"row {row}"
+    return api_error(
+        422,
+        "EXPORT_TEXT_TOO_LONG",
+        f"The text of {field} on {who} (sheet '{sheet}') has {length:,} characters; a workbook"
+        f" cell holds {xlsx.CELL_CHARACTERS:,}. Shorten it, take the field out of the export, or"
+        " export as CSV or JSON Lines",
+        {
+            "sheet": sheet,
+            "row": row,
+            "recordId": record,
+            "field": field,
+            "length": length,
+            "limit": xlsx.CELL_CHARACTERS,
+        },
+    )
+
+
 # --- the plan ------------------------------------------------------------------------------------
 
 
@@ -1204,9 +1225,32 @@ def value_sql(alias: str, key: str, value_type: str, *, yes_no: bool) -> sql.Com
     return value
 
 
+# PostgreSQL's ``jsonb_build_object`` takes at most 100 arguments, 50 pairs.
+_OBJECT_PAIRS = 40
+
+
+def build_object(pairs: Sequence[tuple[sql.Composable, sql.Composable]]) -> sql.Composable:
+    """A jsonb object of ``(key, value)`` pairs, built in groups joined by ``||`` so any number of
+    pairs stays under ``jsonb_build_object``'s argument limit."""
+    groups = [pairs[start : start + _OBJECT_PAIRS] for start in range(0, len(pairs), _OBJECT_PAIRS)]
+    return sql.SQL(" || ").join(
+        sql.SQL("jsonb_build_object({})").format(
+            sql.SQL(", ").join(sql.SQL("{}, {}").format(key, value) for key, value in group)
+        )
+        for group in groups or [[]]
+    )
+
+
+def separator_safe(value: sql.Composable) -> sql.Composable:
+    """A related record's name or field as a cell lists it: a ``;`` in it written as a comma, since
+    the import cuts a cell at ``;`` (D181). The one guard of every export that lists records in a
+    cell (a relation column here, a link matrix's cell)."""
+    return sql.SQL("replace({}, ';', ',')").format(value)
+
+
 def _fill_cells(session: Session, model: EngineModel, part: int, column: MainColumn) -> None:
     """One relation column's cells: every related record's name or field, in name order."""
-    value = field_sql(model, "o", column.field)
+    value = separator_safe(field_sql(model, "o", column.field))
     statement = sql.SQL(
         "INSERT INTO people_cells (object_id, part, value)"
         " SELECT l.anchor_id, {part}, string_agg({value}, {split} ORDER BY o.name, o.object_id)"
@@ -2124,31 +2168,39 @@ class SheetWriter:
         its owned record's fields (``f0``…, several records' values joined as a summary) and its
         version (``v``; ``not loaded`` for several, D195). The sheet then reads each row by one join
         instead of a query per cell."""
-        values = sql.SQL(", ").join(
-            sql.SQL(
-                "{key}, CASE WHEN count(*) = 1 THEN max({value})"
-                " ELSE string_agg({value}, {split} ORDER BY o.name) END"
-            ).format(
-                key=sql.Literal(f"f{number}"),
-                value=field_sql(self.model, "o", None if field_ == "name" else field_),
-                split=sql.Literal(SPLIT),
-            )
-            for number, field_ in enumerate(fields)
-        )
+        pairs = [
+            (
+                sql.Literal("v"),
+                sql.SQL("CASE WHEN count(*) = 1 THEN max(o.version)::text ELSE {} END").format(
+                    sql.Literal(NOT_LOADED)
+                ),
+            ),
+            *(
+                (
+                    sql.Literal(f"f{number}"),
+                    sql.SQL(
+                        "CASE WHEN count(*) = 1 THEN max({value})"
+                        " ELSE string_agg({value}, {split} ORDER BY o.name) END"
+                    ).format(
+                        value=field_sql(self.model, "o", None if field_ == "name" else field_),
+                        split=sql.Literal(SPLIT),
+                    ),
+                )
+                for number, field_ in enumerate(fields)
+            ),
+        ]
         with self.connection.cursor() as cursor:
             cursor.execute(
                 sql.SQL(
                     "INSERT INTO people_grid (part, anchor_id, cells)"
                     " SELECT {part}, s.anchor_id, jsonb_object_agg(s.parent_id, s.cell) FROM ("
-                    " SELECT l.anchor_id, o.parent_object_id AS parent_id, jsonb_build_object("
-                    " 'v', CASE WHEN count(*) = 1 THEN max(o.version)::text ELSE {skip} END, {values})"
+                    " SELECT l.anchor_id, o.parent_object_id AS parent_id, {object}"
                     " AS cell FROM people_links l JOIN people_records o ON o.object_id = l.related_id"
                     " WHERE l.part = {part} AND o.parent_object_id = ANY({parents}::text[])"
                     " GROUP BY l.anchor_id, o.parent_object_id) s GROUP BY s.anchor_id"
                 ).format(
                     part=sql.Literal(part),
-                    skip=sql.Literal(NOT_LOADED),
-                    values=values,
+                    object=build_object(pairs),
                     parents=sql.Literal(list(parents)),
                 )
             )
@@ -2256,7 +2308,7 @@ class SheetWriter:
                     hidden=[cell.hidden for cell in cells],
                     count=count,
                     rows=cursor,
-                    encode=row_encoder(letters, cells),
+                    encode=row_encoder(letters, cells, title),
                     lists=[
                         (letter, cell.list_)
                         for letter, cell in zip(letters, cells, strict=True)
@@ -2297,16 +2349,28 @@ def built_in(key: str, alias: str = "r") -> sql.Composable:
 
 
 def row_encoder(
-    letters: Sequence[str], cells: Sequence[CellSpec]
+    letters: Sequence[str], cells: Sequence[CellSpec], title: str = ""
 ) -> Callable[[Sequence[Any], int], str]:
     """Each row's cells, every one written with its style so its border shows (D199): typed by
-    the column's value type; a summary of several values, or a version cell's mark, as text."""
+    the column's value type; a summary of several values, or a version cell's mark, as text. A text
+    a cell cannot hold is refused, naming the record (by the sheet's ID column) and the field."""
+    id_index = next(
+        (index for index, cell in enumerate(cells) if cell.label.startswith(ID_LABEL)), None
+    )
 
     def encode(row: Sequence[Any], number: int) -> str:
         parts = []
         for index, cell in enumerate(cells):
             ref = f"{letters[index]}{number}"
             value = row[index]
+            if isinstance(value, str) and len(value) > xlsx.CELL_CHARACTERS:
+                raise text_too_long(
+                    title,
+                    number,
+                    None if id_index is None else row[id_index],
+                    cell.label,
+                    len(value),
+                )
             if value is None:
                 parts.append(xlsx.text_cell(ref, None, cell.style))
             elif cell.value_type in {"number", "version"}:

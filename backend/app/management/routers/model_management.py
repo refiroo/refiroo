@@ -53,6 +53,7 @@ from ...engine.model.releases import (
 )
 from ...engine.sources import draft_profile
 from ...engine.sources.inference import run as inference
+from ...engine.tasks.store import own_drafts_only, refuse_draft_not_its_own
 from ...engine.workspaces.catalogue import load_workspace
 from ...errors import api_error
 from ...models.database import ModelDraft, ModelDraftOperation
@@ -65,7 +66,7 @@ from ..access import (
     forbidden,
     requires,
 )
-from ..dependencies import DbSession, DefaultModelSnapshot
+from ..dependencies import CurrentPrincipal, DbSession, DefaultModelSnapshot
 from ..paging import PageQuery
 from ..presenters import (
     candidate_compatibility_response,
@@ -314,13 +315,16 @@ def start_workspace_migration(
 )
 @requires("model.author", at=INSTANCE)
 def open_workspace_model_draft(
-    workspace_key: str, session: DbSession, response: Response
+    workspace_key: str, session: DbSession, response: Response, principal: CurrentPrincipal
 ) -> ModelDraftResponse:
     """The draft of the model a workspace runs, made when there is none (0.16 WM1): `200` with the
     draft it remembers or the newest of its release nothing holds, now remembering the workspace;
     `201` with a new one. Applying it is the draft's `installation`, then the workspace's
     `model/activation` or `model/migrations`. `404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`."""
     draft, created = workspace_draft(session, workspace_key)
+    if principal.kind == "client":
+        # An assistant's session is not given a draft that is not its own (403 FORBIDDEN).
+        refuse_draft_not_its_own(session, draft.public_id, principal.row_id)
     session.commit()
     if created:
         response.status_code = status.HTTP_201_CREATED
@@ -331,12 +335,19 @@ def open_workspace_model_draft(
 @requires("model.author", at=INSTANCE)
 def list_model_drafts(
     session: DbSession,
+    principal: CurrentPrincipal,
     paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ModelDraftPage:
+    statement = select(ModelDraft)
+    if principal.kind == "client":
+        # An assistant's session sees only the drafts it made and the one its task holds.
+        own = own_drafts_only(session, principal.row_id)
+        if own is not None:
+            statement = statement.where(own)
     page = paginate_statement(
         session,
-        select(ModelDraft),
+        statement,
         keys=_DRAFT_KEYS,
         scope="model-drafts",
         filters={},
@@ -465,7 +476,9 @@ def read_model_draft_migration(
     draft = load_draft(session, draft_id)
     against = installed_release(session, against_release_id) if against_release_id else None
     to = installed_release(session, to_release_id) if to_release_id else None
-    migration = derive_migration(session, draft, workspace_key=workspace_key, against=against, to=to)
+    migration = derive_migration(
+        session, draft, workspace_key=workspace_key, against=against, to=to
+    )
     if workspace_key is not None:
         migration["landing"] = landing(session, draft, workspace_key, migration, to)
     return ModelDraftMigrationResponse(**migration)

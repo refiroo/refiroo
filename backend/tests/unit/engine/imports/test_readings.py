@@ -152,3 +152,13 @@ def test_a_binding_names_a_column_in_any_of_its_members():
     assert names_column({"column": "A", "relatedRecord": {"parent": {"column": "Group"}}}, gone)
     assert names_column({"column": "A", "relatedRecord": {"versionColumn": "Group"}}, gone)
     assert not names_column({"column": "A", "relation": {"idColumn": "B"}}, gone)
+
+
+def test_a_cell_beyond_the_header_is_kept_after_the_added_columns_not_overwritten():
+    source = _source(headings={"column": "Item", "into": "Group"})
+    read = apply_readings(
+        Table(["Item", "Cat"], iter([(2, ["Fruit", None]), (3, ["apple", "c1", "stray"])]), 1),
+        source,
+    )
+    assert read.header == ["Item", "Cat", "Group"]
+    assert list(read.rows) == [(3, ["apple", "c1", "Fruit", "stray"])]

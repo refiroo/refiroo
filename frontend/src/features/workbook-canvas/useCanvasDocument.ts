@@ -5,7 +5,7 @@
  * A place or a fold that could not be kept is only that: the board stays as the person left it on this screen.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import type { CanvasScope } from "@/types/sources";
 import type { Position } from "./canvasModel";
@@ -25,14 +25,36 @@ export interface CanvasDocument {
   chooseScope: (scope: CanvasScope) => void;
 }
 
-/** A write that could not be kept is only a place or a fold: nothing is said and the screen stays as it is. */
-const keep = (written: Promise<unknown> | undefined) => void Promise.resolve(written).catch(() => undefined);
+/**
+ * The writes of one board go out one after the other, in the order they were made: a later save never lands before
+ * an earlier one. A write that could not be kept is only a place or a fold: nothing is said and the screen stays
+ * as it is, and the next write still goes.
+ */
+const useWrites = () => {
+  const tail = useRef<Promise<void> | null>(null);
+  return useCallback((send: () => Promise<unknown> | undefined) => {
+    const run = async () => {
+      try {
+        await send();
+      } catch {
+        // Kept on the screen only.
+      }
+    };
+    // With nothing waiting the write goes at once; otherwise it goes when the one before it has answered.
+    const next = tail.current ? tail.current.then(run) : run();
+    tail.current = next;
+    void next.then(() => {
+      if (tail.current === next) tail.current = null;
+    });
+  }, []);
+};
 
 export function useCanvasDocument(draftId: string): CanvasDocument {
   const [ready, setReady] = useState(false);
   const [positions, setPositions] = useState<Record<string, Position>>({});
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [scope, setScope] = useState<CanvasScope>();
+  const keep = useWrites();
 
   useEffect(() => {
     let cancelled = false;
@@ -61,9 +83,9 @@ export function useCanvasDocument(draftId: string): CanvasDocument {
         }
         return next;
       });
-      keep(api.moveCanvasCards(draftId, changed));
+      keep(() => api.moveCanvasCards(draftId, changed));
     },
-    [draftId],
+    [draftId, keep],
   );
 
   const foldAll = useCallback(
@@ -77,20 +99,20 @@ export function useCanvasDocument(draftId: string): CanvasDocument {
         }
         return next;
       });
-      keep(
+      keep(() =>
         api.arrangeCanvas(draftId, { folded: Object.fromEntries(typeKeys.map((key) => [key, value ? true : null])) }),
       );
     },
-    [draftId],
+    [draftId, keep],
   );
   const fold = useCallback((typeKey: string, value: boolean) => foldAll([typeKey], value), [foldAll]);
 
   const chooseScope = useCallback(
     (next: CanvasScope) => {
       setScope(next);
-      keep(api.arrangeCanvas(draftId, { scope: next }));
+      keep(() => api.arrangeCanvas(draftId, { scope: next }));
     },
-    [draftId],
+    [draftId, keep],
   );
 
   return { ready, positions, folded, scope, setPositions, savePositions, fold, foldAll, chooseScope };

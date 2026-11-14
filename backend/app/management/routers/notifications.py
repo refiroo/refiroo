@@ -4,7 +4,9 @@ included; the live stream is read with ``fetch`` and the ``Authorization`` heade
 
 import asyncio
 import json
+import time
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request
@@ -38,6 +40,8 @@ router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["notific
 
 # A stream sends a comment this often while nothing changes, so proxies keep it open.
 KEEP_ALIVE_SECONDS = 15.0
+# How long a sent notice is remembered, and how far back a read looks for one that committed late.
+RECENT_SECONDS = 60.0
 
 
 def _owner(principal: CurrentPrincipal) -> Ref:
@@ -243,14 +247,20 @@ async def my_notification_events(
     owner = _owner(principal)
     listener: JobListener = request.app.state.job_listener
     subscription = listener.subscribe(inbox.principal_key(owner))
+    connected = datetime.now(UTC)
     try:
         seen, count = await run_in_threadpool(_position, request, owner)
     except BaseException:
         listener.unsubscribe(subscription)
         raise
 
+    # The notices sent, by when: a notice made by a transaction that commits late has a lower ID
+    # than one already sent, so each read also lists the notices of the last minute and drops the
+    # ones it sent (the ID alone would skip it).
+    sent: dict[int, float] = {}
+
     async def stream() -> AsyncIterator[str]:
-        nonlocal seen, count
+        nonlocal seen, count, sent
         try:
             yield _event("unread", {"unreadCount": count})
             while True:
@@ -261,15 +271,26 @@ async def my_notification_events(
                     continue
                 subscription.woken.clear()
                 while True:
-                    new, current = await run_in_threadpool(_changes, request, owner, seen)
+                    clock = time.monotonic()
+                    sent = {key: at for key, at in sent.items() if clock - at < RECENT_SECONDS}
+                    fetched, current = await run_in_threadpool(
+                        _changes,
+                        request,
+                        owner,
+                        seen,
+                        max(connected, datetime.now(UTC) - timedelta(seconds=RECENT_SECONDS)),
+                        frozenset(sent),
+                    )
+                    new = [notice for notice in fetched if notice["sequenceId"] not in sent]
                     for notice in new:
                         seen = max(seen, notice["sequenceId"])
+                        sent[notice["sequenceId"]] = clock
                         yield _event("notification", notice["body"])
                     if new or current != count:
                         count = current
                         yield _event("unread", {"unreadCount": count})
                     # A full read may have left notices behind: read on until one comes back short.
-                    if len(new) < inbox.CATCH_UP_LIMIT:
+                    if not new or len(fetched) < inbox.CATCH_UP_LIMIT:
                         break
         finally:
             listener.unsubscribe(subscription)
@@ -300,8 +321,11 @@ def _position(request: Request, owner: Ref) -> tuple[int, int]:
         return inbox.newest_id(session, owner), inbox.unread_count(session, owner)
 
 
-def _changes(request: Request, owner: Ref, seen: int) -> tuple[list[dict], int]:
-    """The notices after ``seen`` (each with its sequence ID) and the unread count now. A stream
+def _changes(
+    request: Request, owner: Ref, seen: int, recent_since: datetime, known: frozenset[int]
+) -> tuple[list[dict], int]:
+    """The notices after ``seen`` and those created since ``recent_since`` (each with its sequence
+    ID) and the unread count now. A stream
     outlives any one request session, so each read opens a short session of its own."""
     with request.app.state.session_factory() as session:
         new = [
@@ -309,7 +333,7 @@ def _changes(request: Request, owner: Ref, seen: int) -> tuple[list[dict], int]:
                 "sequenceId": item.sequence_id,
                 "body": present.notification_response(item).model_dump(mode="json"),
             }
-            for item in inbox.after(session, owner, seen)
+            for item in inbox.after(session, owner, seen, recent_since=recent_since, known=known)
         ]
         return new, inbox.unread_count(session, owner)
 

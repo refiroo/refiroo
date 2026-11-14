@@ -7,7 +7,10 @@ several, and a row refused by one column still counted in the others.
 """
 
 import io
+import json
+from uuid import uuid4
 
+import pytest
 from openpyxl import Workbook
 from scenario import W1
 from sqlalchemy import event
@@ -30,7 +33,7 @@ def _workbook(path, sheets):
     path.write_bytes(buffer.getvalue())
 
 
-def _bind(path, profile, listen=None):
+def _bind(path, profile, listen=None, file_format="xlsx"):
     """Bind ``path`` through ``profile`` as an import's preview in W1, writing nothing;
     ``listen(connection, statement)`` sees each statement before it runs."""
     with SessionLocal() as session:
@@ -44,8 +47,8 @@ def _bind(path, profile, listen=None):
             parameters={
                 "policy": "independent",
                 "stage": "preview",
-                "file": {"format": "xlsx"},
-                "profile": {"definition": profile},
+                "file": {"format": file_format},
+                "profile": {"definition": profile} if profile is not None else None,
             },
             total=None,
             retention_days=7,
@@ -221,3 +224,146 @@ def test_record_items_collect_relationship_links_once_not_per_row(seeded, tmp_pa
     _bind(path, profile, explain)
     (plan,) = plans
     assert not _subplan_reads(plan, "import_links"), plan
+
+
+def _tokens_and_branches(seeded, tokens_column):
+    k = seeded.key
+    return {
+        "sources": [
+            {
+                "sheet": "Tokens",
+                "applicationKey": seeded.app("K"),
+                "objectTypeKey": k("K"),
+                "columns": [
+                    {"column": "Code", "attributeTypeKey": k("K.code")},
+                    {"column": "Name", "field": "name"},
+                ],
+            },
+            {
+                "sheet": "Branches",
+                "applicationKey": seeded.app("H"),
+                "objectTypeKey": k("H"),
+                "columns": [
+                    {"column": "Code", "attributeTypeKey": k("H.code")},
+                    {"column": "Name", "field": "name"},
+                    {
+                        "column": "Tokens",
+                        "relation": {
+                            "relationTypeKey": k("Bnn"),
+                            "objectTypeKey": k("K"),
+                            "matchBy": {"attributeTypeKey": k("K.code")},
+                            **tokens_column,
+                        },
+                    },
+                ],
+            },
+        ],
+        "valueMaps": {"swap": {"UTK1": "UTK2", "UTK2": "UTK9"}},
+    }
+
+
+def test_a_split_cell_is_value_mapped_by_piece_never_as_a_whole_first(seeded, tmp_path):
+    """The map sends UTK1 to UTK2 and UTK2 to UTK9. Each piece is mapped once: UTK1 finds UTK2,
+    UTK2 finds the absent UTK9 (not found). A whole cell mapped first and its pieces again would
+    send UTK1 on to UTK9 as well."""
+    profile = _tokens_and_branches(seeded, {"split": ";"})
+    profile["sources"][1]["columns"][2]["valueMap"] = "swap"
+    path = tmp_path / "file.source"
+    _workbook(
+        path,
+        {
+            "Tokens": [("Code", "Name"), ("UTK2", "Two"), ("UTK1", "One")],
+            "Branches": [
+                ("Code", "Name", "Tokens"),
+                ("UB1", "One", "UTK1"),
+                ("UB2", "Two", "UTK2"),
+            ],
+        },
+    )
+    tokens = next(c for c in _bind(path, profile).report[1]["columns"] if c["column"] == "Tokens")
+    assert (tokens["resolved"], tokens["notFound"]) == (1, 1)
+
+
+def test_a_cell_with_a_character_postgresql_cannot_store_refuses_its_row_only(seeded, tmp_path):
+    """A NUL in a cell would fail the whole bind at the COPY; its row is refused instead, and the
+    key cell's failure is a refused row, not a skipped one, under rowsWithoutKey skip."""
+    k = seeded.key
+    profile = {
+        "sources": [
+            {
+                "applicationKey": seeded.app("R"),
+                "objectTypeKey": k("R"),
+                "key": {"attributeTypeKey": k("R.u")},
+                "rowsWithoutKey": "skip",
+                "columns": [
+                    {"column": "Number", "attributeTypeKey": k("R.u")},
+                    {"column": "Name", "field": "name"},
+                ],
+            }
+        ]
+    }
+    path = tmp_path / "file.source"
+    path.write_bytes(b"Number,Name\nC1,Fine\nC2,Bad\x00name\nC\x003,Bad key\n,No key\n")
+    bound = _bind(path, profile, file_format="csv")
+    source = bound.report[0]
+    assert (source["rows"], source["rejectedRows"], source["skippedRows"]) == (3, 2, 1)
+
+
+def test_a_match_value_too_long_to_index_refuses_its_row(seeded, tmp_path):
+    profile = _tokens_and_branches(seeded, {"split": ";"})
+    path = tmp_path / "file.source"
+    _workbook(
+        path,
+        {
+            "Tokens": [("Code", "Name"), ("UTK1", "One")],
+            "Branches": [
+                ("Code", "Name", "Tokens"),
+                ("UB1", "One", "UTK1"),
+                ("UB2", "Two", "x" * 5000),
+            ],
+        },
+    )
+    bound = _bind(path, profile)
+    assert bound.report[1]["rejectedRows"] == 1
+
+
+@pytest.mark.parametrize("cell", ["²", "١", "1.5", "-1", "0"])
+def test_a_version_cell_that_is_not_ascii_digits_is_refused_not_crashed(seeded, tmp_path, cell):
+    k = seeded.key
+    profile = {
+        "sources": [
+            {
+                "applicationKey": seeded.app("K"),
+                "objectTypeKey": k("K"),
+                "key": {"column": "ID", "versionColumn": "Version"},
+                "record": "existing",
+                "columns": [{"column": "Name", "field": "name"}],
+            }
+        ]
+    }
+    path = tmp_path / "file.source"
+    _workbook(
+        path,
+        {"Sheet1": [("ID", "Version", "Name"), (str(uuid4()), cell, "Nobody")]},
+    )
+    assert _bind(path, profile).report[0]["rejectedRows"] == 1
+
+
+def test_a_json_lines_line_with_an_unstorable_character_is_refused_alone(seeded, tmp_path):
+    """A NUL in a line's text would fail the whole bind at the COPY: that line is refused
+    ``INVALID_CELL`` and the others are queued."""
+
+    def line(name):
+        return json.dumps(
+            {
+                "op": "create",
+                "applicationKey": seeded.app("K"),
+                "objectTypeKey": seeded.key("K"),
+                "name": name,
+            }
+        )
+
+    path = tmp_path / "file.source"
+    path.write_text("\n".join([line("Fine"), line("Bad\x00name"), line("Also fine")]) + "\n")
+    bound = _bind(path, None, file_format="jsonl")
+    assert (bound.rejected, bound.items) == (1, 2)

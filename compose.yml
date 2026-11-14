@@ -33,6 +33,11 @@ services:
     # An init process as PID 1: it reaps what an assistant session leaves behind when the reset after a
     # turn ends that session user's processes (0.17 RF5); the engine itself does not reap them.
     init: true
+    # NET_ADMIN lets the start step set the assistant's network rule (0.17 SR-D6): its session users reach
+    # only this engine and the AI provider's hosts. The engine and the sessions never hold it (the start step
+    # removes it before the engine starts). Without it the engine runs and the session's network is open.
+    cap_add:
+      - NET_ADMIN
     # Every setting set in .env reaches the engine (.env.example lists them all); the ones below
     # are worked out here and win over .env. RDM_ENV_FILE names another file (the one given to
     # `docker compose --env-file`, as the deployment runner does).

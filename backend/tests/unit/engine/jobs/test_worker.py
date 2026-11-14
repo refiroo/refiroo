@@ -21,10 +21,13 @@ from app.db import SessionLocal
 from app.engine.change_sets.lifecycle import create_change_set
 from app.engine.jobs import worker as worker_module
 from app.engine.jobs.background import submit_background_batch
+from app.engine.jobs.exports import submit_export
+from app.engine.jobs.files import JobFiles
 from app.engine.jobs.worker import JobWorker, WorkerSettings
 from app.engine.model.registry import resolve_model_snapshot
 from app.models.commands import BatchRequest
 from app.models.database import ChangeSet, Job, JobInput, JobItem, RdmObject
+from app.models.exports import ExportRequest
 
 CHUNK = 2
 
@@ -356,3 +359,75 @@ def test_two_threads_driving_one_worker_run_one_chunk_at_a_time(seeded, monkeypa
     assert max(overlaps) == 1
     assert job(job_id).state == "completed"
     assert outcomes(job_id) == [("applied", "created")] * 4 and live(world, "T") == 4
+
+
+@pytest.mark.serial
+def test_a_sweep_that_keeps_failing_does_not_stop_the_jobs(seeded, monkeypatch):
+    """The sweep and the run shared one ``try``: a sweep that failed every round stopped every job
+    behind it. Now the sweep has its own, and runs again after a short retry time."""
+    world = seeded
+    job_id = queue(world, items(world, 2))
+    sweeps = []
+
+    def failing(self, now=None):
+        sweeps.append(1)
+        raise RuntimeError("simulated sweep defect")
+
+    monkeypatch.setattr(JobWorker, "sweep", failing)
+    monkeypatch.setattr(worker_module, "SWEEP_RETRY_SECONDS", 0.1)
+    running = worker("worker-sweep")
+    running.start()
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not (
+            job(job_id).state == "completed" and len(sweeps) >= 2
+        ):
+            time.sleep(0.05)
+    finally:
+        running.stop(timeout=2)
+    assert job(job_id).state == "completed"
+    assert len(sweeps) >= 2
+
+
+def test_an_export_that_cannot_be_completed_fails_after_a_bounded_number_of_attempts(
+    seeded, monkeypatch, tmp_path
+):
+    """A failure after the export's guarded block (the file put in place, the job completed) left
+    the job running under this worker's own lease, so every round of the loop ran it again: it is
+    tried a few times, then fails with a correlation ID."""
+    world = seeded
+    with SessionLocal() as session:
+        export = submit_export(
+            session,
+            ExportRequest.model_validate(
+                {
+                    "workspaceKey": W1,
+                    "format": "jsonl",
+                    "scope": {"types": [{"objectTypeKey": world.key("R")}]},
+                }
+            ),
+            retention_days=7,
+        )
+        export_id = export.id
+        session.commit()
+
+    def broken(self, job, partial, outcome):
+        raise RuntimeError("simulated rename failure")
+
+    monkeypatch.setattr(JobWorker, "_finish_file", broken)
+    exporter = JobWorker(
+        SessionLocal,
+        WorkerSettings(CHUNK, 120, 7),
+        owner="worker-export",
+        kinds=("export",),
+        files=JobFiles(tmp_path),
+        sweeps=False,
+    )
+    for attempt in range(1, worker_module.EXPORT_FINISH_ATTEMPTS):
+        assert exporter.run_once()
+        assert job(export_id).state == "running", attempt
+    assert exporter.run_once()
+    failed = job(export_id)
+    assert (failed.state, failed.error["code"]) == ("failed", "JOB_FAILED")
+    assert failed.error["details"]["correlationId"]
+    assert not exporter.run_once()

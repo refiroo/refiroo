@@ -36,6 +36,7 @@ from .sandbox import (
     agent_root,
     as_assistant,
     base_command,
+    check_network,
     close_gate,
     close_gates_of,
     container,
@@ -56,6 +57,16 @@ class SessionTimedOut(JobCancelled):
     """A turn ran longer than ``AI_AGENT_TIMEOUT_SECONDS`` (0.13 AQ). It ends as a person's Stop does
     (AP-D55): the worker stops the job as cancelled, the task goes back to its last point, and the
     task's note says the session took longer than the limit."""
+
+
+class SessionLogTooLarge(Exception):
+    """The session's stream log passed ``LOG_LIMIT`` bytes: the turn is stopped and fails (FX2)."""
+
+
+# The most a turn's stream log may hold; the usual turn's is a few megabytes. A line is read up to
+# ``LINE_LIMIT`` bytes and a longer one is skipped, so one line cannot fill the engine's memory.
+LOG_LIMIT = 512 * 1024 * 1024
+LINE_LIMIT = 8 * 1024 * 1024
 
 
 def timeout_seconds() -> int:
@@ -197,6 +208,12 @@ class Progress:
         self.model: str | None = None
         # Each message's usage by its ID, as the stream repeats a message while it grows (AP-D36).
         self.usage: dict[str, tuple[int, int]] = {}
+        # Inside a line longer than ``LINE_LIMIT``, which is skipped to its end.
+        self.skipping = False
+
+    def size(self) -> int:
+        """Bytes in the log now, from the descriptor it was opened as."""
+        return os.fstat(self.handle.fileno()).st_size if self.handle is not None else 0
 
     def _open(self) -> bool:
         """The log is opened once, as a regular file and not through a link, and read through that
@@ -220,10 +237,16 @@ class Progress:
         handle = self.handle
         handle.seek(self.position)
         while True:
-            line = handle.readline()
-            if not line or not line.endswith("\n"):
+            line = handle.readline(LINE_LIMIT)
+            if not line:
                 break
+            complete = line.endswith("\n")
+            if not complete and len(line) < LINE_LIMIT:
+                break  # a line the session is still writing
             self.position = handle.tell()
+            if self.skipping or not complete:
+                self.skipping = not complete
+                continue
             try:
                 moved = self._line(line) or moved
             except AttributeError, TypeError, KeyError:
@@ -250,7 +273,7 @@ class Progress:
     def _line(self, line: str) -> bool:
         try:
             event = json.loads(line)
-        except ValueError:
+        except ValueError, RecursionError:
             return False
         if not isinstance(event, dict):
             return False
@@ -359,7 +382,11 @@ def _reap(process: subprocess.Popen[str]) -> None:
 
 
 def provider() -> str:
-    command = base_command()
+    try:
+        command = base_command()
+    except OSError:
+        # A command that cannot start is recorded as the turn's failure, under no provider's name.
+        return "unknown"
     return "claude-code" if Path(command[0]).name == "claude" else Path(command[0]).name
 
 
@@ -639,6 +666,7 @@ def _turn_as(
     ) as output:
         try:
             config = folder.parent / "claude" if contained else None
+            check_network()
             if config is not None:
                 user, lock = take_session_user(slots_of(agent_root(None)))
                 holder.append(lock.close)
@@ -720,6 +748,8 @@ def _turn_as(
                 if time.monotonic() - started > timeout_seconds():
                     raise SessionTimedOut("The session took too long")
                 moved = progress.read()
+                if progress.size() > LOG_LIMIT:
+                    raise SessionLogTooLarge("The session's log grew too large")
                 if moved or time.monotonic() - shown >= 5:
                     shown = time.monotonic()
                     task = load_task(session, task_key, for_update=True)
@@ -748,6 +778,8 @@ def _turn_as(
                 if isinstance(error, SessionTimedOut)
                 else ("cancelled", "Cancelled by a person.")
                 if isinstance(error, JobCancelled)
+                else ("failed", "The session's log grew past its limit.")
+                if isinstance(error, SessionLogTooLarge)
                 else ("failed", f"The session's turn failed ({type(error).__name__}).")
             )
             raise
@@ -757,31 +789,37 @@ def _turn_as(
             session.commit()
             progress.read()
             progress.close()
-            if load and failure is not None and failure[0] in ("cancelled", "timeout"):
-                _undo_load(session, task_key, client, since)
-            if failure is not None and failure[0] == "timeout":
-                # One line, no traceback: the limit is an expected ending, not a fault (0.13 AQ).
-                logging.getLogger(__name__).warning(
-                    "Assistant task %s: the session ran longer than %s seconds and was stopped",
-                    task_key,
-                    timeout_seconds(),
-                )
-                held = load_task(session, task_key, for_update=True)
-                held.design = {**(held.design or {}), "timedOut": timeout_seconds()}
-                session.commit()
-            if failure is None and (not progress.result or progress.result.get("is_error")):
-                failure = ("failed", "The session ended without an answer.")
-            if failure is not None and failure[0] == "failed":
-                # A turn that failed after the session made a change set (a correction of a load)
-                # leaves it with no task to link it. A failed load stage keeps a set that holds
-                # changes reachable (recover_load); the other turns undo what they began (0.13
-                # DOC11 F8).
-                if load:
-                    _discard_empty_sets(session, client, since)
-                else:
+            # The turn is recorded whatever the undo after it does (FX2).
+            try:
+                if load and failure is not None and failure[0] in ("cancelled", "timeout"):
                     _undo_load(session, task_key, client, since)
-            _record_turn(session, task_key, job.id, progress, since, prompt, failure)
-            _log_split(session, task_key, client, since, started, progress)
+                if failure is not None and failure[0] == "timeout":
+                    # One line, no traceback: the limit is an expected ending, not a fault (0.13 AQ).
+                    logging.getLogger(__name__).warning(
+                        "Assistant task %s: the session ran longer than %s seconds and was stopped",
+                        task_key,
+                        timeout_seconds(),
+                    )
+                    held = load_task(session, task_key, for_update=True)
+                    held.design = {**(held.design or {}), "timedOut": timeout_seconds()}
+                    session.commit()
+                if failure is None and (not progress.result or progress.result.get("is_error")):
+                    failure = ("failed", "The session ended without an answer.")
+                if failure is not None and failure[0] == "failed":
+                    # A turn that failed after the session made a change set (a correction of a load)
+                    # leaves it with no task to link it. A failed load stage keeps a set that holds
+                    # changes reachable (recover_load); the other turns undo what they began (0.13
+                    # DOC11 F8).
+                    if load:
+                        _discard_empty_sets(session, client, since)
+                    else:
+                        _undo_load(session, task_key, client, since)
+            except BaseException:
+                session.rollback()
+                raise
+            finally:
+                _record_turn(session, task_key, job.id, progress, since, prompt, failure)
+                _log_split(session, task_key, client, since, started, progress)
     return progress
 
 

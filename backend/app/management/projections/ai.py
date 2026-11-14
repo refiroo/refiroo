@@ -10,6 +10,8 @@ from ...engine.proposals import calls
 from ...engine.proposals.context import FEATURE_LEVELS
 from ...engine.proposals.registry import AiConfiguration, model_label, provider_label
 from ...engine.tasks import agent
+from ...engine.tasks.agent import network as agent_network
+from ...engine.tasks.agent.sandbox import container
 from ...models.database import AiCall
 from ..schemas.ai import (
     AiCallPage,
@@ -61,9 +63,12 @@ def status(session: Session, ai: AiConfiguration, settings: Settings) -> AiStatu
     provider = ai.provider
     last = calls.last_call(session)
     found = calls.totals(session)
+    network = agent_network.report(agent.enabled(), container())
     return AiStatusResponse(
         configured=provider is not None,
         assistant=agent.enabled(),
+        assistantNetwork=network.state if network else None,
+        assistantNetworkNote=network.note if network else None,
         provider=provider_label(provider) if provider else None,
         model=model_label(provider) if provider else None,
         endpoint=settings.ai_base_url or None,

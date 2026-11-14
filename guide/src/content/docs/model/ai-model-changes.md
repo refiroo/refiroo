@@ -43,7 +43,7 @@ that the proposed design means what you intended.
 
 Answer the questions or use **Tell the assistant what to change**. You can also choose
 **Open in the model editor** and edit the draft directly. The same assistant reads those edits
-when it continues. A second assistant task cannot take over a draft another task holds.
+when it continues. An assistant task works only in a draft it made itself or the one its task holds: it cannot read or change a colleague's draft, nor take over a draft another task holds.
 
 For a workbook load, **What the load does** shows new and matched records, new relationships,
 refused items and rows read. Open a type's row for example records with their source cells,

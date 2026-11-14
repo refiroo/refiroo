@@ -329,3 +329,29 @@ def test_the_session_runs_restricted_outside_a_container_and_unprompted_inside_o
     assert "--setting-sources" not in outside
     host = json.loads(outside[outside.index("--settings") + 1])
     assert host["permissions"] == {"blockReadsOutsideWorkingDirectories": True}
+
+
+def test_an_empty_or_unclosed_command_is_a_start_failure_not_a_crash(monkeypatch):
+    """FX2: ``AI_AGENT_COMMAND`` empty or with an unclosed quote raises the OSError a turn that
+    cannot start already handles."""
+    import pytest
+
+    from app.engine.tasks.agent import sandbox as agent_sandbox
+
+    for value in ("", "   ", "claude --model 'sonnet"):
+        monkeypatch.setenv("AI_AGENT_COMMAND", value)
+        with pytest.raises(OSError):
+            agent_sandbox.base_command()
+    monkeypatch.setenv("AI_AGENT_COMMAND", "claude --permission-mode x -p")
+    assert agent_sandbox.base_command() == ["claude", "-p"]
+
+
+def test_the_sessions_token_lives_as_long_as_a_turn_may(monkeypatch):
+    """FX2: with a turn limit longer than ``ACCESS_TOKEN_MINUTES``, the token outlives the turn."""
+    from app.config import get_settings
+    from app.engine.tasks.agent import sandbox as agent_sandbox
+
+    settings = get_settings()
+    lived = agent_sandbox._identity().access_token_seconds
+    assert lived >= settings.ai_agent_timeout_seconds + agent_sandbox.TOKEN_SLACK_SECONDS
+    assert lived >= settings.access_token_minutes * 60

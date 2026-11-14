@@ -22,7 +22,7 @@ Partial matching needs at least three characters. Shorter inputs match whole val
 
 Batch resolve is a read. Each item asks by query or by ID, exactly one of them. Shared parameters can be overridden per item; JSON list values keep commas inside a value rather than splitting them. The response stays in input order, distinguishing found, not found, ambiguous and rejected items. A processed HTTP request does not mean every item resolved.
 
-The default maximum is 1,000 items (`CONSUMER_RESOLVE_MAX_ITEMS`), reported by the [capabilities operation](/docs/api/?api=management#tag/model). `BATCH_TOO_LARGE` requires smaller batches. Malformed bodies and unknown defaults refuse the request as a whole; an item-specific failure is reported with that item's outcome. `QUERY_OR_ID_REQUIRED` requires one input form. Keep a source-row reference so a refusal can be returned to the right row.
+The default maximum is 1,000 items (`CONSUMER_RESOLVE_MAX_ITEMS`), reported by the [capabilities operation](/docs/api/?api=management#tag/model). `BATCH_TOO_LARGE` requires smaller batches; a body over 16 KiB for each item the maximum allows is refused the same way. Malformed bodies and unknown defaults refuse the request as a whole; an item-specific failure is reported with that item's outcome. `QUERY_OR_ID_REQUIRED` requires one input form. Keep a source-row reference so a refusal can be returned to the right row.
 
 ## Choose blocks for each resolved object
 

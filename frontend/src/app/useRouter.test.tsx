@@ -257,6 +257,54 @@ describe("a workspace's own model (0.11 M5, D48, D49)", () => {
     expect(router.result.current.problem).toBeUndefined();
   });
 
+  it("drops a model read for a workspace the person has left while it was read", async () => {
+    const router = renderHook(useRouter);
+    await waitFor(() => expect(router.result.current.model).toBe(testModel));
+    let release: (model: typeof testModel) => void = () => undefined;
+    vi.mocked(api.model).mockImplementationOnce(() => new Promise((resolve) => (release = resolve)));
+    let reading: Promise<void> = Promise.resolve();
+    act(() => {
+      reading = router.result.current.reloadModel("west");
+    });
+    act(() => {
+      router.result.current.openWorkspace("east");
+    });
+    await waitFor(() => expect(router.result.current.model).toBe(otherModel));
+    await act(async () => {
+      release({ ...testModel });
+      await reading;
+    });
+    expect(router.result.current.model).toBe(otherModel);
+  });
+
+  it("opens navigation again when a step back it undoes is never answered", async () => {
+    const router = renderHook(useRouter);
+    await waitFor(() => expect(router.result.current.route?.kind).toBe("list"));
+    vi.spyOn(window, "alert").mockImplementation(() => undefined);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    act(() => {
+      router.result.current.navigate(detail);
+    });
+    const guard = renderHook(() => useNavigationGuard(true, true, vi.fn()));
+    const go = vi.spyOn(window.history, "go").mockImplementation(() => undefined);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      // Back is refused while the guard holds; the undoing step is never answered by the browser.
+      act(() => window.history.back());
+      await vi.waitFor(() => expect(go).toHaveBeenCalled());
+      expect(router.result.current.navigate(detail)).toBe(false);
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    guard.unmount();
+    act(() => {
+      expect(router.result.current.navigate(detail)).toBe(true);
+    });
+  });
+
   it("opens the start of another workspace's model when a switch carried a page it lacks", async () => {
     const router = renderHook(useRouter);
     await waitFor(() => expect(router.result.current.route?.kind).toBe("list"));

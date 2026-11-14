@@ -49,9 +49,12 @@ export function LinePopover({
     const operation = operationById(id);
     if (operation) onOperation(operation, target);
   };
-  // Escape closes it, and focus moves into it so the keyboard reaches its rows.
+  // Focus moves into it once, as it opens, so the keyboard reaches its rows; a redraw of the canvas leaves it be.
   useEffect(() => {
     box.current?.querySelector<HTMLElement>("select, button")?.focus();
+  }, []);
+  // Escape closes it.
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && !menuOpen && onClose();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);

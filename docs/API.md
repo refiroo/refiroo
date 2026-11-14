@@ -1173,9 +1173,11 @@ divergence under `409 VERSION_CONFLICT` with `details.conflicts` (`kind`, `id`, 
 compares complete source/live relation identities and versions for exact directional mutable binding
 sets touched by the change set. A divergent set adds a diagnostic with `kind: "mapping-set"`,
 `code: "MAPPING_SET_CHANGED"`, `id`/`anchorObjectId`, physical binding type keys, `direction`,
-expected/actual target counts and a recovery message. At most 20 mapping-set diagnostics are
-returned; `details.mappingSetConflictCount` gives the exact total and
-`details.mappingSetConflictsTruncated` indicates omitted mapping-set diagnostics. No graph is applied,
+expected/actual target counts and a recovery message. At most 20 conflicts of each `code` are listed in `details.conflicts`, and `details.conflictsLeftOut` (a map of
+code to count, present only when some are left out) counts the others; `details.mappingSetConflictCount` gives the exact
+mapping-set total and `details.mappingSetConflictsTruncated` indicates omitted mapping-set diagnostics. The
+`WORKSPACE_GRAPH_INVALID` list is capped the same way (20 of each code), each code with more ending the list with one
+`DIAGNOSTICS_LEFT_OUT` entry (`details.leftOutCode`, `details.count`). No graph is applied,
 no publication is created, and the change set remains available. Review current live mappings and
 reapply intended changes in a new current-live change set before publishing; validating the unchanged
 conflicting change set does not resolve the conflict. Containment/ownership use their existing merge
@@ -2789,6 +2791,15 @@ or a body of the wrong shape `422 REQUEST_VALIDATION_ERROR`. On the output: `404
 `404 JOB_HAS_NO_OUTPUT` (a batch), `409 JOB_NOT_COMPLETED` with `details.state`, `410 JOB_EXPIRED`
 (retention removed the file), `410 JOB_OUTPUT_MISSING` (the file is gone from `JOB_FILE_DIR`).
 
+**While the job runs** (0.17.2). A text of more than 32,767 characters in a workbook (xlsx) export fails the job with
+`EXPORT_TEXT_TOO_LONG`, whose `details` name the `sheet`, the `recordId` and the `field` (a relation column's list over the
+limit is cut in its cell and written whole on its relationship's own sheet, as before); CSV and JSON Lines hold such a
+text whole. A link matrix of more than 250 columns is `INVALID_EXPORT_LAYOUT` at `/view/state/columnIds` (a value sheet per
+column). A `;` inside a related record's name or field is written as `,` in a relation column and in a matrix cell, since
+an import cuts the cell at `;`. A date before 1 March 1900 is written as its ISO text, which the 1900 date system cannot
+hold as a date; a carriage return in a text is kept (written as `_x000D_`), so an unchanged file reads back unchanged.
+An export that cancels while a CSV table streams stops within seconds.
+
 ### Exporting a view, a type, an application (Base 0.17 EX1)
 
 `POST /exports` takes `view` in place of `scope`: `{applicationKey, viewKey, state, cellField}`. The engine derives the
@@ -3025,7 +3036,9 @@ fixed values it matches. A list pages in key order (ADR-030).
 - **`rowsWithoutKey`** (0.10 A7, D110) on a source with a `key`: what a load does with a row whose
   key cell is empty after its value map. `"refuse"`, the default (also when left out), refuses it
   `MISSING_RECORD_KEY` (for an attribute key or a key of several); `"skip"` reads no record from it and counts it in the
-  binding report's and the dry run's `skippedRows`, writing nothing and refusing nothing. A skipped
+  binding report's and the dry run's `skippedRows`, writing nothing and refusing nothing. Only an empty key cell
+  is skipped: a key cell that fails (not an ID, a value the attribute does not take, a character that cannot be
+  stored) makes a refused row, which under `atomic` stops the import as any refused row does. A skipped
   row makes no item, so no outcome rows stand behind the count. `"skip"` on a source without a key
   is refused `INVALID_IMPORT_PROFILE` with `SKIP_NEEDS_KEY` at `/sources/{i}/rowsWithoutKey`. A
   placeholder ID (`?`) is skipped by mapping it to empty and skipping rows without a key.
@@ -3653,7 +3666,7 @@ The request is refused as a whole:
 | --- | --- | --- |
 | 400 | `REQUEST_VALIDATION_ERROR` | The body is not JSON or not the shape above (`items` missing or empty, an item or a value of the wrong type, an unknown top-level name); `details.pointer` |
 | 400 | `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`, `MULTIPLE_TARGETS` | In `defaults` (`details.pointer`), or a definition parameter, a `to.` name or another name in the URL |
-| 413 | `BATCH_TOO_LARGE` | More items than `CONSUMER_RESOLVE_MAX_ITEMS`; `details.setting`, `maximum` and `items` |
+| 413 | `BATCH_TOO_LARGE` | More items than `CONSUMER_RESOLVE_MAX_ITEMS`, or a body over 16 KiB for each item it allows; `details.setting`, `maximum` and `items`, or `maximumBytes` |
 
 The API and workspace refusals are those of the [parameters](#parameters) table.
 
@@ -5517,6 +5530,7 @@ applies `objectName`, `objectTypeKey`, `targetObjectTypeKey`, `applicationKey`,
 | `loss` | `RELATION_ATTRIBUTE_IN_USE` | A relationship's value the target's binding drops |
 | `refused` | the compatibility codes (`REQUIRED_ATTRIBUTE_MISSING`, `ATTRIBUTE_UNIQUENESS_VIOLATED`, …) with `path` | A record the migrated data would break a rule of the target for |
 | `refused` | `PARENT_RELATION_SEMANTICS_CHANGED` | A record the target has no place for under its parent |
+| `refused` | `DUPLICATE_EDGE` | A relationship mapped onto a relation type that already links the same two records (or that another mapped relationship reaches); it keeps its own relation type, and `relationId`, `relationTypeKey` and `toObjectId` name it |
 | `refused` | `APPLICATION_TARGET_AMBIGUOUS` | A record of a type the target lists in several applications, none newly: the message names them; the mapping's `toApplicationKey` chooses |
 
 Conversions (D69): text and long text into each other; a whole number into a decimal and a decimal
@@ -6839,7 +6853,8 @@ a success clears the address's count (D271). Passwords and client secrets are ha
   what they were about stays.
 - `GET /api/v1/me/notifications/events` (`text/event-stream`, read with `fetch`, D247): `event: unread`
   `{unreadCount}` at once and after every change, `event: notification` with each new notice as the list answers it;
-  a comment every 15 s keeps it open. Nothing is polled.
+  a comment every 15 s keeps it open. Nothing is polled. A notice whose transaction commits after a later notice was
+  sent is sent too, once (each read also looks at the last minute's notices, and drops those already sent).
 - `GET /api/v1/me/notification-mail` and `PUT /api/v1/me/notification-mail` `{enabled?, kinds?, digest?}` (delivered, M2,
   D432, D434): whether the caller is e-mailed when a notice arrives in their inbox, and which kinds of notice; for
   anyone signed in. Both answer `{enabled, available, reason, email, kinds}`: `available` is false where it cannot work and `reason` says why
@@ -7572,7 +7587,7 @@ route that sends a provider free text. The provider is set in the environment an
   (`AI_PROVIDER`: mapping targets, later search and summaries); `assistant` says the assistant's session is
   set up (`AI_AGENT_COMMAND`), which alone turns the assistant on and needs no provider. A client offers
   the assistant when `assistant` is true and a provider feature when `configured` is.
-- `GET /api/v1/ai/status` (Operations at the instance): `configured`, `assistant` (as in `/system`), `provider`, `model`,
+- `GET /api/v1/ai/status` (Operations at the instance): `configured`, `assistant` (as in `/system`), `assistantNetwork` (`restricted`, `unrestricted` or `failed` for the assistant's session in a container, else `null`; `assistantNetworkNote` gives the reason for the last two), `provider`, `model`,
   `endpoint` (`AI_BASE_URL`, or null for the provider's own), `keySet`, `sendLevel`, `sampleValues`,
   `minConfidence`, `logContent`, `logContentDays`, `timeoutSeconds`; `features`, each `{purpose,
   name, needs, available}` (`needs` the least send level it works at); `lastCall`; and `totals` over
@@ -7809,9 +7824,10 @@ There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `pla
   `stopped` (the person stopped it before any proposal), `cancelled` (discarded). The schema also lists `read`, which no task reaches. `version` moves with every change; a
   request names the version it read. `phase` while a job runs: `profiling`, `reading`, `designing`,
   `checking`; else `null`. A failed job ends the task (`failed`, its reason in `notes`); a stopped one returns it to where the person can go on. `canTell`: whether the person may tell the assistant something now (`/model`, `/retry` with words): the assistant is on, and the task is `checked`, `failed` or `stopped`, or `loaded` with a session that lives. A session lives from the first turn until the change set is published or discarded, the migration confirmed, or the task discarded or expired; the task read notices a publication (`result.published`, `result.publicationId`) or a discard and ends it (a change set discarded elsewhere ends the task `cancelled`).
-- `draftId`: the task's draft of the workspace's model, opened in the model editor. A session writes only a
-  draft it made or a person's draft that no task holds: a write to a draft another task holds is `409
-  AI_TASK_DRAFT_HELD` (`details.draftId`), and a proposal that names one fails the task. A person may edit
+- `draftId`: the task's draft of the workspace's model, opened in the model editor. A session reads and writes
+  only a draft it made or the one its task holds: another task's draft is `409 AI_TASK_DRAFT_HELD`
+  (`details.draftId`), a person's or any other not its own is `403 FORBIDDEN` (`details.draftId`), and a proposal
+  that names a draft that is not its own fails the task. A person may edit
   the task's draft; the session rereads it before it goes on.
 - `reading`: the engine's reading of the workbook, `tables[]`, `sheets[]`, `titles[]`, `profile` (`{key,
   name, version}` of the stored import profile the reading follows, else `null`) and `summary`. It is what

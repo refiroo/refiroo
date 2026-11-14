@@ -78,6 +78,7 @@ import {
   sheetAsListOperations,
   columnAsListOperations,
   dropPlace,
+  freshCardOf,
   tidy,
   unrelateOperations,
   withApplication,
@@ -400,15 +401,18 @@ export function WorkbookCanvas({
     const timer = setTimeout(() => savePositions(moved), 600);
     return () => clearTimeout(timer);
   }, [phone, doc.ready, doc.positions, positions, savePositions]);
-  /** The place a drop on the empty board asks for is kept for the card the step is about to add. */
-  const placeNext = useRef<Position>(undefined);
+  /**
+   * The place a drop on the empty board asks for is kept for the card the step is about to add: the card that was
+   * not on the board when the drop was made, never one that stood there without a kept place.
+   */
+  const placeNext = useRef<{ at: Position; before: ReadonlySet<string> }>(undefined);
   useEffect(() => {
     const wanted = placeNext.current;
     if (!wanted || !doc.ready) return;
-    const fresh = cards.find((card) => !doc.positions[card.typeKey]);
+    const fresh = freshCardOf(cards, wanted.before);
     if (!fresh) return;
     placeNext.current = undefined;
-    savePositions({ [fresh.typeKey]: dropPlace(wanted) });
+    savePositions({ [fresh.typeKey]: dropPlace(wanted.at) });
   }, [cards, doc.positions, doc.ready, savePositions]);
 
   // What the board was asked to show: centred once the card is there (a scope may have to widen first).
@@ -760,7 +764,7 @@ export function WorkbookCanvas({
 
   /** A column on the empty board: its distinct values as a list of their own, linked back (one request, no inference). */
   function columnToSpace(column: DroppedColumns, at: Position) {
-    placeNext.current = dropPlace(at);
+    placeNext.current = { at: dropPlace(at), before: new Set(cards.map((card) => card.typeKey)) };
     void act(`An object type made of the values of ${column.header}`, async () => {
       const table = sheets.find((item) => item.name === column.sheet);
       if (!table || !outline) return [];
@@ -777,7 +781,7 @@ export function WorkbookCanvas({
   }
 
   function sheetToSpace(name: string, at: Position) {
-    placeNext.current = dropPlace(at);
+    placeNext.current = { at: dropPlace(at), before: new Set(cards.map((card) => card.typeKey)) };
     void act(`An object type made of the sheet ${name}`, async () => {
       const table = sheets.find((item) => item.name === name);
       const fileId = source.profile?.sourceFile?.id ?? source.file?.id;

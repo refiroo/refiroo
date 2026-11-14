@@ -57,6 +57,10 @@ def _written(tmp_path, values, kinds=("text",)):
         ("true", "boolean", True),
         ("false", "boolean", False),
         ("2026-03-04", "date", datetime.fromisoformat("2026-03-04T00:00:00")),
+        ("1900-03-01", "date", datetime.fromisoformat("1900-03-01T00:00:00")),
+        # No day before 1 March 1900 reads back as itself as a date cell: its ISO text.
+        ("1900-02-28", "date", "1900-02-28"),
+        ("1850-06-01", "date", "1850-06-01"),
         ("2026-03-04T10:00:00+00:00", "dateTime", "2026-03-04T10:00:00+00:00"),
         ('{"a": [1, null]}', "json", '{"a": [1, null]}'),
         (None, "integer", None),
@@ -75,6 +79,7 @@ def test_each_value_type_becomes_the_cell_a_reader_can_trust(tmp_path, value, ki
         " padded ",
         "tab\tand\nnewline",
         "bell\x07 and vertical\x0b tab",
+        "a carriage\rreturn and a\r\nCRLF",
         "a <b> & c",
         "a literal _x0041_ stays",
     ],
@@ -111,6 +116,7 @@ def _unescaped(value: str) -> str:
         ),
         ("'quoted'", set(), "quoted"),
         ("***", set(), "Sheet"),
+        ("Tab\there\x00and\x1fmore", set(), "Tab here and more"),
     ],
 )
 def test_a_sheet_title_is_one_excel_takes(text, taken, expected):
@@ -248,3 +254,40 @@ def test_a_sheet_for_people_can_be_a_table_a_dropdown_reads_by_a_defined_name(tm
     (validation,) = workbook["Main"].data_validations.dataValidation
     assert (validation.formula1, validation.errorStyle) == ("values_1", "warning")
     assert workbook["Main"].auto_filter.ref == "A1:B2"
+
+
+def test_a_carriage_return_is_written_escaped_and_an_import_reads_it_back_unchanged(tmp_path):
+    """A raw carriage return in XML is read back as a line feed, so an unchanged file re-imported as
+    changed: it is written as ``_x000D_``, which the import's reader decodes."""
+    from app.engine.imports.cells import decode_excel_text
+
+    text = "line one\r\nline two\rline three"
+    assert xlsx.xlsx_text(text) == "line one_x000D_\nline two_x000D_line three"
+    (read,) = _written(tmp_path, [text])
+    assert "\r" not in read and decode_excel_text(read) == text
+
+
+def test_rows_past_a_sheets_last_continue_on_another_sheet_that_is_no_table(tmp_path, monkeypatch):
+    """A table's name is the workbook's alone: the sheet that continues one is filtered, not a
+    second table of the same name."""
+    monkeypatch.setattr(xlsx, "PLAIN_ROWS", 2)
+    path = tmp_path / "book.xlsx"
+    book = xlsx.Workbook(path, lambda: None)
+    book.plain(
+        xlsx.PlainSheet(
+            title="Values",
+            labels=["Value"],
+            header_styles=[0],
+            widths=[10],
+            hidden=[False],
+            count=5,
+            rows=[(str(n),) for n in range(5)],
+            encode=lambda row, number: xlsx.text_cell(f"A{number}", row[0]),
+            table="tbl_values",
+        )
+    )
+    book.close()
+    workbook = load_workbook(path)
+    assert workbook.sheetnames == ["Values", "Values 2", "Values 3"]
+    assert list(workbook["Values"].tables) == ["tbl_values"]
+    assert not workbook["Values 2"].tables and workbook["Values 2"].auto_filter.ref == "A1:A3"

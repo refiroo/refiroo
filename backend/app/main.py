@@ -56,6 +56,8 @@ from .engine.model.registry import model_registry
 from .engine.model.workspace_models import workspaces_running
 from .engine.processes.heartbeat import ProcessHeartbeat
 from .engine.proposals.registry import configure as configure_ai
+from .engine.tasks.agent import network as agent_network
+from .engine.tasks.agent import sandbox as agent_sandbox
 from .errors import ApiError
 from .management.access import MANAGEMENT_DEPENDENCIES
 from .management.brand_assets import brand_router
@@ -503,6 +505,9 @@ def create_app() -> FastAPI:
         if settings.integration_jobs_enabled
         else None
     )
+    if agent_sandbox.enabled() and agent_sandbox.container():
+        # One line at start when a session's network is not restricted, or its setup failed (SR-D6).
+        agent_network.warn_at_start()
     # An assistant's session runs on a worker of its own too: the jobs it queues run while it waits.
     application.state.assistant_worker = (
         JobWorker(

@@ -268,11 +268,26 @@ export function CanvasBoard({
       );
       zoomNow.current.onZoom(to);
       // The scaler grows with the zoom on the next render: the scroll follows it.
-      requestAnimationFrame(() => element.scrollTo?.({ left: next.x, top: next.y }));
+      cancelAnimationFrame(zoomFrame);
+      zoomFrame = requestAnimationFrame(() => element.scrollTo?.({ left: next.x, top: next.y }));
     };
+    let zoomFrame = 0;
     element.addEventListener("wheel", wheel, { passive: false });
-    return () => element.removeEventListener("wheel", wheel);
+    return () => {
+      element.removeEventListener("wheel", wheel);
+      cancelAnimationFrame(zoomFrame);
+    };
   }, [flow]);
+
+  /** What a carry or a connect still holds (window listeners, a pending timer): let go of when the board goes. */
+  const holding = useRef(new Set<() => void>());
+  useEffect(() => {
+    const held = holding.current;
+    return () => {
+      for (const release of [...held]) release();
+      held.clear();
+    };
+  }, []);
 
   function carry(event: PointerEvent<HTMLElement>, card: CanvasCard) {
     if (event.button !== 0) return;
@@ -309,11 +324,15 @@ export function CanvasBoard({
       last = onBoard({ x: now.x - grab.x, y: now.y - grab.y });
       setCarried({ typeKey: card.typeKey, position: last });
     };
-    const end = (ended: globalThis.PointerEvent) => {
-      if (ended.pointerId !== pointer) return;
+    const release = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
+      holding.current.delete(release);
+    };
+    const end = (ended: globalThis.PointerEvent) => {
+      if (ended.pointerId !== pointer) return;
+      release();
       if (!carrying) return;
       setCarried(undefined);
       if (onName) {
@@ -322,8 +341,14 @@ export function CanvasBoard({
           click.stopPropagation();
           click.preventDefault();
         };
+        const unswallow = () => {
+          clearTimeout(timer);
+          window.removeEventListener("click", swallow, { capture: true });
+          holding.current.delete(unswallow);
+        };
         window.addEventListener("click", swallow, { capture: true, once: true });
-        setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0);
+        const timer = setTimeout(unswallow, 0);
+        holding.current.add(unswallow);
       }
       // Escape let go without a drop: the card stays where it was.
       if (!cancelled.current && (last.x !== start.x || last.y !== start.y)) onMove(card.typeKey, last);
@@ -331,6 +356,7 @@ export function CanvasBoard({
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
+    holding.current.add(release);
   }
 
   function connect(event: PointerEvent<HTMLButtonElement>, card: CanvasCard) {
@@ -364,10 +390,14 @@ export function CanvasBoard({
       const target = targetAt(moved.clientX, moved.clientY);
       setOver(target?.typeKey ? `${target.typeKey}${target.fieldId ? `/${target.fieldId}` : ""}` : undefined);
     };
-    const end = (ended: globalThis.PointerEvent) => {
+    const release = () => {
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", end);
       handle.removeEventListener("pointercancel", end);
+      holding.current.delete(release);
+    };
+    const end = (ended: globalThis.PointerEvent) => {
+      release();
       setConnecting(undefined);
       setOver(undefined);
       if (ended.type === "pointercancel" || cancelled.current) return;
@@ -377,6 +407,7 @@ export function CanvasBoard({
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", end);
     handle.addEventListener("pointercancel", end);
+    holding.current.add(release);
   }
 
   // Escape lets go of whatever is carried without a drop.

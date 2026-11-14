@@ -993,14 +993,25 @@ function TreeGroup({
   // Opens this list at the revealed record when it is not among the rows already held.
   const step = !parent && search ? undefined : tree.revealIn(parent?.id ?? "", objectTypeKey);
   const sought = useRef("");
+  // A refresh reads the list again, around where the view stands: the revealed record may no longer be held, so
+  // the seek that was done for this reveal is asked again once that read has finished.
+  const refreshedAt = useRef(tree.refreshToken);
   const { seek, loading, error: listError, items } = list;
   useEffect(() => {
-    if (!step || loading || listError) return;
+    if (!step) return;
+    if (loading) {
+      if (refreshedAt.current !== tree.refreshToken) {
+        refreshedAt.current = tree.refreshToken;
+        sought.current = "";
+      }
+      return;
+    }
+    if (listError) return;
     const request = `${tree.revealToken}:${step.id}`;
     if (sought.current === request) return;
     sought.current = request;
     if (step.seek !== undefined && !items.some((item) => item.id === step.id)) seek(step.seek);
-  }, [step, loading, listError, items, seek, tree.revealToken]);
+  }, [step, loading, listError, items, seek, tree.revealToken, tree.refreshToken]);
   const status: GroupStatus = list.items.length ? "shown" : list.loading ? "loading" : list.error ? "failed" : "empty";
   const type = objectTypeFor(model, objectTypeKey);
   const plural = type?.pluralName ?? objectTypeKey;

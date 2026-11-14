@@ -18,6 +18,7 @@ The person row is locked ``FOR UPDATE SKIP LOCKED`` and the due time moves in th
 two processes make one digest. A digest names kinds, counts and links, and no name (D432, AO-D31).
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -25,6 +26,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import ARRAY, Integer, all_, any_, func, literal, select, update
 from sqlalchemy.orm import Session
 
+from ...common.outage import database_unavailable
 from ...errors import api_error
 from ...models.database import Job, Notification, User
 from ..identity.settings import IdentitySettings
@@ -32,6 +34,10 @@ from ..mail import outbox, templates
 from ..mail import settings as mail_settings
 from . import kinds
 
+logger = logging.getLogger(__name__)
+
+# When a person whose digest failed is tried again.
+DIGEST_RETRY = timedelta(hours=1)
 # A notice older than this is no longer news: it is not mailed.
 MAIL_WITHIN = timedelta(hours=24)
 BATCH = 100
@@ -277,7 +283,25 @@ def queue_digests(
             .execution_options(populate_existing=True)
         )
         if user is not None:
-            queued += _queue_digest(session, identity, user, now, product, url)
+            try:
+                queued += _queue_digest(session, identity, user, now, product, url)
+            except Exception as exc:
+                if database_unavailable(exc):
+                    raise
+                # The notices stay unhandled; the person's next try is an hour later, so the
+                # others in this round and the next ones are made theirs.
+                session.rollback()
+                logger.error(
+                    "The digest of user %s could not be made; it is tried again in an hour",
+                    user_id,
+                    exc_info=exc,
+                )
+                session.execute(
+                    update(User)
+                    .where(User.id == user_id)
+                    .values(notice_digest_due_at=now + DIGEST_RETRY)
+                    .execution_options(synchronize_session=False)
+                )
         session.commit()
     return queued
 

@@ -258,6 +258,39 @@ def test_an_invalid_graph_is_named_and_not_published(world):
     refused(_publish(world, clean, None), 422, "WORKSPACE_GRAPH_INVALID")
 
 
+@pytest.mark.journey("J05.4")
+@pytest.mark.structures("R", "G", "D", "D.active", "Bown")
+def test_a_value_patched_in_a_change_set_is_checked_like_an_edit(world):
+    """Given an active D record d1 and an inactive d2 within one G record, both owned by r, and a
+    change set. When d2's active value is patched to true as a single attribute, then the change set
+    holds the breach as an edit of the record does (200) and validation names it
+    (DUPLICATE_RELATION_SCOPE) and publishing is refused."""
+    r = world.made("R", "Owner")
+    g = world.made("G", "Scope")
+    owned = [world.owner("Bown", r["id"])]
+    world.made(
+        "D",
+        "First",
+        parent=world.dependant_parent(g["id"]),
+        values={"D.active": True},
+        relations=owned,
+    )
+    d2 = world.made(
+        "D",
+        "Second",
+        parent=world.dependant_parent(g["id"]),
+        values={"D.active": False},
+        relations=owned,
+    )
+    cs = world.change_set()
+    path = f"/objects/{world.key('D')}/{d2['id']}/attributes/{world.key('D.active')}"
+    body = {"value": True, "expectedVersion": d2["version"], **_staged(world, cs)}
+    ok(world.api.patch(path, body))
+    validation = ok(world.api.post(f"/change-sets/{cs['id']}/validation"))
+    assert "DUPLICATE_RELATION_SCOPE" in [d.get("code") for d in validation["diagnostics"]]
+    refused(_publish(world, cs, None), 422, "WORKSPACE_GRAPH_INVALID")
+
+
 @pytest.mark.journey("J05.5")
 @pytest.mark.structures("R")
 def test_rename_or_discard_a_change_set(world):
@@ -387,6 +420,26 @@ def test_the_same_record_changed_on_both_sides(world):
     assert world.record("R", x["id"])["name"] == "Live x"
     assert world.record("R", other["id"])["name"] == "Other"
     assert world.record("R", x["id"], changeSetId=cs["id"])["name"] == "Staged x"
+
+
+@pytest.mark.journey("J06.2")
+@pytest.mark.structures("R")
+def test_a_refusal_lists_at_most_twenty_conflicts_of_a_code_and_counts_the_rest(world):
+    """Given a change set and live both renaming the same 23 records. When the change set is
+    published. Then it is refused with 20 VERSION_MISMATCH conflicts listed and
+    `details.conflictsLeftOut` counting the 3 left out; nothing is published."""
+    records = [world.made("R", f"Contested {number}") for number in range(23)]
+    cs = world.change_set()
+    for record in records:
+        ok(_update_in(world, cs, "R", record["id"], name=f"Staged {record['name']}"))
+        ok(world.update("R", record["id"], record["version"], name=f"Live {record['name']}"))
+    publications = _publications(world)
+
+    error = refused(_publish(world, cs, None), 409, "VERSION_CONFLICT")
+    listed = [c for c in error["details"]["conflicts"] if c["code"] == "VERSION_MISMATCH"]
+    assert len(listed) == 20
+    assert error["details"]["conflictsLeftOut"] == {"VERSION_MISMATCH": 3}
+    assert _publications(world) == publications
 
 
 @pytest.mark.journey("J06.3")

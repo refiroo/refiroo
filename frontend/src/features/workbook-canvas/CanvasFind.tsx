@@ -15,6 +15,8 @@ export function CanvasFind({ outline, onGo }: { outline: ModelDraftOutline; onGo
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
   const list = useId();
+  const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(closing.current), []);
   const hits = useMemo(() => findIn(outline, query), [outline, query]);
 
   useEffect(() => {
@@ -53,8 +55,14 @@ export function CanvasFind({ outline, onGo }: { outline: ModelDraftOutline; onGo
           setActive(0);
           setOpen(true);
         }}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
-        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          clearTimeout(closing.current);
+          closing.current = setTimeout(() => setOpen(false), 120);
+        }}
+        onFocus={() => {
+          clearTimeout(closing.current);
+          setOpen(true);
+        }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault();

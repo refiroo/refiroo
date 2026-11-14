@@ -3,6 +3,8 @@
 !backend/pyproject.toml
 !backend/constraints.txt
 !backend/refiroo-session-reset
+!backend/refiroo_session_proxy.py
+!backend/refiroo-engine-start
 !backend/app
 !model/rdm-starter.json
 !frontend/package.json

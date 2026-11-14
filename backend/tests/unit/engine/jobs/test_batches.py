@@ -16,6 +16,7 @@ from uuid import uuid4
 import pytest
 from scenario import W1, W2, W3
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from app.db import SessionLocal
 from app.engine.change_sets.lifecycle import create_change_set
@@ -531,6 +532,40 @@ def test_a_bulk_write_that_fails_is_redone_item_by_item(seeded, monkeypatch):
     ]
     assert pointers(outcomes)[1] == "/items/1/id"
     assert [n for n in names(world, "R") if n in {"One", "Two", "Three"}] == ["One", "Three"]
+
+
+def test_an_item_meeting_a_constraint_alone_is_refused_with_a_code_and_the_others_apply(
+    seeded, monkeypatch
+):
+    """The bulk write fails, and one item's write alone meets a database constraint (a raw
+    ``IntegrityError`` of an update, which no rule foresaw): that item is rejected
+    ``WRITE_CONSTRAINT_VIOLATED`` and the others are applied, not the whole chunk failed."""
+    world = seeded
+    [first] = run(world, [upsert(world, "R", "Constrained", R_u="CON")])
+    original = LiveWrites.write
+    doomed = first.fields["id"]
+
+    def refused(writes, model, changes):
+        if doomed in changes.records:
+            raise IntegrityError("write", {}, Exception("constraint"))
+        return original(writes, model, changes)
+
+    monkeypatch.setattr(LiveWrites, "write", refused)
+    outcomes = run(
+        world,
+        [
+            create(world, "R", "Free one", R_u="F1"),
+            upsert(world, "R", "Constrained renamed", R_u="CON"),
+            create(world, "R", "Free two", R_u="F2"),
+        ],
+        onExisting="overwrite",
+    )
+    assert summary(outcomes) == [
+        ("applied", "created"),
+        ("rejected", "WRITE_CONSTRAINT_VIOLATED"),
+        ("applied", "created"),
+    ]
+    assert pointers(outcomes)[1] == "/items/1"
 
 
 @pytest.mark.parametrize(

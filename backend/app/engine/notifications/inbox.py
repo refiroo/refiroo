@@ -10,12 +10,12 @@ request is answered (``close``, D464), and the job worker's hourly sweep deletes
 after the one it last sent.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
 
-from sqlalchemy import delete, func, insert, or_, select, update
+from sqlalchemy import and_, delete, func, insert, or_, select, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -239,14 +239,29 @@ CATCH_UP_LIMIT = 200
 
 
 def after(
-    session: Session, found: Ref, sequence_id: int, limit: int | None = None
+    session: Session,
+    found: Ref,
+    sequence_id: int,
+    limit: int | None = None,
+    *,
+    recent_since: datetime | None = None,
+    known: Collection[int] = (),
 ) -> list[Notification]:
     """The principal's notices made after ``sequence_id``, oldest first, at most ``limit``
-    (``CATCH_UP_LIMIT``) of them (the stream's read)."""
+    (``CATCH_UP_LIMIT``) of them (the stream's read). Sequence IDs are given when a notice is
+    inserted and a notice shows at its commit, so one may appear after a later one was read; with
+    ``recent_since`` the notices created since then are listed too, whatever their ID, except those
+    in ``known`` (the ones the caller has sent)."""
+    after_id = Notification.sequence_id > sequence_id
+    late = (
+        None
+        if recent_since is None
+        else and_(Notification.created_at >= recent_since, Notification.sequence_id.not_in(known))
+    )
     return list(
         session.scalars(
             select(Notification)
-            .where(_column(found) == found[1], Notification.sequence_id > sequence_id)
+            .where(_column(found) == found[1], after_id if late is None else or_(after_id, late))
             .order_by(Notification.sequence_id)
             .limit(limit or CATCH_UP_LIMIT)
         )

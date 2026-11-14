@@ -77,3 +77,46 @@ def test_the_new_relationships_a_check_shows_include_the_links_to_parents_the_lo
         assert figures["parentLinksNew"] == 4
         assert figures["relationshipsNew"] == 1 + 4
         session.rollback()
+
+
+def test_a_place_with_a_row_number_too_long_for_a_sheet_is_not_a_part_and_the_parts_are_counted(
+    seeded,
+):
+    """FX2: ``m[3]::int`` overflowed on a long row number and failed the whole summary; the parts of
+    the file are cut in SQL, with their count of all."""
+    from app.engine.sources import items_summary
+
+    refs = [f"Sheet{n}!A2" for n in range(items_summary.LISTED + 5)] + ["Stops!A99999999999"]
+    items = [
+        {"op": "create", "id": str(uuid4()), "objectTypeKey": "stop", "name": f"S{n}", "ref": ref}
+        for n, ref in enumerate(refs)
+    ]
+    with SessionLocal() as session:
+        job = start_job(
+            session,
+            kind="dryRun",
+            workspace_key=W1,
+            change_set_id=None,
+            model_release_id=resolve_model_snapshot(session).release_db_id,
+            parameters={"mode": "items", "draftId": "d", "draftVersion": 1},
+            total=len(items),
+            retention_days=7,
+            queued=False,
+        )
+        for index, item in enumerate(items):
+            session.add(
+                JobInput(job_id=job.sequence_id, item_index=index, ref=item["ref"], item=item)
+            )
+        session.flush()
+        record_outcomes(
+            session,
+            job,
+            [
+                ItemOutcome(index, item["ref"], "applied", {"action": "created", "id": item["id"]})
+                for index, item in enumerate(items)
+            ],
+        )
+        summary = summarize(session, job, found_names=[])
+        assert summary["partsTotal"] == items_summary.LISTED + 5
+        assert len(summary["parts"]) == items_summary.LISTED
+        session.rollback()

@@ -64,6 +64,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Self
 from uuid import uuid4
 
@@ -114,7 +115,7 @@ from ..tasks import job as ai_task
 from ..tasks import store as task_store
 from .background import open_job_context
 from .batches import BatchContext, JobCancelled, run_items
-from .exports import ExportCancelled, ExportControl, run_export
+from .exports import ExportCancelled, ExportControl, ExportOutcome, run_export
 from .files import JobFiles
 from .preview import preview_items, record_preview
 from .store import (
@@ -140,6 +141,10 @@ logger = logging.getLogger(__name__)
 IDLE_SECONDS = 60.0
 RETRY_SECONDS = 2.0
 SWEEP_SECONDS = 3600.0
+# A sweep that failed (a database outage at start, say) runs again after this.
+SWEEP_RETRY_SECONDS = 30.0
+# An export whose finished file could not be put in place runs again this many times in all, then fails.
+EXPORT_FINISH_ATTEMPTS = 3
 # The worker threads' names, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-job-worker"
 EXPORT_THREAD_NAME = "rdm-export-worker"
@@ -248,6 +253,8 @@ class JobWorker:
         self._one_chunk = threading.Lock()
         # The earliest expiry of a lease another worker holds, seen by the last claim.
         self._leased_elsewhere_until: datetime | None = None
+        # How often finishing each export (by job) failed, for the attempts it is given.
+        self._finish_failures: dict[int, int] = {}
         # The running chunk's heartbeat (one chunk at a time, ``_one_chunk``).
         self._heartbeat: _Heartbeat | None = None
         # This worker's partial export files carry it, so a worker that lost an export to another
@@ -894,6 +901,43 @@ class JobWorker:
                 },
             )
             return
+        try:
+            self._finish_file(job, partial, outcome)
+        except Exception as exc:
+            if database_unavailable(exc) is not None:
+                raise  # As a chunk's: the loop retries, the lease decides who goes on.
+            attempts = self._finish_failures[job.sequence_id] = (
+                self._finish_failures.get(job.sequence_id, 0) + 1
+            )
+            correlation_id = uuid4().hex
+            logger.exception(
+                "Export %s could not be completed (attempt %s of %s, correlation ID %s)",
+                job.id,
+                attempts,
+                EXPORT_FINISH_ATTEMPTS,
+                correlation_id,
+            )
+            if attempts < EXPORT_FINISH_ATTEMPTS:
+                return  # The lease is still this worker's: the next round runs the export again.
+            self._finish_failures.pop(job.sequence_id, None)
+            partial.unlink(missing_ok=True)
+            self._stop(
+                job.sequence_id,
+                "failed",
+                "JOB_FAILED",
+                {
+                    "code": "JOB_FAILED",
+                    "message": "The export stopped because of an internal error and left no file. "
+                    "Request it again; if it recurs, report the correlation ID",
+                    "details": {"correlationId": correlation_id},
+                },
+            )
+        else:
+            self._finish_failures.pop(job.sequence_id, None)
+
+    def _finish_file(self, job: Job, partial: Path, outcome: ExportOutcome) -> None:
+        """Put the written file in place and complete the job, under the job's row."""
+        files = self._files()
         with self.session_factory() as session:
             try:
                 self._hold_lease(session, job.sequence_id)
@@ -1039,22 +1083,30 @@ class JobWorker:
         outage = OutageLog(logger, "The job worker", RETRY_SECONDS)
         while not self._stopping.is_set():
             worked, wait = False, IDLE_SECONDS
-            try:
-                if self.sweeps and time.monotonic() >= next_sweep:
+            swept = True
+            if self.sweeps and time.monotonic() >= next_sweep:
+                # The sweep has a try of its own: one that keeps failing must not stop the jobs.
+                try:
                     self.sweep()
                     next_sweep = time.monotonic() + SWEEP_SECONDS
+                except Exception as exc:  # noqa: BLE001 - logged by OutageLog
+                    swept = False
+                    next_sweep = time.monotonic() + SWEEP_RETRY_SECONDS
+                    outage.failed(exc)
+            try:
                 worked = self.run_once()
                 if not worked and self._leased_elsewhere_until is not None:
                     expires_in = as_utc(self._leased_elsewhere_until) - datetime.now(UTC)
                     wait = min(IDLE_SECONDS, max(0.1, expires_in.total_seconds()))
-                outage.succeeded()
+                if swept:
+                    outage.succeeded()
             except Exception as exc:  # noqa: BLE001 - every failure is logged by OutageLog
                 outage.failed(exc)
                 wait = RETRY_SECONDS
             if not worked:
-                # A failed sweep leaves next_sweep in the past, so a retry waits its own time.
-                if not outage.failing:
-                    wait = min(wait, next_sweep - time.monotonic())
+                # next_sweep is always ahead: an hour after a sweep that worked, a short retry after
+                # one that failed.
+                wait = min(wait, next_sweep - time.monotonic())
                 self._wake.wait(max(0.0, wait))
                 self._wake.clear()
 

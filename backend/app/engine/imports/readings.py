@@ -94,7 +94,15 @@ def apply_readings(table: Table, source: Source) -> Table:
                 heading = cells[heading_at]
                 last.clear()  # A filled-down value stays within its heading group.
                 continue
-            row = [*cells, *([None] * len(added))]
+            # A row shorter than the header is padded to its width before the added columns.
+            # Cells beyond the header (a sheet whose declared size was short) go after the added
+            # columns, so no value is overwritten by one.
+            row = [
+                *cells[:width],
+                *([None] * (width - len(cells))),
+                *([None] * len(added)),
+                *cells[width:],
+            ]
             if into_at is not None:
                 row[into_at] = heading
             for at in fill:

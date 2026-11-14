@@ -480,7 +480,8 @@ class Source(BaseModel):
 
     ``rowsWithoutKey`` (0.10 A7, D110) says what a load does with a row whose key is empty after
     value maps: ``refuse`` it (the default, ``MISSING_RECORD_KEY``) or ``skip`` it, counted as
-    skipped and not loaded.
+    skipped and not loaded. A key cell that cannot be read is no empty one: that row is refused
+    (``INVALID_CELL`` or the cell's own code) whichever is chosen.
 
     ``parent`` (0.10 A8c, D141) is every row's parent: the record ``matchBy`` finds for its
     ``value``, created by that name with ``missing: create``. A source with it binds no column as a

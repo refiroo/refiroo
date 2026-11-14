@@ -383,6 +383,24 @@ def test_mail_that_cannot_be_sent_is_given_up_with_its_reason(world, smtp):
     assert {page["items"][0]["id"], rest["items"][0]["id"]} == {gone, waiting}
 
 
+@pytest.mark.journey("J46.4")
+def test_a_message_whose_header_cannot_be_built_fails_alone(world, smtp):
+    """Given a message whose address holds a line break (a header no mail can carry) queued before
+    an ordinary one, when the sender runs, then the first fails for good saying it cannot be built,
+    the second is sent in the same round, and nothing is retried."""
+    _save(world, smtp)
+    start = datetime.now(UTC)
+    bad = queue_mail(world, "ada@example.org\nBcc: spy@example.org", _reset_mail("Bad"), now=start)
+    good = queue_mail(world, "grace@example.org", _reset_mail("Grace"), now=start)
+    assert send_mail(world, start) == 2
+    [failed] = ok(world.api.get("/mail-outbox", status="failed"))["items"]
+    assert failed["id"] == bad and failed["lastErrorKind"] == "unreadable"
+    assert "cannot be built" in failed["lastError"] and failed["nextAttemptAt"] is None
+    [sent] = ok(world.api.get("/mail-outbox", status="sent"))["items"]
+    assert sent["id"] == good
+    assert [m["To"] for m in smtp.messages] == ["grace@example.org"]
+
+
 @pytest.mark.journey("J46.5")
 def test_without_settings_nothing_is_sent_and_nothing_else_changes(world, smtp):
     """Given no settings, when something asks to queue mail, then it is refused as not set up; when

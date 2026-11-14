@@ -1961,3 +1961,61 @@ def test_a_load_deleting_missing_records_keeps_every_record_a_row_names_by_name(
     page = ok(world.api.get(f"/change-sets/{change_set['id']}/object-changes", pageSize=100))
     removed = [item["before"]["name"] for item in page["items"] if item["kind"] == "removed"]
     assert removed == [f"{tag} Gone"]
+
+
+@pytest.mark.journey("J35.2")
+@pytest.mark.structures("R", "R.u", "R.b")
+def test_a_row_refused_in_python_still_names_its_record_so_it_is_not_deleted_as_missing(world):
+    """FX2. Given records One, Two and Gone keyed by R.u, and a profile that deletes the records the
+    file leaves out. When a file names One and Two, with the cell of One's Flagged column not a
+    boolean, is loaded into a change set. Then One's row is refused and only Gone is removed: a
+    refused row names its record, so the record is not missing."""
+    ws = _workspace(world)
+    tag = uuid4().hex[:6]
+    for number in ("One", "Two", "Gone"):
+        world.made("R", f"{tag} {number}", workspace=ws, values={"R.u": f"{tag}-{number}"})
+    profile = {
+        "key": f"refused-key-{tag}",
+        "name": "Refused key",
+        "sources": [
+            {
+                "sheet": "Rows",
+                "applicationKey": world.app("R"),
+                "objectTypeKey": world.key("R"),
+                "key": {"attributeTypeKey": world.key("R.u")},
+                "missing": "delete",
+                "columns": [
+                    {"column": "Number", "attributeTypeKey": world.key("R.u")},
+                    {"column": "Name", "field": "name"},
+                    {"column": "Flagged", "attributeTypeKey": world.key("R.b")},
+                ],
+            }
+        ],
+    }
+    ok(world.api.post("/import-profiles", profile), 201)
+    change_set = world.change_set(ws, name="Refused row keeps its key")
+    content = _xlsx(
+        {
+            "Rows": [
+                ("Number", "Name", "Flagged"),
+                (f"{tag}-One", f"{tag} One", "perhaps"),
+                (f"{tag}-Two", f"{tag} Two", True),
+            ]
+        }
+    )
+    request = {
+        "changeSetId": change_set["id"],
+        "expectedChangeSetVersion": change_set["version"],
+        "profileKey": profile["key"],
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "stage": "execute",
+    }
+    job = _imported(world, "rows.xlsx", content, request)
+    assert job["state"] == "completed", job
+    assert [_code(item) for item in _outcomes(world, job) if _code(item)] == [
+        "INVALID_ATTRIBUTE_VALUE"
+    ]
+    page = ok(world.api.get(f"/change-sets/{change_set['id']}/object-changes", pageSize=100))
+    removed = [item["before"]["name"] for item in page["items"] if item["kind"] == "removed"]
+    assert removed == [f"{tag} Gone"]

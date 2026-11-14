@@ -301,6 +301,26 @@ export interface ChangedRecord {
   name: string;
 }
 
+/**
+ * The closing line of a conflict list the server capped: `details.conflictsLeftOut` counts, per code,
+ * the conflicts it did not list; the line gives their total, as the listed ones show messages, never codes.
+ * Nothing when it left none out.
+ */
+export function conflictsLeftOut(leftOut: unknown): Array<Record<string, unknown>> {
+  if (!leftOut || typeof leftOut !== "object") return [];
+  const counts = Object.entries(leftOut as Record<string, unknown>).filter(
+    (entry): entry is [string, number] => typeof entry[1] === "number" && entry[1] > 0,
+  );
+  const total = counts.reduce((sum, [, count]) => sum + count, 0);
+  if (total === 0) return [];
+  return [
+    {
+      code: "CONFLICTS_LEFT_OUT",
+      message: `${total} more ${total === 1 ? "problem is" : "problems are"} not listed.`,
+    },
+  ];
+}
+
 export function ChangeSetDiagnostics({
   items,
   records,
@@ -676,7 +696,20 @@ export function ChangeSetActions({
       if (isApiError(cause) && cause.details && typeof cause.details === "object") {
         const details = cause.details as Record<string, unknown>;
         const items = Array.isArray(cause.details) ? cause.details : (details.conflicts ?? details.diagnostics);
-        if (Array.isArray(items)) setDiagnostics(items);
+        if (Array.isArray(items)) {
+          // A capped graph-diagnostics list ends with DIAGNOSTICS_LEFT_OUT entries: counted with the
+          // conflicts left out and worded the same way.
+          const left: Record<string, unknown> = {
+            ...(details.conflictsLeftOut as Record<string, unknown> | undefined),
+          };
+          const listed = items.filter((item: Record<string, unknown>) => {
+            if (item.code !== "DIAGNOSTICS_LEFT_OUT") return true;
+            const marker = (item.details ?? {}) as { leftOutCode?: string; count?: number };
+            if (marker.leftOutCode) left[marker.leftOutCode] = marker.count;
+            return false;
+          });
+          setDiagnostics([...listed, ...conflictsLeftOut(left)]);
+        }
       }
       setValidation(undefined);
       setConfirm(undefined);

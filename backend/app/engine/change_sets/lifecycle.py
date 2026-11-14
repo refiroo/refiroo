@@ -65,7 +65,13 @@ def create_change_set(
             expected_model_runtime_release_id=expected_model_runtime_release_id,
             validate_selected_model=validate_selected_model,
         )
-    workspace = session.get(Workspace, workspace_key)
+    # Held for share, as a current-live capture holds it: a retirement waits for the change set.
+    workspace = session.scalar(
+        select(Workspace)
+        .where(Workspace.key == workspace_key)
+        .with_for_update(read=True)
+        .execution_options(populate_existing=True)
+    )
     if workspace is None:
         raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
     if workspace.status != "active":
@@ -112,9 +118,13 @@ def open_job_change_set(
     transaction, which commits it with the job's first writes (a move's, 0.11 X3, D130, D134).
     The workspace row and its release assignment are held for share, so no live write or
     activation commits while the base is copied; the caller checked the release."""
-    session.scalar(
-        select(Workspace).where(Workspace.key == workspace_key).with_for_update(read=True)
+    status = session.scalar(
+        select(Workspace.status).where(Workspace.key == workspace_key).with_for_update(read=True)
     )
+    if status is None:
+        raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
+    if status != "active":
+        raise api_error(409, "WORKSPACE_RETIRED", "Retired workspaces cannot be edited")
     state = session.scalar(
         select(WorkspaceModel)
         .where(WorkspaceModel.workspace_key == workspace_key)

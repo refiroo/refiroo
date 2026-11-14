@@ -234,7 +234,7 @@ The reason of an item that did not run: an `atomic` job refused one item, so eve
 
 <span class="rdm-status rdm-4xx">Status 413</span>
 
-The request holds more items, or more bytes, than the operation accepts in one call, and nothing was done. `details.setting` names the operator setting that sets the limit and `details.maximum` its value, with `details.items` or `details.bytes` the size found. It is answered by `POST /api/v1/batches`, `POST /api/v1/relations/batch`, `POST /api/v1/relations/grid-change` (the number of relationships the change would write), the dry run of `POST /api/v1/model-drafts/{draft_id}/dry-run` with items, and `POST /api/consumer/{consumer_api}/v{contract_version}/resolve`. Split the work into smaller requests.
+The request holds more items, or more bytes, than the operation accepts in one call, and nothing was done. `details.setting` names the operator setting that sets the limit and `details.maximum` its value, with `details.items` or `details.bytes` the size found. It is answered by `POST /api/v1/batches`, `POST /api/v1/relations/batch`, `POST /api/v1/relations/grid-change` (the number of relationships the change would write), the dry run of `POST /api/v1/model-drafts/{draft_id}/dry-run` with items, and `POST /api/consumer/{consumer_api}/v{contract_version}/resolve`, which also refuses a body over 16 KiB for each item `CONSUMER_RESOLVE_MAX_ITEMS` allows (`details.maximumBytes`). Split the work into smaller requests.
 
 ### BINDING_NOT_ALLOWED
 
@@ -526,6 +526,12 @@ The subscription has no logged delivery with the ID in `GET /api/v1/consumer-sub
 
 `POST /api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}/resend` named a delivery that was logged but never sent, so there is nothing to send again. Wait until the delivery has been attempted, or choose another delivery.
 
+### DIAGNOSTICS_LEFT_OUT
+
+<span class="rdm-status rdm-4xx">Not a response status</span>
+
+The closing entry of the `details` list of `WORKSPACE_GRAPH_INVALID`, which lists at most 20 diagnostics of each code. One entry follows for each code with more: `details.leftOutCode` is the code and `details.count` how many diagnostics of it are not listed. Fix the listed ones and publish again, or validate the change set (`POST /api/v1/change-sets/{changeSetId}/validation`), which lists every diagnostic.
+
 ### DIGEST_NOT_SET
 
 <span class="rdm-status rdm-4xx">Status 422</span>
@@ -578,7 +584,7 @@ The write gives an attribute that the model declares unique a value that another
 
 <span class="rdm-status rdm-4xx">Not a response status</span>
 
-A conflict of a publication, never a response status. It is an entry of `details.conflicts` in `VERSION_CONFLICT` when publishing a change set finds that the change set and live data both define the same directed relationship; the entry holds `conflictingRelationId`. Drop one of the two. When the change set is moved onto another release the same finding is an item of the job.
+A conflict of a publication, never a response status. It is an entry of `details.conflicts` in `VERSION_CONFLICT` when publishing a change set finds that the change set and live data both define the same directed relationship; the entry holds `conflictingRelationId`. Drop one of the two. When the change set is moved onto another release the same finding is an item of the job. A workspace migration's preview refuses a relationship the same way (a row with outcome `refused`) when a `relationTypeMappings` entry maps its relation type onto one that already links the same two records, or that another mapped relationship reaches: it stays under its own relation type, and the migration cannot be confirmed until one of the two is removed or the mapping is changed.
 
 ### DUPLICATE_INITIAL_RELATION
 
@@ -657,6 +663,12 @@ The consumer API, at the contract version asked for, declares no events. It is `
 <span class="rdm-status rdm-4xx">Status 409</span>
 
 The position the client gives is past the head of the events. `details.headPosition` is the head; for a body field `details.pointer` is `/startAfter`. It applies to a consumer API's event feed read and to `startAfter` of `POST /api/v1/consumer-subscriptions`. A position the engine gave out cannot be ahead, so it was taken from another workspace's events, or the database was restored to an earlier state. Read the workspace again from a publication and follow the events from there.
+
+### EXPORT_TEXT_TOO_LONG
+
+<span class="rdm-status rdm-4xx">Not a response status</span>
+
+An export of an XLSX workbook holds a text of more than 32,767 characters, which is all a workbook cell holds; the file would carry it cut off or not open whole in Excel. It is the `error` of the failed export job. `details` holds `sheet`, `row`, `recordId` (the record the text is on, null where the sheet has no record column), `field` (the column's label), `length` and `limit`. Nothing is written. Shorten the text where it is stored, leave the field out of the export, or export the same records as CSV or JSON Lines, which hold it whole. A relation column's list over the limit is not this error: it is cut in its cell and written whole on its relationship's own sheet.
 
 ### FEED_POSITION_AHEAD
 
@@ -938,7 +950,7 @@ A change to a model draft's canvas would leave it with more than 500 cards. `PAT
 
 <span class="rdm-status rdm-4xx">Not a response status</span>
 
-A row of an export's table layout, sent back as an import without a profile, holds a cell that is not what the table needs: an ID that is not a UUID, a version below 1, or a type the model does not have. It is the row's refusal in the job's rows (`GET /api/v1/jobs/{jobId}/rows`), and `details.column` names the column. Correct the cell in the file.
+A cell of an import row is not what its column needs. A row of an export's table layout, sent back as an import without a profile, holds an ID that is not a UUID, a version that is not a whole number from 1, or a type the model does not have; a cell of any import holds a character that cannot be stored (a NUL or an unpaired surrogate), or a value to find a record by that is over 2,000 bytes; a key cell of a profile's source that cannot be read is this refusal too, whatever `rowsWithoutKey` says. It is the row's refusal in the job's rows (`GET /api/v1/jobs/{jobId}/rows`), and `details.column` names the column. Correct the cell in the file.
 
 ### INVALID_CLEAR_ATTRIBUTES
 
@@ -1598,7 +1610,7 @@ No installed model release has the ID the request names. Releases are listed by 
 
 <span class="rdm-status rdm-4xx">Status 409</span>
 
-The request chooses a release that has been retired, and a retired release cannot be chosen for a new workspace. `details` names the `releaseId` and the `operation`. Choose a release that is not retired.
+The request chooses a release that has been retired, and a retired release cannot be chosen for a new workspace, a change set, an activation or the target of a migration (a migration confirmed after the release was retired is refused the same way and changes nothing). `details` names the `releaseId` and the `operation`. Choose a release that is not retired.
 
 ### MODEL_RELEASE_VERSION_CONFLICT
 
@@ -2710,7 +2722,7 @@ A problem of a model mapping, never a response status. It is an entry of the map
 
 The request claims a version (`expectedVersion`) that is no longer the current one: somebody else changed the same thing since it was read. `details.currentVersion` is the current version; for the default workspace, `details.defaultWorkspaceKey` is the current default. Nothing was changed. Read the item again, check whether the change is still wanted, and send it again with the current version.
 
-Publishing a change set (`POST /api/v1/change-sets/{change_set_id}/publication`, or an approving decision) answers it with `details.conflicts` when live data changed under a record or relationship the change set also changed, or collides with what it adds: each conflict has `kind` (`object`, `relation` or `mapping-set`), `id` and a `code` (`VERSION_MISMATCH`, `ID_COLLISION`, `DUPLICATE_EDGE` or `MAPPING_SET_CHANGED`), with the versions or counts compared; at most 20 mapping-set conflicts are listed, `mappingSetConflictCount` counts them all. Nothing is published. Start a new change set from the live data and make the change again.
+Publishing a change set (`POST /api/v1/change-sets/{change_set_id}/publication`, or an approving decision) answers it with `details.conflicts` when live data changed under a record or relationship the change set also changed, or collides with what it adds: each conflict has `kind` (`object`, `relation` or `mapping-set`), `id` and a `code` (`VERSION_MISMATCH`, `ID_COLLISION`, `DUPLICATE_EDGE` or `MAPPING_SET_CHANGED`), with the versions or counts compared; at most 20 conflicts of each `code` are listed, and `details.conflictsLeftOut` (present only then) counts the ones left out by code, so a change set with many conflicts answers in a bounded body; `mappingSetConflictCount` counts all the mapping-set conflicts. Nothing is published. Start a new change set from the live data and make the change again.
 
 A model draft answers it with `details.expectedVersion` and `details.actualVersion`. The operations, undo and redo of a draft also put in `details.operations` the history entries applied since the version you sent (at most 100, with `details.more` set when there are more), so a client can see what changed and decide whether its own step still applies. Read the draft again and send the step with its current version.
 
@@ -2760,7 +2772,7 @@ The request names a workspace and a change set or publication that do not belong
 
 <span class="rdm-status rdm-4xx">Status 422 or 409</span>
 
-Two different refusals. Publishing a change set (`POST /api/v1/change-sets/{changeSetId}/publication`, or approving it) answers 422 when the change set, merged over the live data, makes the whole workspace invalid; `details` lists the diagnostics, each with `code`, `message` and `details`. Fix what they name in the change set, or in the live data that changed meanwhile. `DELETE /api/v1/objects/{objectTypeKey}/{objectId}` answers 409 when the record's hierarchy reaches into another workspace; `details` holds `workspaceKey`, `otherWorkspaceKey`, `objectId` and `edge`. Remove the link first, or delete from the workspace that owns the whole hierarchy.
+Two different refusals. Publishing a change set (`POST /api/v1/change-sets/{changeSetId}/publication`, or approving it) answers 422 when the change set, merged over the live data, makes the whole workspace invalid; `details` lists the diagnostics, each with `code`, `message` and `details`, at most 20 of each `code`; for each code with more, a last entry with `code` `DIAGNOSTICS_LEFT_OUT` and `details.leftOutCode` and `details.count` says how many were left out. Fix what they name in the change set, or in the live data that changed meanwhile. `DELETE /api/v1/objects/{objectTypeKey}/{objectId}` answers 409 when the record's hierarchy reaches into another workspace; `details` holds `workspaceKey`, `otherWorkspaceKey`, `objectId` and `edge`. Remove the link first, or delete from the workspace that owns the whole hierarchy.
 
 ### WORKSPACE_HAS_PUBLICATIONS
 
@@ -2809,3 +2821,9 @@ The workspace is retired, and the request needs it active: writing to its record
 <span class="rdm-status rdm-5xx">Status 500</span>
 
 The row that holds the default workspace is missing from the database. The engine's migrations always create it, so the database is damaged. Tell the operator; retrying does not help.
+
+### WRITE_CONSTRAINT_VIOLATED
+
+<span class="rdm-status rdm-4xx">Not a response status</span>
+
+A batch or import item's outcome, never a response status. A batch's items are written together, and when that write meets a database constraint the rules did not foresee, each item is written again alone. The item whose own write meets the constraint is `rejected` with this code and nothing of it is written; `details.pointer` names the item, and the other items are applied. Under `atomic` the batch stops at it and writes nothing. Read the record the item names and send the item again; if the same item is refused again, tell the operator.

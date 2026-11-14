@@ -338,6 +338,56 @@ it("separates an unpunctuated server message from the preserved-change-set guida
   ).toBeVisible();
 });
 
+it("lists the conflicts of a refused publication and counts those the server left out", async () => {
+  vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    permissions: permissionsFixture("west"),
+    api,
+    changeSet: baseChangeSet,
+    activeModelReleaseId: baseChangeSet.modelReleaseId,
+    warning: "",
+    refresh: vi.fn().mockResolvedValue(baseChangeSet),
+  });
+  vi.spyOn(api, "discardChangeSet").mockRejectedValue(
+    new ApiError(409, "VERSION_CONFLICT", "Change set conflicts with the live active data", {
+      conflicts: [{ kind: "object", id: "o-1", code: "VERSION_MISMATCH", message: "Record changed" }],
+      conflictsLeftOut: { VERSION_MISMATCH: 7, DUPLICATE_EDGE: 3 },
+    }),
+  );
+  render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "More change set actions" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Discard" }));
+  fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard change set" }));
+  expect(await screen.findByText(/Record changed/)).toBeVisible();
+  expect(screen.getByText("10 more problems are not listed.")).toBeVisible();
+});
+
+it("words the closing entry of a capped graph-diagnostics list as a sentence", async () => {
+  vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    permissions: permissionsFixture("west"),
+    api,
+    changeSet: baseChangeSet,
+    activeModelReleaseId: baseChangeSet.modelReleaseId,
+    warning: "",
+    refresh: vi.fn().mockResolvedValue(baseChangeSet),
+  });
+  vi.spyOn(api, "discardChangeSet").mockRejectedValue(
+    new ApiError(422, "WORKSPACE_GRAPH_INVALID", "Change set failed complete graph validation", [
+      { code: "UNKNOWN_OBJECT_TYPE", message: "Object type is not in the model", details: { objectId: "o-1" } },
+      {
+        code: "DIAGNOSTICS_LEFT_OUT",
+        message: "4 more UNKNOWN_OBJECT_TYPE diagnostics are not listed",
+        details: { leftOutCode: "UNKNOWN_OBJECT_TYPE", count: 4 },
+      },
+    ]),
+  );
+  render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "More change set actions" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Discard" }));
+  fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard change set" }));
+  expect(await screen.findByText(/Object type is not in the model/)).toBeVisible();
+  expect(screen.getByText("4 more problems are not listed.")).toBeVisible();
+});
+
 describe("a change set on a release its workspace no longer runs (0.11 V2)", () => {
   const older = { ...baseChangeSet, modelReleaseId: olderRelease.id, modelReleaseVersion: "0.6.0", version: 7 };
   const mismatched = () =>

@@ -56,6 +56,7 @@ from sqlalchemy import (
     bindparam,
     case,
     column,
+    exists,
     func,
     literal,
     or_,
@@ -329,6 +330,7 @@ class _Scoring:
                     select(relation.id)
                     .where(
                         relation.relation_type_key == route,
+                        self._owned(relation),
                         _text_match(stored, None, f"%{escape_like(term)}%"),
                     )
                     .limit(MATCH_LIMIT + 1)
@@ -348,7 +350,11 @@ class _Scoring:
         stored = relation.attributes[key].as_string()
         bounded = (
             select(relation.id)
-            .where(relation.relation_type_key == route, _text_match(stored, terms, None))
+            .where(
+                relation.relation_type_key == route,
+                self._owned(relation),
+                _text_match(stored, terms, None),
+            )
             .limit(MATCH_LIMIT + 1)
             .lateral()
         )
@@ -357,6 +363,14 @@ class _Scoring:
             .select_from(terms)
             .join(bounded, true())
         ]
+
+    def _owned(self, relation: Any) -> Any:
+        """The relationship is the workspace's (its ends share one workspace). It is a condition of
+        the bounded select, so another workspace's relationships of the type never use its limit."""
+        end = self.source.object_alias()
+        return exists().where(
+            end.id == relation.from_object_id, end.workspace_key == self.source.workspace_key
+        )
 
     def _matched(
         self,

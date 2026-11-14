@@ -30,6 +30,7 @@ thing in every row) and orientation columns ``~…`` that an import ignores.
 import csv
 import hashlib
 import io
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
@@ -85,6 +86,8 @@ from .store import start_job
 
 CHECK_ROWS = 10_000
 FETCH_ROWS = 2_000
+# A CSV export asks for a cancel at least this often (seconds) while a COPY streams.
+CSV_CHECK_SECONDS = 1.0
 XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 FORMATS = {
     "jsonl": ("application/x-ndjson", "jsonl"),
@@ -1099,9 +1102,14 @@ def _write_csv(
     connection = session.connection().connection.driver_connection
     for statement, table in ((records, _RECORDS), (relations, _RELATIONS)):
         rows = session.scalar(select(func.count()).select_from(table)) or 0
+        last = time.monotonic()
         with connection.cursor() as cursor, cursor.copy(statement) as copy:
             for chunk in copy:
                 file.write(chunk)
+                # A cancel (or a lost lease) stops the COPY within a few seconds, not at its end.
+                if time.monotonic() - last >= CSV_CHECK_SECONDS:
+                    _checkpoint(control)
+                    last = time.monotonic()
         _counted(control, rows)
         _checkpoint(control)
 
@@ -1204,7 +1212,14 @@ def _write_xlsx(
                     labels=[LABELS.get(key) or columns.names.get(key[1:], key) for key in keys],
                     count=sum(counts.values()),
                     rows=cursor,
-                    encode=_xlsx_row(letters, built_in, [kind for _, kind in attributes]),
+                    encode=_xlsx_row(
+                        title,
+                        letters,
+                        built_in,
+                        [kind for _, kind in attributes],
+                        [LABELS.get(key) or columns.names.get(key[1:], key) for key in keys],
+                        keys.index("id"),
+                    ),
                     lists=lists,
                 )
             )
@@ -1272,15 +1287,23 @@ def _technical_about(
 
 
 def _xlsx_row(
-    letters: Sequence[str], built_in: Sequence[str], kinds: Sequence[str]
+    title: str,
+    letters: Sequence[str],
+    built_in: Sequence[str],
+    kinds: Sequence[str],
+    labels: Sequence[str],
+    id_index: int,
 ) -> Callable[[Sequence[Any], int], str]:
     """How a row of the records or relationships query becomes its cells: the built-in columns
     (text, the version a number), the attributes by their value types, then the orientation
-    columns."""
+    columns. A text a cell cannot hold is refused, naming the record and the column."""
     attributes = list(enumerate(kinds, len(built_in)))
     orientation = range(len(built_in) + len(kinds), len(letters))
 
     def encode(row: Sequence[Any], number: int) -> str:
+        for index, value in enumerate(row):
+            if isinstance(value, str) and len(value) > xlsx.CELL_CHARACTERS:
+                raise people.text_too_long(title, number, row[id_index], labels[index], len(value))
         parts = [
             xlsx.number_cell(f"{letters[index]}{number}", row[index])
             if kind == "number"

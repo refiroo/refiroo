@@ -29,6 +29,24 @@ PROFILE_SHEET = "Import profile"
 PROFILE_MARK = "rdm-engine import profile"
 
 
+# What openpyxl raises on a workbook whose parts are damaged or shaped unexpectedly: a bad zip, an XML
+# part that does not parse (``SyntaxError``), a missing part, a part of another shape.
+_XLSX_ERRORS = (
+    zipfile.BadZipFile,
+    zipfile.LargeZipFile,
+    InvalidFileException,
+    KeyError,
+    OSError,
+    ValueError,
+    SyntaxError,
+    AttributeError,
+    TypeError,
+    IndexError,
+    EOFError,
+    NotImplementedError,
+)
+
+
 @dataclass(frozen=True)
 class Area:
     """Where a table starts: its header row, and optionally its columns and last row."""
@@ -103,7 +121,7 @@ class XlsxFile:
         self._file = path.open("rb")
         try:
             self._book = load_workbook(self._file, read_only=True, data_only=True)
-        except (zipfile.BadZipFile, InvalidFileException, KeyError, OSError, ValueError) as error:
+        except _XLSX_ERRORS as error:
             self._file.close()
             raise unreadable(
                 f"The file is not an XLSX workbook that can be read ({type(error).__name__})"
@@ -112,26 +130,43 @@ class XlsxFile:
 
     def table(self, sheet: str | None, area: Area) -> Table | None:
         name = sheet if sheet is not None else self.sheet_names[0]
-        rows = self._book[name].iter_rows(
+        declared = self._book[name].max_column
+        rows = _guarded(self._rows(name, area))
+        try:
+            header = list(next(rows))
+        except StopIteration:
+            return None
+        # The table is as wide as the sheet declares, as before: a column whose heading is empty
+        # still counts (a binding by letter names it), and a value in it is read, not cut off.
+        if area.last_column is None and declared:
+            header += [None] * (declared - (area.first_column or 1) + 1 - len(header))
+        width = len(header)
+        return Table(
+            [header_cell(value) for value in header],
+            _numbered(
+                area.header_row,
+                (_padded([_xlsx_cell(value) for value in row], width) for row in rows),
+            ),
+            area.first_column or 1,
+        )
+
+    def _rows(self, name: str, area: Area) -> Iterator[tuple[Any, ...]]:
+        sheet = self._book[name]
+        # A file declaring a wrong ``<dimension>`` is read to its end, not to the declared corner.
+        sheet.reset_dimensions()
+        return sheet.iter_rows(
             min_row=area.header_row,
             max_row=area.last_row,
             min_col=area.first_column,
             max_col=area.last_column,
             values_only=True,
         )
-        try:
-            header = next(rows)
-        except StopIteration:
-            return None
-        return Table(
-            [header_cell(value) for value in header],
-            _numbered(area.header_row, ([_xlsx_cell(value) for value in row] for row in rows)),
-            area.first_column or 1,
-        )
 
     def rows(self, sheet: str) -> Iterator[tuple[int, list[Any]]]:
-        found = self._book[sheet].iter_rows(values_only=True)
-        return _numbered(0, ([_xlsx_cell(value) for value in row] for row in found))
+        found = self._book[sheet]
+        found.reset_dimensions()
+        cells = _guarded(found.iter_rows(values_only=True))
+        return _numbered(0, ([_xlsx_cell(value) for value in row] for row in cells))
 
     def close(self) -> None:
         self._book.close()
@@ -153,8 +188,9 @@ class CsvFile:
                 break
         else:
             return None
+        width = len(header)
         rows = (
-            _cut(record, area)
+            _padded(_cut(record, area), width)
             for record in _until(lines, area.last_row - number if area.last_row else None)
         )
         return Table(
@@ -210,21 +246,23 @@ def carried_profile(file: BinaryIO) -> tuple[dict[str, Any], Any] | None:
     file.seek(0)
     try:
         book = load_workbook(file, read_only=True, data_only=True)
-    except (zipfile.BadZipFile, InvalidFileException, KeyError, OSError, ValueError) as error:
+    except _XLSX_ERRORS as error:
         raise unreadable(
             f"The file is not an XLSX workbook that can be read ({type(error).__name__})"
         ) from None
     try:
         if PROFILE_SHEET not in book.sheetnames:
             return None
-        rows = book[PROFILE_SHEET].iter_rows(max_col=2, values_only=True)
+        sheet = book[PROFILE_SHEET]
+        sheet.reset_dimensions()
+        rows = _guarded(sheet.iter_rows(max_col=2, values_only=True))
         first = next(rows, None)
         if not first or first[0] != PROFILE_MARK:
             return None
         pieces = "".join(str(row[0]) for row in rows if row and row[0] is not None)
         try:
             return json.loads(first[1] or "{}"), json.loads(pieces)
-        except ValueError:
+        except ValueError, TypeError:
             raise unreadable(
                 f"The workbook's sheet '{PROFILE_SHEET}' does not hold an import profile that can "
                 "be read; export the workbook again, or name a profile"
@@ -246,6 +284,24 @@ def header_cell(value: Any) -> str | None:
         return None
     text = cell_text(value).strip()
     return decode_excel_text(text) if isinstance(value, str) else text
+
+
+def _guarded(rows: Iterator[tuple[Any, ...]]) -> Iterator[tuple[Any, ...]]:
+    """A sheet's rows, a part that breaks while it is read refused as an unreadable file."""
+    try:
+        yield from rows
+    except _XLSX_ERRORS as error:
+        raise unreadable(
+            f"The XLSX workbook cannot be read to its end ({type(error).__name__})"
+        ) from None
+
+
+def _padded(row: list[Any], width: int) -> list[Any]:
+    """``row`` filled with empty cells up to ``width``: a row that ends at its last filled cell, or
+    a CSV record shorter than its header, still has every column."""
+    if len(row) < width:
+        row.extend([None] * (width - len(row)))
+    return row
 
 
 def _xlsx_cell(value: Any) -> Any:

@@ -650,11 +650,13 @@ def _trust_stand_in(monkeypatch):
     own that do not)."""
     from sqlalchemy import select
 
+    from app.engine.tasks import store as task_store
     from app.engine.tasks.agent import outcome as agent_outcome
     from app.models.database import ChangeSet
 
     monkeypatch.setattr(agent_outcome, "openapi", lambda url: b"{}")
     monkeypatch.setattr(agent_outcome, "_drafted_by", lambda session, task, draft: True)
+    monkeypatch.setattr(task_store, "drafted_by_client", lambda session, client, draft: True)
     monkeypatch.setattr(
         agent_outcome,
         "_change_set_of",
@@ -1191,14 +1193,17 @@ def test_what_a_session_proposes_is_marked_to_the_publication_and_after_the_task
 def test_two_tasks_at_once_each_have_a_client_of_their_own_and_reach_only_their_own(world):
     """Given two tasks in two workspaces, then each has its own client of the kind session, one's
     token is refused in the other's workspace, one's steps and wait do not count the other's draft
-    and queued job, and the clients are listed only when asked for and take no secret."""
+    and queued job, a session reads and writes only a draft it made or its task holds (a person's
+    draft and another session's are refused; the one its task holds, as a design's job makes it for
+    the task, is allowed and then refused to every other session), and the clients are listed only
+    when asked for and take no secret."""
     import types
 
-    from sqlalchemy import select
+    from sqlalchemy import select, update
 
     from app.db import SessionLocal
     from app.engine.tasks.agent import run as agent_run
-    from app.models.database import AiTask, Job, OAuthClient
+    from app.models.database import AiTask, Job, ModelDraft, OAuthClient
 
     one, two = Ledgers(world, 2), Ledgers(world, 2)
     first = ok(_create(world, one.workspace, one.book()), 202)
@@ -1212,6 +1217,7 @@ def test_two_tasks_at_once_each_have_a_client_of_their_own_and_reach_only_their_
             for task in (first["id"], second["id"])
         }
         assert clients[first["id"]] == client_a != client_b == clients[second["id"]]
+        first_row = session.scalar(select(AiTask.id).where(AiTask.public_id == first["id"]))
         rows = {
             client.id: client
             for client in session.scalars(
@@ -1254,6 +1260,29 @@ def test_two_tasks_at_once_each_have_a_client_of_their_own_and_reach_only_their_
             session, types.SimpleNamespace(check=lambda: None), began, client_a
         )
         assert time.monotonic() - began < 1.5
+
+    # The draft rule (FX2): B's own draft is B's; a person's is neither's; the one the task holds is
+    # the task's, whoever made it, and no other session's.
+    refused(a.api.get(f"/model-drafts/{draft['id']}"), 403, "FORBIDDEN")
+    assert b.api.get(f"/model-drafts/{draft['id']}").status_code == 200
+    person = ok(world.api.post("/model-drafts", {"name": "A person's", "model": {}}), 201)
+    refused(a.api.get(f"/model-drafts/{person['id']}"), 403, "FORBIDDEN")
+    refused(b.api.delete(f"/model-drafts/{person['id']}"), 403, "FORBIDDEN")
+    with SessionLocal() as session:
+        held = session.scalar(select(ModelDraft.id).where(ModelDraft.public_id == person["id"]))
+        session.execute(update(AiTask).where(AiTask.id == first_row).values(draft_id=held))
+        session.commit()
+    assert a.api.get(f"/model-drafts/{person['id']}").status_code == 200
+    refused(b.api.get(f"/model-drafts/{person['id']}"), 409, "AI_TASK_DRAFT_HELD")
+    # A list shows a session its own drafts and its task's only: A its task's, B its own.
+    listed_by = lambda who: {item["id"] for item in _all(who, "/model-drafts")}
+    assert listed_by(a) == {person["id"]}
+    assert listed_by(b) == {draft["id"]}
+    assert {person["id"], draft["id"]} <= listed_by(world)
+    # The workspace's own draft, which a person opened, is not given to a session.
+    assert world.api.post(f"/workspaces/{one.workspace}/model/draft", {}).status_code in (200, 201)
+    refused(a.api.post(f"/workspaces/{one.workspace}/model/draft", {}), 403, "FORBIDDEN")
+    assert world.api.get(f"/model-drafts/{person['id']}").status_code == 200
 
     listed = {item["id"] for item in _all(world, "/clients")}
     assert not listed & set(public)

@@ -16,6 +16,7 @@ import type {
   DraftOperation,
   ModelDraftOutline,
   OutlineMark,
+  OutlineNavigationEntry,
   OutlineObjectType,
   OutlineRelation,
 } from "@/types/modelAdmin";
@@ -524,6 +525,14 @@ export function closeUp(
   return moved;
 }
 
+/**
+ * The card a drop's place is kept for: the first card that was not on the board when the drop was made. A card
+ * that stood there without a kept place (every card of a laid-out board) is never the one.
+ */
+export function freshCardOf(cards: readonly CanvasCard[], before: ReadonlySet<string>): CanvasCard | undefined {
+  return cards.find((card) => !before.has(card.typeKey));
+}
+
 /** The stored positions with a place for every card that has none yet, beside the ones that do. */
 export function placed(
   cards: readonly CanvasCard[],
@@ -690,6 +699,13 @@ export function groupOperations(
   outline: ModelDraftOutline,
 ): DraftOperation[] {
   const placed = typeof entry === "string" ? { collection: entry } : { view: entry.view };
+  // An entry dropped where it already stands changes nothing: it stands last in the group it was dropped on (a
+  // placement without a position goes to the end), or it is in no group and was dropped on the ungrouped part.
+  const standsIn = (item: OutlineNavigationEntry | undefined) =>
+    "view" in placed ? item?.view === placed.view : item?.collection === placed.collection;
+  const groups = outline.applications.find((item) => item.key === applicationKey)?.navigation.groups ?? [];
+  if (group === null && !groups.some((held) => held.entries.some(standsIn))) return [];
+  if (group && "key" in group && standsIn(groups.find((held) => held.key === group.key)?.entries.at(-1))) return [];
   if (group && "label" in group) {
     const application = outline.applications.find((item) => item.key === applicationKey);
     const key = keyFromLabel(group.label, new Set(application?.navigation.groups.map((item) => item.key) ?? []));

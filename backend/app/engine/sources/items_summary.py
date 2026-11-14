@@ -130,7 +130,7 @@ _PARSED = f"""
 WITH {_RUN},
 parsed AS (
     SELECT item_index, item, outcome,
-        regexp_match(ref, '^(.+)!([A-Z]+)([0-9]+)(?::([A-Z]+)([0-9]+))?$') AS m
+        regexp_match(ref, '^(.+)!([A-Z]{{1,3}})([0-9]{{1,7}})(?::([A-Z]{{1,3}})([0-9]{{1,7}}))?$') AS m
     FROM run WHERE ref IS NOT NULL
 ),
 cells AS (
@@ -148,10 +148,12 @@ _PARTS = (
     _PARSED
     + """
 SELECT sheet, first_column, last_column, type_key, relation_type_key,
-    min(first_row) AS first_row, max(last_row) AS last_row, count(*) AS items
+    min(first_row) AS first_row, max(last_row) AS last_row, count(*) AS items,
+    count(*) OVER () AS parts
 FROM cells
 GROUP BY 1, 2, 3, 4, 5
 ORDER BY sheet, length(first_column), first_column, min(first_row)
+LIMIT :limit
 """
 )
 
@@ -393,6 +395,8 @@ def summarize(session: Session, job: Job, *, found_names: list[dict[str, Any]]) 
         {"sheet": row.sheet, "rows": row.rows}
         for row in session.execute(text(_ROWS_READ), parameters)
     ]
+    # The listed parts are read with the count of all of them: the rest are never loaded.
+    listed_parts = session.execute(text(_PARTS), {**parameters, "limit": LISTED}).all()
     parts = [
         {
             "sheet": row.sheet,
@@ -404,7 +408,7 @@ def summarize(session: Session, job: Job, *, found_names: list[dict[str, Any]]) 
             "relationTypeKey": row.relation_type_key,
             "items": row.items,
         }
-        for row in session.execute(text(_PARTS), parameters)
+        for row in listed_parts
     ]
     refused = [
         {
@@ -444,8 +448,8 @@ def summarize(session: Session, job: Job, *, found_names: list[dict[str, Any]]) 
         "types": ordered,
         "relationships": sorted(relationships, key=lambda r: (-r["new"], r["relationTypeKey"])),
         "sheets": sheets,
-        "parts": parts[:LISTED],
-        "partsTotal": len(parts),
+        "parts": parts,
+        "partsTotal": listed_parts[0].parts if listed_parts else 0,
         "findings": found_names,
         "refused": refused,
         "refusedByCode": [

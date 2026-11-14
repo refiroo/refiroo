@@ -262,6 +262,28 @@ def decide_new_change_set_object(
     return record
 
 
+def recheck_incoming_relations(
+    model: Any, lookup: ChangeSetLookup, object_id: str, object_type_key: str
+) -> None:
+    """Check each relation into a record against the record as an edit leaves it, scoped
+    uniqueness (``uniqueWhenToAttributeEquals``) included. A record edit, an attribute patch and an
+    attribute delete all end here."""
+    parent_keys = model.containment_relation_keys(object_type_key)
+    for relation in lookup.relations([object_id], "incoming"):
+        if relation.relation_type_key in parent_keys:
+            continue
+        validate_change_set_relation(
+            model,
+            lookup,
+            relation.relation_type_key,
+            relation.from_object_id,
+            relation.to_object_id,
+            dict(relation.attributes or {}),
+            exclude_id=relation.relation_id,
+            added=False,
+        )
+
+
 def update_change_set_object(
     session: Session,
     change_set_id: str,
@@ -344,20 +366,7 @@ def decide_change_set_object_update(
     # The edited record is laid over the lookup: each relation into it is checked against it.
     lookup.lay(record)
     rules.unique_values(lookup, model, record.object_id, record.attributes)
-    parent_keys = model.containment_relation_keys(record.object_type_key)
-    for relation in lookup.relations([record.object_id], "incoming"):
-        if relation.relation_type_key in parent_keys:
-            continue
-        validate_change_set_relation(
-            model,
-            lookup,
-            relation.relation_type_key,
-            relation.from_object_id,
-            relation.to_object_id,
-            dict(relation.attributes or {}),
-            exclude_id=relation.relation_id,
-            added=False,
-        )
+    recheck_incoming_relations(model, lookup, record.object_id, record.object_type_key)
     _place(lookup, model, record)
     lookup.audit(
         AuditEntry(
@@ -855,6 +864,7 @@ def patch_change_set_attribute(
     writes.claim(expected_change_set_version)
     row.attributes = {**(row.attributes or {}), **normalized}
     rules.unique_values(lookup, model, row.object_id, row.attributes)
+    recheck_incoming_relations(model, lookup, row.object_id, row.object_type_key)
     row.version += 1
     record_audit_event(
         session,
@@ -909,6 +919,7 @@ def delete_change_set_attribute(
     validate_object_attribute_rules(object_type, remaining)
     writes.claim(expected_change_set_version)
     row.attributes = remaining
+    recheck_incoming_relations(model, lookup, row.object_id, row.object_type_key)
     row.version += 1
     record_audit_event(
         session,

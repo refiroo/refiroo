@@ -99,7 +99,29 @@ def _adopt_legacy(root: Path, public_id: str, name: str) -> None:
     try:
         os.rename(legacy, home / "work")
     except FileNotFoundError:
-        pass
+        return
+    _share_tree(home / "work")
+
+
+def _share_tree(top: Path) -> None:
+    """What an earlier version made for the engine alone becomes the sessions' group's, as a folder
+    made now is: the group ``assistant``, folders set-group-ID and group-writable, files group-
+    writable. A link is given the group and never followed (0.17 RF5)."""
+    try:
+        group = grp.getgrnam(ASSISTANT_GROUP).gr_gid
+    except KeyError:
+        return
+    for base, folders, names in os.walk(top, followlinks=False):
+        for path in (base, *(os.path.join(base, name) for name in (*folders, *names))):
+            try:
+                found = os.lstat(path)
+                os.lchown(path, -1, group)
+                if stat.S_ISDIR(found.st_mode):
+                    os.chmod(path, 0o2770)
+                elif stat.S_ISREG(found.st_mode):
+                    os.chmod(path, stat.S_IMODE(found.st_mode) | 0o060)
+            except OSError as error:
+                log.warning("%s could not be given to the sessions' group: %s", path, error)
 
 
 def _open_root(root: Path) -> None:
@@ -183,6 +205,17 @@ def put(folder: Path, name: str, data: bytes) -> None:
             os.unlink(name, dir_fd=descriptor)
         except FileNotFoundError:
             pass
+        except IsADirectoryError, PermissionError:
+            # A folder a session made under the file's name: set aside, never removed or followed;
+            # it goes with the task's folder.
+            if not stat.S_ISDIR(os.stat(name, dir_fd=descriptor, follow_symlinks=False).st_mode):
+                raise
+            os.rename(
+                name,
+                f"{name}.folder-{secrets.token_hex(4)}",
+                src_dir_fd=descriptor,
+                dst_dir_fd=descriptor,
+            )
         made = os.open(
             name,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -269,6 +302,9 @@ def remove_folder(files: Any, task: AiTask) -> None:
             log_file.unlink(missing_ok=True)
 
 
+_TASK_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
 def sweep(session: Session, files: Any) -> None:
     """What no task holds any more: the folder of a task that expired, and a transcript of this
     instance's folders whose folder is gone (AP-D37). Removed after the expiry's commit. In a
@@ -291,7 +327,14 @@ def sweep(session: Session, files: Any) -> None:
     prefix = _transcript_name(root) + "-"
     if _transcripts().is_dir():
         for path in _transcripts().iterdir():
-            if path.name.startswith(prefix) and not (root / path.name[len(prefix) :]).exists():
+            # Only a name this engine's folders have: a task's ID after the prefix. Another folder
+            # whose path starts the same way (``/data/ai`` and ``/data/ai-other/x``) is not ours.
+            task = path.name[len(prefix) :]
+            if (
+                path.name.startswith(prefix)
+                and _TASK_ID.fullmatch(task)
+                and not (root / task).exists()
+            ):
                 shutil.rmtree(path, ignore_errors=True)
 
 

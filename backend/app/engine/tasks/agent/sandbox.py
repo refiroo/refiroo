@@ -29,6 +29,7 @@ from ...authorization.permissions import permissions_of
 from ...identity import tokens
 from ...identity.clients import create_session_client
 from ...identity.settings import IdentitySettings
+from .network import FAILED, RESTRICTED, proxy_reachable, proxy_variables, read_state
 
 log = logging.getLogger(__name__)
 
@@ -48,12 +49,21 @@ def loopback(url: str) -> bool:
         return False
 
 
+# Left on the token beyond a turn's longest length, for the jobs the session started and the end of the turn.
+TOKEN_SLACK_SECONDS = 600
+
+
 def _identity() -> IdentitySettings:
     settings = get_settings()
     return IdentitySettings(
         encryption_key=settings.secrets_encryption_key,
         issuer=settings.public_url,
-        access_token_seconds=settings.access_token_minutes * 60,
+        # The session's token lives at least as long as a turn may (AI_AGENT_TIMEOUT_SECONDS), or a
+        # long turn would find its token expired.
+        access_token_seconds=max(
+            settings.access_token_minutes * 60,
+            settings.ai_agent_timeout_seconds + TOKEN_SLACK_SECONDS,
+        ),
         signing_key_days=settings.token_signing_key_days,
         browser_origins=settings.cors_origins,
         session_idle_hours=settings.session_idle_hours,
@@ -145,7 +155,12 @@ TOOLS = "Bash,Read,Write,Edit,Glob,Grep"
 
 def base_command() -> list[str]:
     """The configured command, without a permission mode: the engine sets that itself."""
-    words = shlex.split(os.environ["AI_AGENT_COMMAND"].strip().strip("\"'"))
+    try:
+        words = shlex.split(os.environ.get("AI_AGENT_COMMAND", "").strip().strip("\"'"))
+    except ValueError as error:
+        raise OSError(f"it is not a command ({error})") from error
+    if not words:
+        raise OSError("it is empty")
     kept: list[str] = []
     skip = False
     for word in words:
@@ -432,7 +447,12 @@ PASSED_NAMES = (
     "ANTHROPIC_DEFAULT_SONNET_MODEL",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL",
     "NODE_EXTRA_CA_CERTS",
+    # The proxy the session reaches the provider through when its network is restricted (SR-D6): set by
+    # the engine from ``network.proxy_variables``, never taken from the engine's own environment.
+    "HTTPS_PROXY",
+    "NO_PROXY",
 )
+ENGINE_SET = ("HTTPS_PROXY", "NO_PROXY")
 PASSED_PREFIXES = ("LC_",)
 # Passed only when ``CLAUDE_CODE_USE_BEDROCK`` is on (``CLAUDE_CODE_USE_BEDROCK`` itself, when set).
 BEDROCK_NAMES = (
@@ -457,8 +477,38 @@ def _passed(environ: dict[str, str]) -> dict[str, str]:
     return {
         name: value
         for name, value in environ.items()
-        if name in names or name.startswith(PASSED_PREFIXES)
+        if (name in names and name not in ENGINE_SET) or name.startswith(PASSED_PREFIXES)
     }
+
+
+def network_variables() -> dict[str, str]:
+    """The proxy variables of a session whose container restricts its network."""
+    if container() and read_state().state == RESTRICTED:
+        return proxy_variables()
+    return {}
+
+
+class NetworkNotReady(SessionUserError):
+    """The session's network rule failed to be set, or its proxy is gone: no turn starts (SR-D6)."""
+
+
+def check_network() -> None:
+    """In a container, a turn starts only when the network is as the start step left it: unrestricted
+    (no ``NET_ADMIN``, told at start) or restricted with its proxy running. A setup that failed, or a
+    proxy that is gone, would leave the session unrestricted or without a way out."""
+    if not container():
+        return
+    found = read_state()
+    if found.state == FAILED:
+        raise NetworkNotReady(
+            f"The assistant's network rule could not be set ({found.note}), so the assistant does not "
+            "start: fix the cause and restart the engine"
+        )
+    if found.state == RESTRICTED and not proxy_reachable():
+        raise NetworkNotReady(
+            "The assistant's network proxy is not running, so the session could not reach the AI "
+            "provider: restart the engine"
+        )
 
 
 def session_environment(
@@ -474,9 +524,11 @@ def session_environment(
         scratch["TMPDIR"] = str(folder / "tmp")
     if config is not None:
         scratch["CLAUDE_CONFIG_DIR"] = str(config)
+    network = network_variables()
     return {
         **_passed(dict(os.environ)),
         **scratch,
+        **network,
         "REFIROO_TOKEN": token,
         "PATH": f"{Path(sys.prefix) / 'bin'}:{os.environ.get('PATH', '')}",
     }

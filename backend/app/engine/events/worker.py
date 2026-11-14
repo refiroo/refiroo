@@ -3,7 +3,8 @@ expires them with the feed.
 
 Once a second it compares each workspace's feed position with its checkpoint (one statement) and
 derives where they differ, a page per workspace in turn; the write path is untouched and never
-waits for it. A workspace created since the last look gets a checkpoint at 0. Every hour it deletes
+waits for it. A workspace that fails is left alone for a growing wait (``RETRY_SECONDS``, doubling
+up to ``MAX_BACKOFF_SECONDS``) while the others go on at their own pace; its failure is logged. A workspace created since the last look gets a checkpoint at 0. Every hour it deletes
 the events below the change feed's retention floor (``FEED_RETENTION_DAYS``, never past the active
 publication's position, D40, C-D92); the audit log is not pruned. Tests drive it themselves
 (``run_until_idle``, ``sweep``) with ``run_event_deriver`` False.
@@ -20,7 +21,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from ...common.outage import OutageLog
+from ...common.outage import OutageLog, database_unavailable
 from ...models.database import ConsumerEvent, ConsumerEventCheckpoint, Workspace
 from ..model.consumer_definitions import consumer_apis, kept_store_key, served_versions
 from ..model.registry import model_registry
@@ -32,6 +33,8 @@ logger = logging.getLogger(__name__)
 
 POLL_SECONDS = 1.0
 RETRY_SECONDS = 2.0
+# The longest a workspace that keeps failing is left alone between its tries.
+MAX_BACKOFF_SECONDS = 300.0
 SWEEP_SECONDS = 3600.0
 # The thread's name, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-event-deriver"
@@ -51,6 +54,8 @@ class EventDeriver:
         self.retention_days = retention_days
         self.page_entries = page_entries
         self._plans: dict[int, tuple[EventPlan, ...]] = {}
+        # A failing workspace's failures in a row and when it is tried again (monotonic seconds).
+        self._failing: dict[str, tuple[int, float]] = {}
         self._stopping = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -95,19 +100,45 @@ class EventDeriver:
                     return False
                 raise
 
-    def run_once(self) -> bool:
-        """A page for each workspace that is behind, every one in turn; whether any was derived. A
-        workspace that fails does not hold up the others (0.9 R-F11): they are derived, then its
-        error is raised for the loop to log."""
-        derived, failure = [], None
-        for key in self.pending():
+    def run_round(self) -> tuple[bool, list[Exception]]:
+        """A page for each workspace that is behind and not waiting out a failure, every one in
+        turn: whether any was derived, and the errors of those that failed. A workspace that fails
+        does not hold up the others (0.9 R-F11) and is tried again after a growing wait."""
+        derived: list[bool] = []
+        failures: list[Exception] = []
+        now = time.monotonic()
+        behind = self.pending()
+        for key in set(self._failing) - set(behind):
+            del self._failing[key]  # caught up or gone: its failure no longer counts
+        for key in behind:
+            if key in self._failing and self._failing[key][1] > now:
+                continue
             try:
                 derived.append(self.derive(key))
-            except Exception as exc:  # noqa: BLE001 - raised again once the others are derived
-                failure = failure or exc
-        if failure is not None:
-            raise failure
-        return any(derived)
+            except Exception as exc:
+                failed = self._failing.get(key, (0, 0.0))[0] + 1
+                wait = min(RETRY_SECONDS * 2 ** (failed - 1), MAX_BACKOFF_SECONDS)
+                self._failing[key] = (failed, time.monotonic() + wait)
+                failures.append(exc)
+                if failed == 1 or failed % 10 == 0:
+                    logger.error(
+                        "The event deriver cannot derive workspace '%s' (failure %s in a row); it "
+                        "tries it again in %.0f s and goes on with the others",
+                        key,
+                        failed,
+                        wait,
+                        exc_info=exc,
+                    )
+            else:
+                self._failing.pop(key, None)
+        return any(derived), failures
+
+    def run_once(self) -> bool:
+        """``run_round``, raising the first error once every workspace had its turn."""
+        derived, failures = self.run_round()
+        if failures:
+            raise failures[0]
+        return derived
 
     def run_until_idle(self) -> int:
         """Derive until every workspace is at its head; the pages derived. Waits briefly while
@@ -171,10 +202,24 @@ class EventDeriver:
             wait = POLL_SECONDS
             try:
                 if time.monotonic() >= next_sweep:
-                    self.sweep()
-                    next_sweep = time.monotonic() + SWEEP_SECONDS
-                while self.run_once() and not self._stopping.is_set():
-                    pass
+                    # Its own failure never stops the deriving: a sweep that failed is tried again
+                    # in a short while, one that worked in an hour.
+                    try:
+                        self.sweep()
+                        next_sweep = time.monotonic() + SWEEP_SECONDS
+                    except Exception as exc:
+                        next_sweep = time.monotonic() + RETRY_SECONDS * 15
+                        logger.error("The event deriver's expiry sweep failed", exc_info=exc)
+                while not self._stopping.is_set():
+                    derived, failures = self.run_round()
+                    if failures:
+                        # The failing workspaces wait out their own backoff; only a database that
+                        # cannot be reached is reported as an outage of the thread.
+                        unreachable = [exc for exc in failures if database_unavailable(exc)]
+                        if unreachable:
+                            raise unreachable[0]
+                    if not derived:
+                        break
                 outage.succeeded()
             except Exception as exc:  # noqa: BLE001 - every failure is logged by OutageLog
                 outage.failed(exc)

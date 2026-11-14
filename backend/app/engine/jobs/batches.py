@@ -420,7 +420,10 @@ class _Batch:
                         fields = self.apply(index, item)
                     if lookup.changes():
                         self.writer.write_one(fields)
-            except ApiError as error:
+            except (ApiError, IntegrityError) as caught:
+                # A constraint the rules did not foresee, on an item alone: that item is refused
+                # with a stable code and the others still apply.
+                error = caught if isinstance(caught, ApiError) else _constraint_violated()
                 outcomes.append(
                     ItemOutcome(index, item.ref, "rejected", {"error": _error(index, error)})
                 )
@@ -1499,6 +1502,15 @@ def _details(error: ApiError) -> dict[str, Any]:
 def _at(error: ApiError, pointer: str) -> ApiError:
     return ApiError(
         error.status, error.code, error.message, {**_details(error), "pointer": pointer}
+    )
+
+
+def _constraint_violated() -> ApiError:
+    return api_error(
+        409,
+        "WRITE_CONSTRAINT_VIOLATED",
+        "The database refused this item's write on a constraint the rules did not foresee; nothing"
+        " of it was written",
     )
 
 

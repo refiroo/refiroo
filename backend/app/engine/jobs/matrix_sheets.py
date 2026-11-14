@@ -52,8 +52,10 @@ from .people import (
     Labels,
     SheetWriter,
     ViewWritten,
+    build_object,
     field_sql,
     invalid_layout,
+    separator_safe,
 )
 
 # A matrix's columns in the order shown, each cell record with the row and column it sits in, each
@@ -165,8 +167,13 @@ class MatrixSheets:
         a sheet."""
         state, config = self.view.state, self.config
         source = record_source(workspace_key, context, [config.columnObjectTypeKey])
-        found = set(session.scalars(select(source.c.object_id)))
         named = list(state.columnIds or [])
+        # Only the named columns are read back; the whole set is counted in the database.
+        found = (
+            set(session.scalars(select(source.c.object_id).where(source.c.object_id.in_(named))))
+            if named
+            else set()
+        )
         for index, key in enumerate(named):
             if key not in found:
                 raise invalid_layout(
@@ -175,7 +182,14 @@ class MatrixSheets:
                 )
         if len(set(named)) != len(named):
             raise invalid_layout("Each column is named once", "/view/state/columnIds")
-        count = len(named) or len(found)
+        count = len(named) or session.scalar(select(func.count()).select_from(source)) or 0
+        if self.links and count > xlsx.VALUE_SHEETS:
+            raise invalid_layout(
+                f"A link matrix keeps the records each column may link on a sheet of its own, so"
+                f" {count} columns would need {count} sheets; a workbook of this kind holds"
+                f" {xlsx.VALUE_SHEETS} of them. Name fewer columns in columnIds",
+                "/view/state/columnIds",
+            )
         per_column = 1 if self.links else len(config.cellFields) + 2
         wide = len(config.rowColumns) + count * per_column + 2
         if wide > xlsx.SHEET_COLUMNS:
@@ -529,23 +543,32 @@ class MatrixSheets:
                 " 'n', count(*))"
             ).format(label=label, split=sql.Literal(SPLIT))
         else:
-            values = sql.SQL(", ").join(
-                sql.SQL(
-                    "{key}, CASE WHEN count(*) = 1 THEN max({value})"
-                    " ELSE string_agg({value}, {split} ORDER BY o.name) END"
-                ).format(
-                    key=sql.Literal(f"f{number}"),
-                    value=field_sql(model, "o", None if key == "name" else key),
-                    split=sql.Literal(SPLIT),
-                )
-                for number, (key, _kind, _editable) in enumerate(fields)
-            )
-            cell = sql.SQL(
-                "jsonb_build_object('id', CASE WHEN count(*) = 1 THEN max(m.cell_id) END,"
-                " 'v', CASE WHEN count(*) = 1 THEN max(o.version)::text ELSE {skip} END{values})"
-            ).format(
-                skip=sql.Literal("not loaded"),
-                values=sql.SQL(", {}").format(values) if fields else sql.SQL(""),
+            cell = build_object(
+                [
+                    (
+                        sql.Literal("id"),
+                        sql.SQL("CASE WHEN count(*) = 1 THEN max(m.cell_id) END"),
+                    ),
+                    (
+                        sql.Literal("v"),
+                        sql.SQL(
+                            "CASE WHEN count(*) = 1 THEN max(o.version)::text ELSE {skip} END"
+                        ).format(skip=sql.Literal("not loaded")),
+                    ),
+                    *(
+                        (
+                            sql.Literal(f"f{number}"),
+                            sql.SQL(
+                                "CASE WHEN count(*) = 1 THEN max({value})"
+                                " ELSE string_agg({value}, {split} ORDER BY o.name) END"
+                            ).format(
+                                value=field_sql(model, "o", None if key == "name" else key),
+                                split=sql.Literal(SPLIT),
+                            ),
+                        )
+                        for number, (key, _kind, _editable) in enumerate(fields)
+                    ),
+                ]
             )
         with writer.connection.cursor() as cursor:
             cursor.execute(
@@ -944,17 +967,19 @@ def _label_sql(
     field in parentheses when it has one that differs from the name; the text an import reads the
     record back from."""
     # A cell is cut at its separator, so a separator in a label is written as a comma (the import
-    # reads the records' labels the same way).
+    # reads the records' labels the same way); the guard is the people export's, ``separator_safe``.
     if cell_field:
         value = field_sql(model, alias, None if cell_field == "name" else cell_field)
-        return sql.SQL("replace(coalesce({value}, ''), ';', ',')").format(value=value)
+        return separator_safe(sql.SQL("coalesce({value}, '')").format(value=value))
     if not display or display == "name" or model.attribute_type(display) is None:
-        return sql.SQL("replace({alias}.name, ';', ',')").format(alias=sql.SQL(alias))
+        return separator_safe(sql.SQL("{alias}.name").format(alias=sql.SQL(alias)))
     value = field_sql(model, alias, display)
-    return sql.SQL(
-        "replace({alias}.name || CASE WHEN {value} IS NOT NULL AND {value} <> {alias}.name"
-        " THEN ' (' || {value} || ')' ELSE '' END, ';', ',')"
-    ).format(alias=sql.SQL(alias), value=value)
+    return separator_safe(
+        sql.SQL(
+            "{alias}.name || CASE WHEN {value} IS NOT NULL AND {value} <> {alias}.name"
+            " THEN ' (' || {value} || ')' ELSE '' END"
+        ).format(alias=sql.SQL(alias), value=value)
+    )
 
 
 def _column_reference(label: str) -> str:

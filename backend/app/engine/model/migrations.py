@@ -673,7 +673,7 @@ CREATE TEMPORARY TABLE migration_relations (
     relation_id varchar(36) PRIMARY KEY, relation_type_key text, from_object_id varchar(36),
     to_object_id varchar(36), from_type text, to_type text, attributes json, version integer,
     containment boolean, refused boolean, lost_code text, target_relation_type_key text,
-    releases boolean
+    releases boolean, duplicate boolean NOT NULL DEFAULT false
 ) ON COMMIT DROP;
 CREATE TEMPORARY TABLE migration_value_changes (
     object_id varchar(36), attribute_type_key text, target_key text, to_type text, before json,
@@ -753,6 +753,22 @@ _FILL = (
     JOIN migration_objects t ON t.object_id = r.to_object_id
     LEFT JOIN migration_pairs p ON p.relation_type_key = r.relation_type_key
         AND p.from_type = f.object_type_key AND p.to_type = t.object_type_key
+    """,
+    # A relationship mapped onto a relation type that already links the same two records (or that
+    # another mapped relationship reaches) would break the one-edge rule: it is refused in the plan
+    # as DUPLICATE_EDGE and stays under its own relation type, so the preview still runs.
+    """
+    WITH crowded AS (
+        SELECT target_relation_type_key AS relation_type_key, from_object_id, to_object_id
+        FROM migration_relations WHERE lost_code IS NULL
+        GROUP BY 1, 2, 3 HAVING count(*) > 1
+    )
+    UPDATE migration_relations m SET duplicate = true,
+        target_relation_type_key = m.relation_type_key
+    FROM crowded c
+    WHERE m.lost_code IS NULL AND m.target_relation_type_key <> m.relation_type_key
+        AND c.relation_type_key = m.target_relation_type_key
+        AND c.from_object_id = m.from_object_id AND c.to_object_id = m.to_object_id
     """,
     # Each value of a staying record: carried as it is, converted, carried to another attribute,
     # or lost because it has no place or does not convert (D69).
@@ -873,6 +889,10 @@ _PARENT_REFUSED = """
 FROM migration_relations r JOIN migration_objects o ON o.object_id = r.to_object_id
 WHERE r.refused
 """
+_DUPLICATE_REFUSAL = "DUPLICATE_EDGE"
+_DUPLICATE_REFUSAL_MESSAGE = (
+    "The relation type this relationship is mapped onto already links the same two records"
+)
 
 # The rows of a preview or an execution, in one order: type changes, values, relationship values,
 # lost records, lost relationships, refused containment edges.
@@ -924,6 +944,13 @@ FROM (
         'relationTypeKey', r.relation_type_key,
         'message', '{_PARENT_REFUSAL_MESSAGE}')
     {_PARENT_REFUSED}
+    UNION ALL
+    SELECT 5, d.relation_id, '', json_build_object(
+        'outcome', 'refused', 'code', '{_DUPLICATE_REFUSAL}',
+        'objectId', d.from_object_id, 'relationId', d.relation_id,
+        'relationTypeKey', d.relation_type_key, 'toObjectId', d.to_object_id,
+        'message', '{_DUPLICATE_REFUSAL_MESSAGE}')
+    FROM migration_relations d WHERE d.duplicate
     UNION ALL
     SELECT 6, n.object_id, '', json_build_object(
         'outcome', 'created', 'code', 'RECORD_CREATED', 'objectId', n.object_id,
@@ -1200,6 +1227,11 @@ _APPLY = (
         "UPDATE objects SET parent_object_id = NULL WHERE id IN "
         "(SELECT object_id FROM migration_objects WHERE parent_released)"
     ),
+    # Lost relationships go first: one of them may hold the edge a mapped relationship takes.
+    (
+        "DELETE FROM object_relations WHERE id IN "
+        "(SELECT relation_id FROM migration_relations WHERE lost_code IS NOT NULL)"
+    ),
     """
     UPDATE object_relations r SET relation_type_key = m.target_relation_type_key,
         version = r.version + 1, updated_at = CAST(:now AS timestamptz)
@@ -1207,10 +1239,6 @@ _APPLY = (
     WHERE r.id = m.relation_id AND m.lost_code IS NULL
         AND m.target_relation_type_key <> m.relation_type_key
     """,
-    (
-        "DELETE FROM object_relations WHERE id IN "
-        "(SELECT relation_id FROM migration_relations WHERE lost_code IS NOT NULL)"
-    ),
     """
     DELETE FROM attribute_values a USING migration_value_changes c
     WHERE a.object_id = c.object_id AND a.attribute_type_key = c.attribute_type_key
@@ -1397,7 +1425,8 @@ def submit_migration(
         target_release_id = pinned.public_id
     assert target_release_id is not None
     target = installed_release(session, target_release_id)
-    if change_set is None and target.id != current.id:
+    # A change set's own release is chosen again by the migration that publishes it.
+    if target.id != current.id:
         require_choosable(session, target, operation="migration")
     if assignment.version != expected_version:
         raise api_error(
@@ -1753,6 +1782,13 @@ def check_landing(
             (str(item), _PARENT_REFUSAL, "", _PARENT_REFUSAL_MESSAGE)
             for item in session.scalars(text(f"SELECT DISTINCT r.to_object_id {_PARENT_REFUSED}"))
         ]
+        # The relationships mapped onto a relation type that already links the same two records.
+        refused += [
+            (str(item), _DUPLICATE_REFUSAL, "", _DUPLICATE_REFUSAL_MESSAGE)
+            for item in session.scalars(
+                text("SELECT DISTINCT from_object_id FROM migration_relations WHERE duplicate")
+            )
+        ]
         found: list[LandingRefusal] = []
         if refused:
             ids, codes, _paths, messages = (list(column) for column in zip(*refused, strict=True))
@@ -2101,6 +2137,9 @@ def run_execution(
         )
     migration = _Migration.open(session, job)
     current_release = session.get(ModelRelease, job.model_release_id)
+    # A target retired since the preview is not migrated to (its status read under a share lock).
+    if migration.target_release.id != current_release.id:
+        require_choosable(session, migration.target_release, operation="migration")
     # The unique values are locked only at the switch (R-F6): the workspace's row, held from the
     # start, keeps the workspace's own writes out meanwhile, and other workspaces' writes go on.
     lock_what_activation_changes(

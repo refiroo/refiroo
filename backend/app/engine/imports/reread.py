@@ -99,6 +99,8 @@ def reread_import(
         onExisting=parameters["onExisting"],
         otherWorkspaceIds=parameters["otherWorkspaceIds"],
         stage="preview",
+        # The stored file the first preview read, which a profile's check compares with.
+        sourceFileId=parameters.get("sourceFileId"),
     )
     origin = {key: profile[key] for key in ("key", "version", "embedded") if key in profile}
     with path.open("rb") as file:

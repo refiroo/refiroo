@@ -31,7 +31,7 @@ Lists every call made to the provider and every turn of an assistant session, ne
 
 Title: Read how the provider is set up
 
-Reads the provider as the environment set it at start, which features it offers at the send level, the last call and the totals of the last 30 days. Check it before a client offers an AI action. The key is never answered, only whether one is set.
+Reads the provider as the environment set it at start, which features it offers at the send level, the last call and the totals of the last 30 days. Check it before a client offers an AI action. The key is never answered, only whether one is set. With the assistant in a container, `assistantNetwork` says whether its session's network is `restricted` to this engine and the provider's hosts, `unrestricted` (the container has no `NET_ADMIN`; the session can reach any host) or `failed` (the rule could not be set, so assistant turns do not start), with the reason in `assistantNetworkNote`; it is `null` otherwise.
 
 ### Errors
 
@@ -381,6 +381,8 @@ Ends the task: it becomes `cancelled` and its draft and working folder go. A loa
 
 - configured: True when a provider is set (`AI_PROVIDER`).
 - assistant: True when the assistant's session can run (`AI_AGENT_COMMAND`); it needs no provider.
+- assistantNetwork: With the assistant in a container: `restricted` (its session reaches only this engine and the provider's hosts), `unrestricted` (no `NET_ADMIN` in the container: it can reach any host) or `failed` (the rule could not be set: assistant turns do not start). Null without the assistant or outside a container.
+- assistantNetworkNote: Why the network is `unrestricted` or `failed`, or null.
 - provider: The provider's name, or null.
 - model: The model asked for, or null.
 - endpoint: `AI_BASE_URL`, or null for the provider's own address.

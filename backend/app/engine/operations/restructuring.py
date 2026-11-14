@@ -605,7 +605,8 @@ def preview_restructuring(
     """Plan an operation and dry-run it; nothing is kept. A given version that is not the change
     set's is ``409 change_set_version_conflict``."""
     try:
-        change_set = load_change_set(session, change_set_id)
+        # The dry run writes into the change set: locked as the apply and the type change check do.
+        change_set = load_change_set(session, change_set_id, for_update=True)
         if (
             expected_change_set_version is not None
             and change_set.version != expected_change_set_version

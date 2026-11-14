@@ -390,7 +390,7 @@ class _Document:
             tagged=False,
         )
         responses["413"] = {
-            "description": f"More than {self.resolve_max_items} items: `BATCH_TOO_LARGE`.",
+            "description": f"More than {self.resolve_max_items} items, or a body over 16 KiB for each item allowed: `BATCH_TOO_LARGE`.",
             "content": {"application/json": {"schema": _ref("Error")}},
         }
         return {

@@ -85,3 +85,90 @@ def test_every_column_of_a_header_that_repeats_a_name_can_be_named(tmp_path):
     assert columns["Currency #3"] == 5
     # A column really called that keeps its name.
     assert columns["Currency #2"] == 6
+
+
+def test_a_csv_row_shorter_than_its_header_is_padded_to_its_width(tmp_path):
+    table = _csv(tmp_path, b"A,B,C\n1,2\n3\n").table(None, Area())
+    assert _rows(table) == [(2, ["1", "2", None]), (3, ["3", None, None])]
+
+
+def _with_dimension(path, ref):
+    """The workbook at ``path`` with its first sheet declaring ``ref`` as its dimension."""
+    import re
+    import zipfile
+
+    source = path.read_bytes()
+    with zipfile.ZipFile(io.BytesIO(source)) as old, zipfile.ZipFile(path, "w") as new:
+        for item in old.infolist():
+            data = old.read(item.filename)
+            if item.filename == "xl/worksheets/sheet1.xml":
+                data = re.sub(rb'<dimension ref="[^"]*"', f'<dimension ref="{ref}"'.encode(), data)
+            new.writestr(item, data)
+
+
+def test_a_workbook_declaring_a_wrong_dimension_is_read_whole_and_padded(tmp_path):
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Data"
+    sheet.append(["A", "B", "C", "D"])
+    sheet.append(["1", "2", "3", "4"])
+    sheet.append(["5", None, None, None])
+    sheet.append(["6", "7", None, "8"])
+    path = tmp_path / "book.source"
+    book.save(path)
+    _with_dimension(path, "A1:B2")
+    workbook = XlsxFile(path)
+    table = workbook.table("Data", Area())
+    assert table.header == ["A", "B", "C", "D"]
+    assert _rows(table) == [
+        (2, ["1", "2", "3", "4"]),
+        (3, ["5", None, None, None]),
+        (4, ["6", "7", None, "8"]),
+    ]
+    assert [cells[0] for _, cells in workbook.rows("Data")] == ["A", "1", "5", "6"]
+    workbook.close()
+
+
+def test_a_workbook_part_that_is_not_xml_is_refused_not_a_server_error(tmp_path):
+    import zipfile
+
+    book = Workbook()
+    book.active.append(["A"])
+    path = tmp_path / "book.source"
+    book.save(path)
+    with zipfile.ZipFile(io.BytesIO(path.read_bytes())) as old, zipfile.ZipFile(path, "w") as new:
+        for item in old.infolist():
+            data = old.read(item.filename)
+            new.writestr(item, b"<not xml" if item.filename == "xl/worksheets/sheet1.xml" else data)
+    with pytest.raises(ApiError) as caught:
+        XlsxFile(path).table(None, Area())
+    assert caught.value.code == "IMPORT_FILE_UNREADABLE"
+
+
+def test_a_value_in_a_column_without_a_heading_is_read_with_the_declared_width_or_beyond_it(
+    tmp_path,
+):
+    """A heading row below the first row; the last column has no heading. With the right dimension
+    the column is part of the table (a binding by letter can name it); with a dimension too short
+    its value is still in the row, never cut off."""
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Data"
+    sheet.append(["Title"])
+    sheet.append(["A", "B", None])
+    sheet.append(["1", "2", "3"])
+    path = tmp_path / "book.source"
+    book.save(path)
+    workbook = XlsxFile(path)
+    table = workbook.table("Data", Area(2))
+    assert table.header == ["A", "B", None]
+    assert _rows(table) == [(3, ["1", "2", "3"])]
+    workbook.close()
+
+    for declared in ("A1:B3", "A1:A1"):
+        _with_dimension(path, declared)
+        again = XlsxFile(path)
+        table = again.table("Data", Area(2))
+        assert table.header[:2] == ["A", "B"]
+        assert _rows(table) == [(3, ["1", "2", "3"])]
+        again.close()

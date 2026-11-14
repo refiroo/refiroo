@@ -467,7 +467,11 @@ def landing(
                 "listConversions": migration["listConversions"],
             },
         )
-    except ApiError:
+    except ApiError as exc:
+        # Only a mapping naming what the workspace's model lacks is "does not fit"; any other
+        # refusal (a failing read, a retired workspace) is the caller's to see.
+        if exc.code != "INVALID_MIGRATION_MAPPING":
+            raise
         return None
     return {
         "workspaceKey": workspace_key,

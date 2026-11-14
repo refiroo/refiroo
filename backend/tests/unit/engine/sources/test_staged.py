@@ -30,9 +30,15 @@ ROWS = [
 
 
 def _cells(rows):
-    return [
-        (number, [None if is_empty(cell) else cell for cell in cells]) for number, cells in rows
-    ]
+    """Each row's cells up to its last filled one: a workbook reader's rows end there (without a
+    header there is no width to pad to), a staged row is as wide as the sheet."""
+    found = []
+    for number, cells in rows:
+        held = [None if is_empty(cell) else cell for cell in cells]
+        while held and held[-1] is None:
+            held.pop()
+        found.append((number, held))
+    return found
 
 
 def _xlsx(path):

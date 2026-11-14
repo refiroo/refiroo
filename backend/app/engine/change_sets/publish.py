@@ -37,7 +37,7 @@ from ..records.writes import ChangeSetWrites, LiveWrites
 from ..workspaces.workspace_audit import record_change_set_published, record_publication_withdrawn
 from .access import EffectiveChangeSetMembership, load_change_set
 from .lifecycle import delete_change_set_and_base
-from .validation import graph_diagnostics, is_parent_pair
+from .validation import cap_per_code, graph_diagnostics, is_parent_pair
 
 
 @dataclass(frozen=True)
@@ -616,12 +616,15 @@ def _merge_change_set_over_live(
     if collect is not None:
         collect.extend(conflicts)
     elif conflicts:
+        listed, left_out = cap_per_code(conflicts)
         raise api_error(
             409,
             "VERSION_CONFLICT",
             "Change set conflicts with the live active data",
             {
-                "conflicts": conflicts,
+                "conflicts": listed,
+                # How many of each code the list leaves out, present only when some are.
+                **({"conflictsLeftOut": left_out} if left_out else {}),
                 "mappingSetConflictCount": len(mapping_conflicts),
                 "mappingSetConflictsTruncated": len(mapping_conflicts) > 20,
             },
@@ -744,11 +747,21 @@ def apply_publication(
     )
     diagnostics = graph_diagnostics(merged.membership, model)
     if diagnostics:
+        listed, left_out = cap_per_code(diagnostics)
+        # ``details`` stays a list: each code left out gets one closing entry that counts them.
+        listed += [
+            {
+                "code": "DIAGNOSTICS_LEFT_OUT",
+                "message": f"{count} more {code} diagnostics are not listed",
+                "details": {"leftOutCode": code, "count": count},
+            }
+            for code, count in left_out.items()
+        ]
         raise api_error(
             422,
             "WORKSPACE_GRAPH_INVALID",
             "Change set failed complete graph validation over the live active data",
-            diagnostics,
+            listed,
         )
     number = (
         session.scalar(

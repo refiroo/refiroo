@@ -176,3 +176,40 @@ def test_the_name_is_committed_before_the_folder_moves_and_a_sweep_finishes_a_mo
     (kept / "claude" / "projects").mkdir()
     agent_files.remove_folder(files, task)
     assert not kept.exists()
+
+
+def test_a_folder_a_session_made_under_a_files_name_is_set_aside_and_the_file_is_put(tmp_path):
+    """FX2: ``put`` on a name that is a folder did not fail the turn's start with a bare error."""
+    from app.engine.tasks.agent import files as agent_files
+
+    work = tmp_path / "work"
+    (work / "workbook.xlsx" / "inside").mkdir(parents=True)
+    agent_files.put(work, "workbook.xlsx", b"data")
+    assert (work / "workbook.xlsx").read_bytes() == b"data"
+    assert any(path.name.startswith("workbook.xlsx.folder-") for path in work.iterdir())
+
+
+def test_the_transcript_sweep_removes_only_those_of_this_roots_vanished_tasks(
+    monkeypatch, tmp_path
+):
+    """FX2: a transcript folder of another path that merely starts alike (``/a/ai`` and
+    ``/a/ai-other/x``) is not this engine's to remove."""
+    from app.engine.tasks.agent import files as agent_files
+
+    root = tmp_path / "ai" / "agent"
+    root.mkdir(parents=True)
+    config = tmp_path / "claude"
+    monkeypatch.delenv("AI_AGENT_SANDBOX", raising=False)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
+    prefix = agent_files._transcript_name(root) + "-"
+    gone = "11111111-2222-3333-4444-555555555555"
+    alive = "aaaaaaaa-2222-3333-4444-555555555555"
+    (root / alive).mkdir()
+    projects = config / "projects"
+    for name in (prefix + gone, prefix + alive, prefix + "other-project-x"):
+        (projects / name).mkdir(parents=True)
+    session = SimpleNamespace(scalars=lambda statement: [alive])
+    agent_files.sweep(session, SimpleNamespace(directory=tmp_path / "ai"))
+    assert sorted(path.name for path in projects.iterdir()) == sorted(
+        [prefix + alive, prefix + "other-project-x"]
+    )

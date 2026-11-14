@@ -88,6 +88,8 @@ AS_OF_HEADER = "RDM-As-Of-Applied"
 LATEST = "latest"
 # The names a batch resolve item holds besides the definition's parameters (C-D47).
 _ITEM = frozenset({"ref", "query", "id"})
+# The body a batch resolve may hold for each item its setting allows: 1,000 items, 16 MiB.
+RESOLVE_BYTES_PER_ITEM = 16 * 1024
 _REF_LENGTH = (1, 200)
 # The shared paging refusals answer 400 here, the consumer tier's status for a request error.
 _PAGING_CODES = frozenset(
@@ -104,7 +106,26 @@ def _session() -> Iterator[Session]:
 
 
 async def _body(request: Request) -> bytes:
-    return await request.body()
+    """A batch resolve's body, read up to ``RESOLVE_BYTES_PER_ITEM`` for each item the setting
+    allows; a larger one is refused (``413 BATCH_TOO_LARGE``) before it is held whole."""
+    maximum = request.app.state.consumer_resolve_max_items
+    limit = maximum * RESOLVE_BYTES_PER_ITEM
+    too_large = api_error(
+        413,
+        "BATCH_TOO_LARGE",
+        f"The body is over {limit} bytes; at most {maximum} items of up to "
+        f"{RESOLVE_BYTES_PER_ITEM} bytes resolve in one request",
+        {"setting": "CONSUMER_RESOLVE_MAX_ITEMS", "maximumBytes": limit},
+    )
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > limit:
+        raise too_large
+    held = bytearray()
+    async for chunk in request.stream():
+        held.extend(chunk)
+        if len(held) > limit:
+            raise too_large
+    return bytes(held)
 
 
 DbSession = Annotated[Session, Depends(_session, scope="function")]
@@ -395,6 +416,8 @@ def get_list(
 ) -> dict[str, Any] | Response:
     """A page of the definition's list ``list_key``: the records of its type, below the parent
     values when given, narrowed by the definition's parameters (C-D27–C-D31)."""
+    # One snapshot for the whole read: a record deleted meanwhile is not half seen (a race gave 500).
+    begin_snapshot_read(session)
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = _served(request, session, active, consumer_api, contract_version)
 
@@ -441,6 +464,8 @@ def get_xref(
 ) -> dict[str, Any] | Response:
     """XREF: the exposed objects the query's terms match, scored by the definition's ``match`` and
     narrowed by its parameters, a page of them or with ``expect=one`` the single best (C-D34–C-D43)."""
+    # One snapshot for the whole read: a record deleted meanwhile is not half seen (a race gave 500).
+    begin_snapshot_read(session)
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = _served(request, session, active, consumer_api, contract_version)
     _offered(definition, "xref")
@@ -489,6 +514,8 @@ def post_resolve(
     the definition's parameters from ``defaults`` and the item, its outcome the single read's answer
     (C-D47–C-D50). A read: the body only carries the items. It answers no ETag: HTTP answers ``304``
     to ``GET`` only (C-D65)."""
+    # One snapshot for the whole read: a record deleted meanwhile is not half seen (a race gave 500).
+    begin_snapshot_read(session)
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = _served(request, session, active, consumer_api, contract_version)
     _offered(definition, "resolve")

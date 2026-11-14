@@ -922,7 +922,12 @@ export function panelSettingsSpec(
               now: config.showRelationshipColumn === true,
               next: values.relationshipColumn === true,
             },
-            { property: "sortFields", now: config.sortFields ?? [], next: chosen.length ? chosen : null },
+            // The schema has no empty sort list (`min_length=1`): none is "absent", so unchecking all of none saves no step.
+            {
+              property: "sortFields",
+              now: config.sortFields?.length ? config.sortFields : null,
+              next: chosen.length ? chosen : null,
+            },
           ]),
         ];
       },

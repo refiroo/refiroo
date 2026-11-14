@@ -363,7 +363,8 @@ describe("the whole model on the board", () => {
     expect(api.arrangeCanvas).toHaveBeenCalledWith("d1", { folded: { shelf: true } });
     expect(shelf.querySelector(".canvas-fields")).toBeNull();
     fireEvent.click(within(shelf).getByRole("button", { name: "Unfold Shelf" }));
-    expect(api.arrangeCanvas).toHaveBeenLastCalledWith("d1", { folded: { shelf: null } });
+    // The writes of one board go out in order: the second goes once the first has answered.
+    await waitFor(() => expect(api.arrangeCanvas).toHaveBeenLastCalledWith("d1", { folded: { shelf: null } }));
     expect(shelf.querySelector(".canvas-fields")).toBeTruthy();
   });
 

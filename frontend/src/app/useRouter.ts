@@ -148,6 +148,9 @@ async function contextModel(workspaceKey: string, context: ModelContext | undefi
   }
 }
 
+/** How long a step back waits for the browser's answer before navigation is open again. */
+const RESTORE_WAIT_MS = 1000;
+
 /** The bare address, naming no workspace: home (0.12 HM1, D331). */
 function isHomeAddress(location: Pick<Location, "pathname" | "search">) {
   return (
@@ -179,6 +182,23 @@ export function useRouter(): Router {
   const defaultKey = useRef("default");
   const historyIndex = useRef(0);
   const restoring = useRef(false);
+  // A step back that could not be undone (the browser sent no popstate for it) must not block navigation for good.
+  const restoreTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const restoreDone = useCallback(() => {
+    clearTimeout(restoreTimer.current);
+    restoring.current = false;
+  }, []);
+  const restoreStart = useCallback((distance: number) => {
+    restoring.current = true;
+    clearTimeout(restoreTimer.current);
+    restoreTimer.current = setTimeout(() => {
+      restoring.current = false;
+    }, RESTORE_WAIT_MS);
+    window.history.go(distance);
+  }, []);
+  useEffect(() => () => clearTimeout(restoreTimer.current), []);
+  // The newest model read for the page shown: an older read that finishes later is dropped.
+  const reloading = useRef(0);
   // A workspace's model loads before its page shows; a later navigation supersedes a pending one.
   const sequence = useRef(0);
 
@@ -297,15 +317,14 @@ export function useRouter(): Router {
     const pop = () => {
       const entry = navigationEntry(window.history.state, `${window.location.pathname}${window.location.search}`);
       if (restoring.current) {
-        if (entry?.index === historyIndex.current) restoring.current = false;
-        else if (entry) window.history.go(historyIndex.current - entry.index);
+        if (!entry || entry.index === historyIndex.current) restoreDone();
+        else restoreStart(historyIndex.current - entry.index);
         return;
       }
       if (!allowNavigation()) {
         const distance = entry ? historyIndex.current - entry.index : 0;
         if (distance) {
-          restoring.current = true;
-          window.history.go(distance);
+          restoreStart(distance);
         } else if (currentRoute.current) {
           // A same-document entry from before this router version has no position metadata.
           // Keep the editor and restore its URL without deleting forward history.
@@ -335,7 +354,7 @@ export function useRouter(): Router {
     };
     window.addEventListener("popstate", pop);
     return () => window.removeEventListener("popstate", pop);
-  }, [model, resolveAddress, show]);
+  }, [model, resolveAddress, show, restoreDone, restoreStart]);
 
   const requested =
     model && route && isApplicationRoute(route) ? applicationFor(model, route.applicationKey) : undefined;
@@ -451,8 +470,13 @@ export function useRouter(): Router {
     forgetWorkspaceModel(workspaceKey);
     const current = shown.current;
     if (!current || (workspaceKey !== undefined && workspaceKey !== current.workspaceKey)) return;
+    const ticket = ++reloading.current;
     const loaded = await contextModel(current.workspaceKey, current.context);
-    shown.current = { model: loaded, workspaceKey: current.workspaceKey, context: current.context };
+    // A navigation to another workspace or context while this was read has its own model: this one is not its.
+    const now = shown.current;
+    if (ticket !== reloading.current || !now) return;
+    if (now.workspaceKey !== current.workspaceKey || !sameContext(now.context, current.context)) return;
+    shown.current = { model: loaded, workspaceKey: now.workspaceKey, context: now.context };
     setModel(loaded);
   }, []);
 

@@ -1182,7 +1182,10 @@ def discard(session: Session, task_id: str, files: Any, retention_days: int) -> 
 def sync(session: Session, task: AiTask, retention_days: int, files: Any) -> None:
     """Bring a task up to date wherever it is read: the job it waits for (``store.sync``), what a
     stopped load had written, and a loaded task's change set published or discarded and its migration
-    confirmed, which end the session (AP-D56)."""
+    confirmed, which end the session (AP-D56). A read can run it from many requests at once, so a task
+    that can change here is locked first: the second reader finds the first's work done (FX2)."""
+    if task.state in (*store.WAITING, "loaded", "failed"):
+        task = load_task(session, task.public_id, for_update=True)
     if task.state == "loading" and task.job_id is not None:
         job = session.scalar(select(Job).where(Job.id == task.job_id))
         if job is not None and job.state == "cancelled":

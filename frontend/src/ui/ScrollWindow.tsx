@@ -861,7 +861,8 @@ function PageField({ page, pageCount, onPage }: { page: number; pageCount: numbe
       className="page-jump"
       onSubmit={(event) => {
         event.preventDefault();
-        const requested = Number(draft);
+        // An empty field asks for nothing: it must not read as page 0 and jump to the first page.
+        const requested = draft?.trim() ? Number(draft) : Number.NaN;
         if (Number.isInteger(requested)) onPage(Math.min(pageCount, Math.max(1, requested)));
         setDraft(undefined);
       }}

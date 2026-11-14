@@ -29,9 +29,15 @@ ARG CLAUDE_CODE_VERSION=2.1.295
 # container, so this container is the boundary. The session runs as `assistant`, a user of its own
 # that cannot read the engine's environment or its job files (the engine starts it through sudo, which
 # the sudoers rule below lets run the Claude Code binary and nothing else).
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates nodejs npm sudo \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates nodejs npm sudo iptables \
     && npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" && test -x /usr/local/bin/claude \
     && apt-get purge -y npm && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# The network rule of the assistant's session users (SR-D6): the start step sets it when the container has
+# NET_ADMIN, and the proxy that is the session's only way out runs as a user of its own, none of the sessions'.
+RUN useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin refiroo-proxy
+COPY --chown=root:root --chmod=0755 backend/refiroo_session_proxy.py /usr/local/lib/refiroo/session_proxy.py
+COPY --chown=root:root --chmod=0755 backend/refiroo-engine-start /usr/local/bin/refiroo-engine-start
 
 # Everything of the application lies under one folder that mirrors the repository: backend/, guide/dist,
 # model/ and data/ (the job files and the assistant's folders). Nothing is added at /.
@@ -74,7 +80,7 @@ RUN users="$(getent passwd | cut -d: -f1 | grep -E '^assistant-[0-9]+$' | paste 
     && printf '%s\n' \
     "Runas_Alias ASSISTANTS = $users" \
     'Defaults:rdm env_reset, always_set_home, secure_path="/usr/local/bin:/usr/bin:/bin", umask=0007, umask_override' \
-    'Defaults:rdm env_keep = "REFIROO_TOKEN LANG LC_* TMPDIR CLAUDE_CONFIG_DIR ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN CLAUDE_CODE_OAUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL NODE_EXTRA_CA_CERTS CLAUDE_CODE_USE_BEDROCK AWS_REGION AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE"' \
+    'Defaults:rdm env_keep = "REFIROO_TOKEN LANG LC_* TMPDIR CLAUDE_CONFIG_DIR ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN CLAUDE_CODE_OAUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL NODE_EXTRA_CA_CERTS HTTPS_PROXY NO_PROXY CLAUDE_CODE_USE_BEDROCK AWS_REGION AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE"' \
     'rdm ALL=(ASSISTANTS) NOPASSWD: /usr/local/bin/claude, /usr/local/bin/refiroo-session-reset' \
     > /etc/sudoers.d/rdm-assistant \
     && chmod 0440 /etc/sudoers.d/rdm-assistant && visudo -cf /etc/sudoers.d/rdm-assistant
@@ -100,7 +106,10 @@ ENV REFIROO_BUILD_COMMIT=$REFIROO_BUILD_COMMIT \
     PYTHONUNBUFFERED=1
 # Export and import files wait here; mount a volume to keep them across a new container.
 VOLUME /opt/refiroo/rdm-engine/data/job-files /opt/refiroo/rdm-engine/data/assistant
-USER rdm
+# Started as root, so that the start step can set the session users' network rule (SR-D6); it starts the engine
+# as `rdm` with NET_ADMIN removed from what the engine and its children can hold. Started as another user, or
+# without NET_ADMIN, the engine runs as before and the session's network is not restricted.
+ENTRYPOINT ["/usr/local/bin/refiroo-engine-start"]
 EXPOSE 8000
 
 # Alive, not ready: a database that is down or a migration that failed puts the engine in

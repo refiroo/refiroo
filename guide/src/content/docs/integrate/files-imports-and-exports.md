@@ -32,7 +32,9 @@ from whichever browser page is open later.
 
 For a link matrix, `view.cellField` chooses the name or a bound text field used to list records
 in cells; the default is `name`. The file records the reading for import. A field unsupported
-by the view is `INVALID_EXPORT_LAYOUT`; missing values on linked records refuse the export.
+by the view is `INVALID_EXPORT_LAYOUT`; missing values on linked records refuse the export. A workbook
+export holding a text over a cell's 32,767 characters fails with `EXPORT_TEXT_TOO_LONG`, naming the sheet, record and
+field; a `;` inside a listed name is written as `,`.
 There is no export container map. Use the
 [matrix container read](/docs/api/?api=management#tag/relation-matrix) when building a cell
 creation client: eligible containers carry `cellCount`, and `defaultContainerId` gives the
@@ -98,7 +100,7 @@ missing parent or related record during name matching.
 
 Profiles are versioned instance resources associated with a model. Saving and using a profile checks its references against the chosen workspace's model. Check it again after changing releases. A profile belonging to another model is refused as `IMPORT_PROFILE_MODEL_MISMATCH`; do not repurpose its key silently.
 
-Choose a repeatable key: public ID, an attribute key, an allowed stored-unique or compound key, or a name key. A name key with a parent identifies children under that parent. Ambiguous existing names are `AMBIGUOUS_NAME_KEY`; ambiguous compound or stored keys need correction rather than a guessed match. A compound key must have every component bound and filled, and must identify at most one existing record. `KEY_NOT_BOUND`, `MISSING_RECORD_KEY` and `KEY_AMBIGUOUS` require fixing the profile, filling the key or disambiguating existing combinations; a configured skip rule can omit rows without keys. Without a key, each row creates a record again on the next load.
+Choose a repeatable key: public ID, an attribute key, an allowed stored-unique or compound key, or a name key. A name key with a parent identifies children under that parent. Ambiguous existing names are `AMBIGUOUS_NAME_KEY`; ambiguous compound or stored keys need correction rather than a guessed match. A compound key must have every component bound and filled, and must identify at most one existing record. `KEY_NOT_BOUND`, `MISSING_RECORD_KEY` and `KEY_AMBIGUOUS` require fixing the profile, filling the key or disambiguating existing combinations; a configured skip rule can omit rows with an empty key (a key cell that cannot be read is refused, not skipped). Without a key, each row creates a record again on the next load.
 
 Matching reads existing records and records loaded by the same file. Parents load before children, and relationships follow their records. Profiles can explicitly create missing named references where configured. Repeated keys merge compatible filled values, whether the rows are in one source or several; conflicting non-empty values reject the contributing rows as `DUPLICATE_KEY_IN_FILE`.
 

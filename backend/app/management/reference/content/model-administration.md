@@ -176,7 +176,8 @@ Applies operations to the draft in the order sent, all or none, as one step of i
 - 403 FORBIDDEN: needs Model authoring
 - 404 MODEL_DRAFT_NOT_FOUND: no draft has this ID
 - 404 HTTP_ERROR: model administration is switched off
-- 409 AI_TASK_DRAFT_HELD: an assistant's session writing a draft another task holds
+- 403 FORBIDDEN: also an assistant's session using a draft it did not make and its task does not hold
+- 409 AI_TASK_DRAFT_HELD: an assistant's session using a draft another task holds
 - 409 VERSION_CONFLICT: the draft changed; `details.operations` lists the entries since
 - 413 OPERATION_BATCH_TOO_LARGE: more operations than one request may hold
 - 422 INVALID_OPERATION: an item is refused; nothing is applied

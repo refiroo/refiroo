@@ -1,0 +1,129 @@
+#!/bin/sh
+# The engine image's start step (SR-D6). It runs as root only when the container is started as root, sets
+# the network rule of the assistant's session users, and then starts the engine as `rdm` with NET_ADMIN
+# removed from the capabilities it and its children can ever hold (the bounding set): neither the engine
+# nor a session holds it. Other commands (`python -m app.cli...`) skip the rule and run as `rdm`.
+#
+# The rule: the session users (`assistant-N`) reach only the engine on 127.0.0.1 and the allow-list proxy
+# on 127.0.0.1:3128 (backend/refiroo_session_proxy.py), whatever else they try; IPv6 too. The outcome is
+# written to $STATE for the engine to read:
+#   restricted                      the rule is set and the proxy runs
+#   unrestricted <why>              no NET_ADMIN: the session's network is open
+#   failed <cause>                  NET_ADMIN is there and the setup failed: assistant turns do not start
+# A container started as another user than root has no state file, which the engine reads as "no NET_ADMIN".
+set -u
+STATE_DIR=/run/refiroo-net
+STATE=$STATE_DIR/session-network
+PROXY_PORT=3128
+ENGINE_USER=rdm
+PROXY_USER=refiroo-proxy
+
+run_engine() {
+    if [ "$(id -u)" = 0 ]; then
+        exec setpriv --reuid "$ENGINE_USER" --regid "$ENGINE_USER" --init-groups --bounding-set -net_admin -- "$@"
+    fi
+    exec "$@"
+}
+
+state() {
+    printf '%s\n' "$1" > "$STATE.tmp" && chmod 0644 "$STATE.tmp" && mv "$STATE.tmp" "$STATE"
+}
+
+if [ "$(id -u)" != 0 ] || [ "${1:-}" != uvicorn ] || [ -z "$(printf %s "${AI_AGENT_COMMAND:-}" | tr -d '[:space:]')" ]; then
+    # Not the engine's own start, or no assistant: nothing to set.
+    run_engine "$@"
+fi
+
+mkdir -p "$STATE_DIR" && chmod 0755 "$STATE_DIR"
+rm -f "$STATE" "$STATE.tmp"
+
+effective=$(awk '/^CapEff:/ {print $2}' /proc/self/status)
+if [ -z "$effective" ] || [ $((0x$effective & 0x1000)) -eq 0 ]; then
+    state "unrestricted the container has no NET_ADMIN capability (cap_add: [NET_ADMIN] in compose.yml)"
+    run_engine "$@"
+fi
+
+apply() {
+    tool=$1
+    family=$2
+    "$tool" -w -N REFIROO_SESSION 2>/dev/null
+    "$tool" -w -F REFIROO_SESSION || return 1
+    if [ "$family" = 4 ]; then
+        "$tool" -w -A REFIROO_SESSION -o lo -p tcp -d 127.0.0.1 --dport "$api_port" -j ACCEPT || return 1
+        "$tool" -w -A REFIROO_SESSION -o lo -p tcp -d 127.0.0.1 --dport "$PROXY_PORT" -j ACCEPT || return 1
+    fi
+    "$tool" -w -A REFIROO_SESSION -j REJECT || return 1
+    for user in $users; do
+        "$tool" -w -C OUTPUT -m owner --uid-owner "$user" -j REFIROO_SESSION 2>/dev/null \
+            || "$tool" -w -I OUTPUT -m owner --uid-owner "$user" -j REFIROO_SESSION || return 1
+    done
+}
+
+# Everything that can fail is here: the cause is left in $cause and the function returns non-zero.
+setup() {
+    # The session users, found as the engine finds them: assistant-<n>.
+    users=$(getent passwd | cut -d: -f1 | grep -E '^assistant-[0-9]+$' || true)
+    [ -n "$users" ] || { cause="the image has no session users (assistant-N)"; return 1; }
+
+    # The engine's own address for the session: AI_AGENT_API_URL (127.0.0.1:8000 in compose); a name
+    # that is not this machine is reached through the proxy, which allows its host.
+    api_port=$(python - <<'PY'
+import os
+from urllib.parse import urlparse
+url = urlparse(os.environ.get("AI_AGENT_API_URL", "").strip() or "http://127.0.0.1:8000")
+host = url.hostname or ""
+loop = host == "localhost" or host.startswith("127.")
+print((url.port or (443 if url.scheme == "https" else 80)) if loop else 8000)
+PY
+    ) || api_port=8000
+
+    # The proxy first, as a user of its own that is none of the session users', with none of the
+    # engine's environment (its key stays out) and no capability. A loop keeps it running: a proxy that
+    # dies is started again after a second, so sessions are never left without a way out.
+    (
+        while :; do
+            (
+                set -- env -i PATH="$PATH"
+                for name in ANTHROPIC_BASE_URL CLAUDE_CODE_USE_BEDROCK AWS_REGION AI_AGENT_API_URL AI_AGENT_ALLOWED_HOSTS; do
+                    eval "value=\${$name:-}"
+                    [ -z "$value" ] || set -- "$@" "$name=$value"
+                done
+                # Only whether a subscription token is set matters to the list, never the token.
+                [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] || set -- "$@" CLAUDE_CODE_OAUTH_TOKEN=present
+                exec setpriv --reuid "$PROXY_USER" --regid "$PROXY_USER" --clear-groups --bounding-set -all --no-new-privs -- \
+                    "$@" python /usr/local/lib/refiroo/session_proxy.py
+            )
+            echo "refiroo-engine-start: the session proxy stopped; starting it again" >&2
+            sleep 1
+        done
+    ) &
+    tries=0
+    until python -c "import socket; socket.create_connection(('127.0.0.1', $PROXY_PORT), 1).close()" 2>/dev/null; do
+        tries=$((tries + 1))
+        [ "$tries" -le 25 ] || { cause="the session proxy did not start"; return 1; }
+        sleep 0.2
+    done
+
+    # The nft backend, or the legacy one where the kernel has no nf_tables.
+    chosen=iptables
+    v6=ip6tables
+    if ! iptables -w -L -n >/dev/null 2>&1; then
+        chosen=iptables-legacy
+        v6=ip6tables-legacy
+        command -v iptables-legacy >/dev/null 2>&1 && iptables-legacy -w -L -n >/dev/null 2>&1 \
+            || { cause="iptables cannot read the container's rules"; return 1; }
+    fi
+    apply "$chosen" 4 || { cause="iptables refused the rule"; return 1; }
+    if [ -e /proc/net/if_inet6 ]; then
+        apply "$v6" 6 || { cause="ip6tables refused the rule"; return 1; }
+    fi
+}
+
+cause=
+if setup; then
+    state restricted
+else
+    echo "refiroo-engine-start: the assistant's network rule could not be set: $cause" >&2
+    state "failed $cause"
+fi
+run_engine "$@"

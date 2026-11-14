@@ -11,7 +11,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Literal
 
-from sqlalchemy import Table, delete, literal, select, union_all
+from sqlalchemy import Table, delete, exists, literal, select, union_all
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -218,9 +218,9 @@ def deletable_releases(session: Session, *, retired_only: bool) -> list[ModelRel
     if retired_only:
         statement = statement.where(ModelRelease.status == "retired")
     for _, table, column in _restricting_columns():
-        statement = statement.where(
-            ModelRelease.id.not_in(select(table.c[column]).where(table.c[column].is_not(None)))
-        )
+        # NOT EXISTS, never NOT IN: it seeks each table's index instead of building the whole
+        # set of releases it names.
+        statement = statement.where(~exists().where(table.c[column] == ModelRelease.id))
     return list(session.scalars(statement))
 
 
@@ -243,7 +243,16 @@ def delete_unreferenced(session: Session, releases: list[ModelRelease]) -> int:
         )
         for release in releases
     )
-    result = session.execute(
-        delete(ModelRelease).where(ModelRelease.id.in_([release.id for release in releases]))
-    )
+    try:
+        with session.begin_nested():
+            result = session.execute(
+                delete(ModelRelease).where(
+                    ModelRelease.id.in_([release.id for release in releases])
+                )
+            )
+    except IntegrityError as exc:
+        # Referred to meanwhile: nothing was deleted; name the first release that is.
+        blocked = delete_blockers(session, [release.id for release in releases])
+        release = next((item for item in releases if item.id in blocked), releases[0])
+        raise _release_in_use(release, blocked.get(release.id, "history")) from exc
     return result.rowcount

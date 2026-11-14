@@ -437,7 +437,7 @@ One object type loaded from a sheet (the first sheet when omitted, the file for 
 - key: What finds a row's existing record. Without it every row creates a record, so sending the file twice creates twice.
 - columns: What each column fills; columns not named are ignored. At least one.
 - missing: What a load does with records of the type the context holds with the key filled that no row names: `report` (the default) or `delete`, which a load into a change set only may do.
-- rowsWithoutKey: What a load does with a row whose key is empty after value maps: `refuse` (the default, `MISSING_RECORD_KEY`) or `skip`, counted as skipped.
+- rowsWithoutKey: What a load does with a row whose key is empty after value maps: `refuse` (the default, `MISSING_RECORD_KEY`) or `skip`, counted as skipped. Only an empty key is skipped: a key cell that cannot be read is a refused row either way.
 - parent: One parent for every row. A source with it binds no `parent` column.
 - under: Marks the source as a value sheet: the records one column record of a matrix offers.
 - headings: Rows holding only a heading, in the heading column, are read as the parent of the rows beneath them: the heading's text fills a new column that a `parent` binding can name. Applied before `fillDown` and `unpivot`.

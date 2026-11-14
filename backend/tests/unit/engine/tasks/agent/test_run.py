@@ -333,3 +333,63 @@ def test_the_note_the_person_reads_drops_sentences_that_talk_about_the_proposal_
     )
     for internal in ("draftId", "movedTo", "moves list", "removals list", "proposal.json"):
         assert internal not in text
+
+
+def test_a_turn_is_recorded_when_the_undo_after_it_raises(monkeypatch, tmp_path):
+    """FX2: the end-of-turn undo failing must not leave the turn out of the call record."""
+    from app.engine.tasks.agent import run as agent_run
+
+    folder = tmp_path / "task"
+    folder.mkdir()
+    recorded = []
+    monkeypatch.delenv("AI_AGENT_SANDBOX", raising=False)
+    monkeypatch.setattr(agent_run, "_command", lambda *a, **k: ["true"])
+    monkeypatch.setattr(
+        agent_run.subprocess,
+        "Popen",
+        lambda *a, **k: SimpleNamespace(pid=1, poll=lambda: 0, wait=lambda timeout=None: 0),
+    )
+    monkeypatch.setattr(agent_run, "_end", lambda *a: None)
+    monkeypatch.setattr(agent_run, "_await_its_jobs", lambda *a: None)
+    monkeypatch.setattr(agent_run, "_log_split", lambda *a: None)
+    monkeypatch.setattr(agent_run, "_record_turn", lambda *a, **k: recorded.append(a[-1]))
+    monkeypatch.setattr(
+        agent_run, "_undo_load", lambda *a: (_ for _ in ()).throw(RuntimeError("undo failed"))
+    )
+    monkeypatch.setattr(
+        agent_run, "load_task", lambda *a, **k: SimpleNamespace(draft_id=None, design={})
+    )
+    rolled = []
+    session = SimpleNamespace(commit=lambda: None, rollback=lambda: rolled.append(1))
+    args = (session, SimpleNamespace(id="j"), SimpleNamespace(check=lambda: None), "t1", folder)
+    try:
+        agent_run._turn(*args, "p", "s", "tok", 1, [], first=True, load=False)
+    except RuntimeError as error:
+        assert str(error) == "undo failed"
+    else:
+        raise AssertionError("the undo's failure must still be raised")
+    assert recorded == [("failed", "The session ended without an answer.")]
+    assert rolled
+
+
+def test_a_line_over_the_limit_is_skipped_and_a_log_over_its_size_is_told(monkeypatch, tmp_path):
+    """FX2: one huge line is not held in memory, and the engine can see a log grow past its cap."""
+    from app.engine.tasks.agent import run as agent_run
+
+    monkeypatch.setattr(agent_run, "LINE_LIMIT", 64)
+    log = tmp_path / "turn.log"
+    log.write_text(
+        json.dumps({"type": "result", "result": "a"}) + "\n" + "x" * 500 + "\n"
+        + json.dumps({"type": "result", "result": "b"}) + "\n"
+    )  # fmt: skip
+    progress = agent_run.Progress(log)
+    progress.read()
+    assert progress.result["result"] == "b"
+    assert progress.size() == log.stat().st_size
+    progress.close()
+    # A deeply nested line is no event, and no failure.
+    log.write_text("[" * 100000 + "\n")
+    deep = agent_run.Progress(log)
+    monkeypatch.setattr(agent_run, "LINE_LIMIT", 8 * 1024 * 1024)
+    assert deep.read() is False
+    deep.close()

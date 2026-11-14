@@ -7,6 +7,7 @@ visible to its requester and to those who administer its workspace, otherwise ``
 AI_TASK_NOT_FOUND`` (AP-D23).
 """
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, Query, Request, UploadFile
@@ -36,6 +37,8 @@ from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..projections import ai_tasks as present
 from ..schemas.ai_tasks import AiTaskPage, AiTaskResponse, TaskChangePage
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["ai"])
 write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["ai"])
@@ -150,10 +153,18 @@ def list_ai_tasks(
         page_size=page_size,
     )
     for task in page.items:
-        design_job.sync(
-            session, task, configuration(request).task_retention_days, request.app.state.job_files
-        )
-    session.commit()
+        # One task that cannot be brought up to date does not fail the list; it is shown as stored.
+        try:
+            design_job.sync(
+                session,
+                task,
+                configuration(request).task_retention_days,
+                request.app.state.job_files,
+            )
+            session.commit()
+        except Exception:
+            session.rollback()
+            log.exception("Assistant task %s could not be brought up to date", task.public_id)
     return present.task_page(session, page)
 
 

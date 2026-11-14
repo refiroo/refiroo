@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
-from ...models.database import AiTask, Job, ModelDraft, OAuthClient, SourceFile
+from ...models.database import AiTask, AuditEvent, Grant, Job, ModelDraft, OAuthClient, SourceFile
 from ..authorization.permissions import Permissions, PrincipalKind
 from ..authorization.writes import requester_of
 
@@ -313,6 +313,11 @@ def expire(session: Session, now: datetime) -> list[str]:
             )
         )
     )
+    # A grant a turn left (an engine that stopped before its cleanup) goes with the task's client; the
+    # database moves the authorization generation on its own.
+    session.execute(
+        delete(Grant).where(Grant.client_id.in_(select(AiTask.client_id).where(AiTask.id.in_(ids))))
+    )
     session.execute(
         update(OAuthClient)
         .where(OAuthClient.id.in_(select(AiTask.client_id).where(AiTask.id.in_(ids))))
@@ -335,23 +340,75 @@ def held_by_another(session: Session, draft_id: int, task_id: int) -> bool:
     )
 
 
-def refuse_draft_of_another_task(session: Session, draft_public_id: str, client_row: int) -> None:
-    """A session writes no draft another task holds (AP-D44): one person may be reviewing it, and
-    that task's end deletes it. ``409 AI_TASK_DRAFT_HELD``. Any other client is not asked about."""
-    own = session.scalar(
-        select(AiTask.id)
+def drafted_by_client(session: Session, client_row: int | None, draft_public_id: str) -> bool:
+    """Whether the client created the draft, as the engine recorded it (one rule for the landing,
+    where the proposal names a draft, and for the session's own calls, FX2)."""
+    if client_row is None:
+        return False
+    return (
+        session.scalar(
+            select(AuditEvent.sequence_id).where(
+                AuditEvent.aggregate_type == "model_draft",
+                AuditEvent.action == "created",
+                AuditEvent.aggregate_id == draft_public_id,
+                AuditEvent.actor_client_id == client_row,
+            )
+        )
+        is not None
+    )
+
+
+def own_drafts_only(session: Session, client_row: int) -> Any:
+    """The condition that limits a list of drafts to a session's own (the rule of
+    :func:`refuse_draft_not_its_own`, as a filter in SQL), or ``None`` for any other client."""
+    task = session.execute(
+        select(AiTask.draft_id)
         .join(OAuthClient, OAuthClient.id == AiTask.client_id)
         .where(AiTask.client_id == client_row, OAuthClient.kind == "session")
+    ).first()
+    if task is None:
+        return None
+    created = (
+        select(AuditEvent.aggregate_id)
+        .where(
+            AuditEvent.aggregate_type == "model_draft",
+            AuditEvent.action == "created",
+            AuditEvent.actor_client_id == client_row,
+        )
+        .scalar_subquery()
     )
+    return or_(ModelDraft.id == task.draft_id, ModelDraft.public_id.in_(created))
+
+
+def refuse_draft_not_its_own(session: Session, draft_public_id: str, client_row: int) -> None:
+    """A session reads and writes only a draft that is its own: one its client created (the rule the
+    landing uses) or the one its task holds, which the design job makes for it (FX2). A draft another
+    task holds is ``409 AI_TASK_DRAFT_HELD`` (AP-D44: one person may be reviewing it, and that task's
+    end deletes it); any other not its own is ``403 FORBIDDEN``. Any other client is not asked about,
+    and a draft that does not exist is left to the route's own not-found."""
+    own = session.execute(
+        select(AiTask.id, AiTask.draft_id)
+        .join(OAuthClient, OAuthClient.id == AiTask.client_id)
+        .where(AiTask.client_id == client_row, OAuthClient.kind == "session")
+    ).first()
     if own is None:
         return
     draft = session.scalar(select(ModelDraft.id).where(ModelDraft.public_id == draft_public_id))
-    if draft is not None and held_by_another(session, draft, own):
+    if draft is None or draft == own.draft_id:
+        return
+    if held_by_another(session, draft, own.id):
         raise api_error(
             409,
             "AI_TASK_DRAFT_HELD",
             "Another assistant task holds this draft: make a new draft, from the same release if "
             "it should start the same",
+            {"draftId": draft_public_id},
+        )
+    if not drafted_by_client(session, client_row, draft_public_id):
+        raise api_error(
+            403,
+            "FORBIDDEN",
+            "An assistant's session uses only a draft it made or its task holds: make a new draft",
             {"draftId": draft_public_id},
         )
 
