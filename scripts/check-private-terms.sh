@@ -44,7 +44,8 @@ limit=200
 scan_tree() { # a revision, or nothing for the working tree
   local out
   if [ -n "${1:-}" ]; then
-    out="$(git grep -I -i -n -w -E "($pattern)" "$1" -- 2>/dev/null | sed "s/^$1://" || true)"
+    local prefix="$1:"
+    out="$(git grep -I -i -n -w -E "($pattern)" "$1" -- 2>/dev/null | cut -c$((${#prefix} + 1))- || true)"
   else
     out="$(git grep -I -i -n -w -E "($pattern)" -- 2>/dev/null || true)"
   fi
