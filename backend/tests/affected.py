@@ -8,6 +8,9 @@ tests whose code changed, so a change at the bottom of the hierarchy reaches eve
 uses it, and a change used nowhere else runs only its own tests. Coverage cannot see what the code
 reads as data, nor code that runs before any test (the seeds, the migrations a seed applies, the
 harness itself); a change to one of those selects what reads it, by the rules below.
+
+A selection holding journey or assistant tests runs with ``-n 4`` whatever its size, and its ``-m serial``
+part next (``selection``); only a selection of unit tests is faster without ``-n``.
 """
 
 import subprocess
@@ -16,6 +19,11 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 
 FULL = "everything"
+
+# A selection holding tests that wait (a journey's server and job worker, an assistant's stand-in) runs on
+# four workers whatever its size: a small unit selection is faster without ``-n``, a waiting one is not (TS3).
+WORKERS = "-n 4"
+_WAITING = ("journeys", "assistant", "agent", "_ai_", "_ai.", "/ai/")
 
 
 @dataclass(frozen=True)
@@ -69,6 +77,19 @@ def changed(since: str | None) -> list[str]:
     return sorted(paths)
 
 
+def waits(target: str) -> bool:
+    """True for a journey or an assistant test target (a path, with or without ``tests/``)."""
+    return any(part in target for part in _WAITING)
+
+
+def selection(targets: list[str]) -> list[str]:
+    """The commands for named targets: on four workers when any waits, then the ``serial`` part next."""
+    if not any(waits(target) for target in targets):
+        return [f"python -m pytest {' '.join(targets)} -q"]
+    named = " ".join(targets)
+    return [f"python -m pytest {WORKERS} {named} -q", f"python -m pytest -m serial {named} -q"]
+
+
 def commands(paths: list[str]) -> list[str]:
     """The commands to run from backend/, in order; empty when the backend suite is not affected."""
     selected = {rule_for(path).selects for path in paths} - {""}
@@ -82,7 +103,7 @@ def commands(paths: list[str]) -> list[str]:
         ]
     targets = sorted({target for entry in selected - {"testmon"} for target in entry.split()})
     if targets:
-        run.append(f"python -m pytest {' '.join(targets)} -q")
+        run += selection(targets)
     return run
 
 

@@ -7,7 +7,7 @@
 // Brought up to date (0.14 + 0.17 release review): the bundled console's token fields are named by their placeholder (Token), no longer "Access Token".
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
+import { reservePort as freePort } from "./helpers/ports.mjs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,14 +26,6 @@ let log = "";
 
 function expect(condition, message) {
   if (!condition) failures.push(message);
-}
-
-async function freePort() {
-  const server = createServer();
-  await new Promise((done, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", done); });
-  const value = server.address().port;
-  await new Promise((done) => server.close(done));
-  return value;
 }
 
 const output = await mkdtemp(resolve(tmpdir(), "rdm-v1-reference-"));
@@ -64,6 +56,8 @@ try {
         RDM_MODEL_PATH: modelPath,
         RDM_API_REFERENCE_SCRIPT: "bundled",
         WEB_CONCURRENCY: "1",
+        // Export files stay in the run's own folder, never the project's var/.
+        JOB_FILE_DIR: resolve(output, "job-files"),
         // The engine's address as the browser reaches it, the token issuer, and where a sign-in may
         // return to: the harness person signs in at this address (0.12 I2).
         PUBLIC_URL: apiUrl,

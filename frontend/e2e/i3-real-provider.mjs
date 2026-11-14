@@ -9,10 +9,10 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootHarness } from "./helpers/harness.mjs";
+import { reservePort as freePort } from "./helpers/ports.mjs";
 
 const IMAGE = "quay.io/keycloak/keycloak:26.8.1";
 const REALM = "refiroo";
@@ -30,17 +30,6 @@ function expect(condition, message) {
 
 function docker(args, options = {}) {
   return execFileSync("docker", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...options }).trim();
-}
-
-async function freePort() {
-  const server = createServer();
-  await new Promise((done, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", done);
-  });
-  const value = server.address().port;
-  await new Promise((done) => server.close(done));
-  return value;
 }
 
 /** Pull the pinned image once when it is not here yet; what it cost. */

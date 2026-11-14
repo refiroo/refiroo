@@ -66,3 +66,26 @@ def test_a_volume_clone_waits_while_another_live_run_holds_one(monkeypatch):
     finally:
         seeds.drop(live)
         seeds.drop(dead)
+
+
+def test_a_browser_runners_clone_command_calls_the_seed_clone_as_it_is_defined():
+    """The runners' clone command and `seeds.clone` agree on their arguments: every browser runner
+    failed at its first clone when they did not (found by the TS3 lanes run)."""
+    import ast
+    import inspect
+    from pathlib import Path
+
+    accepted = set(inspect.signature(seeds.clone).parameters)
+    source = (Path(__file__).parents[2] / "browser_seeds.py").read_text()
+    calls = [
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "clone"
+        and getattr(node.func.value, "id", "") == "seeds"
+    ]
+    assert calls
+    for call in calls:
+        assert {keyword.arg for keyword in call.keywords} <= accepted
+        assert len(call.args) <= len(accepted)

@@ -153,10 +153,11 @@ def clone(seed: str, *, model: Path | None, scale: float) -> dict[str, Any]:
         name = seeds.volume_seed(volume_fixture.scaled_shape(scale))
         payload = seeds.ensure(name)["dataset"]
     seeds.drop_abandoned()
-    # Owned by the runner that started this command (its parent), which outlives the command; the
-    # volume lock cannot outlive the command, so a browser runner's volume clone is not held.
+    # Owned by the runner that started this command (its parent), which outlives the command. A volume
+    # clone is named as one (`v_`), so its existence, readable from the name, holds the volume rule for
+    # as long as that runner lives (TS2).
     runner = run_ids.of_process(os.getppid())
-    url = seeds.clone(name, run_ids.name("r", runner), hold_volume=False)
+    url = seeds.clone(name, run_ids.name("r", runner, "v_" if name.startswith("volume-") else ""))
     # The harness client every clone of the schema seed holds, and the settings its signing key
     # needs, so the runner's backend issues it tokens (0.12 I1, D263).
     harness = {

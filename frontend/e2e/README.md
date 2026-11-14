@@ -234,6 +234,29 @@ cover the domain collection, domain detail, change sets list, model workbench an
 capture so no colour transition is recorded. The accessibility gate repeats core pages and the
 settings menu in the dark theme.
 
+## Runners and gates in lanes (TS3)
+
+```sh
+npm --prefix frontend run test:lanes -- lb k1 a11y visual   # a list of runners and gates
+npm --prefix frontend run test:lanes -- all                 # every runner and both full gates
+npm --prefix frontend run test:lanes -- --list              # the names
+npm --prefix frontend run test:lanes -- visual --update-baselines
+```
+
+`e2e/lanes.mjs` runs the named runners (a file name without `.mjs`, its npm suffix such as `lb`, or
+`a11y`, `a11y:security`, `a11y:guide`, `visual`, `visual:security`) in 3-4 lanes, sized to the memory
+available when it starts (one lane per 2 GiB, at most four; `--lanes N` or `RDM_LANES` overrides), and
+prints and writes one summary: per runner its lane, result, duration and log path. `all` leaves out the
+Docker runners (`i3-real-provider`, `dp3-deployment`) and the gates' `--only` parts; name them to run them.
+A runner keeps what it already does alone: its own backend, Vite server, Chromium and database clone, now
+with ports taken from `helpers/ports.mjs` (reserved by an exclusively created file, so runners starting
+together never get the same port) and its own export folder. Only the visual gate writes baselines, and
+`--update-baselines` makes the visual runners take turns, so two lanes never write the same file. A runner
+needing a fixed port is listed in `FIXED_PORTS` in `helpers/lanes.mjs`: it runs alone on that port and is
+refused, with the port named, when another process holds it (none needs one today). Logs are bounded. Each
+runner's temporary files (its evidence folders) go to a folder of its own that is removed when it passes and
+kept, named in the summary, when it fails or with `--keep`; the output folder (`--out DIR`) holds the logs.
+
 ## When to run comprehensive gates
 
 Run the complete accessibility and visual gates at build acceptance (WP-9 for Base 0.7).

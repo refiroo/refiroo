@@ -343,11 +343,17 @@ affects theme tokens or a new surface. Do not update baselines merely to hide an
 - Backend `pytest` runs may go side by side on the harness's one server (TS2): each names its databases
   with a run ID and a starting run drops only those of runs that have ended. A run parallelizes itself
   with `-n auto` (H2) and leaves the `serial` tests out, naming the second, non-parallel command that
-  runs them. The volume seed is cloned by one test at a time, by a lock on the server. A run refuses to
+  runs them. A selection holding journey or assistant tests runs with `-n 4` whatever its size (they
+  wait; only a selection of unit tests is faster without `-n`), then its `-m serial` part.
+  The volume seed is cloned by one test at a time, by a lock on the server. A run refuses to
   start below 10 GB free on the volume or on a data folder in a synced place. A package's final checks
   run in a clean copy, so another session's unfinished edits cannot fail them:
   `cd backend && .venv/bin/python -m tests.clean_copy <the package's own changed paths> -- <command>`
   (the last commit plus those paths, in a worktree removed after; the paths are named, never guessed).
+- Browser runners and both gates run in 3–4 lanes sized to the free memory, never in one queue: one
+  command takes a list of runners (or `all`) and writes one summary (`cd frontend && npm run test:lanes --
+  <runner>... | all`; EXECUTION_GUIDE, "runners and gates in lanes"). Each lane's runner has its own
+  reserved ports, database clone and export folder; only one visual runner writes baselines at a time.
 - Every run has a [time ceiling](docs/TEST_HARNESS_PLAN.md#time-ceilings) (this machine, wall
   time): focused tests while iterating, seconds; a package's checks (its boundary's groups, parallel
   and serial part), **3 minutes**; build acceptance (the full backend suite without `budget`, with

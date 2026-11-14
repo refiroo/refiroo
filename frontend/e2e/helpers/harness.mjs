@@ -5,9 +5,9 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createServer } from "node:net";
 import { chromium } from "playwright";
 import { cloneDatabase } from "./database.mjs";
+import { reservePort as freePort } from "./ports.mjs";
 
 const helpers = dirname(fileURLToPath(import.meta.url));
 const frontend = resolve(helpers, "..", "..");
@@ -177,17 +177,6 @@ export function sendTokenTo(apiUrl, token, identity) {
     if (!granted.ok) return response;
     return original(input, { ...init, headers });
   };
-}
-
-async function freePort() {
-  const server = createServer();
-  await new Promise((done, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", done);
-  });
-  const value = server.address().port;
-  await new Promise((done) => server.close(done));
-  return value;
 }
 
 /**

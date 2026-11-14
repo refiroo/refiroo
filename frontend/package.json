@@ -101,6 +101,7 @@
     "test:browser:touch-u1": "node e2e/touch-u1.mjs",
     "test:browser:v1": "node e2e/v1-api-reference.mjs",
     "test:gate-helpers": "node --test e2e/helpers/*.node-test.mjs",
+    "test:lanes": "node e2e/lanes.mjs",
     "test:a11y": "node e2e/accessibility-gate.mjs",
     "test:visual": "node e2e/visual-regression-gate.mjs",
     "test:visual:update": "node e2e/visual-regression-gate.mjs --update-baselines"

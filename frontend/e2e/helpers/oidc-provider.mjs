@@ -2,21 +2,10 @@
 // its own, for the runners that sign people in through a provider (0.12 I3, I4).
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { createServer } from "node:net";
 import { resolve } from "node:path";
+import { reservePort as freePort } from "./ports.mjs";
 
 const root = resolve(import.meta.dirname, "..", "..", "..");
-
-function freePort() {
-  return new Promise((done, fail) => {
-    const server = createServer();
-    server.once("error", fail);
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address();
-      server.close(() => done(port));
-    });
-  });
-}
 
 /** Start the provider on a free port; the caller stops it with `child.kill()`. */
 export async function startProvider() {

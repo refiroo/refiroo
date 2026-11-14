@@ -100,10 +100,22 @@ cd backend && .venv/bin/python -m pytest -n auto -q        # everything except s
 .venv/bin/python -m pytest -m "serial and (records)" -q    # … and its serial part, if it has one
 ```
 
-Without `-n` a run is serial and runs everything except `budget`, `serial` tests included. A small
-selection (one module, a few cases) is faster without `-n`, which starts a worker per core. Add a
-test to `TIMED` only when its outcome depends on wall time; a statement-count budget is not
-timing-based.
+Without `-n` a run is serial and runs everything except `budget`, `serial` tests included. **A
+selection holding journey or assistant tests runs with `-n 4` whatever its size** (TS3): those tests
+wait (a server, a job worker, a stand-in assistant) and use little CPU, so a few cases serially take
+seven or eight seconds each and four workers take a quarter of that. `-n 4` leaves the `serial` tests
+out, so run the selection's `-m serial` part next, as for any parallel run:
+
+```sh
+.venv/bin/python -m pytest -n 4 tests/journeys/test_j50_ai_reshape.py -q
+.venv/bin/python -m pytest -m serial tests/journeys/test_j50_ai_reshape.py -q   # exit 5: it has none
+```
+
+`python -m tests.affected` prints its named selections this way (`selection`: any target under
+`tests/journeys`, or named for an assistant, an agent or `ai`, makes the whole selection parallel).
+Only a selection of **unit tests** (one module, a few cases that do not wait) is faster without `-n`,
+which starts a worker per core. Add a test to `TIMED` only when its outcome depends on wall time; a
+statement-count budget is not timing-based.
 
 **Full-size budgets are `budget`** (H3): `test_batch_volume` (the 10,000-item atomic batch) and
 `test_background_volume` (the 100,000-item background batch; both modules 2 min 39 s at PG5). A run
@@ -128,7 +140,7 @@ go-ahead.
 
 | Run | Ceiling | Command (from `backend/`) |
 | --- | --- | --- |
-| Focused tests while iterating | seconds | `.venv/bin/python -m pytest tests/test_x.py::test_case -q` (no `-n`) |
+| Focused tests while iterating | seconds | `.venv/bin/python -m pytest tests/test_x.py::test_case -q` (no `-n` for a unit test; `-n 4` for a journey or assistant test) |
 | A package's checks: its boundary's groups (§2) | 3 minutes | `.venv/bin/python -m pytest -n auto -m "<groups>" -q`, then `.venv/bin/python -m pytest -m "serial and (<groups>)" -q` |
 | Build acceptance: the full suite without `budget` | 11 minutes | `.venv/bin/python -m pytest -n 6 -q`, then `.venv/bin/python -m pytest -m serial -q` (six workers, 0.11 S1: ten took 8 min 49 s at a load near 145, six 10 min 15 s at 11–19) |
 | Full-size budgets | announced (2 min 39 s at 0.9.0-alpha.1 PG5; about 25 minutes before PG3b's bulk writes) | `.venv/bin/python -m pytest -m budget -q`, a release's acceptance only |
@@ -359,12 +371,57 @@ seed clone adds about 0.5 s). Pick by surface:
 | `e2e/authoring-mg-migration.mjs` (`test:browser:authoring-mg`) | Base 0.13 MG a change that needs a migration, made in the editor (J33.19) on both designer models, each with a type under a parent and two records of it added for the run: Move to… to the top level of the other application saying "Needs a migration when installed" and applying; the step marked Needs a migration in the history with its records counted; the install dialog stating the migration (records that move, refused) and installing into its preview; the migration page opened filled in, the row marked Proposed; the migration confirmed by keyboard and the records found in the other application with no parent; 390px without sideways scroll; axe on the history, the install dialog and the migration page. About 25 s per model. `MG_ONLY=renamed-example` or `generated-b` |
 | `e2e/authoring-r-acceptance.mjs` (`test:browser:authoring-r`) | Base 0.10 R: US-P09 and US-P10 composed by keyboard alone (D149) on both designer models, the renamed example at 1440px and generated-b at 390px, each on two fresh databases: W1 as a new application, a proposed type renamed, loaded and published; W1′ through the saved profile, its rename accepted and its new column ignored, a review of only its differences; W2 as a new application, then W1 as additions to it, its missing values created on load. On failure it keeps the server log, the stored profiles, the recent jobs and the database's activity. About 3 min 15 s. `R_ONLY=renamed-example` or `generated-b`, `R_WALKS=flat` or `described` |
 | `e2e/authoring-a8-lists.mjs` (`test:browser:authoring-a8`) | Base 0.10 A8b a sheet laid out for reading in the editor (J34.10) on both designer models, W3 proposed as a new application on one and as additions to the model on the other: the source pane's lists under their titles with their statuses, a list opened and a column's Map to… by keyboard alone; a proposed list's cells and Proposed because; Adjust list… by keyboard (the header moved shows where columns go; the last row two up, the pane's range and the dry run following); Don't load this list and Undo; Load as a list… on the dropped list, the free field saying there is nothing to load; 390px; axe on a list's centre and the adjust dialog. About 25 s. `A8_ONLY=renamed-example` or `generated-b` |
+| `e2e/lanes.mjs` (`test:lanes`) | TS3 the command that runs a list of runners and gates in lanes with one summary (see "runners and gates in lanes"); not a runner itself |
 | `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
 | `e2e/accessibility-gate.mjs --only guide` (`node e2e/accessibility-gate.mjs --only guide`, after `npm run build` in `guide/`) | 0.13 DOC1: the guide the engine serves at `/docs`, reached through the one-address harness: its first page and the search dialog, light and dark, at 1440px and 390px, axe on each; every request the page made went to the page's own origin. Not part of the full gate's run |
 | `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
 
+### Browser: runners and gates in lanes (TS3)
+
+`e2e/lanes.mjs` (`npm run test:lanes`) runs a list of runners, the accessibility gate and the visual gate
+in lanes and writes one summary. It takes an explicit list of names (a runner's file name without `.mjs`,
+its npm suffix such as `lb`, or a gate: `a11y`, `a11y:security`, `a11y:guide`, `visual`, `visual:security`)
+or `all`; `--list` prints the names. `all` is every runner and the two full gates; the Docker runners
+(`i3-real-provider`, `dp3-deployment`) and the gates' `--only` parts run only when named.
+
+```sh
+cd frontend
+npm run test:lanes -- lb k1 k2 a11y visual            # these, in lanes
+npm run test:lanes -- all                             # a release's block
+npm run test:lanes -- visual --update-baselines       # record baselines (one visual runner writes at a time)
+npm run test:lanes -- --list
+```
+
+- **Lanes** are sized to the memory available when the command starts (macOS: free, inactive,
+  speculative and purgeable pages; Linux: `MemAvailable`): one per 2 GiB, at most four, at least one.
+  `--lanes N` or `RDM_LANES=N` overrides. A lane runs one runner at a time as a process of its own, so a
+  lane's backend, Vite server, Chromium and database clone are the runner's own: the backend port and the
+  Vite port come from `helpers/ports.mjs` (a port is reserved by an exclusively created file, held until
+  its process ends, so two runners starting together are never handed the same one; port 8000 is never
+  used), the clone is named `r_p<runner pid>_…` (TS2), and every runner's export files go to a folder of
+  its own (`JOB_FILE_DIR`), never the project's `var/`.
+- **Baselines** are written only by the visual gate, and only with `--update-baselines`. In that mode the
+  visual runners (`visual`, `visual:security`, whose scenarios overlap) hold one resource, `baselines`,
+  so only one writes at a time; without the flag no runner writes a baseline, so lanes only compare.
+- **Fixed ports.** No runner needs one today: the OIDC provider, the SMTP and webhook receivers and the
+  browsers' servers all take a reserved free port. A runner that did is named in `FIXED_PORTS`
+  (`helpers/lanes.mjs`): runners holding the same port run one after the other, and the command checks
+  the port by binding it before the runner starts and, when another process holds it, reports the runner
+  as refused with the port named instead of starting it.
+- **Summary.** The command prints and writes `summary.txt` and `summary.json` in its output folder
+  (`--out DIR`, else a new `rdm-lanes-…` folder in the system temporary folder): per runner its lane,
+  pass or fail, duration and log path, then the totals. Each log keeps the first 3 MiB and the last 512 KiB
+  of the runner's output. The exit code is 1 when any runner failed. Each runner gets a temporary folder of its
+  own (`TMPDIR` under the output folder, so every evidence folder its helpers make is inside it): removed when
+  the runner passes, kept and named in the summary when it fails or with `--keep`; an interrupted command
+  removes them too, and nothing from a passing runner is left in the system temporary folder. The shared
+  `rdm-test-ports` folder stays there. The output folder holds only logs and summaries; delete it when done.
+- A failed runner is rerun alone (`npm run test:browser:<name>`); a failure that shows only in lanes is
+  a port, a baseline, shared state or a clone problem and is fixed in the harness.
+
 Set `PLAYWRIGHT_EXECUTABLE_PATH` to use an installed Chrome ([e2e README](../../frontend/e2e/README.md)).
-`npm run test:gate-helpers` fails when an `e2e/*.mjs` module is not named in this table.
+`npm run test:gate-helpers` fails when an `e2e/*.mjs` module is not named in this table (and holds the
+lane tests: lane count, catalogue, resources, port reservation).
 
 ## 2. Changed boundary → selected checks
 
@@ -490,7 +547,8 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 - Backend: rerun the failing node IDs, then the direct group of the boundary you fixed.
   `py -m pytest --lf` needs the cache provider, so do not pass `-p no:cacheprovider` if you want it.
 - Frontend: `npx vitest run <file> -t "<test name>"`, then `vitest related` for the fixed file.
-- Browser: rerun only the failed runner; its evidence directory is printed on exit.
+- Browser: rerun only the failed runner; its evidence directory is printed on exit (a lanes run's summary
+  names each runner's log).
 - A second failure at the same boundary after a fix, or an unexplained failure, justifies the
   broader group or suite. State the reason before running it.
 
@@ -504,7 +562,9 @@ visual evidence separately.
 ## 3. WP-9 comprehensive command set
 
 Run once, against the finished build, after all implementation packages close. Runs may share the harness's
-PostgreSQL server (§ Backend: the PostgreSQL test harness), but a release's heavy blocks run one at a time. The backend suite is one
+PostgreSQL server (§ Backend: the PostgreSQL test harness), but a release's heavy blocks run one at a time.
+Inside the browser block the runners and both gates run in lanes (`npm run test:lanes -- all`, TS3), not in
+one queue; the chain below names the same runners one by one. The backend suite is one
 parallel invocation followed by its serial part, without `budget` (11-minute ceiling, six workers); the full-size
 budgets run only at a release's acceptance (§1).
 

@@ -8,7 +8,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createServer } from "node:net";
+import { reservePort as port } from "./helpers/ports.mjs";
 import { chromium } from "playwright";
 import { chooseObject, openMoreFields } from "./helpers/lists.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
@@ -23,16 +23,6 @@ let browser;
 const failures = [];
 const checks = [];
 let log = "";
-async function port() {
-  const server = createServer();
-  await new Promise((done, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", done);
-  });
-  const value = server.address().port;
-  await new Promise((done) => server.close(done));
-  return value;
-}
 function start(command, args, cwd, env) {
   const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
   processes.push(child);
@@ -114,6 +104,8 @@ try {
       MODEL_ADMIN_MUTATIONS_ENABLED: "false",
       WORKSPACE_ADMIN_MUTATIONS_ENABLED: "true",
       WEB_CONCURRENCY: "1",
+      // Export files stay in the run's own folder, never the project's var/.
+      JOB_FILE_DIR: resolve(output, "job-files"),
     },
   );
   await ready(`${apiUrl}/health`, backend);

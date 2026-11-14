@@ -9,7 +9,7 @@
 // images included. Slow and heavy (Docker builds): run once per package and at R, announced.
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import net from "node:net";
+import { reservePort as freePort } from "./helpers/ports.mjs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,14 +29,6 @@ const expect = (condition, message) => {
 
 // The application's Content-Security-Policy as web is configured to send it (0.17 RF4).
 const appPolicy = readFileSync(resolve(root, "frontend/nginx/snippets/csp-app.inc.template"), "utf8").match(/add_header Content-Security-Policy "([^"]+)"/)[1];
-
-const freePort = () =>
-  new Promise((done) => {
-    const server = net.createServer().listen(0, () => {
-      const { port } = server.address();
-      server.close(() => done(port));
-    });
-  });
 
 const address = (process.env.RDM_DEV_ADDRESS || execFileSync(resolve(root, "scripts/dev.sh"), ["address"], { encoding: "utf8" })).trim();
 const work = mkdtempSync(resolve(tmpdir(), "rdm-dp3-"));
