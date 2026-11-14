@@ -68,7 +68,7 @@ const routes = { kinds: [], pages: [], tabs: [], navigation: [] };
     ts.forEachChild(n, visit);
   };
   visit(source);
-  const navigation = parse(join(SRC, "features", "settings", "navigation.ts"));
+  const navigation = parse(join(SRC, "ui", "settingsNavigation.ts"));
   const walkNav = (n) => {
     if (ts.isObjectLiteralExpression(n)) {
       const page = prop(n, "page");

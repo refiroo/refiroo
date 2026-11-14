@@ -42,6 +42,15 @@ export function rememberModelReviewed(taskId: string) {
   }
 }
 
+/** Drops the mark once the task can no longer be at the model step: it is kept per task and would stay for good. */
+function forgetModelReviewed(taskId: string) {
+  try {
+    window.localStorage.removeItem(reviewedKey(taskId));
+  } catch {
+    // Without storage there is nothing to drop.
+  }
+}
+
 /** Scrolls to a part of the task's page and puts the focus in it (its button when it has one). */
 function scrollToAndFocus(id: string) {
   const target = document.getElementById(id);
@@ -76,6 +85,11 @@ export function AiTaskJourneyBar({
     if (place !== "editor") return;
     rememberModelReviewed(taskId);
   }, [place, taskId]);
+  // A loaded or cancelled task never returns to the model step (`taskJourney` reads the mark only while it is checked).
+  const finished = task?.state === "loaded" || task?.state === "cancelled";
+  useEffect(() => {
+    if (finished) forgetModelReviewed(taskId);
+  }, [finished, taskId]);
   if (!task) return null;
 
   const plan = taskJourney(task, {

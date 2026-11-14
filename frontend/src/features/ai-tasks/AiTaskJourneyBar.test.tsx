@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ai } from "@/api/aiClient";
 import { api } from "@/api/client";
 import type { AiTask } from "@/types";
@@ -57,5 +57,36 @@ describe("the journey bar's primary button on a proposal (DOC11 14)", () => {
     fireEvent.click(buttons[0]);
     await waitFor(() => expect(document.activeElement === buttons[1]).toBe(true));
     expect(ai.acceptModel).not.toHaveBeenCalled();
+  });
+});
+
+describe("the mark that the model change was reviewed (FX1, D9)", () => {
+  const key = "rdm:journey:model-reviewed:task-1";
+  const stored = new Map<string, string>();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    stored.clear();
+    stored.set(key, "1");
+    vi.stubGlobal("localStorage", {
+      getItem: (name: string) => stored.get(name) ?? null,
+      setItem: (name: string, value: string) => stored.set(name, value),
+      removeItem: (name: string) => stored.delete(name),
+    });
+    vi.mocked(api.workspace).mockResolvedValue({ key: "west", label: "West" } as never);
+    vi.mocked(api.model).mockResolvedValue({ applications: [] } as never);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is kept while the task can still be at the model step and dropped once it is loaded", async () => {
+    vi.mocked(ai.task).mockResolvedValue({ ...proposal(), state: "checked" });
+    const { unmount } = render(
+      <AiTaskJourneyBar journey={{ kind: "aiTask", taskId: "task-1" }} place="task" onNavigate={vi.fn()} />,
+    );
+    await screen.findByRole("button");
+    expect(stored.get(key) ?? null).toBe("1");
+    unmount();
+    vi.mocked(ai.task).mockResolvedValue({ ...proposal(), state: "loaded" });
+    render(<AiTaskJourneyBar journey={{ kind: "aiTask", taskId: "task-1" }} place="task" onNavigate={vi.fn()} />);
+    await waitFor(() => expect(stored.get(key) ?? null).toBeNull());
   });
 });

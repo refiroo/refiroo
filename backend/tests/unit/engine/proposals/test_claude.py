@@ -7,8 +7,14 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
+from app.engine.proposals import retry
 from app.engine.proposals.claude import DEFAULT_MODEL, FALLBACK_BETA, ClaudeProvider
 from app.engine.proposals.provider import ProposalRequest, ProviderError, answer_schema
+
+
+@pytest.fixture(autouse=True)
+def _no_waiting(monkeypatch):
+    monkeypatch.setattr(retry, "_sleep", lambda seconds: None)
 
 
 class Inner(BaseModel):

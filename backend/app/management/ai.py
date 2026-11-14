@@ -48,13 +48,20 @@ def ai_requested(
         return False
     ai = configuration(request)
     permitted = request.state.permissions.allows(GROUP, workspace_key)
+    above = send_level is not None and not ai.policy.allows(send_level)
     if asked is None:
-        return ai.offers(purpose) and permitted and _chosen_level_serves(ai, purpose, send_level)
+        # Only an explicit ``asked=true`` refuses a level above the ceiling; an omitted flag answers false.
+        return (
+            not above
+            and ai.offers(purpose)
+            and permitted
+            and _chosen_level_serves(ai, purpose, send_level)
+        )
     if not ai.configured:
         raise api_error(
             409, "AI_NOT_CONFIGURED", "No AI provider is set up on this instance (AI_PROVIDER)"
         )
-    if send_level is not None and not ai.policy.allows(send_level):
+    if above:
         raise api_error(
             409,
             "AI_SEND_LEVEL_TOO_LOW",

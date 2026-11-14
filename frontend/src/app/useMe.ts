@@ -53,21 +53,6 @@ export function roleLine(permissions: MyPermissions): string {
   return `${listed} in ${where}`;
 }
 
-/**
- * A person's initials for the avatar: the first letters of their first and last names. Only letters
- * count (0.17 SH1): a bracketed note such as "(temporary)" is not part of the name, and a word with
- * no letter in it gives none, so "Name (temporary)" reads N and not N(.
- */
-export function initials(name: string): string {
-  const of = (text: string) => {
-    const words = text.split(/\s+/).filter((word) => /\p{L}/u.test(word));
-    const ends = words.length > 1 ? [words[0], words[words.length - 1]] : words;
-    return ends.map((word) => word.match(/\p{L}/u)?.[0].toUpperCase() ?? "").join("");
-  };
-  // A name that is only a bracketed note still gets its letters.
-  return of(name.replace(/[([{][^)\]}]*[)\]}]/gu, " ")) || of(name);
-}
-
 // What the engine offers as its source and licence, read once per page load (0.12 L1, D219).
 let loadingSource: Promise<SystemResponse["engine"]> | undefined;
 

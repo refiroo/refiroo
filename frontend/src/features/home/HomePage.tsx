@@ -390,13 +390,19 @@ export function WaitingApprovals({
   onNavigate: Navigate;
 }) {
   const [items, setItems] = useState<PublicationRequest[]>([]);
+  // Where the person approves comes from one read, `/me/action-groups`: a group held at the instance is
+  // held in every workspace Home lists, otherwise only in the workspaces it names.
+  const held = useHeldAnywhere();
   useEffect(() => {
+    if (!held) return;
     let active = true;
+    const approve = held.find((group) => group.key === "approve");
+    const approving = workspaces.filter(
+      (workspace) => approve?.instance || approve?.workspaces.some((where) => where.key === workspace.key),
+    );
     Promise.all(
-      workspaces.map(async (workspace) => {
+      approving.map(async (workspace) => {
         try {
-          const permissions = await api.myPermissions(workspace.key);
-          if (!permissions.actionGroups.some((group) => group.key === "approve")) return [];
           const [page, policy] = await Promise.all([
             api.publicationRequests(workspace.key, { state: "submitted" }),
             api.approvalPolicy(workspace.key).catch(() => undefined),
@@ -412,7 +418,7 @@ export function WaitingApprovals({
     return () => {
       active = false;
     };
-  }, [personId, workspaces]);
+  }, [personId, workspaces, held]);
   if (!items.length) return null;
   const firstApplication = new Map(workspaces.map((item) => [item.key, item.applications[0]?.key]));
   const labels = new Map(workspaces.map((item) => [item.key, item.label]));

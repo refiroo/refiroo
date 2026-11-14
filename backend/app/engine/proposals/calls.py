@@ -146,9 +146,18 @@ def expire_content(session: Session, now: datetime | None = None) -> None:
     )
 
 
+def kept_content(row: AiCall, now: datetime | None = None) -> dict[str, Any] | None:
+    """The kept request and answer of a call, or ``None`` once its time is up, whether or not
+    ``expire_content`` has emptied it yet."""
+    if row.content_expires_at is not None and row.content_expires_at < (now or datetime.now(UTC)):
+        return None
+    return row.content
+
+
 def call_page(session: Session, *, page: PageRequest, page_size: int) -> Page[AiCall]:
-    """Calls newest first."""
-    expire_content(session)
+    """Calls newest first. A read writes nothing: content past its time is left out of the answer
+    (``kept_content``) and emptied by ``expire_content`` in the worker's hourly sweep and when a
+    call is recorded."""
     return paginate_statement(
         session,
         select(AiCall),
@@ -162,7 +171,6 @@ def call_page(session: Session, *, page: PageRequest, page_size: int) -> Page[Ai
 
 
 def last_call(session: Session) -> AiCall | None:
-    expire_content(session)
     return session.scalar(
         select(AiCall).order_by(AiCall.started_at.desc(), AiCall.id.desc()).limit(1)
     )

@@ -49,7 +49,7 @@ def call_response(session: Session, row: AiCall) -> AiCallResponse:
         outcome=row.outcome,  # type: ignore[arg-type]
         failureKind=row.failure_kind,  # type: ignore[arg-type]
         failure=row.failure,
-        content=row.content,
+        content=calls.kept_content(row),
     )
 
 

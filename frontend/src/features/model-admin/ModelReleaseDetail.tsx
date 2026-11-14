@@ -230,9 +230,28 @@ export function ModelReleaseDetail({
         onStatusChanged?.(changed);
       }
     } catch (cause) {
-      setLifecycleError(errorMessage(cause));
+      if (isApiError(cause, "MODEL_RELEASE_VERSION_CONFLICT")) await readAgainAfterConflict(action);
+      else setLifecycleError(errorMessage(cause));
     } finally {
       setLifecyclePending(false);
+    }
+  }
+
+  /** Another session retired, restored or deleted the release first: the version held here is stale and
+   * would refuse every later action, so the release is read again and shown as it is now. The person's
+   * confirmation stays open while the action still applies to it (a retire of a release now active). */
+  async function readAgainAfterConflict(action: "retire" | "restore" | "delete") {
+    try {
+      const current = await api.modelRelease(releaseId, true);
+      setRelease(current);
+      onStatusChanged?.(current);
+      const applies = action === "delete" || (action === "retire") === (current.status === "active");
+      if (!applies) setConfirming(undefined);
+      setLifecycleError(
+        `This release was changed by someone else${applies ? "" : ` and is now ${current.status}`}. It is shown as it is now.${applies ? " Confirm again to go on." : ""}`,
+      );
+    } catch (cause) {
+      setLifecycleError(errorMessage(cause));
     }
   }
 

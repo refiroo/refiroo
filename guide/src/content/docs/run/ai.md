@@ -168,7 +168,7 @@ provider, appears in the call log and may incur usage. It does not test the assi
 | Information | Retention in refiroo |
 | --- | --- |
 | Call metadata, outcome, tokens and reported cost | Kept after request content expires. There is no configured expiry for the call records themselves; the 30-day totals are a reporting window. |
-| A call's request and answer | Not kept in the call log by default. `AI_LOG_CONTENT=true` keeps them for `AI_LOG_CONTENT_DAYS`, default 7, after which content is cleared while the call record remains. For assistant turns this is the prompt and final answer, not the full stream. |
+| A call's request and answer | Not kept in the call log by default. `AI_LOG_CONTENT=true` keeps them for `AI_LOG_CONTENT_DAYS`, default 7, after which the call log no longer shows it and it is cleared while the call record remains. The background worker clears it in its hourly pass (when `INTEGRATION_JOBS_ENABLED` is on), and recording any call clears what is past its days. For assistant turns this is the prompt and final answer, not the full stream. |
 | Assistant task and workbook | `AI_TASK_RETENTION_DAYS`, default 90 days after completion or the last change. The worker's expiry sweep deletes the task and its files; cleanup needs a job-enabled instance. |
 | Session folder, session logs and Claude Code transcript | Kept while the task can continue, including failed, stopped and loaded tasks. Once the change set is published or discarded, the migration confirmed, or the task discarded, the next task read removes them and deactivates its client. Expiry also triggers cleanup. |
 | MCP tool-call records | `MCP_CALLS_DAYS`, default 90 days. Argument names are recorded, not their values. |
@@ -320,7 +320,7 @@ what an external assistant keeps after reading permitted data.
 | `AI_TASK_DRAFT_HELD` | Another task owns the draft; use a separate draft rather than changing that task's work. |
 | `AI_TASK_NEEDS_WORDS` | Supply instructions or a supported workbook. |
 | `IMPORT_TOO_LARGE`, `UNSUPPORTED_FILE_FORMAT` | Respect `IMPORT_MAX_BYTES`; supply XLSX or CSV instead of legacy XLS. |
-| `unreachable`, `unauthorized`, `rateLimited` | Check endpoint/connectivity, replace the refused key, or wait before retrying, respectively. |
+| `unreachable`, `unauthorized`, `rateLimited` | Check endpoint/connectivity, replace the refused key, or wait before retrying, respectively. Before a call fails as `rateLimited` or for a passing provider failure, the engine already sent it up to three times in all, waiting the provider's `retry-after` (or 1 s, then 2 s) between sends; a request that timed out (`AI_TIMEOUT_SECONDS`) is never sent again, and a wait the provider asks for beyond 30 s is not waited for. |
 | `declined`, `malformed`, `failed` | The provider declined, returned the wrong shape or otherwise failed. Inspect the failure sentence, model and gateway. No partial malformed answer is used. |
 | `timeout`, `cancelled`, `interrupted` | An assistant turn exceeded the session limit (`AI_AGENT_TIMEOUT_SECONDS`), was stopped or lost its worker. Read the task's notes and continue when the cause is resolved. |
 

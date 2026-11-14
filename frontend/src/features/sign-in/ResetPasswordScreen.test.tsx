@@ -28,18 +28,19 @@ describe("the reset pages (0.12 I6)", () => {
     expect(screen.getByRole("link", { name: "Back to sign in" }).getAttribute("href")).toBe("/");
   });
 
-  it("says how long to wait when the asks are slowed", async () => {
+  it("shows the engine's own words when the asks are slowed, in the warning tone", async () => {
     client.resetPage.mockResolvedValue({ ok: true, product: "refiroo", available: true });
     client.requestReset.mockResolvedValue({
       ok: false,
       error: "slowed",
-      message: "Too many requests for this account or from this address. You can try again in 5 seconds.",
+      message: "Too many requests for this account or from this address. You can try again in 3 minutes.",
       waitSeconds: 130,
     });
     render(<ResetPasswordScreen token="" />);
     fireEvent.change(await screen.findByLabelText("E-mail address"), { target: { value: "ada@example.org" } });
     fireEvent.click(screen.getByRole("button", { name: "Mail me a link" }));
-    await screen.findByText(/You can try again in 3 minutes\./);
+    const shown = await screen.findByText(/You can try again in 3 minutes\./);
+    expect(shown.closest(".notice")).toHaveClass("warning-notice");
   });
 
   it("offers no form where mail is not set up", async () => {

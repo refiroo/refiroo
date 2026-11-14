@@ -9,6 +9,7 @@ import type { Grant, RouteState } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
 import { SearchField } from "@/ui/SearchField";
+import { initials } from "@/ui/SettingsParts";
 import { RouteLink } from "@/ui/RouteLink";
 import { routePath } from "@/routing/routes";
 import { groupByPrincipal, grantHeld, holdsRole, rolesPresent, type AccessRow } from "./accessGroups";
@@ -27,11 +28,6 @@ const LEGEND: { label: string; hue: string }[] = [
   { label: "Administration", hue: "3" },
   { label: "Consumer API", hue: "2" },
 ];
-
-function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  return ((words[0]?.[0] ?? "") + (words.length > 1 ? (words.at(-1)?.[0] ?? "") : "")).toUpperCase();
-}
 
 export function AccessList({
   label,

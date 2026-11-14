@@ -267,15 +267,15 @@ export function RelationTableView({
       reload();
     } catch (cause) {
       const refused = isApiError(cause, "RELATION_BATCH_REFUSED")
-        ? (cause.details as { items?: { relationId: string; message: string }[] } | undefined)?.items
+        ? (cause.details as { items?: { relationId: string; code?: string; message: string }[] } | undefined)?.items
         : undefined;
       setBulk((current) => ({
         ...current,
         error: errorMessage(cause),
         failed: refused?.map((item) => `${chosen.get(item.relationId)?.label ?? item.relationId}: ${item.message}`),
       }));
-      // A stale version is cured by reading the rows again.
-      if (isApiError(cause, "RELATION_BATCH_REFUSED") && refused?.some((item) => /changed/i.test(item.message)))
+      // A stale version is cured by reading the rows again: the item's code says it, never its wording.
+      if (refused?.some((item) => item.code === "VERSION_CONFLICT" || item.code === "RELATION_SET_VERSION_CONFLICT"))
         reload();
     } finally {
       setApplying(false);

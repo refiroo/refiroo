@@ -232,7 +232,7 @@
   "labels": [
    "Search people, groups, clients"
   ],
-  "source": "frontend/src/features/security/AccessList.tsx:117",
+  "source": "frontend/src/features/security/AccessList.tsx:113",
   "section": "use",
   "commonContext": [
    "access",

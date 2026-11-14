@@ -7,8 +7,14 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
+from app.engine.proposals import retry
 from app.engine.proposals.openai_compatible import OpenAICompatibleProvider
 from app.engine.proposals.provider import ProposalRequest, ProviderError, answer_schema
+
+
+@pytest.fixture(autouse=True)
+def _no_waiting(monkeypatch):
+    monkeypatch.setattr(retry, "_sleep", lambda seconds: None)
 
 
 class Inner(BaseModel):
@@ -81,7 +87,7 @@ def test_openai_compatible_without_a_key_sends_no_authorization():
 )
 def test_openai_compatible_names_each_refusal(response, kind):
     with pytest.raises(ProviderError) as raised:
-        _openai(response, seen=[]).propose(REQUEST)
+        _openai(*[response] * 3, seen=[]).propose(REQUEST)
     assert raised.value.kind == kind
 
 

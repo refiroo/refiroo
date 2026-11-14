@@ -86,6 +86,7 @@ from ..model import change_set_migrations, migrations
 from ..moves import move_job, move_load
 from ..moves.mapping_inference import run_inference as run_mapping_inference
 from ..notifications import inbox
+from ..proposals import calls as ai_calls
 from ..proposals import mapping_job
 from ..proposals.calls import record_apart
 from ..proposals.registry import AiConfiguration
@@ -289,6 +290,7 @@ class JobWorker:
             superseded_files += task_store.expire(session, now)
             inbox.expire(session, now)
             agent_calls.expire(session, now, get_settings().mcp_calls_days)
+            ai_calls.expire_content(session, now)
             applications.expire(session, now)
             session.commit()
             if self.files is not None:

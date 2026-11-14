@@ -16,15 +16,20 @@ export function hueOf(text: string): Hue {
   return ((sum % HUE_SLOTS) + 1) as Hue;
 }
 
-/** Up to two initials of a name. */
+/**
+ * A person's, a client's or a group's initials: the first letters of the first and last words of the
+ * name. Only letters count (0.17 SH1): a bracketed note such as "(temporary)" is not part of the name,
+ * and a word with no letter in it gives none, so "Name (temporary)" reads N and not N(. A name with no
+ * letter at all (a client named "42") keeps its first two characters as its mark (0.17.2 FX1, D5).
+ */
 export function initials(name: string): string {
-  // Words that begin with a letter or a digit: "(temporary)" after a name gives no initial.
-  const words = name
-    .trim()
-    .split(/\s+/)
-    .filter((word) => /^[\p{L}\p{N}]/u.test(word));
-  const letters = words.length > 1 ? [words[0]![0], words[words.length - 1]![0]] : [name.trim().slice(0, 2)];
-  return letters.join("").toUpperCase();
+  const of = (text: string) => {
+    const words = text.split(/\s+/).filter((word) => /\p{L}/u.test(word));
+    const ends = words.length > 1 ? [words[0], words[words.length - 1]] : words;
+    return ends.map((word) => word.match(/\p{L}/u)?.[0].toUpperCase() ?? "").join("");
+  };
+  // A name that is only a bracketed note still gets its letters.
+  return of(name.replace(/[([{][^)\]}]*[)\]}]/gu, " ")) || of(name) || name.trim().slice(0, 2).toUpperCase();
 }
 
 /** A coloured tile holding a glyph: a row's lead, a page's mark. Decorative. */

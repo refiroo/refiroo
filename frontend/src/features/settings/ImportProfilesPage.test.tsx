@@ -93,15 +93,31 @@ describe("deleting an import profile and its file (0.13 ED)", () => {
     await waitFor(() => expect(api.latestProfileFile).toHaveBeenCalledTimes(2));
   });
 
-  it("keeps a refusal in the dialog with the server's reason", async () => {
-    vi.mocked(api.deleteImportProfile).mockRejectedValue(
-      new ApiError(409, "IMPORT_PROFILE_VERSION_CONFLICT", "Import profile 'shelves' is at version 5, not 4"),
-    );
+  it("reads the profile again after a stale-version refusal, says it changed, and the next delete uses the new version", async () => {
+    vi.mocked(api.deleteImportProfile)
+      .mockRejectedValueOnce(
+        new ApiError(409, "IMPORT_PROFILE_VERSION_CONFLICT", "Import profile 'shelves' is at version 5, not 4"),
+      )
+      .mockResolvedValueOnce(undefined);
+    const onNavigate = renderPage();
+    await chooseFromMenu("Delete the profile…");
+    const dialog = await screen.findByRole("alertdialog");
+    vi.mocked(api.importProfile).mockResolvedValue({ ...profile, version: 5 });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete the profile" }));
+    expect(await within(dialog).findByText(/is at version 5, not 4/)).toBeTruthy();
+    expect(within(dialog).getByText(/changed by someone else and is shown as it is now/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete the profile" }));
+    await waitFor(() => expect(api.deleteImportProfile).toHaveBeenLastCalledWith("shelves", 5));
+    await waitFor(() => expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "import-profiles" }));
+  });
+
+  it("keeps any other refusal in the dialog with the server's reason", async () => {
+    vi.mocked(api.deleteImportProfile).mockRejectedValue(new ApiError(409, "IMPORT_PROFILE_IN_USE", "In use"));
     renderPage();
     await chooseFromMenu("Delete the profile…");
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete the profile" }));
-    expect(await within(dialog).findByText(/is at version 5, not 4/)).toBeTruthy();
+    expect(await within(dialog).findByText("In use")).toBeTruthy();
   });
 
   it("offers neither deletion to a person who may not import", async () => {

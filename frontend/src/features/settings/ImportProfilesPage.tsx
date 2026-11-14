@@ -300,10 +300,26 @@ function ProfileDetail({
       setCheck(started);
       setFollowing(started.jobId);
     } catch (cause) {
-      setSaveError(errorMessage(cause));
+      setSaveError(isApiError(cause, "IMPORT_PROFILE_VERSION_CONFLICT") ? await readAgain(cause) : errorMessage(cause));
     } finally {
       setSaving(false);
     }
+  }
+
+  /** Someone else changed the profile first: the version held here is stale and would refuse every later
+   * save or delete, so the profile and its check are read again and the person is told it changed. What
+   * they asked for is not applied to the new profile: it may no longer apply, so they decide. */
+  async function readAgain(cause: unknown): Promise<string> {
+    const workspaceKey = file?.workspaceKey ?? defaultWorkspace;
+    try {
+      const found = await api.importProfile(profileKey, workspaceKey);
+      setProfile(found);
+      onChanged(found);
+      await readCheck(workspaceKey);
+    } catch (reading) {
+      return errorMessage(reading);
+    }
+    return `${errorMessage(cause)}. The profile was changed by someone else and is shown as it is now; do it again if it still applies.`;
   }
 
   if (error)
@@ -566,7 +582,12 @@ function ProfileDetail({
           confirmLabel="Delete the profile"
           onClose={() => setDeleting(undefined)}
           onDelete={async () => {
-            await api.deleteImportProfile(profile.key, profile.version);
+            try {
+              await api.deleteImportProfile(profile.key, profile.version);
+            } catch (cause) {
+              // The dialog stays open with the reason, and the next confirmation uses the version just read.
+              throw isApiError(cause, "IMPORT_PROFILE_VERSION_CONFLICT") ? new Error(await readAgain(cause)) : cause;
+            }
             onDeleted(profile.key);
           }}
         >

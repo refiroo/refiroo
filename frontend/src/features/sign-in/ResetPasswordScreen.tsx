@@ -13,17 +13,11 @@ import { API_URL } from "@/api/address";
 import { FormField } from "@/ui/FormField";
 import { Notice } from "@/ui/Notice";
 import { SignInFrame } from "./SignInFrame";
-import { waitText } from "./SignInScreen";
 
 const BACK = <a href="/">Back to sign in</a>;
 
+/** The words for a refusal: the engine's own, as the sign-in screen shows them, so a wording is never kept twice. */
 function refusalText(refused: ResetRefused): string {
-  // The engine words a wait in seconds it computed; the screen says it as the sign-in does.
-  if (refused.error === "slowed" && refused.waitSeconds)
-    return refused.message.replace(
-      /You can try again in .*$/,
-      `You can try again in ${waitText(refused.waitSeconds)}.`,
-    );
   return refused.message;
 }
 
@@ -105,19 +99,19 @@ export function ResetPasswordScreen({ token }: { token: string }) {
 function Ask() {
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState<{ text: string; slowed: boolean }>();
   const [asked, setAsked] = useState("");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setPending(true);
-    setMessage("");
+    setNotice(undefined);
     try {
       const answer = await requestReset(email.trim());
       if (answer.ok) setAsked(answer.message);
-      else setMessage(refusalText(answer));
+      else setNotice({ text: refusalText(answer), slowed: answer.error === "slowed" });
     } catch {
-      setMessage(`The engine at ${API_URL} did not answer. Try again.`);
+      setNotice({ text: `The engine at ${API_URL} did not answer. Try again.`, slowed: false });
     } finally {
       setPending(false);
     }
@@ -137,7 +131,7 @@ function Ask() {
   return (
     <>
       <p className="sign-in-aside">Type your e-mail address and we will mail you a link to choose a new one.</p>
-      {message && <Notice tone={message.startsWith("Too many") ? "warning" : "error"}>{message}</Notice>}
+      {notice && <Notice tone={notice.slowed ? "warning" : "error"}>{notice.text}</Notice>}
       <form className="sign-in-form" noValidate onSubmit={(event) => void submit(event)}>
         <FormField label="E-mail address">
           {(control) => (

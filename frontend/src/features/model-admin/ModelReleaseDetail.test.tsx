@@ -352,6 +352,29 @@ describe("ModelReleaseDetail retiring and deleting (0.12 MR1)", () => {
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith(expect.objectContaining({ id: "r06" })));
   });
 
+  it("reads the release again after a stale-version refusal and retires it at the version just read", async () => {
+    const { onStatusChanged } = lifecycle(r06);
+    vi.mocked(api.setModelReleaseStatus)
+      .mockRejectedValueOnce(
+        new ApiError(409, "MODEL_RELEASE_VERSION_CONFLICT", "Model release 'r06' changed status since version 1"),
+      )
+      .mockResolvedValueOnce({ ...r06, status: "retired", statusVersion: 4 });
+    await chooseAction("Retire…");
+    const dialog = screen.getByRole("alertdialog");
+    // Someone else retired and brought it back meanwhile: still active, at a newer status version.
+    vi.mocked(api.modelRelease).mockResolvedValue({ ...r06, statusVersion: 3, model: {} });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Retire" }));
+    expect(await within(dialog).findByText(/changed by someone else/)).toBeInTheDocument();
+    expect(onStatusChanged).toHaveBeenCalledWith(expect.objectContaining({ statusVersion: 3 }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Retire" }));
+    await waitFor(() =>
+      expect(api.setModelReleaseStatus).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: "r06", statusVersion: 3 }),
+        "retired",
+      ),
+    );
+  });
+
   it("hides Retire for the default workspace's release and every action without the right to install", async () => {
     lifecycle(r07, { isDefault: true });
     await screen.findByRole("button", { name: "Export JSON" });

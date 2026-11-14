@@ -20,7 +20,6 @@ FIELD_FILTER_PREFIX = "filter."
 # Accepted on every route: a write to a submitted change set withdraws its submission (A1, D426);
 # ``access.authorized`` reads it.
 UNIVERSAL_PARAMETERS = frozenset({"withdrawSubmission"})
-_KNOWN: dict[int, tuple[frozenset[str], bool]] = {}
 
 
 def accepts_field_filters[F: Callable[..., Any]](endpoint: F) -> F:
@@ -90,13 +89,16 @@ def refuse_after_authorization(request: Request) -> None:
 
 
 def _parameters(route: APIRoute) -> tuple[frozenset[str], bool]:
-    key = id(route)
-    if key not in _KNOWN:
-        _KNOWN[key] = (
+    """The route's declared query names and whether it reads field filters, worked out once and kept
+    on the route itself, so it lives and goes with it (an ``id`` is reused once a route is gone)."""
+    known: tuple[frozenset[str], bool] | None = getattr(route, "known_query_parameters", None)
+    if known is None:
+        known = (
             frozenset(_query_names(route.dependant)),
             getattr(route.endpoint, "accepts_field_filters", False),
         )
-    return _KNOWN[key]
+        route.known_query_parameters = known  # type: ignore[attr-defined]
+    return known
 
 
 def _query_names(dependant: Dependant) -> set[str]:

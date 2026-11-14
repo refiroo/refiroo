@@ -17,6 +17,7 @@ from .provider import (
     answer_example,
     answer_schema,
 )
+from .retry import post_with_retry
 
 
 class OpenAICompatibleProvider:
@@ -64,16 +65,13 @@ class OpenAICompatibleProvider:
         }
         if self._reasoning_effort:
             body["reasoning_effort"] = self._reasoning_effort
-        try:
-            response = self._client.post(self._url, json=body, headers=self._headers)
-        except httpx.TimeoutException as exc:
-            raise ProviderError(
-                "unreachable", "The provider did not answer in time (AI_TIMEOUT_SECONDS)"
-            ) from exc
-        except httpx.HTTPError as exc:
-            raise ProviderError(
-                "unreachable", "The provider could not be reached (AI_BASE_URL)"
-            ) from exc
+        response = post_with_retry(
+            self._client,
+            self._url,
+            body=body,
+            headers=self._headers,
+            unreachable="The provider could not be reached (AI_BASE_URL)",
+        )
         if response.status_code in (401, 403):
             raise ProviderError("unauthorized", "The provider refused the key (AI_API_KEY)")
         if response.status_code == 429:

@@ -244,10 +244,24 @@ export function RecordTree({
   const api = useDataApi();
   // Saved apart from the earlier tree's choices (`v2`), so the tree starts folded (UA9).
   const storageKey = `rdm:${config.storageScope ?? "hierarchy"}:v2-flat:${JSON.stringify([workspaceKey, application.key])}`;
-  const [branchState, setBranchState] = useState(() => ({ key: storageKey, choices: readChoices(storageKey) }));
+  // `changed` marks a state the person's choice or a reveal made, which the effect below stores; a state
+  // read from storage is not written back. The updaters stay pure: storage is written after the render.
+  const [branchState, setBranchState] = useState(() => ({
+    key: storageKey,
+    choices: readChoices(storageKey),
+    changed: false,
+  }));
   if (branchState.key !== storageKey) {
-    setBranchState({ key: storageKey, choices: readChoices(storageKey) });
+    setBranchState({ key: storageKey, choices: readChoices(storageKey), changed: false });
   }
+  useEffect(() => {
+    if (!branchState.changed) return;
+    try {
+      window.localStorage.setItem(branchState.key, JSON.stringify(Object.fromEntries(branchState.choices)));
+    } catch {
+      // Storage may be unavailable; keep this session's navigation usable.
+    }
+  }, [branchState]);
   // The selection (UA9): the records by ID, kept for one search in one workspace and application.
   const selectionKey = JSON.stringify([workspaceKey, application.key, search]);
   const [selectionState, setSelectionState] = useState(() => ({
@@ -318,17 +332,10 @@ export function RecordTree({
             : [];
           const opened = [...ancestors, ...groups];
           setBranchState((previous) => {
-            // if (previous.key !== storageKey || [...ancestors].every((id) => previous.choices.get(id) === true))
             if (previous.key !== storageKey || opened.every((id) => previous.choices.get(id) === true)) return previous;
             const choices = new Map(previous.choices);
-            // for (const id of ancestors) choices.set(id, true);
             for (const id of opened) choices.set(id, true);
-            try {
-              window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
-            } catch {
-              // Storage may be unavailable; keep this session's navigation usable.
-            }
-            return { key: storageKey, choices };
+            return { key: storageKey, choices, changed: true };
           });
         }
         setReveal({ id: item.id, token: revealToken, ancestors, steps, path: item.path });
@@ -405,12 +412,7 @@ export function RecordTree({
       setBranchState((previous) => {
         const choices = new Map(previous.key === storageKey ? previous.choices : readChoices(storageKey));
         choices.set(objectId, expanded);
-        try {
-          window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
-        } catch {
-          // Storage may be unavailable; keep this session's navigation usable.
-        }
-        return { key: storageKey, choices };
+        return { key: storageKey, choices, changed: true };
       });
     },
     [storageKey, selected, selectionKey],

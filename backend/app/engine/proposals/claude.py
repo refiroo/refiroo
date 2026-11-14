@@ -15,14 +15,12 @@ from typing import Any
 import httpx
 
 from .provider import ProposalRequest, ProviderAnswer, ProviderError, answer_schema
+from .retry import post_with_retry
 
 DEFAULT_MODEL = "claude-opus-5-5"
 DEFAULT_BASE_URL = "https://api.anthropic.com"
 API_VERSION = "2023-06-01"
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
-# Tried again by the client: overloaded, rate-limited or a passing server failure.
-_RETRIED = {408, 409, 429, 500, 502, 503, 504, 529}
-_ATTEMPTS = 3
 
 
 class ClaudeProvider:
@@ -60,7 +58,13 @@ class ClaudeProvider:
             },
             "fallbacks": "default",
         }
-        response = self._post(body)
+        response = post_with_retry(
+            self._client,
+            self._url,
+            body=body,
+            headers=self._headers,
+            unreachable="The provider could not be reached",
+        )
         if response.status_code in (401, 403):
             raise ProviderError(
                 "unauthorized",
@@ -104,24 +108,6 @@ class ClaudeProvider:
             usage.get("input_tokens"),
             usage.get("output_tokens"),
         )
-
-    def _post(self, body: dict[str, Any]) -> httpx.Response:
-        for attempt in range(_ATTEMPTS):
-            try:
-                response = self._client.post(self._url, json=body, headers=self._headers)
-            except httpx.TimeoutException as exc:
-                if attempt + 1 < _ATTEMPTS:
-                    continue
-                raise ProviderError(
-                    "unreachable", "The provider did not answer in time (AI_TIMEOUT_SECONDS)"
-                ) from exc
-            except httpx.HTTPError as exc:
-                if attempt + 1 < _ATTEMPTS:
-                    continue
-                raise ProviderError("unreachable", "The provider could not be reached") from exc
-            if response.status_code not in _RETRIED or attempt + 1 == _ATTEMPTS:
-                return response
-        raise AssertionError("unreachable")
 
 
 def _error_type(response: httpx.Response) -> str:
