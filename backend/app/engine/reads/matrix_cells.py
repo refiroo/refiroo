@@ -11,8 +11,6 @@ tables by keyed lookups: live records, a publication's or a private base's rows,
 base rows it does not replace plus its own rows.
 """
 
-import hashlib
-import json
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -33,6 +31,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session, aliased
 
+from ...common.encoding import canonical_json, sha256_hex
 from ...models.database import (
     AttributeValue,
     ChangeSetObject,
@@ -97,8 +96,7 @@ class MatrixShape:
 
     @property
     def key(self) -> str:
-        canonical = json.dumps(self.definition(), sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(canonical.encode()).hexdigest()[:32]
+        return sha256_hex(canonical_json(self.definition()), 32)
 
     @classmethod
     def from_definition(cls, data: dict[str, Any]) -> MatrixShape:

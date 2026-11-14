@@ -399,7 +399,7 @@ def test_an_integrator_maps_the_codes_of_a_system_to_municipalities(relations):
         path=GRAUBUENDEN,
         body={**mapping, "expectedMappingVersion": row["mappingVersion"]},
         status=409,
-        code="MAPPING_VERSION_CONFLICT",
+        code="VERSION_CONFLICT",
     )
     targets = s.call(
         "GET",

@@ -80,12 +80,6 @@ The task is not in a state that allows the request, or something the request nee
 
 `GET /api/v1/ai/tasks/{task_id}/changes` named a `source` the latest check has no figures for, or no `source` at all. `details.source` holds the value sent and the message lists the sources the check has. Send one of those source numbers.
 
-### AI_TASK_VERSION_CONFLICT
-
-<span class="rdm-status rdm-4xx">Status 409</span>
-
-The `expectedVersion` the client sent is not the task's current version, so another request changed the task after the client read it. `details.currentVersion` holds the current version. Read the task again and send the request with its current `version` if it is still wanted.
-
 ### AMBIGUOUS_MATCH
 
 <span class="rdm-status rdm-4xx">Status 409</span>
@@ -856,12 +850,6 @@ The import profile belongs to another model than the workspace runs. `details` h
 
 The import profile named in the path or in `profileKey` does not exist. It usually means the key is misspelt or the profile was deleted. List the profiles with `GET /api/v1/import-profiles`.
 
-### IMPORT_PROFILE_VERSION_CONFLICT
-
-<span class="rdm-status rdm-4xx">Status 409</span>
-
-The `expectedVersion` of a replace or a delete is not the profile's current version, because someone changed it after it was read. `details.currentVersion` holds the current one. Read the profile again, apply the change to it and resend with the new version.
-
 ### IMPORT_TOO_LARGE
 
 <span class="rdm-status rdm-4xx">Status 413</span>
@@ -1412,7 +1400,7 @@ A migration's item code, never a response status. A relationship set that a chan
 
 <span class="rdm-status rdm-4xx">Status 409</span>
 
-The targets of a mapping source changed since the client read them. `details.mappingVersion` is the current version. `GET /api/v1/workspaces/{workspaceKey}/mapping-targets` raises it when `mappingVersion` is stale; `PUT /api/v1/workspaces/{workspaceKey}/mappings` also adds `targetCount` and the first `targets`. Read the targets again and repeat the change on the current version.
+`GET /api/v1/workspaces/{workspaceKey}/mapping-targets` raises it when the `mappingVersion` sent is stale: the targets of the mapping source changed since the client read them, and `details.mappingVersion` is the current version. It is a refused read, not a stale write (a stale `PUT .../mappings` is `VERSION_CONFLICT`). Read the coverage again for the current version and read the targets again.
 
 ### MAPPING_VIEW_BINDING_MISMATCH
 
@@ -1611,12 +1599,6 @@ No installed model release has the ID the request names. Releases are listed by 
 <span class="rdm-status rdm-4xx">Status 409</span>
 
 The request chooses a release that has been retired, and a retired release cannot be chosen for a new workspace, a change set, an activation or the target of a migration (a migration confirmed after the release was retired is refused the same way and changes nothing). `details` names the `releaseId` and the `operation`. Choose a release that is not retired.
-
-### MODEL_RELEASE_VERSION_CONFLICT
-
-<span class="rdm-status rdm-4xx">Status 409</span>
-
-`PATCH` or `DELETE /api/v1/model-releases/{release_id}` carried an `expectedStatusVersion` that is no longer the release's `statusVersion`: someone retired or restored it meanwhile. `details` holds `releaseId`, `status` and `currentStatusVersion`. Read the release, check that the change is still wanted, and send it again with the current version.
 
 ### MODEL_REPLACED
 
@@ -2724,7 +2706,9 @@ The request claims a version (`expectedVersion`) that is no longer the current o
 
 Publishing a change set (`POST /api/v1/change-sets/{change_set_id}/publication`, or an approving decision) answers it with `details.conflicts` when live data changed under a record or relationship the change set also changed, or collides with what it adds: each conflict has `kind` (`object`, `relation` or `mapping-set`), `id` and a `code` (`VERSION_MISMATCH`, `ID_COLLISION`, `DUPLICATE_EDGE` or `MAPPING_SET_CHANGED`), with the versions or counts compared; at most 20 conflicts of each `code` are listed, and `details.conflictsLeftOut` (present only then) counts the ones left out by code, so a change set with many conflicts answers in a bounded body; `mappingSetConflictCount` counts all the mapping-set conflicts. Nothing is published. Start a new change set from the live data and make the change again.
 
-A model draft answers it with `details.expectedVersion` and `details.actualVersion`. The operations, undo and redo of a draft also put in `details.operations` the history entries applied since the version you sent (at most 100, with `details.more` set when there are more), so a client can see what changed and decide whether its own step still applies. Read the draft again and send the step with its current version.
+Every stale write answers it with `details.currentVersion`, the current version: a record, relationship, user, client, group, role, workspace, subscription, mail setting, source file, import profile, AI task, model draft or mapping. A model release answers it when `expectedStatusVersion` is stale, with `details.releaseId`, `status` and `currentStatusVersion` (the release's status counter, which `currentVersion` repeats). Replacing the targets of a mapping source answers it with `details.targetCount`, the first `targets` and `targetsNextCursor`, so the current targets are in hand.
+
+A model draft answers it with `details.expectedVersion` and `details.actualVersion` besides. The operations, undo and redo of a draft also put in `details.operations` the history entries applied since the version you sent (at most 100, with `details.more` set when there are more), so a client can see what changed and decide whether its own step still applies. Read the draft again and send the step with its current version.
 
 ### VERSION_MISMATCH
 

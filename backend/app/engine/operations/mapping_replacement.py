@@ -12,7 +12,7 @@ from typing import Any, Literal
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, version_conflict
 from ...models.commands import MappingReplacementRequest
 from ...models.database import Workspace
 from ...models.schema import EngineModel
@@ -45,19 +45,20 @@ class MappingReplaced:
 
 
 class MappingVersionConflict(ApiError):
-    """``409 mapping_version_conflict`` with the first targets the source holds now.
+    """``409 VERSION_CONFLICT`` with the first targets the source holds now.
 
     When it holds more than a preview, ``continuation`` names the set, and the API tier adds the
     first page of the set's targets as the mapping grid shows them.
     """
 
     def __init__(self, details: dict[str, Any], continuation: MappingConflictSet | None) -> None:
-        super().__init__(
-            409,
-            "MAPPING_VERSION_CONFLICT",
-            "Mapping version has changed; refresh mapping coverage before retrying",
-            details,
+        refusal = version_conflict(
+            details["currentVersion"],
+            "Mapping",
+            message="Mapping version has changed; refresh mapping coverage before retrying",
+            details=details,
         )
+        super().__init__(refusal.status, refusal.code, refusal.message, refusal.details)
         self.continuation = continuation
 
 
@@ -311,7 +312,7 @@ def _raise_conflict(
     )
     raise MappingVersionConflict(
         {
-            "mappingVersion": actual_version,
+            "currentVersion": actual_version,
             "targetCount": count,
             "targets": targets,
             "targetsNextCursor": None,

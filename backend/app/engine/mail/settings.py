@@ -12,7 +12,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ...common.sealing import seal, unseal
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, version_conflict
 from ...models.commands import DEFAULT_AUTHORITY_URL, DEFAULT_GRAPH_URL, MailSettingsUpdate
 from ...models.database import MailSettings
 from ..identity import security_events
@@ -107,18 +107,14 @@ def uses_default_address(row: MailSettings | None) -> bool:
     return row is None or not row.application_url
 
 
-def _stale(current: int) -> ApiError:
-    return api_error(
-        409, "VERSION_CONFLICT", "The mail settings have changed", {"currentVersion": current}
-    )
-
-
 def save(session: Session, identity: IdentitySettings, payload: MailSettingsUpdate) -> MailSettings:
     """Create or replace the settings; commits. Saving one method clears the other's fields."""
     row = load(session, for_update=True)
     if (row.version if row else None) != payload.expectedVersion:
         session.rollback()
-        raise _stale(row.version if row else 0)
+        raise version_conflict(
+            row.version if row else 0, "", message="The mail settings have changed"
+        )
     try:
         plain, sealed, sent = (
             _smtp_fields(identity, row, payload)

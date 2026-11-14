@@ -95,9 +95,7 @@ describe("deleting an import profile and its file (0.13 ED)", () => {
 
   it("reads the profile again after a stale-version refusal, says it changed, and the next delete uses the new version", async () => {
     vi.mocked(api.deleteImportProfile)
-      .mockRejectedValueOnce(
-        new ApiError(409, "IMPORT_PROFILE_VERSION_CONFLICT", "Import profile 'shelves' is at version 5, not 4"),
-      )
+      .mockRejectedValueOnce(new ApiError(409, "VERSION_CONFLICT", "Import profile 'shelves' is at version 5, not 4"))
       .mockResolvedValueOnce(undefined);
     const onNavigate = renderPage();
     await chooseFromMenu("Delete the profile…");

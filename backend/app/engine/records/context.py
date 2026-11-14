@@ -22,6 +22,7 @@ from typing import Any
 from sqlalchemy import Row, or_, select, union_all
 from sqlalchemy.orm import Session
 
+from ...common.chunks import chunks
 from ...errors import api_error
 from ...models.database import AttributeValue, ObjectRelation, RdmObject, SnapshotAttributeValue
 from ...models.schema import CandidateCriterion, EngineModel
@@ -61,9 +62,6 @@ def load_active_projection(
     return load_object(session, object_id, object_type_key)
 
 
-# Bounds the IDs bound into one statement.
-_CHUNK = 500
-
 
 def _candidates_meeting(
     session: Session,
@@ -82,14 +80,9 @@ def _candidates_meeting(
         model, object_type, criteria, workspace_key=workspace_key, context=context
     ).subquery("meeting")
     found: set[str] = set()
-    for chunk in _chunks(ids):
+    for chunk in chunks(ids):
         found.update(session.scalars(select(matching.c.id).where(matching.c.id.in_(chunk))))
     return found
-
-
-def _chunks(ids: Sequence[Any]) -> Iterable[list[Any]]:
-    for start in range(0, len(ids), _CHUNK):
-        yield list(ids[start : start + _CHUNK])
 
 
 class Ancestors:
@@ -167,7 +160,7 @@ class LiveLookup(Ancestors):
     def objects(self, object_ids: Iterable[str]) -> dict[str, RdmObject]:
         ids = [item for item in dict.fromkeys(object_ids) if item]
         found: dict[str, RdmObject] = {}
-        for chunk in _chunks(ids):
+        for chunk in chunks(ids):
             found.update(
                 (row.id, row)
                 for row in self.session.scalars(select(RdmObject).where(RdmObject.id.in_(chunk)))
@@ -184,7 +177,7 @@ class LiveLookup(Ancestors):
         ``object_ids``, once each, in relation-ID order."""
         ids = list(dict.fromkeys(object_ids))
         rows: dict[str, ObjectRelation] = {}
-        for chunk in _chunks(ids):
+        for chunk in chunks(ids):
             ends = []
             if direction in {"outgoing", "both"}:
                 ends.append(ObjectRelation.from_object_id.in_(chunk))
@@ -202,7 +195,7 @@ class LiveLookup(Ancestors):
     def relations_by_id(self, relation_ids: Iterable[str]) -> dict[str, ObjectRelation]:
         """Relations of the workspace by ID: both their ends are the workspace's records."""
         found: dict[str, ObjectRelation] = {}
-        for chunk in _chunks(list(dict.fromkeys(relation_ids))):
+        for chunk in chunks(list(dict.fromkeys(relation_ids))):
             found.update(
                 (row.id, row)
                 for row in self.session.scalars(
@@ -237,7 +230,7 @@ class LiveLookup(Ancestors):
         order."""
         types = sorted(object_type_keys) if object_type_keys is not None else None
         rows: list[RdmObject] = []
-        for chunk in _chunks(list(dict.fromkeys(parent_ids))):
+        for chunk in chunks(list(dict.fromkeys(parent_ids))):
             statement = select(RdmObject).where(RdmObject.parent_object_id.in_(chunk))
             if types is not None:
                 statement = statement.where(RdmObject.object_type_key.in_(types))
@@ -265,7 +258,7 @@ class LiveLookup(Ancestors):
         typed column: each as the value in its JSON form and the record's ID."""
         column = getattr(AttributeValue, VALUE_COLUMNS[value_type])
         found: list[tuple[Any, str]] = []
-        for chunk in _chunks(list(values)):
+        for chunk in chunks(list(values)):
             found.extend(
                 (stored_json_value(value), object_id)
                 for object_id, value in self.session.execute(
@@ -327,7 +320,7 @@ class ChangeSetLookup(Ancestors):
     def objects(self, object_ids: Iterable[str]) -> dict[str, Row]:
         ids = [item for item in dict.fromkeys(object_ids) if item]
         found: dict[str, Row] = {}
-        for chunk in _chunks(ids):
+        for chunk in chunks(ids):
             found.update(find_objects(self.session, self.context, chunk))
         return found
 
@@ -336,7 +329,7 @@ class ChangeSetLookup(Ancestors):
 
     def relations_by_id(self, relation_ids: Iterable[str]) -> dict[str, Row]:
         found: dict[str, Row] = {}
-        for chunk in _chunks(list(dict.fromkeys(relation_ids))):
+        for chunk in chunks(list(dict.fromkeys(relation_ids))):
             projection = relation_projection(self.context, relation_ids=chunk)
             found.update((row.relation_id, row) for row in self.session.execute(select(projection)))
         return found
@@ -347,7 +340,7 @@ class ChangeSetLookup(Ancestors):
         """The records directly under any of ``parent_ids`` (of ``object_type_keys``), in ID
         order."""
         rows: list[Row] = []
-        for chunk in _chunks(list(dict.fromkeys(parent_ids))):
+        for chunk in chunks(list(dict.fromkeys(parent_ids))):
             projection = object_projection(
                 self.context, parent_object_ids=chunk, object_type_keys=object_type_keys
             )
@@ -366,7 +359,7 @@ class ChangeSetLookup(Ancestors):
         rows: dict[str, Row] = {}
         # A chunk's "both" arms exclude relations between its own records only; keying by ID
         # removes a relation that joins records of two chunks.
-        for chunk in _chunks(ids):
+        for chunk in chunks(ids):
             projection = relation_projection(
                 self.context,
                 direction=direction,
@@ -413,7 +406,7 @@ class ChangeSetLookup(Ancestors):
             else:
                 typed.append(converted)
         candidates: list[tuple[str, str, Any]] = []
-        for chunk in _chunks(typed):
+        for chunk in chunks(typed):
             column = getattr(index, column_name)
             # One arm per owner naming its kind, so a value other than text seeks the partial
             # index of that kind: a change set's or base's (0.11 Q2, D187), a publication's (C6a).

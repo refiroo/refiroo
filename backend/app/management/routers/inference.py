@@ -31,7 +31,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import diagnostic_details
 from ..schemas.model import ModelDraftStepResponse
 from ..schemas.sources import (
@@ -97,7 +97,7 @@ def list_proposals(
     paging: PageQuery,
     sheet: str | None = Query(default=None, description="The proposals of one sheet"),
     column: str | None = Query(default=None, description="The proposals naming one column's header"),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> ProposalPage:
     """The latest inference's proposals in the order they apply (``409 INFERENCE_NOT_READY`` while
     it runs)."""

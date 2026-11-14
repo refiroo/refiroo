@@ -620,9 +620,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # prose in it): the capped conflict lists of a refused publication (`conflictsLeftOut`,
     # `DIAGNOSTICS_LEFT_OUT`), the resolve body limit, `DUPLICATE_EDGE` in a migration preview; and
     # `GET /ai/status` gains `assistantNetwork` and `assistantNetworkNote` (SR-D6).
+    # Re-baselined for the CI fix after FX2: the `GET /ai/status` description and a model-draft operations 403 line shortened to the reference shape (descriptions only).
+    # Re-baselined for SR3 (SR-D4; descriptions and error examples only, no path or schema changed): the
+    # stale-write codes `AI_TASK_VERSION_CONFLICT`, `IMPORT_PROFILE_VERSION_CONFLICT`,
+    # `MODEL_RELEASE_VERSION_CONFLICT` and the mapping replacement's `MAPPING_VERSION_CONFLICT` become
+    # `VERSION_CONFLICT` (their reference entries go; the read's `MAPPING_VERSION_CONFLICT` stays), and
+    # `VERSION_CONFLICT` states `details.currentVersion` for each.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "91c94cc295036741a412970cbe6434024d8b913512f2a238b4e0544a5fd01d3f"
+        "111d3d4b43bc1bc9ebc54fa496eb15bf9f87b273878030b97b311c4fae59a4fa"
     )
 
 

@@ -6,7 +6,10 @@ engine stores, so rows written before and after it are the same bytes
 """
 
 import dataclasses
+import hashlib
+import json
 from collections import deque
+from collections.abc import Callable
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
@@ -58,3 +61,22 @@ def to_jsonable(value: Any) -> Any:
     except (TypeError, ValueError):
         data = vars(value)
     return to_jsonable(data)
+
+
+def canonical_json(
+    value: Any, *, ensure_ascii: bool = True, default: Callable[[Any], Any] | None = None
+) -> str:
+    """The one canonical text of a value: sorted keys, no spaces.
+
+    ``ensure_ascii`` and ``default`` are passed through to ``json.dumps``; a caller whose stored
+    digest was made with other settings passes them, so the text and its hash stay the same.
+    """
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=ensure_ascii, default=default
+    )
+
+
+def sha256_hex(text: str, length: int | None = None) -> str:
+    """The SHA-256 of ``text`` (UTF-8) as hex, cut to ``length`` characters when given."""
+    digest = hashlib.sha256(text.encode()).hexdigest()
+    return digest if length is None else digest[:length]

@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
+from openpyxl.utils import get_column_letter
+
 # Excel holds a number exactly up to 15 significant digits; a value beyond is written as text.
 EXCEL_DIGITS = 15
 # A sheet holds 1,048,576 rows: a label row, the table's header and the rest for data.
@@ -130,20 +132,12 @@ def _digits(value: str) -> int:
     return len((whole + fraction).strip("0"))
 
 
-def column(index: int) -> str:
-    """The letter of the 1-based column ``index``: 1 is A, 27 is AA."""
-    letters = ""
-    while index:
-        index, rest = divmod(index - 1, 26)
-        letters = chr(65 + rest) + letters
-    return letters
-
-
 @dataclass
 class Sheet:
     """One data sheet's table: its keys and labels, how many rows it holds, the rows, how a row
     becomes its cells' XML at a row number (with :func:`cell` and friends), and its dropdown lists
-    as (column letter, list range)."""
+    as (column letter, list range). ``keys`` always holds ``id`` (the one writer indexes it), so a
+    sheet has at least one column."""
 
     title: str
     table: str
@@ -355,7 +349,7 @@ class Workbook:
             title,
             (
                 "".join(
-                    text_cell(f"{column(index)}{number}", value)
+                    text_cell(f"{get_column_letter(index)}{number}", value)
                     for index, value in enumerate(row, 1)
                 )
                 for number, row in enumerate(rows, 1)
@@ -368,7 +362,7 @@ class Workbook:
         height = max((len(values) for values in columns), default=0)
         rows = (
             "".join(
-                text_cell(f"{column(index)}{number}", values[number - 1])
+                text_cell(f"{get_column_letter(index)}{number}", values[number - 1])
                 for index, values in enumerate(columns, 1)
                 if number <= len(values)
             )
@@ -434,9 +428,9 @@ class Workbook:
         self._zip.close()
 
     def _data_page(self, title: str, table: str, sheet: Sheet, count: int, rows: Iterator) -> None:
-        last_column = column(len(sheet.keys))
+        last_column = get_column_letter(len(sheet.keys))
         last_row = 2 + max(count, 1)
-        letters = [column(index) for index in range(1, len(sheet.keys) + 1)]
+        letters = [get_column_letter(index) for index in range(1, len(sheet.keys) + 1)]
         head = [
             "".join(
                 text_cell(f"{letter}1", label)
@@ -474,11 +468,11 @@ class Workbook:
         # A table's name is the workbook's alone: a later page (rows past a sheet's last) is no table
         # and takes the filter instead.
         table = sheet.table if first_page else None
-        letters = [column(index) for index in range(1, len(sheet.labels) + 1)]
+        letters = [get_column_letter(index) for index in range(1, len(sheet.labels) + 1)]
         header_row = 2 if sheet.groups else 1
         last_row = header_row + max(count, 1)
         merges = [
-            f"{column(first)}1:{column(last)}1"
+            f"{get_column_letter(first)}1:{get_column_letter(last)}1"
             for first, last, _, _ in sheet.groups
             if last > first
         ]
@@ -494,9 +488,9 @@ class Workbook:
         def group_row(item: PlainSheet) -> str:
             cells: dict[int, str] = {}
             for first, last, label, style in item.groups:
-                cells[first] = text_cell(f"{column(first)}1", label, style)
+                cells[first] = text_cell(f"{get_column_letter(first)}1", label, style)
                 for index in range(first + 1, last + 1):
-                    cells[index] = text_cell(f"{column(index)}1", None, style)
+                    cells[index] = text_cell(f"{get_column_letter(index)}1", None, style)
             return "".join(cells[index] for index in sorted(cells))
 
         header = "".join(
@@ -565,7 +559,7 @@ class Workbook:
         if frozen_columns:
             view = (
                 f'<sheetViews><sheetView workbookViewId="0"><pane xSplit="{frozen_columns}" '
-                f'ySplit="{frozen}" topLeftCell="{column(frozen_columns + 1)}{frozen + 1}" '
+                f'ySplit="{frozen}" topLeftCell="{get_column_letter(frozen_columns + 1)}{frozen + 1}" '
                 'activePane="bottomRight" state="frozen"/></sheetView></sheetViews>'
             )
         elif frozen:

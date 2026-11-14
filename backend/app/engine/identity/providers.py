@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...common.sealing import seal, unseal
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, require_version
 from ...models.commands import LocalSignInUpdate, SignInProviderCreate, SignInProviderUpdate
 from ...models.database import LocalSignIn, SignInProvider, User, UserIdentity, UserSession
 from . import provider_client, security_events
@@ -68,12 +68,6 @@ def _changing[T](session: Session, change: Callable[[], T]) -> T:
 
 def _key_taken() -> ApiError:
     return api_error(409, "SIGN_IN_PROVIDER_KEY_TAKEN", "Another sign-in provider has this key")
-
-
-def _stale(what: str, current: int) -> ApiError:
-    return api_error(
-        409, "VERSION_CONFLICT", f"{what} version has changed", {"currentVersion": current}
-    )
 
 
 def load_provider(session: Session, key: str, *, for_update: bool = False) -> SignInProvider:
@@ -228,8 +222,7 @@ def update_provider(
 
     def change() -> SignInProvider:
         provider = load_provider(session, key, for_update=True)
-        if provider.version != payload.expectedVersion:
-            raise _stale("Sign-in provider", provider.version)
+        require_version(provider, payload.expectedVersion, "Sign-in provider")
         now = datetime.now(UTC)
         if issuer != provider.issuer and session.scalar(
             select(exists().where(UserIdentity.provider_id == provider.id))
@@ -327,8 +320,7 @@ def kept_people(session: Session) -> int:
 def set_local(session: Session, payload: LocalSignInUpdate) -> LocalSignIn:
     def change() -> LocalSignIn:
         state = local_state(session, for_update=True)
-        if state.version != payload.expectedVersion:
-            raise _stale("Local sign-in", state.version)
+        require_version(state, payload.expectedVersion, "Local sign-in")
         changed: list[str] = []
         if payload.enabled is not None and state.enabled and not payload.enabled:
             working = session.scalar(

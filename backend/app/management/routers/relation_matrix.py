@@ -13,7 +13,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import DbSession
-from ..paging import PageQuery, SeekablePageQuery
+from ..paging import PageQuery, PageSize, SeekablePageQuery
 from ..projections.relation_matrix import (
     matrix_containers,
     matrix_link_candidates,
@@ -75,7 +75,7 @@ def get_relation_matrix(
         default=None,
         description="Only rows with a cell in this state in any of columnIds, across every row",
     ),
-    page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
+    page_size: int | None = PageSize(None, 100),
     hide_empty_columns: bool = Query(
         default=False,
         alias="hideEmptyColumns",
@@ -120,7 +120,7 @@ def get_relation_matrix_containers(
     column_id: str = Query(alias="columnId", description="The column record of the cell"),
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
     search: str | None = Query(default=None, max_length=500, description="Matches the name"),
-    page_size: int = Query(default=50, ge=1, le=100, alias="pageSize"),
+    page_size: int = PageSize(50, 100),
 ) -> RelationMatrixContainerPage:
     read = open_matrix_read(session, workspace_key, application_key, view_key, change_set_id, None)
     return matrix_containers(
@@ -140,7 +140,7 @@ def get_relation_matrix_link_candidates(
     column_id: str = Query(alias="columnId", description="The column record of the cell"),
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
     search: str | None = Query(default=None, max_length=500, description="Matches the name"),
-    page_size: int = Query(default=50, ge=1, le=100, alias="pageSize"),
+    page_size: int = PageSize(50, 100),
 ) -> RelationMatrixLinkCandidatePage:
     read = open_matrix_read(session, workspace_key, application_key, view_key, change_set_id, None)
     return matrix_link_candidates(

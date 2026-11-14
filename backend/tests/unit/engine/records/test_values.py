@@ -4,11 +4,19 @@ from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from random import Random
 
-from sqlalchemy import Numeric, func, select
+from sqlalchemy import JSON, Numeric, func, select
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
 from app.db import get_engine
-from app.engine.records.values import VALUE_COLUMNS, canonical_decimal, stored_json_value
+from app.engine.records.values import (
+    TYPED_VALUE_COLUMNS,
+    VALUE_COLUMNS,
+    canonical_decimal,
+    stored_json_value,
+    value_json,
+    value_json_sql,
+)
 from app.models.database import AttributeValue, RdmObject
 
 
@@ -138,3 +146,18 @@ def test_conversion_classes_hold_to_the_database_function(seeded):
                 found = "always" if all(converted) else "never" if not any(converted) else "partial"
                 assert found == expected, (source, target, converted)
     assert conversion("text", "colour") == "never"
+
+
+def test_value_json_forms_are_one_expression():
+    """The typed, lateral-column and raw-SQL forms read the same eight columns in one order."""
+    typed = select(value_json(AttributeValue, type_=JSON)).compile(dialect=postgresql.dialect())
+    untyped = select(value_json(AttributeValue)).compile(dialect=postgresql.dialect())
+    assert str(typed) == str(untyped)
+    columns = [f"attribute_values.{name}" for name in ("value_type", *TYPED_VALUE_COLUMNS)]
+    assert str(typed).startswith(f"SELECT rdm_value_json({', '.join(columns)}) AS rdm_value_json_1")
+    over_table = select(value_json(AttributeValue.__table__)).compile(dialect=postgresql.dialect())
+    assert str(over_table) == str(typed)
+    assert value_json_sql("a") == (
+        "rdm_value_json(a.value_type, a.text_value, a.integer_value, a.decimal_value, "
+        "a.boolean_value, a.date_value, a.datetime_value, a.json_value)"
+    )

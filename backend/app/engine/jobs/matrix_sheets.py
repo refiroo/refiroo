@@ -28,8 +28,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from openpyxl.utils import get_column_letter
 from psycopg import sql
-from sqlalchemy import column, func, insert, literal, select, table, text
+from sqlalchemy import column, insert, select, table, text
 from sqlalchemy.orm import Session
 
 from ...models.schema import EngineModel, RelationMatrixViewDefinition
@@ -54,8 +55,13 @@ from .people import (
     ViewWritten,
     build_object,
     field_sql,
+    insert_columns,
     invalid_layout,
+    named_columns,
+    relation_set_version_sql,
     separator_safe,
+    sheet_value_type,
+    yes_no_list,
 )
 
 # A matrix's columns in the order shown, each cell record with the row and column it sits in, each
@@ -167,22 +173,9 @@ class MatrixSheets:
         a sheet."""
         state, config = self.view.state, self.config
         source = record_source(workspace_key, context, [config.columnObjectTypeKey])
-        named = list(state.columnIds or [])
-        # Only the named columns are read back; the whole set is counted in the database.
-        found = (
-            set(session.scalars(select(source.c.object_id).where(source.c.object_id.in_(named))))
-            if named
-            else set()
+        count = named_columns(
+            session, source, list(state.columnIds or []), config.columnObjectTypeKey
         )
-        for index, key in enumerate(named):
-            if key not in found:
-                raise invalid_layout(
-                    f"'{key}' is no '{config.columnObjectTypeKey}' record of the exported context",
-                    f"/view/state/columnIds/{index}",
-                )
-        if len(set(named)) != len(named):
-            raise invalid_layout("Each column is named once", "/view/state/columnIds")
-        count = len(named) or session.scalar(select(func.count()).select_from(source)) or 0
         if self.links and count > xlsx.VALUE_SHEETS:
             raise invalid_layout(
                 f"A link matrix keeps the records each column may link on a sheet of its own, so"
@@ -228,17 +221,10 @@ class MatrixSheets:
         config, state = self.config, self.view.state
         read = self._read(session, workspace_key, snapshot)
         source = record_source(workspace_key, context, [config.columnObjectTypeKey])
+        shown_columns = select(source.c.object_id, source.c.name)
         if state.columnIds:
-            ids = list(state.columnIds)
-            statement = select(
-                func.array_position(literal(ids), source.c.object_id), source.c.object_id
-            ).where(source.c.object_id.in_(ids))
-        else:
-            statement = select(
-                func.row_number().over(order_by=(source.c.name, source.c.object_id)),
-                source.c.object_id,
-            )
-        session.execute(insert(_COLUMNS).from_select(["pos", "column_id"], statement))
+            shown_columns = shown_columns.where(source.c.object_id.in_(list(state.columnIds)))
+        insert_columns(session, _COLUMNS, shown_columns, list(state.columnIds or []))
         session.execute(text("ANALYZE export_matrix_columns"))
         cells = cell_columns(read, cell_records(read, None, rows_of_type=True))
         rows = select(column("object_id")).select_from(text("export_records"))
@@ -325,7 +311,7 @@ class MatrixSheets:
             value_type = "text"
             style = 0
             if attribute is not None:
-                value_type = "yesno" if attribute.valueType == "boolean" else attribute.valueType
+                value_type = sheet_value_type(attribute.valueType)
                 style = writer.date if attribute.valueType == "date" else 0
             cells.append(
                 CellSpec(
@@ -372,9 +358,7 @@ class MatrixSheets:
                         f"tbl_values_{number}[{_column_reference(chosen.label)}]",
                     )
                     lists[found.id] = f"values_{number}"
-        cell_application = next(
-            (item.key for item in model.applications if cell_type.key in item.objectTypeKeys), ""
-        )
+        cell_application = model.application_of_type(cell_type.key)
         self._grid(writer, fields)
         for number, found in enumerate(self.columns):
             hue = HUES[number % len(HUES)]
@@ -385,7 +369,7 @@ class MatrixSheets:
             if self.links:
                 label = f"{found.group} · linked {cell_type.pluralName.lower()}"
                 label = labels.take(label)
-                letter = xlsx.column(len(cells) + 1)
+                letter = get_column_letter(len(cells) + 1)
                 cells.append(
                     CellSpec(
                         label,
@@ -406,7 +390,7 @@ class MatrixSheets:
                 attribute = None if key == "name" else model.attribute_type(key)
                 label = "Name" if attribute is None else attribute.name
                 shown = label if editable else f"{label} {SUMMARY}"
-                letter = xlsx.column(len(cells) + 1)
+                letter = get_column_letter(len(cells) + 1)
                 cells.append(
                     CellSpec(
                         shown,
@@ -416,7 +400,7 @@ class MatrixSheets:
                         value_type,
                         style=writer.date if value_type == "date" else body,
                         header=fill,
-                        list_='"Yes,No"' if value_type == "yesno" else None,
+                        list_=yes_no_list(value_type),
                     )
                 )
                 if editable and (self.creates or "edit" in config.cellActions):
@@ -469,9 +453,7 @@ class MatrixSheets:
                 "headerRow": 2,
                 "applicationKey": writer.application_of(
                     row_type.key,
-                    next(
-                        (a.key for a in model.applications if row_type.key in a.objectTypeKeys), ""
-                    ),
+                    model.application_of_type(row_type.key),
                 ),
                 "objectTypeKey": row_type.key,
                 "record": "existing",
@@ -523,7 +505,7 @@ class MatrixSheets:
             attribute = self.model.attribute_type(key)
             if attribute is None:
                 continue
-            value_type = "yesno" if attribute.valueType == "boolean" else attribute.valueType
+            value_type = sheet_value_type(attribute.valueType)
             binding = bound.get(key)
             found.append((key, value_type, binding is not None and not binding.readOnly))
         return found
@@ -613,19 +595,13 @@ class MatrixSheets:
         )
         return CellSpec(
             label,
-            sql.SQL(
-                "coalesce((SELECT v.version FROM relation_set_versions v"
-                " WHERE v.workspace_key = {ws} AND v.change_set_id IS NOT DISTINCT FROM {cs}"
-                " AND v.relation_type_key = {rel} AND v.from_object_type_key = {source}"
-                " AND v.to_object_type_key = {target} AND v.direction = {direction}"
-                " AND v.anchor_object_id = r.object_id), 0)"
-            ).format(
-                ws=sql.Literal(writer.workspace_key),
-                cs=sql.Literal(self.change_set_id),
-                rel=sql.Literal(config.relationTypeKey),
-                source=sql.Literal(from_key),
-                target=sql.Literal(to_key),
-                direction=sql.Literal(config.direction),
+            relation_set_version_sql(
+                writer.workspace_key,
+                self.change_set_id,
+                config.relationTypeKey,
+                from_key,
+                to_key,
+                config.direction,
             ),
             "number",
             hidden=True,
@@ -690,7 +666,7 @@ class MatrixSheets:
         own = next((item for item in applications if item.key == self.view.application_key), None)
         if own is not None and cell_type_key in own.objectTypeKeys:
             return own.key
-        return next((item.key for item in applications if cell_type_key in item.objectTypeKeys), "")
+        return self.model.application_of_type(cell_type_key)
 
     def _value_fields(self, writer: SheetWriter) -> list[_ValueField]:
         """The columns of every value sheet: the name, then each attribute the cell type binds (a JSON
@@ -705,7 +681,7 @@ class MatrixSheets:
             attribute = model.attribute_type(binding.attributeTypeKey)
             if attribute is None or attribute.valueType == "json":
                 continue
-            value_type = "yesno" if attribute.valueType == "boolean" else attribute.valueType
+            value_type = sheet_value_type(attribute.valueType)
             label = attribute.name if not binding.readOnly else f"{attribute.name} {SUMMARY}"
             found.append(
                 _ValueField(
@@ -744,7 +720,7 @@ class MatrixSheets:
                 item.value_type,
                 style=writer.date if item.value_type == "date" else writer.fill(cell_type.key),
                 header=header,
-                list_='"Yes,No"' if item.value_type == "yesno" else None,
+                list_=yes_no_list(item.value_type),
             )
             for item in fields
         ]

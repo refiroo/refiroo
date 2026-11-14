@@ -19,7 +19,7 @@ from ..access import (
 )
 from ..ai import ai_requested
 from ..dependencies import DbSession
-from ..paging import PageQuery, SeekablePageQuery
+from ..paging import PageQuery, PageSize, SeekablePageQuery
 from ..presenters import job_responses
 from ..projections.mapping import (
     MappingRead,
@@ -106,7 +106,7 @@ def mapping_coverage(
         description="Only sources with a target the AI proposed and nobody has changed since "
         "(needs changeSetId, else 422 MAPPING_PROPOSED_NEEDS_CHANGE_SET)",
     ),
-    page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
+    page_size: int | None = PageSize(None, 100),
 ) -> MappingCoveragePage:
     return coverage(read, search, paging, page_size, parent_object_id, state, proposed)
 
@@ -142,7 +142,7 @@ def edge_list_query(
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
     publication_id: str | None = Query(default=None, alias="publicationId"),
     search: str | None = Query(default=None, max_length=500),
-    page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
+    page_size: int | None = PageSize(None, 100),
     from_object_id: str | None = Query(
         default=None, alias="fromObjectId", description="Only relationships from this record"
     ),
@@ -309,7 +309,7 @@ def get_relation_grid(
         description="One of the view's sortFields, '-' for descending; only from:<field> orders"
         " the rows, any other falls back to the record's name. The view's defaultSort when omitted",
     ),
-    page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
+    page_size: int | None = PageSize(None, 100),
 ) -> RelationGridPage:
     """A relationships table as a grid (layout ``grid``, 0.13 RG): each record of the view's
     ``from`` type once, linked or not, with its relationships to the shown ``to`` records, and
@@ -348,7 +348,7 @@ def mapping_candidates(
     paging: PageQuery,
     object_type_key: str = Query(alias="objectTypeKey"),
     search: str | None = Query(default=None, max_length=500),
-    page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
+    page_size: int | None = PageSize(None, 100),
 ) -> MappingCandidatePage:
     return candidates(read, object_type_key, search, paging, page_size)
 
@@ -406,7 +406,7 @@ def mapping_targets(
     paging: PageQuery,
     source_object_id: str = Query(alias="sourceObjectId"),
     mapping_version: int = Query(ge=0, alias="mappingVersion"),
-    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
+    page_size: int = PageSize(20, 100),
 ) -> MappingTargetPage:
     return target_details(read, source_object_id, mapping_version, paging, page_size)
 

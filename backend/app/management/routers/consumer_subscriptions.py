@@ -41,7 +41,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import delivery_detail_response, delivery_page, subscription_response
 from ..presenters import subscription_page as present_page
 from ..schemas.consumer_subscriptions import (
@@ -98,7 +98,7 @@ def list_subscriptions(
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     status: Literal["active", "suspended"] | None = None,
     owner_id: str | None = Query(default=None, alias="ownerId"),
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> SubscriptionPage:
     """Subscriptions, newest first: those in workspaces where the caller holds Integration
     administration; ``ownerId`` those a person or client created."""
@@ -191,7 +191,7 @@ def list_deliveries(
     session: DbSession,
     paging: PageQuery,
     status: Literal["queued", "sending", "retrying", "succeeded", "failed", "dropped"] | None = None,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> DeliveryPage:
     """What the subscription delivered or is delivering, newest first: one row per event of a
     per-change request and one per notice of a coalesced one (U5a). Rows of one request share its

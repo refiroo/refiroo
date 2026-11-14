@@ -113,15 +113,21 @@ from ..tasks import agent as session_files
 from ..tasks import design_job
 from ..tasks import job as ai_task
 from ..tasks import store as task_store
-from .background import open_job_context
-from .batches import BatchContext, JobCancelled, run_items
-from .exports import ExportCancelled, ExportControl, ExportOutcome, run_export
+from .background import CANCELLABLE, open_job_context
+from .batches import BatchContext, run_items
+from .exports import ExportControl, ExportOutcome, run_export
 from .files import JobFiles
+from .kinds import (
+    BATCH_KINDS,
+    JOB_KINDS,
+    KINDS,
+    ROW_KINDS,
+    STAGED_KINDS,
+)
 from .preview import preview_items, record_preview
 from .store import (
     FINISHED,
-    PREVIEWED_KINDS,
-    ROW_KINDS,
+    JobCancelled,
     LeaseLost,
     complete_job,
     expire_jobs,
@@ -149,24 +155,7 @@ EXPORT_FINISH_ATTEMPTS = 3
 THREAD_NAME = "rdm-job-worker"
 EXPORT_THREAD_NAME = "rdm-export-worker"
 ASSISTANT_THREAD_NAME = "rdm-assistant-worker"
-BATCH_KINDS = (
-    "batch",
-    "import",
-    "profile",
-    "dryRun",
-    "inference",
-    "profileCheck",
-    "migration",
-    "mappingInference",
-    "move",
-    "aiProposal",
-)
-EXPORT_KINDS = ("export",)
-# A session holds its job for as long as it works, and waits on the jobs it queues.
-ASSISTANT_KINDS = ("aiTask",)
 _ITEM = TypeAdapter(BatchItem)
-# The jobs that bind a source file's staged cells rather than a job file (0.10 A3, A5c).
-_STAGED_KINDS = ("dryRun", "profileCheck")
 
 
 @dataclass(frozen=True)
@@ -181,10 +170,6 @@ class WorkerSettings:
     preview_max_items: int = 10_000
     # The proposal provider and its policy (AI_*; 0.16 AP1).
     ai: AiConfiguration | None = None
-
-
-# Another worker holds the job now; this chunk must not commit.
-_LeaseLost = LeaseLost
 
 
 class _Heartbeat:
@@ -312,7 +297,7 @@ class JobWorker:
         now = datetime.now(UTC)
         claimable = (
             Job.kind.in_(self.kinds),
-            Job.state.in_(("queued", "running")),
+            Job.state.in_(CANCELLABLE),
             or_(
                 Job.lease_owner.is_(None),
                 Job.lease_owner == self.owner,
@@ -327,7 +312,7 @@ class JobWorker:
                 self._leased_elsewhere_until = session.scalar(
                     select(func.min(Job.lease_expires_at)).where(
                         Job.kind.in_(self.kinds),
-                        Job.state.in_(("queued", "running")),
+                        Job.state.in_(CANCELLABLE),
                         Job.lease_owner.is_not(None),
                         Job.lease_owner != self.owner,
                     )
@@ -338,28 +323,7 @@ class JobWorker:
                 .where(Job.sequence_id == sequence_id, *claimable)
                 .values(
                     state="running",
-                    stage=case(
-                        ((Job.kind == "profile"), "profiling"),
-                        ((Job.kind.in_(("inference", "mappingInference"))), "inferring"),
-                        ((Job.kind == "aiProposal") & Job.total.is_(None), "binding"),
-                        ((Job.kind == "aiProposal"), "proposing"),
-                        ((Job.kind == "aiTask"), "reading"),
-                        (Job.kind.in_(ROW_KINDS) & Job.total.is_(None), "binding"),
-                        ((Job.kind == "move") & Job.total.is_(None), "binding"),
-                        (
-                            (Job.kind == "move")
-                            & Job.confirmed_at.is_(None)
-                            & (Job.parameters["stage"].as_string() == "preview"),
-                            "previewing",
-                        ),
-                        (
-                            Job.kind.in_(PREVIEWED_KINDS)
-                            & Job.confirmed_at.is_(None)
-                            & (Job.parameters["stage"].as_string() == "preview"),
-                            "previewing",
-                        ),
-                        else_="applying",
-                    ),
+                    stage=_claim_stage(),
                     started_at=func.coalesce(Job.started_at, now),
                     lease_owner=self.owner,
                     lease_expires_at=now + timedelta(seconds=self.settings.lease_seconds),
@@ -383,7 +347,8 @@ class JobWorker:
                 session.rollback()
                 self._stop(sequence_id, "cancelled", "JOB_CANCELLED", None)
                 return
-            if job.kind == "export":
+            kind = KINDS[job.kind]
+            if kind.worker == "export":
                 session.expunge(job)
                 session.rollback()
                 self._run_export(job)
@@ -391,21 +356,9 @@ class JobWorker:
             try:
                 # Each step as its requester, with their permissions now (0.12 Z2, D294).
                 set_writer(session, job_writer(session, job))
-                if job.kind == "migration":
-                    self._migrate(session, job)
-                elif job.kind == "profile":
-                    self._profile(session, job)
-                elif job.kind == "inference":
-                    self._infer(session, job)
-                elif job.kind == "mappingInference":
-                    self._infer_mapping(session, job)
-                elif job.kind == "aiProposal":
-                    self._propose_targets(session, job)
-                elif job.kind == "aiTask":
-                    self._task(session, job)
-                elif job.kind == "move":
-                    self._move(session, job)
-                elif job.kind in ROW_KINDS and job.total is None:
+                if kind.step is not None:
+                    getattr(self, kind.step)(session, job)
+                elif kind.rows and job.total is None:
                     self._bind(session, job)
                 elif previewing(job):
                     self._preview(session, job)
@@ -414,7 +367,7 @@ class JobWorker:
             except JobCancelled:
                 session.rollback()
                 self._stop(sequence_id, "cancelled", "JOB_CANCELLED", None)
-            except _LeaseLost:
+            except LeaseLost:
                 session.rollback()
             except ApiError as error:
                 session.rollback()
@@ -491,7 +444,8 @@ class JobWorker:
             self._hold_lease(session, job.sequence_id)
 
         def renew() -> None:
-            self._renew_lease(job.sequence_id)
+            # Between a long step's statements: ends the step when another worker holds the job.
+            self._renewed(job.sequence_id)
 
         # A change set's move (0.11 V3) is the same job kind over the change set's rows.
         steps = change_set_migrations if migrations.moves_change_set(job) else migrations
@@ -500,11 +454,6 @@ class JobWorker:
             session.commit()
             return
         steps.execute(session, job, retention_days=retention, hold=hold, renew=renew)
-
-    def _renew_lease(self, sequence_id: int) -> None:
-        """Between a long step's statements (a migration's, 0.11 V1): end the step when another
-        worker holds the job (``LeaseLost``). The heartbeat keeps the lease (D170)."""
-        self._renewed(sequence_id)
 
     def _extend(self, sequence_id: int) -> bool:
         """The heartbeat's renewal, in a short session of its own; ``False`` when another worker
@@ -554,7 +503,7 @@ class JobWorker:
                 atomic_max_items=self.settings.atomic_max_items,
                 background_max_items=self.settings.background_max_items,
             ),
-            book_opener(session, job, files) if job.kind in _STAGED_KINDS else None,
+            book_opener(session, job, files) if job.kind in STAGED_KINDS else None,
         )
         self._hold_lease(session, job.sequence_id)
         record_binding(
@@ -599,7 +548,7 @@ class JobWorker:
             job,
             context,
             # A dry run and a profile's check run the whole file (D67).
-            limit=job.total if job.kind in _STAGED_KINDS else self.settings.preview_max_items,
+            limit=job.total if job.kind in STAGED_KINDS else self.settings.preview_max_items,
             should_stop=self._stop_check(job),
         )
         # What only the loaded state shows is read before the rollback (0.13 AB).
@@ -609,7 +558,7 @@ class JobWorker:
             else None
         )
         session.rollback()
-        self._hold_lease(session, sequence_id, cancellable=job.kind in _STAGED_KINDS)
+        self._hold_lease(session, sequence_id, cancellable=job.kind in STAGED_KINDS)
         job = session.get(Job, sequence_id)
         if dry_run:
             record_dry_run(
@@ -809,21 +758,26 @@ class JobWorker:
         lost lease stops it."""
         return lambda: self._renewed(sequence_id)
 
-    def _renewed(self, sequence_id: int) -> bool:
-        """``True`` when a cancel was requested; raises ``_LeaseLost`` when another worker holds
-        the job. A plain read in a short session: it never waits for the job row, and the
-        heartbeat keeps the lease (D170)."""
+    def _lease(self, session: Session, sequence_id: int, *, lock: bool = False) -> bool:
+        """The one lease check: ``True`` when a cancel was requested; raises ``LeaseLost`` when
+        another worker holds the job. A plain read never waits for the job row (the heartbeat
+        keeps the lease, D170); with ``lock`` the row is locked until the session's transaction
+        ends, for the commit that ends a step."""
         if self._lease_lost():
-            raise _LeaseLost
-        with self.session_factory() as session:
-            row = session.execute(
-                select(Job.lease_owner, Job.cancel_requested_at).where(
-                    Job.sequence_id == sequence_id
-                )
-            ).one()
+            raise LeaseLost
+        statement = select(Job.lease_owner, Job.cancel_requested_at).where(
+            Job.sequence_id == sequence_id
+        )
+        row = session.execute(statement.with_for_update() if lock else statement).one()
         if row.lease_owner != self.owner:
-            raise _LeaseLost
+            raise LeaseLost
         return row.cancel_requested_at is not None
+
+    def _renewed(self, sequence_id: int) -> bool:
+        """``True`` when a cancel was requested; raises ``LeaseLost`` when another worker holds
+        the job, from a short session of its own."""
+        with self.session_factory() as session:
+            return self._lease(session, sequence_id)
 
     def _finished_import(self, job: Job) -> None:
         if job.kind == "import" and job.state in FINISHED and self.files is not None:
@@ -833,14 +787,8 @@ class JobWorker:
         """Lock the job row for the commit that ends a step, holding the lease; with
         ``cancellable``, a job of one step asked to stop meanwhile stops here, writing nothing
         (D171)."""
-        row = session.execute(
-            select(Job.lease_owner, Job.cancel_requested_at)
-            .where(Job.sequence_id == sequence_id)
-            .with_for_update()
-        ).one()
-        if row.lease_owner != self.owner:
-            raise _LeaseLost
-        if cancellable and row.cancel_requested_at is not None:
+        cancelled = self._lease(session, sequence_id, lock=True)
+        if cancellable and cancelled:
             raise JobCancelled
 
     # --- exports ----------------------------------------------------------------------------------
@@ -852,11 +800,8 @@ class JobWorker:
         # This worker's own partial file: a worker that lost the export removes only its own
         # (D174); the rest of the job's files go only through ``_stop``, which holds the lease.
         partial = files.partial(job.id, self.lease_token)
-        lost: list[bool] = []
         control = ExportControl(
-            check=lambda total, processed: self._export_check(
-                job.sequence_id, total, processed, lost
-            )
+            check=lambda total, processed: self._export_check(job.sequence_id, total, processed)
         )
         try:
             files.directory.mkdir(parents=True, exist_ok=True)
@@ -869,10 +814,13 @@ class JobWorker:
                     outcome = run_export(work, job, partial, control)
                 finally:
                     work.rollback()
-        except ExportCancelled:
+        except JobCancelled:
             partial.unlink(missing_ok=True)
-            if not lost:
-                self._stop(job.sequence_id, "cancelled", "JOB_CANCELLED", None)
+            self._stop(job.sequence_id, "cancelled", "JOB_CANCELLED", None)
+            return
+        except LeaseLost:
+            # Another worker holds the export: no stop row, and this worker's partial file goes.
+            partial.unlink(missing_ok=True)
             return
         except ApiError as error:
             partial.unlink(missing_ok=True)
@@ -941,7 +889,7 @@ class JobWorker:
         with self.session_factory() as session:
             try:
                 self._hold_lease(session, job.sequence_id)
-            except _LeaseLost:
+            except LeaseLost:
                 session.rollback()
                 partial.unlink(missing_ok=True)
                 return
@@ -954,24 +902,11 @@ class JobWorker:
             )
             session.commit()
 
-    def _export_check(
-        self, sequence_id: int, total: int | None, processed: int, lost: list[bool]
-    ) -> bool:
-        """Record progress; ``True`` when the export must stop: a cancel request, or the lease
-        lost to another worker (``lost`` then says so). The heartbeat keeps the lease (D170)."""
-        if self._lease_lost():
-            lost.append(True)
-            return True
+    def _export_check(self, sequence_id: int, total: int | None, processed: int) -> bool:
+        """Record progress under the job's row; ``True`` when a cancel was requested. The lease
+        lost to another worker raises ``LeaseLost`` (``_lease``)."""
         with self.session_factory() as session:
-            row = session.execute(
-                select(Job.lease_owner, Job.cancel_requested_at)
-                .where(Job.sequence_id == sequence_id)
-                .with_for_update()
-            ).one()
-            if row.lease_owner != self.owner:
-                lost.append(True)
-                session.rollback()
-                return True
+            cancelled = self._lease(session, sequence_id, lock=True)
             session.execute(
                 update(Job)
                 .where(Job.sequence_id == sequence_id)
@@ -983,7 +918,7 @@ class JobWorker:
                 .execution_options(synchronize_session=False)
             )
             session.commit()
-            return row.cancel_requested_at is not None
+            return cancelled
 
     def _files(self) -> JobFiles:
         if self.files is None:
@@ -997,7 +932,7 @@ class JobWorker:
         with self.session_factory() as session:
             try:
                 self._hold_lease(session, sequence_id)
-            except _LeaseLost:
+            except LeaseLost:
                 return
             job = session.get(Job, sequence_id)
             if job.kind == "export":
@@ -1109,6 +1044,31 @@ class JobWorker:
                 wait = min(wait, next_sweep - time.monotonic())
                 self._wake.wait(max(0.0, wait))
                 self._wake.clear()
+
+
+def _claim_stage() -> Any:
+    """The stage a claimed job shows, from its kind's entry (``kinds.py``): its fixed one, "binding"
+    while a kind that binds has no total yet, "previewing" while a preview runs, else "applying"."""
+    whens: list[tuple[Any, str]] = []
+    for stage in dict.fromkeys(k.stage for k in JOB_KINDS if k.stage is not None):
+        # A kind that binds first shows "binding" before its own stage.
+        named = [k for k in JOB_KINDS if k.stage == stage]
+        if any(k.binds for k in named):
+            binding = [k.name for k in named if k.binds]
+            whens.append((Job.kind.in_(binding) & Job.total.is_(None), "binding"))
+        whens.append((Job.kind.in_([k.name for k in named]), stage))
+    binding = [k.name for k in JOB_KINDS if k.binds and k.stage is None]
+    whens.append((Job.kind.in_(binding) & Job.total.is_(None), "binding"))
+    previewing_kinds = [k.name for k in JOB_KINDS if k.previewed or k.previews_apart]
+    whens.append(
+        (
+            Job.kind.in_(previewing_kinds)
+            & Job.confirmed_at.is_(None)
+            & (Job.parameters["stage"].as_string() == "preview"),
+            "previewing",
+        )
+    )
+    return case(*whens, else_="applying")
 
 
 def _newest_of_profile(session: Session, source: SourceFile) -> bool:

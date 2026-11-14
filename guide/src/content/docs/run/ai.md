@@ -313,7 +313,7 @@ what an external assistant keeps after reading permitted data.
 | `AI_SEND_LEVEL_TOO_LOW` | The feature needs more data, or the request exceeds the instance ceiling. Agree a send policy before changing it. |
 | `FORBIDDEN` | Check the missing action group and workspace grants. AI permission alone grants no other write rights. |
 | `AI_TASK_NOT_FOUND` | The task expired, does not exist or belongs to someone else. Ask its requester or a workspace administrator; start a new task if expired. |
-| `AI_TASK_VERSION_CONFLICT` | Another action changed the task. Reload it before trying again. |
+| `VERSION_CONFLICT` | Another action changed the task. Reload it before trying again. |
 | `AI_TASK_CHECK_STALE` | The draft changed after the check. Check it again before loading. |
 | `AI_TASK_NOTHING_TO_LOAD` | The check has no work to load. Review the proposal and its counts. |
 | `AI_TASK_STATE` | That action is unavailable at this stage. Reload and use the page's offered next action. |

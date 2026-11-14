@@ -394,6 +394,9 @@ def test_a_stale_editor_is_answered_with_the_steps_applied_since(world):
         "VERSION_CONFLICT",
     )
     assert error["details"]["operations"] == first["entries"]
+    assert (
+        error["details"]["currentVersion"] == first["version"] == error["details"]["actualVersion"]
+    )
     assert error["details"].get("more", False) is False
     ok(_apply(world, draft, first["version"], _attribute("j33-second", "Second editor")))
 

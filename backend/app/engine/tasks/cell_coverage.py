@@ -10,6 +10,7 @@ sheet or name.
 
 from typing import Any
 
+from openpyxl.utils import column_index_from_string, get_column_letter
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -47,21 +48,6 @@ FROM found GROUP BY s ORDER BY s
 )
 
 
-def _number(letters: str) -> int:
-    found = 0
-    for letter in letters.upper():
-        found = found * 26 + ord(letter) - 64
-    return found
-
-
-def _name(number: int) -> str:
-    letters = ""
-    while number:
-        number, rest = divmod(number - 1, 26)
-        letters = chr(65 + rest) + letters
-    return letters
-
-
 def _bound(source: dict[str, Any]) -> tuple[set[str], set[int]]:
     """The headers a source's bindings (and its key) read and the column numbers its bindings name by
     letter (0.13 AQ); a column it ignores is left out on purpose."""
@@ -71,7 +57,7 @@ def _bound(source: dict[str, Any]) -> tuple[set[str], set[int]]:
         if column.get("column"):
             names.add(column["column"])
         if column.get("letter"):
-            numbers.add(_number(column["letter"]))
+            numbers.add(column_index_from_string(column["letter"]))
         names.update(column.get("columns") or [])
     key = source.get("key") or {}
     names.update(key[part] for part in ("column", "nameColumn", "versionColumn") if key.get(part))
@@ -104,8 +90,8 @@ def cells_left_out(
                 sheet,
                 source.get("headerRow") or 1,
                 block.get("lastRow") or LAST_ROW,
-                _number(block.get("firstColumn") or "A"),
-                _number(block.get("lastColumn") or "XFD"),
+                column_index_from_string(block.get("firstColumn") or "A"),
+                column_index_from_string(block.get("lastColumn") or "XFD"),
                 *_bound(source),
             )
         )
@@ -159,7 +145,10 @@ def cells_left_out(
         {
             "sheet": names.get(sheet, ""),
             "count": count,
-            "cells": [f"{_name(column)}{row}" for row, column in zip(rows, columns, strict=True)],
+            "cells": [
+                f"{get_column_letter(column)}{row}"
+                for row, column in zip(rows, columns, strict=True)
+            ],
         }
         for sheet, count, rows, columns in session.execute(
             _LEFT,

@@ -10,6 +10,8 @@ D424).
 from dataclasses import dataclass
 from typing import Literal
 
+from ..jobs.kinds import JOB_KINDS
+
 # Where a group can be granted: in a workspace (or at the instance, which covers every workspace),
 # or only at the instance.
 Reach = Literal["workspace", "instance"]
@@ -394,22 +396,7 @@ FIRST_ADMINISTRATOR_ROLES = (
 FEATURE_GROUPS: tuple[str, ...] = ("ai-proposals",)
 
 # Which group a job of each kind is used under, in its workspace (D285).
-JOB_GROUPS: dict[str, str] = {
-    "batch": "bulk",
-    "import": "bulk",
-    "profile": "bulk",
-    "profileCheck": "bulk",
-    "export": "browse",
-    "move": "copy-move",
-    "mappingInference": "copy-move",
-    # Proposals are edits of a change set (0.16 AP2).
-    "aiProposal": "change-sets",
-    # An assistant task reads and checks a workbook as an import does (0.16 AP6a).
-    "aiTask": "bulk",
-    "migration": "model-release",
-    "dryRun": "model-authoring",
-    "inference": "model-authoring",
-}
+JOB_GROUPS: dict[str, str] = {kind.name: kind.group for kind in JOB_KINDS}
 
 
 def group_names(keys: tuple[str, ...] | list[str]) -> str:

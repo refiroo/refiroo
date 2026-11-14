@@ -26,7 +26,6 @@ C3 adds the other operation kinds (``insertLevel``, ``removeLevel``, ``changeTyp
 paging of the plan's records and the routes (``management/routers/change_sets.py``).
 """
 
-import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -36,7 +35,8 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...common.encoding import to_jsonable
+from ...common.chunks import chunks
+from ...common.encoding import canonical_json, sha256_hex, to_jsonable
 from ...common.pagination import Page, PageRequest, paginate_sequence
 from ...db import name_ranks
 from ...errors import ApiError, api_error
@@ -69,6 +69,7 @@ from .type_changes import (
     attribute_value_types_compatible,
     change_object_type,
     editable_row,
+    required_by_other_end,
 )
 
 # D41 as D44 set it: the most records one operation changes, so that the preview's dry run through
@@ -76,7 +77,6 @@ from .type_changes import (
 RECORD_LIMIT = 500
 # The refusals a plan lists; ``refusalCount`` counts them all.
 REFUSALS_SHOWN = 20
-_CHUNK = 500
 
 PlanStatus = Literal["ready", "needsInput", "refused"]
 MappingRule = Literal["sameType", "display", "uniqueRequired", "choice", "none"]
@@ -567,13 +567,11 @@ class RestructuringPlan:
     def digest(self, request: Restructuring) -> str:
         content = self.payload()
         content.pop("planDigest")
-        encoded = json.dumps(
-            to_jsonable({"request": request.normalized(), "plan": content}),
-            sort_keys=True,
-            separators=(",", ":"),
-            default=str,
+        return sha256_hex(
+            canonical_json(
+                to_jsonable({"request": request.normalized(), "plan": content}), default=str
+            )
         )
-        return hashlib.sha256(encoded.encode()).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -733,11 +731,6 @@ def _run(
 
 
 # --- the planner -------------------------------------------------------------------------------
-
-
-def _chunks(ids: Sequence[str]) -> Iterable[list[str]]:
-    for start in range(0, len(ids), _CHUNK):
-        yield list(ids[start : start + _CHUNK])
 
 
 def _path_part(object_id: str, object_type_key: str, name: str) -> dict[str, Any]:
@@ -1280,24 +1273,19 @@ class _Planner:
             other_type = other.object_type_key if other is not None else row.object_type_key
             if outgoing and relation.relation_type_key in self.model.containment_relation_keys(other_type):
                 continue  # an edge to a child, which moves with the child
-            state = RelationshipState(
-                relation_id=relation.relation_id,
-                relation_type_key=relation.relation_type_key,
-                direction="outgoing" if outgoing else "incoming",
-                from_object_id=relation.from_object_id,
-                to_object_id=relation.to_object_id,
-                other_object_id=other_id,
-                other_object_type_key=other_type,
-                other_name=other.name if other is not None else row.name,
-                attributes=dict(relation.attributes or {}),
-                version=relation.version,
+            state = RelationshipState.of(
+                relation,
+                row.object_id,
+                other_id,
+                other_type,
+                other.name if other is not None else row.name,
             )
             binding = self.model.allowed_relation(
                 relation.relation_type_key,
                 row.object_type_key if outgoing else other_type,
                 other_type if outgoing else row.object_type_key,
             )
-            if binding is not None and binding.required and outgoing and other_id != row.object_id:
+            if required_by_other_end(binding, outgoing, relation.to_object_id == row.object_id):
                 record.refusals.append(
                     Refusal(
                         "requiredRelationWithoutPlace",
@@ -1422,17 +1410,12 @@ class _Planner:
             other_type = current_type.get(other_id, other.object_type_key if other else old_type)
             if outgoing and relation.relation_type_key in model.containment_relation_keys(other_type):
                 continue  # an edge to a child, re-typed by the parent sync
-            state = RelationshipState(
-                relation_id=relation.relation_id,
-                relation_type_key=relation.relation_type_key,
-                direction="outgoing" if outgoing else "incoming",
-                from_object_id=relation.from_object_id,
-                to_object_id=relation.to_object_id,
-                other_object_id=other_id,
-                other_object_type_key=other_type,
-                other_name=other.name if other else record.name,
-                attributes=dict(relation.attributes or {}),
-                version=relation.version,
+            state = RelationshipState.of(
+                relation,
+                object_id,
+                other_id,
+                other_type,
+                other.name if other else record.name,
             )
             if model.allowed_relation(
                 relation.relation_type_key,
@@ -1446,7 +1429,7 @@ class _Planner:
                 old_type if outgoing else other_type,
                 old_type if incoming else other_type,
             )
-            if before is not None and before.required and outgoing and not incoming:
+            if required_by_other_end(before, outgoing, incoming):
                 record.refusals.append(
                     Refusal(
                         "requiredRelationWithoutPlace",
@@ -1468,7 +1451,7 @@ class _Planner:
         """Per record, the payloads of its effective ``reclassified`` events, the latest first:
         those of this change set and of change sets that were published."""
         found: list[tuple[int, str, dict[str, Any]]] = []
-        for chunk in _chunks(object_ids):
+        for chunk in chunks(object_ids):
             found.extend(
                 self.session.execute(
                     select(AuditEvent.sequence_id, AuditEvent.aggregate_id, AuditEvent.changes).where(
@@ -1486,7 +1469,7 @@ class _Planner:
         )
         effective = {self.change_set.id}
         change_set_id = AuditEvent.changes["changeSetId"].as_string()
-        for chunk in _chunks(others):
+        for chunk in chunks(others):
             effective.update(
                 self.session.scalars(
                     select(change_set_id).where(

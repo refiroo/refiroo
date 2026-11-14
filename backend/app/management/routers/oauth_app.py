@@ -34,7 +34,7 @@ from ...models.commands import (
     AppResetRequest,
     AppSecondFactor,
 )
-from .. import sign_in_pages as pages
+from .. import sign_in_messages as messages
 from ..dependencies import DbSession, started
 from . import oauth
 
@@ -174,16 +174,10 @@ def password(payload: AppPasswordSignIn, request: Request, session: DbSession) -
             return _problem(
                 429,
                 "slowed",
-                "Too many attempts for this account or from this address. You can try again in "
-                f"{pages.wait_text(outcome.wait_seconds)}. An administrator can reset the "
-                "password.",
+                messages.too_many_attempts(outcome.wait_seconds),
                 outcome.wait_seconds,
             )
-        return _problem(
-            401,
-            "wrong_credentials",
-            "The e-mail address or password is not right. Check both and try again.",
-        )
+        return _problem(401, "wrong_credentials", messages.WRONG_CREDENTIALS)
     if isinstance(outcome, browser_sign_in.SignedIn):
         return _done(outcome)
     return _second_step(session, request, outcome.user, outcome.token, outcome.stage, now)
@@ -219,19 +213,10 @@ def second_factor_step(payload: AppSecondFactor, request: Request, session: DbSe
         return _done(outcome)
     if outcome.wait_seconds:
         return _problem(
-            429,
-            "slowed",
-            "Too many wrong codes for this account or from this address. You can try again in "
-            f"{pages.wait_text(outcome.wait_seconds)}. An administrator can reset the second "
-            "factor.",
-            outcome.wait_seconds,
+            429, "slowed", messages.too_many_codes(outcome.wait_seconds), outcome.wait_seconds
         )
     if outcome.wrong:
-        return _problem(
-            401,
-            "wrong_code",
-            "That code is not right, or was already used. Wait for the next one and try again.",
-        )
+        return _problem(401, "wrong_code", messages.WRONG_CODE)
     return _problem(422, "code_required", "Type a code.")
 
 
@@ -274,13 +259,7 @@ def reset_request(payload: AppResetRequest, request: Request, session: DbSession
             "reset link.",
         )
     if wait:
-        return _problem(
-            429,
-            "slowed",
-            "Too many requests for this account or from this address. You can try again in "
-            f"{pages.wait_text(wait)}.",
-            wait,
-        )
+        return _problem(429, "slowed", messages.too_many_requests(wait), wait)
     return JSONResponse(
         {
             "status": "requested",

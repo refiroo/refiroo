@@ -25,15 +25,13 @@ The lists are paged by ``GET /import-profiles/{key}/check/findings``; the previe
 
 import copy
 from collections.abc import Callable
-from datetime import UTC, datetime
 from typing import Any
 
 from openpyxl.utils import get_column_letter
 from pydantic import ValidationError
-from sqlalchemy import select, text, update
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from ...db import lock_job_subject
 from ...errors import api_error
 from ...models.database import Job, ModelRelease, SourceFile
 from ...models.imports import ImportProfileDefinition, Source
@@ -41,6 +39,7 @@ from ...models.schema import EngineModel
 from ..imports.binding import named_columns
 from ..imports.profiles import check_profile, load_profile, parsed, source_order
 from ..imports.readers import Area
+from ..jobs.background import replace_earlier_job
 from ..jobs.store import ItemOutcome, complete_job, job_parameter, record_outcomes, start_job
 from ..model.registry import resolve_model_snapshot
 from ..workspaces.catalogue import resolve_workspace
@@ -49,7 +48,6 @@ from .staged import StagedFile
 from .store import profile_state
 
 KIND = "profileCheck"
-RUNNING = ("queued", "running")
 # A missing and a new column at one position are one column renamed when they share at least this
 # share of the larger of their distinct value counts (D83).
 RENAME_SHARE = 0.5
@@ -59,45 +57,38 @@ def queue_check(session: Session, source: SourceFile, *, retention_days: int) ->
     """The check of a profile's file, queued, its earlier check still running asked to stop; the
     caller commits."""
     profile = load_profile(session, source.profile_key)
-    lock_job_subject(session, KIND, profile.key)
-    session.execute(
-        update(Job)
-        .where(
-            Job.kind == KIND,
-            Job.state.in_(RUNNING),
-            job_parameter("profileKey") == profile.key,
-        )
-        .values(cancel_requested_at=datetime.now(UTC))
-        .execution_options(synchronize_session=False)
-    )
-    workspace = resolve_workspace(session, source.workspace_key)
-    return start_job(
-        session,
-        kind=KIND,
-        workspace_key=workspace.key,
-        change_set_id=None,
-        model_release_id=resolve_model_snapshot(session, workspace.key).release_db_id,
-        parameters={
-            "policy": "independent",
-            "run": "background",
-            "stage": "preview",
-            # As the load from Settings › Imports runs (D81): a changed row updates its record.
-            "onExisting": "overwrite",
-            "otherWorkspaceIds": "refuse",
-            "profileKey": profile.key,
-            "sourceFileId": source.public_id,
-            "profile": {"key": profile.key, "version": profile.version, "definition": None},
-            "file": {
-                "name": source.name,
-                "format": source.format,
-                "bytes": source.bytes,
-                "sha256": source.sha256,
+
+    def start() -> Job:
+        workspace = resolve_workspace(session, source.workspace_key)
+        return start_job(
+            session,
+            kind=KIND,
+            workspace_key=workspace.key,
+            change_set_id=None,
+            model_release_id=resolve_model_snapshot(session, workspace.key).release_db_id,
+            parameters={
+                "policy": "independent",
+                "run": "background",
+                "stage": "preview",
+                # As the load from Settings › Imports runs (D81): a changed row updates its record.
+                "onExisting": "overwrite",
+                "otherWorkspaceIds": "refuse",
+                "profileKey": profile.key,
+                "sourceFileId": source.public_id,
+                "profile": {"key": profile.key, "version": profile.version, "definition": None},
+                "file": {
+                    "name": source.name,
+                    "format": source.format,
+                    "bytes": source.bytes,
+                    "sha256": source.sha256,
+                },
             },
-        },
-        total=None,
-        retention_days=retention_days,
-        queued=True,
-    )
+            total=None,
+            retention_days=retention_days,
+            queued=True,
+        )
+
+    return replace_earlier_job(session, KIND, "profileKey", profile.key, start)
 
 
 def submit_check(
@@ -325,12 +316,17 @@ def compare_columns(
         share = _shared(session, earlier, staged, sheet, area, first + at)
         if share >= RENAME_SHARE:
             renamed.append(
-                {"from": name, "to": candidate, "letter": _letter(first + at), "shared": share}
+                {
+                    "from": name,
+                    "to": candidate,
+                    "letter": get_column_letter(first + at),
+                    "shared": share,
+                }
             )
             missing.remove(name)
             new.remove(candidate)
     report["columns"] = {
-        "new": [{"column": name, "letter": _letter(first + now[name])} for name in new]
+        "new": [{"column": name, "letter": get_column_letter(first + now[name])} for name in new]
         if reports_new
         else [],
         "missing": [{"column": name} for name in missing],
@@ -526,7 +522,3 @@ def previous_file(session: Session, profile_key: str, source: SourceFile) -> Sou
 
 def _release_public_id(session: Session, release_db_id: int) -> str | None:
     return session.scalar(select(ModelRelease.public_id).where(ModelRelease.id == release_db_id))
-
-
-def _letter(number: int) -> str:
-    return get_column_letter(number)

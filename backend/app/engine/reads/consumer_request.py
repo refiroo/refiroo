@@ -190,20 +190,28 @@ def _as_of(raw: list[str] | None, listed: list[str] | None) -> date:
     )
 
 
-def read_page(parameters: ReadParameters) -> tuple[int, PageRequest]:
-    """The page size and the page a list read asks for (C-D30)."""
+def page_size_of(parameters: ReadParameters, default: int, maximum: int, *, when: str = "") -> int:
+    """The ``pageSize`` asked for (``default`` without it), a whole number from 1 to ``maximum``,
+    else ``400 INVALID_PAGE_SIZE``; ``when`` ends the sentence with the condition the maximum
+    holds under (the events read's payload)."""
     raw_size = parameters.single("pageSize")
     try:
-        page_size = DEFAULT_PAGE_SIZE if raw_size is None else int(raw_size)
+        page_size = default if raw_size is None else int(raw_size)
     except ValueError:
         page_size = 0
-    if not _MIN_PAGE_SIZE <= page_size <= _MAX_PAGE_SIZE:
+    if not _MIN_PAGE_SIZE <= page_size <= maximum:
         raise api_error(
             400,
             "INVALID_PAGE_SIZE",
-            f"pageSize must be a whole number from 1 to {_MAX_PAGE_SIZE}",
+            f"pageSize must be a whole number from 1 to {maximum}{when}",
             {"path": "/query/pageSize"},
         )
+    return page_size
+
+
+def read_page(parameters: ReadParameters) -> tuple[int, PageRequest]:
+    """The page size and the page a list read asks for (C-D30)."""
+    page_size = page_size_of(parameters, DEFAULT_PAGE_SIZE, _MAX_PAGE_SIZE)
     raw_position = parameters.single("position")
     try:
         position = None if raw_position is None else int(raw_position)

@@ -19,6 +19,7 @@ from typing import Any
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from ...common.counts import count_noun
 from ...models.database import SourceFile, SourceFileSheet
 from ..sources.inference.facts import BlockTable, Column, StagedTable, staged_workbook
 from . import placement, translations
@@ -452,10 +453,6 @@ def place_rows(
         }
 
 
-def _count(number: int, one: str, many: str) -> str:
-    return f"{number} {one if number == 1 else many}"
-
-
 def evidence(table: dict[str, Any]) -> str:
     """An update table's evidence from its figures as they are now: written again whenever they
     change (the key chosen, the matches by meaning), so the sentence and the choices agree."""
@@ -493,18 +490,18 @@ def evidence(table: dict[str, Any]) -> str:
         ]
     if meant:
         parts.append(
-            f"{_count(meant, 'row is', 'rows are')} spelled differently but "
+            f"{count_noun(meant, 'row is', 'rows are')} spelled differently but "
             f"{'means' if meant == 1 else 'mean'} a stored record."
         )
     if table["new"] and (table["matched"] or meant):
-        parts.append(f"{_count(table['new'], 'key is', 'keys are')} new.")
+        parts.append(f"{count_noun(table['new'], 'key is', 'keys are')} new.")
     if table["namesDiffer"]:
         parts.append(
-            f"{_count(table['namesDiffer'], 'name differs', 'names differ')} from the stored ones."
+            f"{count_noun(table['namesDiffer'], 'name differs', 'names differ')} from the stored ones."
         )
     if table["missing"]:
         parts.append(
-            f"{_count(table['missing'], 'stored record is', 'stored records are')} not in the file."
+            f"{count_noun(table['missing'], 'stored record is', 'stored records are')} not in the file."
         )
     parent = table.get("parent")
     if parent is not None and parent.get("source") == placement.SHARED:
@@ -658,7 +655,8 @@ def stored_names(
     """The name cells that differ from the stored name of the record their key matches, each with
     that name. A cell two matched rows carry with different stored names, or one a row that matches
     no record carries too, cannot be mapped (a map is by the cell's text): those are returned
-    apart."""
+    apart. The text is compared exactly (a cell that differs only in case is one that differs): one
+    of five comparisons of a name kept apart on purpose (see ``matching._FACTS``)."""
     stored = stored_query(attribute_of(key))
     rows = session.execute(
         text(

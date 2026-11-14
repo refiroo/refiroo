@@ -1,16 +1,12 @@
 """Data and model changes across workspaces (Product 0.12 Z6, D340, D343)."""
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
-from .common import ActorResponse, CollectionPage, omitted_when_none, without_default
-
-
-def _omitted() -> Any:
-    return Field(default=None, exclude_if=omitted_when_none, json_schema_extra=without_default)
+from .common import ActorResponse, CollectionPage, omitted, omitted_when_none, without_default
 
 
 class ChangeWorkspace(BaseModel):
@@ -41,17 +37,17 @@ class ChangeSubject(BaseModel):
     or a release. ``removed`` says whether a record or relationship is gone from where it was."""
 
     id: str
-    name: str | SkipJsonSchema[None] = _omitted()
-    number: int | SkipJsonSchema[None] = _omitted()
+    name: str | SkipJsonSchema[None] = omitted()
+    number: int | SkipJsonSchema[None] = omitted()
     # A record's application, where it opens.
-    applicationKey: str | SkipJsonSchema[None] = _omitted()
-    objectTypeKey: str | SkipJsonSchema[None] = _omitted()
-    objectTypeName: str | SkipJsonSchema[None] = _omitted()
-    relationTypeKey: str | SkipJsonSchema[None] = _omitted()
-    relationTypeName: str | SkipJsonSchema[None] = _omitted()
-    fromObject: ChangeObject | SkipJsonSchema[None] = _omitted()
-    toObject: ChangeObject | SkipJsonSchema[None] = _omitted()
-    removed: bool | SkipJsonSchema[None] = _omitted()
+    applicationKey: str | SkipJsonSchema[None] = omitted()
+    objectTypeKey: str | SkipJsonSchema[None] = omitted()
+    objectTypeName: str | SkipJsonSchema[None] = omitted()
+    relationTypeKey: str | SkipJsonSchema[None] = omitted()
+    relationTypeName: str | SkipJsonSchema[None] = omitted()
+    fromObject: ChangeObject | SkipJsonSchema[None] = omitted()
+    toObject: ChangeObject | SkipJsonSchema[None] = omitted()
+    removed: bool | SkipJsonSchema[None] = omitted()
 
 
 class ChangeAttribute(BaseModel):
@@ -65,7 +61,7 @@ class ChangeCause(BaseModel):
 
     kind: str
     # Omitted for a single write.
-    id: str | SkipJsonSchema[None] = _omitted()
+    id: str | SkipJsonSchema[None] = omitted()
 
 
 class ChangeEntry(BaseModel):

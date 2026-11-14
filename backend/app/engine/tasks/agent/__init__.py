@@ -29,7 +29,6 @@ from .outcome import (
 )
 from .run import SessionTimedOut, counts_of, timeout_seconds, undo_interrupted_load
 from .sandbox import enabled
-from .words import plural
 
 __all__ = [
     "SessionTimedOut",
@@ -41,7 +40,6 @@ __all__ = [
     "folder_of",
     "home_of",
     "lives",
-    "plural",
     "recover_load",
     "remove_folder",
     "resumable",

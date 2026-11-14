@@ -41,6 +41,7 @@ from ...errors import api_error
 from ...models.database import AttributeValue, ObjectRelation, RdmObject, SnapshotAttributeValue
 from ...models.schema import EngineModel
 from ..model.traversal import related_object_types
+from ..records.values import value_json
 from .object_query import ObjectColumns, query_error, refine_object_query
 from .snapshot_reads import (
     UNRECORDED_TIMESTAMPS,
@@ -464,19 +465,7 @@ def _live_value(object_id: Any, key: str) -> Any:
     """A live record's value of one attribute in its stored JSON form, as a keyed lookup."""
     values = aliased(AttributeValue)
     return (
-        select(
-            func.rdm_value_json(
-                values.value_type,
-                values.text_value,
-                values.integer_value,
-                values.decimal_value,
-                values.boolean_value,
-                values.date_value,
-                values.datetime_value,
-                values.json_value,
-                type_=JSON,
-            )
-        )
+        select(value_json(values, type_=JSON))
         .where(values.object_id == object_id, values.attribute_type_key == key)
         .correlate_except(values)
         .scalar_subquery()

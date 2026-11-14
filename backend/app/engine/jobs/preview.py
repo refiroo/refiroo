@@ -26,7 +26,8 @@ from sqlalchemy.orm import Session
 from ...models.commands import BatchItem
 from ...models.database import Job
 from .batches import BatchContext, run_items
-from .store import ROW_KINDS, ItemOutcome, await_confirmation, load_inputs, record_outcomes
+from .kinds import ROW_KINDS
+from .store import ItemOutcome, await_confirmation, load_inputs, record_outcomes
 
 _ITEM = TypeAdapter(BatchItem)
 

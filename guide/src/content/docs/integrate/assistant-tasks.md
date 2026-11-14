@@ -39,7 +39,7 @@ the assistant’s draft is named `Assistant: <title>` once the title arrives.
 | `failed` or `stopped` | Show the task's notes and offer continuation or discard. |
 | `cancelled` | The task was discarded. Start a new task for new work. |
 
-Do not use the legacy `read` state as a step: the response schema includes it, but current tasks do not enter it. Use `phase` for progress while a job runs. Reread before every action and claim the current `expectedVersion`; on `AI_TASK_VERSION_CONFLICT`, present the new task rather than replaying a stale decision.
+Do not use the legacy `read` state as a step: the response schema includes it, but current tasks do not enter it. Use `phase` for progress while a job runs. Reread before every action and claim the current `expectedVersion`; on `VERSION_CONFLICT`, present the new task rather than replaying a stale decision.
 
 ## 2. Show what the proposal actually changes
 
@@ -136,7 +136,7 @@ A loaded, failed or stopped task can keep its session files while it can continu
 | `AI_SEND_LEVEL_TOO_LOW` | The task requires `values`; lowering a request cannot override the instance ceiling. Use a manual import if sending values is not allowed. |
 | `AI_TASK_NOT_FOUND` | Check task ID, retention and requester or workspace-administrator access. |
 | `AI_TASK_STATE` | Reread state and result; use only an action allowed now. |
-| `AI_TASK_VERSION_CONFLICT` | Reread and review the current proposal before sending its version. |
+| `VERSION_CONFLICT` | Reread and review the current proposal before sending its version. |
 | `AI_TASK_CHECK_STALE` | The saved-layout draft changed after its check; obtain a new checked proposal. |
 | `AI_TASK_NOTHING_TO_LOAD` | Correct the design so the saved-layout load has something to import. |
 | `AI_TASK_DRAFT_HELD` | Have the session use its own draft. |

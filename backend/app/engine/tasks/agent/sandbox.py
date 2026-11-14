@@ -39,7 +39,11 @@ def enabled() -> bool:
 
 
 def loopback(url: str) -> bool:
-    """Whether the API is reached on this machine, where a certificate of its own is no risk (R-F8)."""
+    """Whether the API is reached on this machine, where a certificate of its own is no risk (R-F8).
+
+    Kept apart from ``common.addresses.LOOPBACK`` (the three names a URL may use for this computer
+    when an address is registered): this asks about the host of an address already in use, and any
+    loopback address (all of 127.0.0.0/8) is this machine."""
     host = urlparse(url).hostname or ""
     if host == "localhost":
         return True

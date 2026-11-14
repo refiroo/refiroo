@@ -181,7 +181,7 @@ def test_profiles_are_kept_under_a_version_and_refused_with_every_problem(world)
     error = refused(
         world.api.put(f"/import-profiles/{profile['key']}", {**body, "expectedVersion": 1}),
         409,
-        "IMPORT_PROFILE_VERSION_CONFLICT",
+        "VERSION_CONFLICT",
     )
     assert error["details"]["currentVersion"] == 2
     refused(world.api.post("/import-profiles", profile), 409, "IMPORT_PROFILE_EXISTS")

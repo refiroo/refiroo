@@ -4,7 +4,7 @@
 support it (objects, relations and mapping coverage).
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, Query
 
@@ -68,6 +68,18 @@ def _seekable_page(
         from_end=from_ == "end",
         include_total=include_total,
     )
+
+
+def PageSize(default: int | None, largest: int) -> Any:
+    """The ``pageSize`` query parameter of a list: its default and its largest value.
+
+    One place states every list's pair. It returns the ``Query`` declaration, to be used as the
+    parameter's default value (``page_size: int = PageSize(100, 500)``), and not a ``Depends``:
+    a dependency's parameters are listed after the route's own, which would reorder the
+    parameters of the OpenAPI document. ``None`` as the default (five routes) makes the size
+    optional, so the caller's own rule applies when it is omitted.
+    """
+    return Query(default=default, ge=1, le=largest, alias="pageSize")
 
 
 PageQuery = Annotated[PageRequest, Depends(_page)]

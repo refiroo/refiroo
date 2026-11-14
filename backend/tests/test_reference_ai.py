@@ -547,7 +547,7 @@ def test_an_assistant_task_is_given_answered_accepted_and_loaded(ai):
         path=where,
         body={"expectedVersion": task["version"] - 1, "answers": {"x": "y"}},
         status=409,
-        code="AI_TASK_VERSION_CONFLICT",
+        code="VERSION_CONFLICT",
     )
     answered = s.call(
         "POST",
@@ -642,7 +642,7 @@ def test_a_task_that_fails_is_tried_again_stopped_and_discarded(ai):
         path=where,
         body={"expectedVersion": failed["version"] - 1},
         status=409,
-        code="AI_TASK_VERSION_CONFLICT",
+        code="VERSION_CONFLICT",
     )
     assistant.says(fail=False)
     retried = s.call(
@@ -876,7 +876,7 @@ def test_a_workbook_task_follows_the_saved_layout_and_is_loaded(ai, tmp_path):
         path=where,
         body={"expectedVersion": task["version"] - 1, "changeSetName": "Bus stops, winter"},
         status=409,
-        code="AI_TASK_VERSION_CONFLICT",
+        code="VERSION_CONFLICT",
     )
     run = s.call(
         "POST",

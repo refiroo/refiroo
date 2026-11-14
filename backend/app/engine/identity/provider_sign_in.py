@@ -33,6 +33,7 @@ from ...models.database import (
 )
 from ..authorization.administration import free_group_name
 from . import provider_client, providers, security_events, sessions
+from .lookup import user_by_email
 from .passwords import digest, new_token
 from .settings import IdentitySettings
 from .sign_in import challenge_of
@@ -269,7 +270,7 @@ def finish(
                 detail=f"{email} belongs to another person",
             )
 
-        if _holder(session, email) is not None:
+        if user_by_email(session, email) is not None:
             raise taken()
         try:
             # In a savepoint: when the same person signs in twice at once, the second insert waits
@@ -403,13 +404,6 @@ def _identity(
     return None if row is None else (row[0], row[1])
 
 
-def _holder(session: Session, email: str, *, except_id: int | None = None) -> User | None:
-    statement = select(User).where(func.lower(User.email) == email.lower())
-    if except_id is not None:
-        statement = statement.where(User.id != except_id)
-    return session.scalar(statement)
-
-
 def _refresh(
     session: Session, provider: SignInProvider, user: User, claims: dict[str, Any], now: datetime
 ) -> None:
@@ -420,7 +414,7 @@ def _refresh(
     if (
         email is None
         or not _believed(provider, claims)
-        or _holder(session, email, except_id=user.id) is not None
+        or user_by_email(session, email, except_id=user.id) is not None
     ):
         email = user.email
     name = _name(claims, user.name)

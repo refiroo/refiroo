@@ -76,7 +76,7 @@ from ..jobs.store import (
 )
 from ..records.audit import audit_actor_of
 from ..records.feed import take_positions
-from ..records.values import WIDENINGS
+from ..records.values import WIDENINGS, value_json_sql
 from .compatibility import analyze_compatibility, is_parent_pair
 from .compiler import SCHEMA_VERSIONS, SUPPORTED_SCHEMA_VERSIONS
 from .consumer_contract import contract_diagnostics
@@ -697,10 +697,7 @@ CREATE TEMPORARY TABLE migration_new_relations (
 ) ON COMMIT DROP;
 """
 
-_VALUE = (
-    "rdm_value_json(a.value_type, a.text_value, a.integer_value, a.decimal_value, "
-    "a.boolean_value, a.date_value, a.datetime_value, a.json_value)"
-)
+_VALUE = value_json_sql("a")
 
 _FILL = (
     # Every record of the workspace with its fate: its new type and application, or why it is
@@ -1648,25 +1645,9 @@ class _Migration:
         ``relation:<id>`` for a publication's refusal (a relationship's item names its source)."""
         if not refused:
             return
-        ids, codes, paths, messages = (list(column) for column in zip(*refused, strict=True))
-        objects = [
-            item.removeprefix("object:") if not item.startswith("relation:") else None
-            for item in ids
-        ]
-        relations = [
-            item.removeprefix("relation:") if item.startswith("relation:") else None for item in ids
-        ]
         self.session.execute(
             text(_REFUSALS),
-            {
-                "job": self.job.sequence_id,
-                "offset": offset,
-                "ids": objects,
-                "relations": relations,
-                "codes": codes,
-                "paths": [path or None for path in paths],
-                "messages": messages,
-            },
+            {"job": self.job.sequence_id, "offset": offset, **refusal_columns(refused)},
         )
 
     def counts(self) -> dict[str, int]:
@@ -2226,6 +2207,59 @@ def switch_assignment(
     )
 
 
+def refusal_columns(refused: list[tuple[str, str, str, str]]) -> dict[str, list[str | None]]:
+    """The refused items of a preview as the columns its ``_REFUSALS`` statement unnests. An
+    item's subject is a record's ID, or ``object:<id>`` or ``relation:<id>`` for a publication's
+    refusal (a relationship's item names its source). The change set move's statement, which has
+    no path column, leaves ``paths`` out."""
+    ids, codes, paths, messages = (list(column) for column in zip(*refused, strict=True))
+    return {
+        "ids": [
+            item.removeprefix("object:") if not item.startswith("relation:") else None
+            for item in ids
+        ],
+        "relations": [
+            item.removeprefix("relation:") if item.startswith("relation:") else None for item in ids
+        ],
+        "codes": codes,
+        "paths": [path or None for path in paths],
+        "messages": messages,
+    }
+
+
+def guarded_execution[T](
+    session: Session,
+    run: Callable[[], T],
+    *,
+    what: str,
+    failure: str,
+    details: dict[str, Any],
+) -> T:
+    """Run a confirmed move of data and commit it; any failure rolls back and becomes
+    ``MIGRATION_FAILED`` (or the refusal it was), nothing changed. Shared by a workspace's
+    migration and a change set's move, which each say their own ``what`` (the log line),
+    ``failure`` (the sentence, ending before the correlation ID's advice) and ``details``."""
+    try:
+        result = run()
+    except ApiError:
+        session.rollback()
+        raise
+    except LeaseLost:
+        raise
+    except Exception as exc:
+        session.rollback()
+        correlation_id = uuid4().hex
+        logger.exception("%s failed and changed nothing (correlation ID %s)", what, correlation_id)
+        raise api_error(
+            500,
+            "MIGRATION_FAILED",
+            failure,
+            {**details, "correlationId": correlation_id},
+        ) from exc
+    session.commit()
+    return result
+
+
 def execute(
     session: Session,
     job: Job,
@@ -2237,28 +2271,17 @@ def execute(
     """Run a confirmed migration and commit it once ``hold`` (the worker's lease) allows,
     loading the target release into the process; any failure rolls back and becomes
     ``MIGRATION_FAILED`` (or the refusal it was), nothing changed."""
-    try:
-        target = run_execution(session, job, retention_days=retention_days, hold=hold, renew=renew)
-    except ApiError:
-        session.rollback()
-        raise
-    except LeaseLost:
-        raise
-    except Exception as exc:
-        session.rollback()
-        correlation_id = uuid4().hex
-        logger.exception(
-            "Migration %s failed and changed nothing (correlation ID %s)", job.id, correlation_id
-        )
-        raise api_error(
-            500,
-            "MIGRATION_FAILED",
+    target = guarded_execution(
+        session,
+        lambda: run_execution(session, job, retention_days=retention_days, hold=hold, renew=renew),
+        what=f"Migration {job.id}",
+        failure=(
             f"The migration of workspace '{job.workspace_key}' failed and changed nothing: the "
             "workspace keeps its release and its data. Preview it again; if it fails again, "
-            "report the correlation ID",
-            {"workspaceKey": job.workspace_key, "correlationId": correlation_id},
-        ) from exc
-    session.commit()
+            "report the correlation ID"
+        ),
+        details={"workspaceKey": job.workspace_key},
+    )
     try:
         model_registry.warm(target.id)
     except Exception:

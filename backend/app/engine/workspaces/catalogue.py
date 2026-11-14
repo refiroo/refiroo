@@ -7,7 +7,7 @@ from sqlalchemy import Select, delete, event, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, require_version, version_conflict
 from ...models.commands import WorkspaceCreate, WorkspaceUpdate
 from ...models.database import (
     AuditEvent,
@@ -23,6 +23,7 @@ from ...models.database import (
 from ..events.subscription_rules import has_subscriptions, suspend_for_retired_workspace
 from ..indexes import matrix_states
 from ..model.workspace_models import assign_new_workspace
+from ..reads.object_query import escape_like
 
 DeleteBlocker = Literal["default", "published", "notEmpty", "subscribed"]
 
@@ -113,8 +114,7 @@ def build_workspace_query(
     if status != "all":
         statement = statement.where(Workspace.status == status)
     if normalized_search:
-        escaped = normalized_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        pattern = f"%{escaped}%"
+        pattern = f"%{escape_like(normalized_search)}%"
         statement = statement.where(
             or_(
                 Workspace.key.ilike(pattern, escape="\\"),
@@ -186,12 +186,7 @@ def update_workspace(session: Session, key: str, payload: WorkspaceUpdate) -> Wo
     if result.rowcount != 1:
         session.rollback()
         current = load_workspace(session, key)
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            "Workspace version has changed",
-            {"currentVersion": current.version},
-        )
+        raise version_conflict(current.version, "Workspace")
     if payload.status == "retired":
         suspend_for_retired_workspace(session, key)
     session.commit()
@@ -217,14 +212,10 @@ def set_default_workspace(
     if result.rowcount != 1:
         session.rollback()
         current = load_workspace_runtime_state(session)
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            "Workspace runtime-state version has changed",
-            {
-                "currentVersion": current.version,
-                "defaultWorkspaceKey": current.default_workspace_key,
-            },
+        raise version_conflict(
+            current.version,
+            "Workspace runtime-state",
+            details={"defaultWorkspaceKey": current.default_workspace_key},
         )
     session.commit()
     return load_workspace_runtime_state(session)
@@ -337,10 +328,4 @@ def _require_deletable(session: Session, key: str, expected_version: int) -> Non
             "WORKSPACE_HAS_SUBSCRIPTIONS",
             f"Workspace '{key}' has webhook subscriptions. Delete them first, or retire the workspace",
         )
-    if workspace.version != expected_version:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            "Workspace version has changed",
-            {"currentVersion": workspace.version},
-        )
+    require_version(workspace, expected_version, "Workspace")

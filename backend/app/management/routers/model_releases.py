@@ -22,7 +22,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import (
     candidate_compatibility_response,
     change_response,
@@ -66,7 +66,7 @@ def list_model_releases(
     assigned: bool | None = None,
     release_status: Literal["active", "retired", "all"] = Query(default="all", alias="status"),
     usable: bool = False,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> ModelReleasePage:
     """Installed releases, oldest first; ``assigned`` keeps those some workspace runs (``true``) or
     none does (``false``). Each names the workspaces running it (D24). ``status`` keeps the active
@@ -136,7 +136,7 @@ def patch_model_release(
     (0.12 MR1, D457). A retired release is refused where a release is chosen (`409
     MODEL_RELEASE_RETIRED`: a new workspace, a change set, an activation, a migration), and every
     workspace and change set on it keeps working. `404 MODEL_RELEASE_NOT_FOUND`, `409
-    MODEL_RELEASE_VERSION_CONFLICT`, `409 MODEL_RELEASE_IS_DEFAULT` (the default workspace runs
+    VERSION_CONFLICT`, `409 MODEL_RELEASE_IS_DEFAULT` (the default workspace runs
     it)."""
     release = set_release_status(session, release_id, payload.status, payload.expectedStatusVersion)
     session.commit()
@@ -153,7 +153,7 @@ def delete_model_release(
     """Delete a release nothing refers to: no workspace runs it, and no record, change set,
     publication, job, import profile or model mapping was made under it (0.12 MR1, D457). Its
     drafts stay, without their link to it. `404 MODEL_RELEASE_NOT_FOUND`, `409
-    MODEL_RELEASE_VERSION_CONFLICT`, `409 MODEL_RELEASE_IN_USE` (with `blockedBy`)."""
+    VERSION_CONFLICT`, `409 MODEL_RELEASE_IN_USE` (with `blockedBy`)."""
     delete_release(session, release_id, expected_status_version)
     session.commit()
 
@@ -167,7 +167,7 @@ def list_model_release_activations(
     release_id: str,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> ModelReleaseActivationPage:
     """Recorded selections of this release as a workspace's model, with the release they replaced
     and the workspace (none for a selection made for the whole instance before 0.11).

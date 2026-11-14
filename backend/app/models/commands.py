@@ -19,6 +19,8 @@ from pydantic import (
     model_validator,
 )
 
+from ..common.addresses import LOOPBACK
+
 
 class AttributeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -1188,7 +1190,7 @@ _MICROSOFT_ONLY = (
 def _service_address(value: str) -> str:
     """An https address (http only for this computer, which tests use), as ``scheme://host/path``."""
     parts = urlsplit(value.strip())
-    local = parts.hostname in ("localhost", "127.0.0.1", "::1")
+    local = parts.hostname in LOOPBACK
     if parts.scheme != "https" and not (parts.scheme == "http" and local) or not parts.hostname:
         raise ValueError("must be an https address (http only for localhost)")
     if parts.query or parts.fragment or parts.username or parts.password:

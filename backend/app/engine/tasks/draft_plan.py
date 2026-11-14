@@ -67,20 +67,6 @@ def apply(
     }
 
 
-# A derived sheet's rows, and how long its query may run.
-DERIVED_MAX_ROWS = 200_000
-DERIVED_TIMEOUT = "30s"
-READER = "rdm_derived_reader"
-
-_CELLS_VIEW = """
-CREATE TEMP VIEW cells AS
-SELECT s.name AS sheet, c.row_number AS row, c.column_number AS col, c.text AS value
-FROM source_file_cells c JOIN source_file_sheets s
-    ON s.source_file_id = c.source_file_id AND s.sheet_index = c.sheet_index
-WHERE c.source_file_id = {file}
-"""
-
-
 def stage(
     session: Session,
     draft: ModelDraft,

@@ -25,7 +25,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from ...errors import api_error
+from ...errors import api_error, version_conflict
 from ...models.database import MailLogo, MailOutbox, MailTemplate
 from ..identity.settings import IdentitySettings
 from . import html as mailhtml
@@ -79,16 +79,12 @@ def load(session: Session, *, for_update: bool = False) -> MailTemplate | None:
     return session.scalar(statement.with_for_update() if for_update else statement)
 
 
-def _stale(current: int):
-    return api_error(
-        409, "VERSION_CONFLICT", "The e-mail template has changed", {"currentVersion": current}
-    )
-
-
 def _check_version(row: MailTemplate | None, expected: int | None, session: Session) -> None:
     if (row.version if row else None) != expected:
         session.rollback()
-        raise _stale(row.version if row else 0)
+        raise version_conflict(
+            row.version if row else 0, "", message="The e-mail template has changed"
+        )
 
 
 def check_markdown(markdown: str) -> None:
@@ -146,7 +142,9 @@ def _first_save(session: Session, *, now: datetime, **values) -> MailTemplate:
     if not inserted:
         session.rollback()
         current = load(session)
-        raise _stale(current.version if current else 0)
+        raise version_conflict(
+            current.version if current else 0, "", message="The e-mail template has changed"
+        )
     return load(session)  # type: ignore[return-value]
 
 

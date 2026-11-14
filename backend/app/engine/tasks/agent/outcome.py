@@ -10,6 +10,7 @@ from uuid import uuid4
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from ....common.counts import count_noun
 from ....errors import ApiError
 from ....models.database import (
     AiTask,
@@ -23,7 +24,6 @@ from ....models.database import (
     WorkspaceModel,
 )
 from ....models.imports import ImportProfileDefinition
-from ...change_sets.lifecycle import discard_change_set
 from ...identity.clients import retire_session_client
 from ...imports.profiles import model_key_of, save_for_release
 from ...model.authoring.draft_migration import derive
@@ -37,6 +37,7 @@ from ...sources.dry_run import is_items_run
 from ...sources.profile_export import definition as exported_profile
 from ..cell_coverage import cells_left_out
 from ..store import (
+    discard_set,
     drafted_by_client,
     finish,
     held_by_another,
@@ -44,6 +45,7 @@ from ..store import (
     load_task,
     note,
     title_of,
+    workbook_of,
 )
 from .files import (
     drop,
@@ -78,12 +80,10 @@ from .words import (
     attribute_changes,
     contract_prompt,
     contract_words,
-    counted,
     loss_prompt,
     loss_words,
     not_its_draft_prompt,
     plain,
-    plural,
     propose_prompt,
     refusal_prompt,
     refusal_words,
@@ -171,9 +171,12 @@ def _shape(
         written = records.get(key, 0)
         if change is None and not written:
             continue
-        parts = [*([change] if change else []), plural(len(attributes), "attribute")]
+        parts = [
+            *([change] if change else []),
+            count_noun(len(attributes), "attribute", thousands=True),
+        ]
         if written:
-            parts.append(plural(written, "record"))
+            parts.append(count_noun(written, "record", thousands=True))
         shape.append(
             {"objectTypeKey": key, "name": found.get("name") or key, "text": ", ".join(parts)}
         )
@@ -525,7 +528,7 @@ def _removal_account(
     for item, found in zip(removals, counts, strict=True):
         name = named[item["kind"]].get(item["key"]) or item["key"]
         tail = [
-            counted(found[kind], word)
+            count_noun(found[kind], word, thousands=True)
             for kind, word in (
                 ("records", "record"),
                 ("values", "value"),
@@ -555,7 +558,11 @@ def _removal_account(
             records = found["records"]
             sentence = (
                 f"As you asked, {name} is removed: "
-                + (f"its {counted(records, 'record')} move" if records else "its records move")
+                + (
+                    f"its {count_noun(records, 'record', thousands=True)} move"
+                    if records
+                    else "its records move"
+                )
                 + f" to {where}."
             )
         statements.append({**item, "name": name, **found, "text": sentence})
@@ -1198,7 +1205,7 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
             if change_set is not None:
                 # The empty change set the session made is not left dangling (commits).
                 session.flush()
-                discard_change_set(session, change_set.id, change_set.version)
+                discard_set(session, change_set.id)
             session.commit()
             return
     if not _land(session, task, words, change_set_id, change_set, retention(ctx)):
@@ -1466,7 +1473,7 @@ def _profile_key(session: Session, name: str, release: ModelRelease) -> str:
 def _saved_profile(session: Session, task: AiTask, change_set: ChangeSet) -> dict[str, str]:
     """What the load leaves for the next file: the profile of the imports it ran on the task's
     workbook, saved by the engine whatever route the session took (AP-D41), or why there is none."""
-    source = session.scalar(select(SourceFile).where(SourceFile.task_id == task.id))
+    source = workbook_of(session, task)
     if source is None:
         return {}
     jobs = list(

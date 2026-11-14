@@ -15,7 +15,7 @@ from sqlalchemy import Table, delete, exists, literal, select, union_all
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ...errors import api_error
+from ...errors import api_error, version_conflict
 from ...models.database import (
     AuditEvent,
     Base,
@@ -102,11 +102,11 @@ def _load_for_update(session: Session, release_id: str) -> ModelRelease:
 
 def _require_status_version(release: ModelRelease, expected: int) -> None:
     if release.status_version != expected:
-        raise api_error(
-            409,
-            "MODEL_RELEASE_VERSION_CONFLICT",
-            f"Model release '{release.public_id}' changed status since version {expected}",
-            {
+        raise version_conflict(
+            release.status_version,
+            "Model release",
+            message=f"Model release '{release.public_id}' changed status since version {expected}",
+            details={
                 "releaseId": release.public_id,
                 "status": release.status,
                 "currentStatusVersion": release.status_version,

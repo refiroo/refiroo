@@ -32,7 +32,7 @@ from ...models.database import (
     RdmObject,
     SnapshotAttributeValue,
 )
-from ..records.values import typed_value_columns
+from ..records.values import TYPED_VALUE_COLUMNS, typed_value_columns, value_json
 
 # Object row class -> (owner kind, owner column on the row, owner table carrying the release).
 _OWNERS: dict[type, tuple[str, str, Any]] = {
@@ -159,15 +159,6 @@ def copy_live(session: Session, owner_kind: str, owner_id: str, workspace_key: s
         AttributeValue.__table__,
         ObjectRelation.__table__,
     )
-    value_columns = [
-        "text_value",
-        "integer_value",
-        "decimal_value",
-        "boolean_value",
-        "date_value",
-        "datetime_value",
-        "json_value",
-    ]
     # Each record's values gathered through its own index entries, so ``objects`` is read once.
     # A grouped subquery over the workspace's values, joined back to its records, was recomputed
     # per record when the records were newer than the statistics (0.11 X5: 122 s for 11,000).
@@ -175,7 +166,7 @@ def copy_live(session: Session, owner_kind: str, owner_id: str, workspace_key: s
         select(
             func.json_object_agg(
                 values.c.attribute_type_key,
-                func.rdm_value_json(values.c.value_type, *[values.c[key] for key in value_columns]),
+                value_json(values),
             ).label("attributes"),
         )
         .where(values.c.object_id == objects.c.id)
@@ -210,7 +201,7 @@ def copy_live(session: Session, owner_kind: str, owner_id: str, workspace_key: s
             .where(source.c.workspace_key == workspace_key),
         )
     )
-    fields = ["object_id", "attribute_type_key", "value_type", *value_columns]
+    fields = ["object_id", "attribute_type_key", "value_type", *TYPED_VALUE_COLUMNS]
     # A decimal is indexed in its JSON form, as the flush hook indexes it (28 significant digits).
     copied = [
         func.rdm_decimal_text(values.c[key]).cast(values.c[key].type).label(key)

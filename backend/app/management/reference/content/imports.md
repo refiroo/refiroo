@@ -71,7 +71,7 @@ Replaces the whole profile at `expectedVersion` and raises its `version`. The ne
 - 403 FORBIDDEN: needs Bulk and import in some workspace
 - 404 IMPORT_PROFILE_NOT_FOUND: no profile has this key
 - 404 WORKSPACE_NOT_FOUND: `workspaceKey` names no workspace
-- 409 IMPORT_PROFILE_VERSION_CONFLICT: `expectedVersion` is not current
+- 409 VERSION_CONFLICT: `expectedVersion` is not current
 - 422 INVALID_IMPORT_PROFILE: the profile does not fit the model
 - 422 IMPORT_PROFILE_MODEL_MISMATCH: the workspace runs another model
 - 422 REQUEST_VALIDATION_ERROR: a field is missing or invalid
@@ -91,7 +91,7 @@ Deletes a profile at `expectedVersion`. Its stored files go with it; an import t
 
 - 403 FORBIDDEN: needs Bulk and import in some workspace
 - 404 IMPORT_PROFILE_NOT_FOUND: no profile has this key
-- 409 IMPORT_PROFILE_VERSION_CONFLICT: `expectedVersion` is not current
+- 409 VERSION_CONFLICT: `expectedVersion` is not current
 - 422 REQUEST_VALIDATION_ERROR: `expectedVersion` is missing
 
 ## POST /api/v1/imports

@@ -6,11 +6,13 @@ commit together, and the worker (``worker.py``) runs it chunk by chunk. A reques
 that (a context, a stale change set claim, a release activated meanwhile) leaves no job.
 """
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 
-from sqlalchemy import func, update
+from sqlalchemy import ColumnElement, func, update
 from sqlalchemy.orm import Session
 
+from ...db import lock_job_subject
 from ...errors import ApiError, api_error
 from ...models.commands import BatchRequest
 from ...models.database import Job
@@ -19,18 +21,57 @@ from ..model.registry import resolve_model_snapshot
 from ..workspaces.catalogue import resolve_workspace
 from .batches import BatchContext, open_batch_context
 from .files import JobFiles
-from .inline import batch_parameters, earlier_job, keep_key
+from .inline import batch_parameters, check_change_set_claim, earlier_job, keep_key
 from .store import (
     AWAITING,
     cancel_waiting,
     confirm_job,
+    job_parameter,
     load_job,
     request_fingerprint,
     start_job,
     store_inputs,
 )
 
+# The states a stop request applies to (D28): a job waiting for confirmation is cancelled at once by
+# ``request_cancel``, and a finished one has nothing to stop.
 CANCELLABLE = ("queued", "running")
+
+
+def request_stop(session: Session, *where: ColumnElement[bool]) -> int:
+    """Ask every queued or running job matching ``where`` to stop; the number asked. A silent bulk
+    update the caller commits. A job asked before keeps the time of its first request (SR-D3), so a
+    stop pressed twice shows when it was first pressed."""
+    return session.execute(
+        update(Job)
+        .where(Job.state.in_(CANCELLABLE), *where)
+        .values(cancel_requested_at=func.coalesce(Job.cancel_requested_at, datetime.now(UTC)))
+        .execution_options(synchronize_session=False)
+    ).rowcount
+
+
+def replace_earlier_job(
+    session: Session,
+    kind: str,
+    parameter: str,
+    subject: str,
+    start: Callable[[], Job],
+    *,
+    guard: Callable[[], None] | None = None,
+    cleanup: Callable[[], None] | None = None,
+) -> Job:
+    """Start a job of ``kind`` for a subject (a draft, a mapping, a profile: ``parameter`` holds it)
+    and ask the earlier one still running to stop: submissions of one subject go one at a time
+    (``lock_job_subject``), so the stop sees a job committed meanwhile (0.11 N2, D171). ``guard``
+    runs under the lock before anything is stopped, and may refuse; ``cleanup`` after the stop, before
+    the start. The caller commits."""
+    lock_job_subject(session, kind, subject)
+    if guard is not None:
+        guard()
+    request_stop(session, Job.kind == kind, job_parameter(parameter) == subject)
+    if cleanup is not None:
+        cleanup()
+    return start()
 
 
 def submit_background_batch(
@@ -47,11 +88,7 @@ def submit_background_batch(
     if replayed is not None:
         return replayed, True
     context = open_batch_context(session, request)
-    if (
-        context.change_set is not None
-        and context.change_set.version != request.expectedChangeSetVersion
-    ):
-        raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
+    check_change_set_claim(context, request)
     job = start_job(
         session,
         kind="batch",
@@ -90,13 +127,8 @@ def request_cancel(session: Session, job_id: str, *, files: JobFiles, retention_
             files.remove(job.id)
             session.refresh(job)
             return job
-    result = session.execute(
-        update(Job)
-        .where(Job.sequence_id == job.sequence_id, Job.state.in_(CANCELLABLE))
-        .values(cancel_requested_at=func.coalesce(Job.cancel_requested_at, datetime.now(UTC)))
-        .execution_options(synchronize_session=False)
-    )
-    if result.rowcount != 1:
+    stopped = request_stop(session, Job.sequence_id == job.sequence_id)
+    if stopped != 1:
         session.rollback()
         session.refresh(job)
         raise api_error(

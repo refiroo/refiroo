@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ...engine.jobs.store import ROW_KINDS
+from ...engine.jobs.kinds import ROW_KINDS
 from ...errors import api_error
 from ...models.database import Job, JobItem, RdmObject
 from ..schemas.jobs import (

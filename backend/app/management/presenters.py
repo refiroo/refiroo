@@ -739,7 +739,7 @@ def delivery_page(page: Page[Any], subscription: ConsumerSubscription) -> Delive
                 attempts=row.attempts,
                 responseStatus=row.last_status,
                 sentAt=as_utc(row.sent_at) if row.sent_at else None,
-                nextAttemptAt=_utc_or_none(delivery_log.row_next_attempt(subscription, row)),
+                nextAttemptAt=_optional_utc(delivery_log.row_next_attempt(subscription, row)),
                 resendOf=row.resend_of,
             )
             for row in page.items
@@ -769,13 +769,13 @@ def delivery_detail_response(found: dict[str, Any]) -> DeliveryDetail:
         requestBody=found["body"],
         requestBytes=request.request_bytes,
         createdAt=as_utc(request.created_at),
-        nextAttemptAt=_utc_or_none(found["next_attempt_at"]),
+        nextAttemptAt=_optional_utc(found["next_attempt_at"]),
         resendOf=request.resend_of,
         attempts=[
             DeliveryAttempt(
                 number=attempt.number,
                 startedAt=as_utc(attempt.started_at),
-                completedAt=_utc_or_none(attempt.completed_at),
+                completedAt=_optional_utc(attempt.completed_at),
                 durationMs=attempt.duration_ms,
                 responseStatus=attempt.response_status,
                 error=DeliveryAttemptError(
@@ -788,10 +788,6 @@ def delivery_detail_response(found: dict[str, Any]) -> DeliveryDetail:
             for attempt in found["attempts"]
         ],
     )
-
-
-def _utc_or_none(value: datetime | None) -> datetime | None:
-    return as_utc(value) if value is not None else None
 
 
 def import_profile_response(

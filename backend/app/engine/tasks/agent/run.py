@@ -18,16 +18,16 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import Select, func, select, text
 from sqlalchemy.orm import Session
 
 from ....config import get_settings
 from ....errors import ApiError
 from ....models.database import AiCall, AuditEvent, ChangeSet, Grant, Job, ModelDraft
 from ...authorization.administration import delete_grant
-from ...change_sets.lifecycle import discard_change_set
-from ...jobs.batches import JobCancelled
-from ..store import finish, load_task, note
+from ...jobs.background import CANCELLABLE, request_stop
+from ...jobs.store import JobCancelled
+from ..store import discard_set, finish, load_task, note
 from .files import drop, ensure_tmp, retention
 from .sandbox import (
     ResetFailed,
@@ -81,14 +81,20 @@ def _end(session: Session, grants: list[str]) -> None:
             delete_grant(session, grant)
 
 
+def _its_jobs(client: int) -> tuple[Any, Any]:
+    """The conditions that pick the jobs the session's client queued, its own task's job left out."""
+    return Job.requested_by_client_id == client, Job.kind != "aiTask"
+
+
+def _its_unfinished_jobs(client: int) -> Select[tuple[int]]:
+    """Those of them that have not ended: the ones a turn waits for and an undo stops."""
+    return select(Job.id).where(*_its_jobs(client), Job.state.in_(CANCELLABLE))
+
+
 def _await_its_jobs(session: Session, ctx: Any, started: float, client: int) -> None:
     """The session has stopped: the jobs it queued run as its client, so its grants stay until they
     are done, or until the session's time is over."""
-    waiting = select(Job.id).where(
-        Job.requested_by_client_id == client,
-        Job.kind != "aiTask",
-        Job.state.in_(("queued", "running")),
-    )
+    waiting = _its_unfinished_jobs(client)
     while session.scalar(waiting.limit(1)) is not None:
         session.commit()
         ctx.check()
@@ -138,7 +144,7 @@ def _steps(
         return {"key": key, "label": label, "done": done, "running": running}
 
     def waiting(job: Any) -> bool:
-        return job.state in ("queued", "running")
+        return job.state in CANCELLABLE
 
     if load:
         loads = [job for job in jobs if job.kind != "dryRun"]
@@ -830,22 +836,9 @@ def _undo_load(session: Session, task_id: str, client: int, since: datetime) -> 
     """The person stopped a load (AP-D55): what the session's client began in it is stopped, and the
     change sets it made in this turn are discarded, so the task returns to the accepted proposal
     with nothing loaded. A job still running after a minute is said, not forced."""
-    session.execute(
-        update(Job)
-        .where(
-            Job.requested_by_client_id == client,
-            Job.kind != "aiTask",
-            Job.state.in_(("queued", "running")),
-        )
-        .values(cancel_requested_at=datetime.now(UTC))
-        .execution_options(synchronize_session=False)
-    )
+    request_stop(session, *_its_jobs(client))
     session.commit()
-    waiting = select(Job.id).where(
-        Job.requested_by_client_id == client,
-        Job.kind != "aiTask",
-        Job.state.in_(("queued", "running")),
-    )
+    waiting = _its_unfinished_jobs(client)
     deadline = time.monotonic() + UNDO_SECONDS
     while session.scalar(waiting.limit(1)) is not None and time.monotonic() < deadline:
         session.commit()
@@ -868,17 +861,13 @@ def _undo_load(session: Session, task_id: str, client: int, since: datetime) -> 
             ChangeSet.created_by_client_id == client, ChangeSet.created_at >= since
         )
     ).all():
-        discard_change_set(session, change_set.id, change_set.version)
+        discard_set(session, change_set.id)
 
 
 def _discard_empty_sets(session: Session, client: int, since: datetime) -> None:
     """The change sets the session's client made in a turn that failed and left empty: nothing in
     them is worth keeping, and no task would link them. Not while a job of the client still runs."""
-    running = select(Job.id).where(
-        Job.requested_by_client_id == client,
-        Job.kind != "aiTask",
-        Job.state.in_(("queued", "running")),
-    )
+    running = _its_unfinished_jobs(client)
     if session.scalar(running.limit(1)) is not None:
         return
     for change_set in session.scalars(
@@ -887,7 +876,7 @@ def _discard_empty_sets(session: Session, client: int, since: datetime) -> None:
         )
     ).all():
         if not holds_changes(counts_of(session, change_set.id)):
-            discard_change_set(session, change_set.id, change_set.version)
+            discard_set(session, change_set.id)
     session.commit()
 
 

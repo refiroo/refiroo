@@ -17,6 +17,7 @@ from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ...common.versions import dotted_version
 from ...db import lock_installation
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelRelease
@@ -41,19 +42,12 @@ class _LegacyEngineModel(EngineModel):
     )
 
 
-def _version(text: str) -> tuple[int, ...] | None:
-    try:
-        return tuple(int(part) for part in text.split("."))
-    except ValueError:
-        return None
-
-
 def schema_side(schema: str) -> SchemaSide:
     """Where a schema version lies against the window: in it, before it (it left), after it (a
     later engine's), or not a version at all."""
     if schema in SCHEMA_VERSIONS:
         return "inside"
-    parts, window = _version(schema), _version(TARGET)
+    parts, window = dotted_version(schema), dotted_version(TARGET)
     if parts is None or window is None:
         return "unreadable"
     return "after" if parts > window else "left"
@@ -100,7 +94,7 @@ def plan_release(release: ModelRelease, taken: dict[str, ModelRelease]) -> Outco
     can be raised moves its entry to the new hash, so the next one is checked against it."""
     schema = release.schema_version
     outcome = Outcome(release, schema)
-    if _version(schema) is None:
+    if dotted_version(schema) is None:
         outcome.skipped = f"schema '{schema}' is not a version"
         return outcome
     try:

@@ -20,7 +20,7 @@ from sqlalchemy import delete, exists, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, require_version
 from ...models.database import (
     Job,
     ModelDraft,
@@ -31,6 +31,7 @@ from ...models.sources import SourceFileRequest
 from ..authorization.writes import requester_of
 from ..imports.profiles import load_profile, require_model
 from ..imports.submit import Upload
+from ..jobs.background import request_stop
 from ..jobs.files import JobFiles
 from ..jobs.store import job_parameter, start_job
 from ..model.drafts import load_draft
@@ -260,18 +261,10 @@ def delete_source_file(
     then proceeds (0.10 R-F5, R-F8). Commits."""
     source = load_source_file(session, source_file_id)
     _require_version(source, expected_version)
-    session.execute(
-        update(Job)
-        .where(
-            Job.state.in_(("queued", "running")),
-            (Job.id == source.profile_job_id)
-            | (
-                Job.kind.in_(_READING_KINDS)
-                & (job_parameter("sourceFileId") == source.public_id)
-            ),
-        )
-        .values(cancel_requested_at=datetime.now(UTC))
-        .execution_options(synchronize_session=False)
+    request_stop(
+        session,
+        (Job.id == source.profile_job_id)
+        | (Job.kind.in_(_READING_KINDS) & (job_parameter("sourceFileId") == source.public_id)),
     )
     session.commit()
     session.refresh(source, with_for_update=True)
@@ -286,13 +279,12 @@ _READING_KINDS = ("profile", "dryRun", "profileCheck", "inference")
 
 
 def _require_version(source: SourceFile, expected_version: int) -> None:
-    if source.version != expected_version:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            f"Source file '{source.public_id}' is at version {source.version}",
-            {"currentVersion": source.version},
-        )
+    require_version(
+        source,
+        expected_version,
+        "Source file",
+        message=f"Source file '{source.public_id}' is at version {source.version}",
+    )
 
 
 def profile_state(session: Session, source: SourceFile) -> dict[str, object]:

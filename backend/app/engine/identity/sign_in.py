@@ -16,12 +16,13 @@ from datetime import UTC, datetime, timedelta
 from functools import cache
 from typing import Literal
 
-from sqlalchemy import case, delete, func, select, tuple_
+from sqlalchemy import case, delete, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ...models.database import AuthorizationCode, SignInFailure, User, UserSession
 from . import security_events, sessions
+from .lookup import user_by_email
 from .passwords import digest, hash_secret, new_token, verify_secret
 from .settings import IdentitySettings
 
@@ -151,7 +152,7 @@ def check_password(
     wait = seconds_to_wait(session, email, address, now)
     if wait > 0:
         return Refused("slowed", wait)
-    user = session.scalar(select(User).where(func.lower(User.email) == email.strip().lower()))
+    user = user_by_email(session, email.strip())
     usable = user is not None and user.active and (user.local_kept or not kept_only)
     stored = user.password_hash if usable else None
     matches = verify_secret(password, stored or _absent_hash())

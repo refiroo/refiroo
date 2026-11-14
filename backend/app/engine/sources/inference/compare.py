@@ -20,6 +20,7 @@ import copy
 from collections.abc import Iterable, Iterator
 from typing import Any
 
+from ....common.versions import dotted_version
 from ...model.authoring.profile_side import binding_kind
 
 MODEL_KINDS = ("objectType", "attributeType", "relationType", "attributeBinding", "relationBinding", "group")
@@ -263,10 +264,8 @@ def _has(current: Any, wanted: Any) -> bool:
 
 
 def _version(value: Any) -> tuple[int, ...]:
-    try:
-        return tuple(int(part) for part in str(value).split("."))
-    except ValueError:
-        return (0,)
+    """A schema version to compare; text that is not a version reads as ``(0,)``, before all."""
+    return dotted_version(value) or (0,)
 
 
 def kind_of(binding: dict[str, Any] | None) -> str:

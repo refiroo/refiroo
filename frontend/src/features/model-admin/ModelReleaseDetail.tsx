@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { actorText } from "@/ui/ActorName";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import type { ModelRelease, ModelReleaseActivation, ModelReleaseDiff, ModelReleaseSummary, Workspace } from "@/types";
 import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
 import { CompatibilityPill, ModelDiff } from "@/features/model-admin/ModelDiff";
@@ -230,7 +230,7 @@ export function ModelReleaseDetail({
         onStatusChanged?.(changed);
       }
     } catch (cause) {
-      if (isApiError(cause, "MODEL_RELEASE_VERSION_CONFLICT")) await readAgainAfterConflict(action);
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) await readAgainAfterConflict(action);
       else setLifecycleError(errorMessage(cause));
     } finally {
       setLifecyclePending(false);

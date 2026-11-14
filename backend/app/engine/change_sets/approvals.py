@@ -10,7 +10,7 @@ second person to give it (``secondPerson``). Each submission and each decision i
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...errors import api_error
+from ...errors import api_error, require_version, version_conflict
 from ...models.database import (
     ApprovalPolicy,
     ChangeSet,
@@ -83,13 +83,7 @@ def write_policy(
         )
     row = load_policy(session, workspace_key, for_update=True)
     current = row.version if row is not None else 0
-    if expected_version != current:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            "The approval policy has changed",
-            {"currentVersion": current},
-        )
+    require_version(current, expected_version, "", message="The approval policy has changed")
     new = {"requireApproval": require_approval, "secondPerson": second_person}
     if row is None:
         row = ApprovalPolicy(
@@ -130,13 +124,12 @@ def submit(
     (``409 VERSION_CONFLICT``), a change set not yet submitted (``409 CHANGE_SET_SUBMITTED``) and
     one that validates (``409 CHANGE_SET_INVALID``)."""
     change_set = load_change_set(session, change_set_id, for_update=True)
-    if change_set.version != expected_version:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            "The change set has changed since it was read",
-            {"currentVersion": change_set.version},
-        )
+    require_version(
+        change_set,
+        expected_version,
+        "",
+        message="The change set has changed since it was read",
+    )
     if open_submission(session, change_set_id, for_update=True) is not None:
         raise api_error(
             409, "CHANGE_SET_SUBMITTED", "This change set is already submitted for publication"
@@ -283,11 +276,8 @@ def decide(
     # The decision binds the version read and the version submitted: a change set that no longer
     # is what was submitted is not decided (0.12 R-F7).
     if change_set.version != expected_version or change_set.version != submission.version_submitted:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            "The change set has changed since it was read",
-            {"currentVersion": change_set.version},
+        raise version_conflict(
+            change_set.version, "", message="The change set has changed since it was read"
         )
     if outcome == "sendBack":
         decision = _record_decision(session, submission, "sendBack", expected_version, comment)

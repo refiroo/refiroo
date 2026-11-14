@@ -66,7 +66,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import DbSession, RequestModelSnapshot
-from ..paging import PageQuery, SeekablePageQuery
+from ..paging import PageQuery, PageSize, SeekablePageQuery
 from ..presenters import build_object_responses, build_relation_response, change_set_object_response
 from ..schemas.records import (
     HeldObject,
@@ -275,7 +275,7 @@ def list_relations(
             " Omitted: name"
         ),
     ),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> RelationPage:
     if sum(value is not None for value in (change_set_id, publication_id)) > 1:
         raise api_error(422, "MUTUALLY_EXCLUSIVE_CONTEXT", "Workspace contexts cannot be combined")
@@ -381,7 +381,7 @@ def list_held_records(
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
     publication_id: str | None = Query(default=None, alias="publicationId"),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> HeldRecordPage:
     """The records the named records hold through one relationship, each with how many of them
     hold it, in name order (0.9 K6a, D165): what a selection's Remove offers."""

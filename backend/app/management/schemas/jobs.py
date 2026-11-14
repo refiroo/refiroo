@@ -6,6 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
+from ...engine.jobs.kinds import KIND_NAMES
 from .common import (
     ApiErrorBody,
     CollectionPage,
@@ -591,20 +592,7 @@ class JobResponse(BaseModel):
     """
 
     id: str
-    kind: Literal[
-        "batch",
-        "import",
-        "export",
-        "profile",
-        "dryRun",
-        "inference",
-        "profileCheck",
-        "migration",
-        "mappingInference",
-        "move",
-        "aiProposal",
-        "aiTask",
-    ]
+    kind: Literal[KIND_NAMES]
     workspaceKey: str
     changeSetId: str | None
     changeSetVersion: int | None

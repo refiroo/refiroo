@@ -35,10 +35,9 @@ from .engine.jobs.events import THREAD_NAME as LISTENER_THREAD
 from .engine.jobs.events import JobListener
 from .engine.jobs.files import JobFiles
 from .engine.jobs.inline import BatchLimits
+from .engine.jobs.kinds import ASSISTANT_KINDS, EXPORT_KINDS
 from .engine.jobs.worker import (
-    ASSISTANT_KINDS,
     ASSISTANT_THREAD_NAME,
-    EXPORT_KINDS,
     EXPORT_THREAD_NAME,
     JobWorker,
     WorkerSettings,

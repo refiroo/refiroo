@@ -10,7 +10,7 @@ Keep the version you read with the change you intend to make. Updating against t
 
 Records and relationships have versions. A mapping replacement claims the relationship set, since the membership can change without changing the anchor record. A model draft, change set, release retirement and workspace model activation each have their own concurrency claim. A write inside a change set can need both the record's version and the change set's version.
 
-On `VERSION_CONFLICT`, read the current resource, compare it with your source and decide whether to rebuild or abandon the change. The refusal identifies the current version. Do not simply replace your saved claim with the latest number and send the old change again. More specific failures include `CHANGE_SET_VERSION_CONFLICT`, `MODEL_RELEASE_VERSION_CONFLICT` and `ACTIVATION_CONFLICT`.
+On `VERSION_CONFLICT`, read the current resource, compare it with your source and decide whether to rebuild or abandon the change. The refusal identifies the current version. Do not simply replace your saved claim with the latest number and send the old change again. More specific failures include `CHANGE_SET_VERSION_CONFLICT`, `RELATION_SET_VERSION_CONFLICT` and `ACTIVATION_CONFLICT`.
 
 A batch update or upsert that would change nothing is reported as unchanged before its version claim. It advances no record version and produces no data-change event. Mapping replacement has a deliberate distinction: a mapping save still checks a stale set token when unchanged, while a bulk set-replacement item can report unchanged before checking it.
 

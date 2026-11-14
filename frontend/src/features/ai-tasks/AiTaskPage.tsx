@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ai } from "@/api/aiClient";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import { useHeldAnywhere, useWorkspacePermissions, holds } from "@/state/permissions";
 import { changeReviewFor, routePath } from "@/routing/routes";
 import type { AiTask, EngineModel, JourneyRef, RouteState } from "@/types";
@@ -140,7 +140,7 @@ export function AiTaskPage({
     try {
       followed.set(await action());
     } catch (cause) {
-      if (isApiError(cause, "AI_TASK_VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         setConflict(true);
         await followed.reload();
       } else setProblem(errorMessage(cause));

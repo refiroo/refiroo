@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import { InlineError } from "@/ui/InlineError";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
@@ -637,10 +637,10 @@ function MappingActionDialog({
       });
       onSaved(continueToNext);
     } catch (cause) {
-      if (isApiError(cause, "MAPPING_VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         const details = cause.details as
-          { mappingVersion?: number; targetCount?: number; targets?: MappingTargetSummary[] } | undefined;
-        const newVersion = details?.mappingVersion ?? currentMappingVersion;
+          { currentVersion?: number; targetCount?: number; targets?: MappingTargetSummary[] } | undefined;
+        const newVersion = details?.currentVersion ?? currentMappingVersion;
         setConflictVersion(newVersion);
         setCurrentMappingVersion(newVersion);
         setConflictTargets(details?.targets ?? []);

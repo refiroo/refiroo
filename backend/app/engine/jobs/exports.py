@@ -37,6 +37,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+from openpyxl.utils import get_column_letter
 from psycopg import sql
 from sqlalchemy import (
     JSON,
@@ -82,7 +83,7 @@ from ..reads.snapshot_reads import (
 )
 from ..workspaces.catalogue import resolve_workspace
 from . import about, export_views, people, view_sheets, xlsx
-from .store import start_job
+from .store import JobCancelled, start_job
 
 CHECK_ROWS = 10_000
 FETCH_ROWS = 2_000
@@ -130,15 +131,11 @@ LABELS = {
 }
 
 
-class ExportCancelled(Exception):
-    """A cancel request, or a lease lost, reached the export: it stops and leaves no file."""
-
-
 @dataclass
 class ExportControl:
     """The worker's side of a running export, through a short session of its own (see the module
     docstring). ``check(total, processed)`` records progress, renews the lease and answers whether
-    to stop."""
+    a cancel was requested; a lease lost to another worker raises ``LeaseLost``."""
 
     check: Callable[[int | None, int], bool]
     total: int | None = None
@@ -146,13 +143,13 @@ class ExportControl:
 
 
 def should_stop(control: ExportControl) -> bool:
-    """Whether the export stops here: a cancel request, or the lease lost to another worker."""
+    """Whether a cancel was requested; the lease lost to another worker raises ``LeaseLost``."""
     return control.check(control.total, control.processed)
 
 
 def _checkpoint(control: ExportControl) -> None:
     if should_stop(control):
-        raise ExportCancelled
+        raise JobCancelled
 
 
 # --- the request ---------------------------------------------------------------------------------
@@ -1099,6 +1096,8 @@ def _write_csv(
         "COPY (SELECT {} FROM export_relations x ORDER BY x.relation_type_key, x.relation_id)"
         " TO STDOUT (FORMAT csv)"
     ).format(sql.SQL(", ").join(relation_cells))
+    # ``COPY … TO STDOUT`` streams a query's rows out; the writers of ``COPY … FROM STDIN`` (``common.copy_rows``)
+    # go the other way, so this stays apart from them.
     connection = session.connection().connection.driver_connection
     for statement, table in ((records, _RECORDS), (relations, _RELATIONS)):
         rows = session.scalar(select(func.count()).select_from(table)) or 0
@@ -1190,7 +1189,7 @@ def _write_xlsx(
         ),
     )
     for title, table, query, keys, built_in, attributes, counts, type_list, list_column in tables:
-        letters = [xlsx.column(index) for index in range(1, len(keys) + 1)]
+        letters = [get_column_letter(index) for index in range(1, len(keys) + 1)]
         lists = (
             [(letters[0], f"Lists!${list_column}$1:${list_column}${len(type_list)}")]
             if type_list

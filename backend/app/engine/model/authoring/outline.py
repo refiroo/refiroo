@@ -47,7 +47,7 @@ from ..consumer_expansion import public_name
 from ..diagnostics import ModelDiagnostic
 from ..placements import model_placements
 from ..releases import installed_versions, next_free_version
-from .document import Document
+from .document import Document, is_containment
 from .kinds import atom, unlistable_types
 from .layout import contained_types
 from .released import base_release, released_atoms
@@ -122,7 +122,7 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
     document = Document(data)
     mark = _Marks(released, base)
     relation_types = {item.get("key"): item for item in _items(data, "relationTypes")}
-    containment = {key for key, item in relation_types.items() if _is_containment(item)}
+    containment = {key for key, item in relation_types.items() if is_containment(item)}
     bindings = _items(data, "objectTypeRelations")
     sharing: dict[str, list[str]] = {}
     for object_type in _items(data, "objectTypes"):
@@ -677,10 +677,6 @@ def _views(application: dict[str, Any], base: dict[str, Any]) -> list[dict[str, 
 def _unique_per(binding: dict[str, Any]) -> str | None:
     features = binding.get("features")
     return features.get("uniqueToAncestorTypeKey") if isinstance(features, dict) else None
-
-
-def _is_containment(relation_type: dict[str, Any]) -> bool:
-    return bool((relation_type.get("features") or {}).get("parentOf", False))
 
 
 # The schema class of each kind of element, by the member that lists it.

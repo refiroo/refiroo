@@ -18,13 +18,21 @@ from typing import Any
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from ...common.counts import count_noun
 from ...errors import ApiError
 from ...models.database import ChangeSet, Job, ModelDraft, ModelRelease
-from ..change_sets.lifecycle import create_change_set, discard_change_set
+from ..change_sets.lifecycle import create_change_set
 from ..change_sets.pinning import selected_change_set_release
 from ..jobs.background import open_job_context
-from ..jobs.batches import JobCancelled, run_items
-from ..jobs.store import ItemOutcome, complete_job, record_outcomes, start_job, stop_job
+from ..jobs.batches import run_items
+from ..jobs.store import (
+    ItemOutcome,
+    JobCancelled,
+    complete_job,
+    record_outcomes,
+    start_job,
+    stop_job,
+)
 from ..model.compiler import compile_model
 from ..model.release_lifecycle import delete_release
 from ..model.releases import ReleaseIdentityConflict
@@ -32,7 +40,7 @@ from ..model.workspace_models import load_assignment
 from ..sources import draft_profile
 from ..sources.dry_run import inputs_of, is_items_run, preview_again, superseded
 from . import agent, design_job, draft_plan
-from .store import finish, load_task, note
+from .store import discard_set, finish, load_task, note, workbook_of
 
 SHOWN_REFUSALS = 5
 
@@ -98,7 +106,7 @@ def _refusal_words(session: Session, job: Job, previewed: Job, total: int) -> st
     ]
     more = total - len(shown)
     return (
-        f"The engine refused {agent.plural(total, 'record')} of the load; the data may have "
+        f"The engine refused {count_noun(total, 'record', thousands=True)} of the load; the data may have "
         "changed since the check, so nothing was loaded. "
         + "; ".join(lines)
         + (f"; and {more:,} more" if more > 0 else "")
@@ -114,21 +122,12 @@ def _stopped(ctx: Any) -> bool:
     return False
 
 
-def _discard(session: Session, change_set_id: str) -> None:
-    """The change set goes, claimed at the version the database holds (a batch rolled back leaves the
-    session's copy ahead of it)."""
-    found = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
-    if found is not None:
-        session.refresh(found)
-        discard_change_set(session, found.id, found.version)
-
-
 def _discard_earlier(session: Session, task_id: str) -> None:
     """A change set an earlier run of this load made and did not finish (its worker stopped) goes."""
     task = load_task(session, task_id)
     earlier = (task.result or {}).get("changeSetId")
     if earlier:
-        _discard(session, earlier)
+        discard_set(session, earlier, refresh=True)
 
 
 def _install(session: Session, task_id: str, ctx: Any) -> Any | None:
@@ -336,17 +335,17 @@ def run(session: Session, job: Job, ctx: Any, task_id: str) -> None:
     except JobCancelled:
         # The person's Stop: the change set and the release this accept installed go, as with a
         # refused load, before the stop is carried on (R13-F8).
-        _discard(session, change_set.id)
+        discard_set(session, change_set.id, refresh=True)
         _withdraw(session, task_id)
         raise
     except ApiError as gone:
         session.rollback()
-        _discard(session, change_set.id)
+        discard_set(session, change_set.id, refresh=True)
         _fail(session, task_id, f"{gone.message}. Nothing was loaded.{_withdraw(session, task_id)}")
         return
     if failure is not None:
         # An atomic batch that refused anything wrote nothing: the change set goes.
-        _discard(session, change_set.id)
+        discard_set(session, change_set.id, refresh=True)
         _fail(session, task_id, failure + _withdraw(session, task_id))
         return
     counts = agent.counts_of(session, change_set.id)
@@ -372,7 +371,7 @@ def run(session: Session, job: Job, ctx: Any, task_id: str) -> None:
 
 
 def _name(session: Session, task: Any) -> str:
-    workbook = design_job.workbook_of(session, task)
+    workbook = workbook_of(session, task)
     return f"Load of {workbook.name}" if workbook is not None else "Assistant's changes"
 
 
@@ -384,7 +383,7 @@ def _again_words(refused: list[ItemOutcome]) -> str:
     ]
     more = len(refused) - len(shown)
     return (
-        f"After the draft changed, the engine refused {agent.plural(len(refused), 'record')} of the "
+        f"After the draft changed, the engine refused {count_noun(len(refused), 'record', thousands=True)} of the "
         "load when it checked them again, so nothing was installed or loaded. "
         + "; ".join(lines)
         + (f"; and {more:,} more" if more > 0 else "")

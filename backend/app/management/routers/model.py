@@ -21,7 +21,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import DbSession, RequestModelSnapshot
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import diagnostic_response
 from ..projections.model_metadata import (
     build_application_responses,
@@ -204,7 +204,7 @@ def get_applications(
     session: DbSession,
     snapshot: RequestModelSnapshot,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> MetadataPage[ApplicationResponse]:
     page = paginate_sequence(
         snapshot.model.applications,
@@ -235,7 +235,7 @@ def list_attribute_types(
     session: DbSession,
     snapshot: RequestModelSnapshot,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> MetadataPage[AttributeTypeResponse]:
     page = paginate_sequence(
         snapshot.model.attributeTypes,
@@ -270,7 +270,7 @@ def list_object_types(
     session: DbSession,
     snapshot: RequestModelSnapshot,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> MetadataPage[ObjectTypeResponse]:
     page = paginate_sequence(
         snapshot.model.objectTypes,
@@ -301,7 +301,7 @@ def list_relation_types(
     session: DbSession,
     snapshot: RequestModelSnapshot,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> MetadataPage[RelationTypeResponse]:
     page = paginate_sequence(
         snapshot.model.relationTypes,
@@ -338,7 +338,7 @@ def get_object_type_relations(
     paging: PageQuery,
     from_object_type: str | None = Query(default=None, alias="fromObjectType"),
     to_object_type: str | None = Query(default=None, alias="toObjectType"),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> MetadataPage[ObjectTypeRelationResponse]:
     relations = snapshot.model.objectTypeRelations
     if from_object_type:

@@ -34,7 +34,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, version_conflict
 from ...models.commands import (
     RELATION_ITEMS,
     BatchCreateItem,
@@ -98,7 +98,7 @@ from ..records.relation_writes import (
 from ..records.values import normalize_value, stored_json_value
 from ..records.writes import ChangeSetWrites, LiveWrites
 from ..workspaces.catalogue import resolve_workspace
-from .store import ItemOutcome, applied_deletions
+from .store import ItemOutcome, JobCancelled, applied_deletions
 
 # A cancel request is looked for before every this many items an atomic job decides, and before
 # its items are written (D28).
@@ -299,10 +299,6 @@ def run_items(
         registry.require_resolved_release(session)
         outer.commit()
     return outcomes
-
-
-class JobCancelled(Exception):
-    """A cancel request reached the job while its items were applied (D28)."""
 
 
 def _segments(
@@ -1183,10 +1179,8 @@ class _Items:
         lookup.prefetch_set_versions(sets)
 
     def _key_form_of(self, definition: Any, value: Any) -> Any | None:
-        if value is None or value == "":
-            return None
         try:
-            return self.key_form(normalize_value(definition, value))
+            return _normalized(definition, value, self.key_form)
         except ApiError:
             return None
 
@@ -1273,12 +1267,7 @@ class _LiveItems(_Items):
         )
 
     def version_conflict(self, record: Any) -> ApiError:
-        return api_error(
-            409,
-            "VERSION_CONFLICT",
-            "Object version has changed",
-            {"currentVersion": record.version},
-        )
+        return version_conflict(record.version, "Object")
 
     def write(self) -> None:
         write_live(self.writes, self.model, self.lookup.changes())
@@ -1363,12 +1352,7 @@ class _ChangeSetItems(_Items):
         return ChangeSetScope(self.session, self.model, self.context.change_set)
 
     def version_conflict(self, record: Any) -> ApiError:
-        return api_error(
-            409,
-            "VERSION_CONFLICT",
-            "Object record version has changed",
-            {"currentVersion": record.version},
-        )
+        return version_conflict(record.version, "Object record")
 
     def write(self) -> None:
         write_change_set(self.writes, self.lookup.changes())
@@ -1395,9 +1379,16 @@ def _initial_relations(
 
 def _canonical(definition: Any, value: Any) -> Any:
     """A value in one comparable form, whether given by a client, stored live or in a change set."""
+    return _normalized(definition, value, stored_json_value)
+
+
+def _normalized(definition: Any, value: Any, form: Callable[[Any], Any]) -> Any:
+    """A value's normalized form passed through ``form``; ``None`` for no value (``None`` or an empty
+    text). Refuses as ``normalize_value`` does. ``holder`` keeps its own call: it has no empty
+    case (an empty text is looked up as it is) and gives the refusal its pointer."""
     if value is None or value == "":
         return None
-    return stored_json_value(normalize_value(definition, value))
+    return form(normalize_value(definition, value))
 
 
 def _named_ids(items: Iterable[BatchItem]) -> set[str]:

@@ -8,8 +8,8 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, Form, Query, Request, Response, UploadFile
 
+from ...engine.identity.lookup import load_user
 from ...engine.identity.settings import IdentitySettings
-from ...engine.identity.users import load_user
 from ...engine.mail import mail_template, outbox, settings, smtp, templates, transport
 from ...engine.notifications import mailing
 from ...errors import api_error
@@ -21,7 +21,7 @@ from ...models.commands import (
 )
 from ..access import INSTANCE, SIGNED_IN, AuthorizedRoute, requires
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..projections import mail as present
 from ..schemas.mail import (
     MailMessagePage,
@@ -124,7 +124,7 @@ def list_mail_outbox(
     session: DbSession,
     paging: PageQuery,
     status: Literal["pending", "sent", "failed"] | None = None,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> MailMessagePage:
     """The messages waiting, sent or given up on, newest first; a failed one says why. The text of
     a message is never answered."""

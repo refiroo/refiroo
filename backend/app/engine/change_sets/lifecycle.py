@@ -31,6 +31,49 @@ from .access import change_set_model, load_change_set
 from .pinning import require_change_set_compatible
 
 
+def claim_active_workspace(session: Session, workspace_key: str) -> Workspace:
+    """The workspace, held for share so that no retirement commits while a change set starts, and
+    refused (``404``, ``409 WORKSPACE_RETIRED``) when it is not active. The one claim of a change
+    set's start: a start from live data, from a publication and a job's own. (Other claims of an
+    active workspace are kept apart: they take other locks or say other sentences, see
+    ``access.require_workspace_mutable`` and ``publish.withdraw_publication``.)"""
+    workspace = session.scalar(
+        select(Workspace)
+        .where(Workspace.key == workspace_key)
+        .with_for_update(read=True)
+        .execution_options(populate_existing=True)
+    )
+    if workspace is None:
+        raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
+    if workspace.status != "active":
+        raise api_error(409, "WORKSPACE_RETIRED", "Retired workspaces cannot be edited")
+    return workspace
+
+
+def capture_base(
+    session: Session, workspace_key: str, model_release_id: int, runtime_version: int
+) -> ChangeSetBase:
+    """A private base: the workspace's live data now, under the release the workspace runs at
+    that runtime version."""
+    base = ChangeSetBase(
+        workspace_key=workspace_key,
+        model_release_id=model_release_id,
+        model_runtime_version=runtime_version,
+    )
+    session.add(base)
+    session.flush()
+    copy_live(session, "base", base.id, workspace_key)
+    return base
+
+
+def remove_base(session: Session, base_id: int) -> None:
+    """A private base with its values, objects and relations."""
+    delete_owner_values(session, base_id)
+    session.execute(delete(ChangeSetBaseRelation).where(ChangeSetBaseRelation.base_id == base_id))
+    session.execute(delete(ChangeSetBaseObject).where(ChangeSetBaseObject.base_id == base_id))
+    session.execute(delete(ChangeSetBase).where(ChangeSetBase.id == base_id))
+
+
 def create_change_set(
     session: Session,
     workspace_key: str,
@@ -66,16 +109,7 @@ def create_change_set(
             validate_selected_model=validate_selected_model,
         )
     # Held for share, as a current-live capture holds it: a retirement waits for the change set.
-    workspace = session.scalar(
-        select(Workspace)
-        .where(Workspace.key == workspace_key)
-        .with_for_update(read=True)
-        .execution_options(populate_existing=True)
-    )
-    if workspace is None:
-        raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
-    if workspace.status != "active":
-        raise api_error(409, "WORKSPACE_RETIRED", "Retired workspaces cannot be edited")
+    claim_active_workspace(session, workspace_key)
     if source_publication_id is not None:
         publication = session.scalar(
             select(Publication).where(Publication.id == source_publication_id)
@@ -118,26 +152,13 @@ def open_job_change_set(
     transaction, which commits it with the job's first writes (a move's, 0.11 X3, D130, D134).
     The workspace row and its release assignment are held for share, so no live write or
     activation commits while the base is copied; the caller checked the release."""
-    status = session.scalar(
-        select(Workspace.status).where(Workspace.key == workspace_key).with_for_update(read=True)
-    )
-    if status is None:
-        raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
-    if status != "active":
-        raise api_error(409, "WORKSPACE_RETIRED", "Retired workspaces cannot be edited")
+    claim_active_workspace(session, workspace_key)
     state = session.scalar(
         select(WorkspaceModel)
         .where(WorkspaceModel.workspace_key == workspace_key)
         .with_for_update(read=True)
     )
-    base = ChangeSetBase(
-        workspace_key=workspace_key,
-        model_release_id=state.model_release_id,
-        model_runtime_version=state.version,
-    )
-    session.add(base)
-    session.flush()
-    copy_live(session, "base", base.id, workspace_key)
+    base = capture_base(session, workspace_key, state.model_release_id, state.version)
     change_set = ChangeSet(
         **columns(requester_of(session), "created_by"),
         workspace_key=workspace_key,
@@ -204,13 +225,7 @@ def _capture_current_live(
     expected_model_runtime_release_id: int | None,
     validate_selected_model: bool,
 ) -> ChangeSet:
-    workspace = session.scalar(
-        select(Workspace).where(Workspace.key == workspace_key).with_for_update(read=True)
-    )
-    if workspace is None:
-        raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
-    if workspace.status != "active":
-        raise api_error(409, "WORKSPACE_RETIRED", "Retired workspaces cannot be edited")
+    claim_active_workspace(session, workspace_key)
     state = session.scalar(
         select(WorkspaceModel)
         .where(WorkspaceModel.workspace_key == workspace_key)
@@ -232,14 +247,7 @@ def _capture_current_live(
             "CHANGE_SET_SNAPSHOT_RETRY",
             "The selected model changed before current-live capture; retry with the current model",
         )
-    base = ChangeSetBase(
-        workspace_key=workspace_key,
-        model_release_id=state.model_release_id,
-        model_runtime_version=state.version,
-    )
-    session.add(base)
-    session.flush()
-    copy_live(session, "base", base.id, workspace_key)
+    base = capture_base(session, workspace_key, state.model_release_id, state.version)
     change_set = ChangeSet(
         **columns(requester_of(session), "created_by"),
         workspace_key=workspace_key,
@@ -302,11 +310,4 @@ def delete_change_set_and_base(session: Session, change_set: ChangeSet) -> None:
     session.flush()
     if base_id is None:
         return
-    delete_owner_values(session, base_id)
-    session.execute(
-        delete(ChangeSetBaseRelation).where(ChangeSetBaseRelation.base_id == base_id)
-    )
-    session.execute(
-        delete(ChangeSetBaseObject).where(ChangeSetBaseObject.base_id == base_id)
-    )
-    session.execute(delete(ChangeSetBase).where(ChangeSetBase.id == base_id))
+    remove_base(session, base_id)

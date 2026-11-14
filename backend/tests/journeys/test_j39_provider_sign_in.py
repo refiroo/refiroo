@@ -517,7 +517,7 @@ def test_two_first_sign_ins_of_the_same_new_person_at_once_make_one_person(world
 
     _provider(world, idp)
     both_looked = threading.Barrier(2)
-    holder = provider_sign_in._holder
+    holder = provider_sign_in.user_by_email
 
     def looked(session, email, **keywords):
         found = holder(session, email, **keywords)
@@ -525,7 +525,7 @@ def test_two_first_sign_ins_of_the_same_new_person_at_once_make_one_person(world
             both_looked.wait(timeout=20)
         return found
 
-    monkeypatch.setattr(provider_sign_in, "_holder", looked)
+    monkeypatch.setattr(provider_sign_in, "user_by_email", looked)
     sign_ins = []
     for _ in range(2):
         browser = _browser(world)

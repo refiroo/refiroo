@@ -4,7 +4,7 @@ from uuid import uuid4
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ...errors import api_error
+from ...errors import api_error, require_version
 from ...models.commands import ObjectCreate, ObjectUpdate, RelationCreate
 from ...models.database import RdmObject
 from ...models.schema import EngineModel
@@ -236,10 +236,7 @@ def decide_object_update(
         else None
     )
     # The workspace lock (PG-D5) is held: the version read is the one a write would claim.
-    if item.version != payload.expectedVersion:
-        raise api_error(
-            409, "VERSION_CONFLICT", "Object version has changed", {"currentVersion": item.version}
-        )
+    require_version(item, payload.expectedVersion, "Object")
     if attributes is not None:
         check_attribute_change(lookup, model, object_type, item, attributes)
 

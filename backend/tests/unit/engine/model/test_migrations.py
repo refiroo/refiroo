@@ -508,9 +508,9 @@ def test_a_long_migration_step_stops_when_another_worker_holds_it(seeded):
     other = JobWorker(SessionLocal, settings, owner="other")
     assert holder._claim() == sequence_id
 
-    holder._renew_lease(sequence_id)
+    holder._renewed(sequence_id)
     with pytest.raises(LeaseLost):
-        other._renew_lease(sequence_id)
+        other._renewed(sequence_id)
 
 
 def test_what_would_stop_a_publication_becomes_refused_items_naming_their_subject():

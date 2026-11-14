@@ -251,9 +251,9 @@ def test_someone_changed_the_set_first(world):
     ok(_replace(world, _binding(world, "Vnn"), h["id"], t1, m))
 
     error = refused(
-        _replace(world, _binding(world, "Vnn"), h["id"], t2, m), 409, "MAPPING_VERSION_CONFLICT"
+        _replace(world, _binding(world, "Vnn"), h["id"], t2, m), 409, "VERSION_CONFLICT"
     )
-    assert error["details"]["mappingVersion"] == m + 1 and error["details"]["targetCount"] == 1
+    assert error["details"]["currentVersion"] == m + 1 and error["details"]["targetCount"] == 1
     assert [t["object"]["id"] for t in error["details"]["targets"]] == [t1]
     assert _targets(_row(world, "Vnn", h)) == {t1}
 
@@ -287,7 +287,7 @@ def test_a_single_relationship_write_racing_a_set_replacement(world):
         refused(added, 409, "RELATION_SET_VERSION_CONFLICT")
         assert _targets(_row(world, "Vnn", s)) == {ta}
     else:
-        refused(replaced, 409, "MAPPING_VERSION_CONFLICT")
+        refused(replaced, 409, "VERSION_CONFLICT")
         assert _targets(_row(world, "Vnn", s)) == {t0, tb}
 
 

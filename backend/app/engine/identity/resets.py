@@ -13,9 +13,9 @@ from ...errors import api_error
 from ...models.database import PasswordResetLink, User, UserSession
 from ..mail import security_notice
 from . import managed, providers, security_events, sessions, sign_in
+from .lookup import load_user
 from .passwords import check_password, digest, hash_secret, new_token, verify_secret
 from .settings import IdentitySettings
-from .users import load_user
 
 
 def _set(user: User, password: str, now: datetime) -> None:

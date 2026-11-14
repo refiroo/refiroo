@@ -12,11 +12,9 @@ runs, and checking for a cancel between steps:
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from ...models.database import AiCall, AiTask, Job
@@ -26,6 +24,7 @@ from ...models.imports import (
 from ...models.schema import EngineModel
 from ..imports.profiles import check_profile
 from ..imports.submit import Upload
+from ..jobs.background import request_stop
 from ..jobs.files import JobFiles
 from ..jobs.store import complete_job, start_job
 from ..model.registry import resolve_model_snapshot
@@ -142,12 +141,7 @@ def request_cancel(session: Session, task_id: str, expected_version: int | None)
     if expected_version is not None:
         claim(task, expected_version)
     require_state(task, "reading", "checking", "loading")
-    session.execute(
-        update(Job)
-        .where(Job.id == task.job_id, Job.state.in_(("queued", "running")))
-        .values(cancel_requested_at=datetime.now(UTC))
-        .execution_options(synchronize_session=False)
-    )
+    request_stop(session, Job.id == task.job_id)
     session.commit()
     return task
 

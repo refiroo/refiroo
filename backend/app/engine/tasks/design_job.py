@@ -30,7 +30,7 @@ from ...models.imports import (
     ImportRequest,
     InlineProfile,
 )
-from ..change_sets.lifecycle import create_change_set, discard_change_set
+from ..change_sets.lifecycle import create_change_set
 from ..identity.clients import retire_session_client
 from ..imports.profiles import load_profile, parsed, source_order
 from ..imports.profiles import save_profile as save_import_profile
@@ -44,18 +44,24 @@ from ..sources.profile_check import previous_file
 from ..sources.store import stored_upload
 from . import agent, design_checks, draft_plan, matching, store
 from .profile_reading import headers_of
-from .store import claim, cut_at_word, finish, load_task, note, require_state, touch
+from .store import (
+    claim,
+    cut_at_word,
+    discard_set,
+    finish,
+    job_of,
+    load_task,
+    note,
+    require_state,
+    touch,
+    workbook_of,
+)
 
 
 def task_source(session: Session, task: AiTask) -> SourceFile:
-    source = session.scalar(select(SourceFile).where(SourceFile.task_id == task.id))
+    source = workbook_of(session, task)
     assert source is not None
     return source
-
-
-def workbook_of(session: Session, task: AiTask) -> SourceFile | None:
-    """The task's workbook; ``None`` for an instruction given without one."""
-    return session.scalar(select(SourceFile).where(SourceFile.task_id == task.id))
 
 
 def working_source(session: Session, draft_id: int) -> SourceFile | None:
@@ -1114,21 +1120,19 @@ def _discard_loaded(session: Session, task: AiTask) -> None:
     change_set_id = (task.result or {}).get("changeSetId")
     if not change_set_id:
         return
-    change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
-    if change_set is None:
+    if not discard_set(session, change_set_id):
         raise api_error(
             409,
             "AI_TASK_STATE",
             "The change set is no longer open: it was published or discarded. Start a new task",
         )
-    discard_change_set(session, change_set.id, change_set.version)
 
 
 def _discard_kept(session: Session, task: AiTask) -> None:
     """The change set a failed load left on the task, discarded when it is still open (commits)."""
     change_set_id = (task.result or {}).get("changeSetId")
-    if change_set_id and session.scalar(select(ChangeSet.id).where(ChangeSet.id == change_set_id)):
-        _discard_loaded(session, task)
+    if change_set_id:
+        discard_set(session, change_set_id)
 
 
 def queue_back(
@@ -1186,8 +1190,8 @@ def sync(session: Session, task: AiTask, retention_days: int, files: Any) -> Non
     that can change here is locked first: the second reader finds the first's work done (FX2)."""
     if task.state in (*store.WAITING, "loaded", "failed"):
         task = load_task(session, task.public_id, for_update=True)
-    if task.state == "loading" and task.job_id is not None:
-        job = session.scalar(select(Job).where(Job.id == task.job_id))
+    if task.state == "loading":
+        job = job_of(session, task)
         if job is not None and job.state == "cancelled":
             _discard_written(session, task)
     store.sync(session, task, retention_days)
@@ -1201,13 +1205,8 @@ def _discard_written(session: Session, task: AiTask) -> None:
     """What a stopped load wrote into the change set it made is not kept (AP-D55). Commits."""
     result = task.result or {}
     change_set_id = result.get("changeSetId")
-    change_set = (
-        session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
-        if change_set_id
-        else None
-    )
-    if change_set is not None:
-        discard_change_set(session, change_set.id, change_set.version)
+    if change_set_id:
+        discard_set(session, change_set_id)
     if result.get("releaseId"):
         note(task, "note", "The model change it installed stays activated in the workspace.")
 

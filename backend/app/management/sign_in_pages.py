@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from fastapi.responses import HTMLResponse
 
 from ..common.brand import is_default_product_name
+from . import sign_in_messages as messages
 
 _STYLE = """
 :root{--surface-sunken:#f6f5f2;--surface-raised:#fff;--text-primary:#1d1c1a;--text-secondary:#55524c;
@@ -163,13 +164,6 @@ def _hidden(fields: dict[str, str]) -> str:
     )
 
 
-def wait_text(seconds: int) -> str:
-    if seconds < 60:
-        return f"{seconds} second{'s' if seconds != 1 else ''}"
-    minutes = (seconds + 59) // 60
-    return f"{minutes} minute{'s' if minutes != 1 else ''}"
-
-
 def _assistant_note(assistant: tuple[str, str]) -> str:
     name, returns_to = assistant
     return (
@@ -241,17 +235,9 @@ def sign_in(
             _note("info", "Your session ended. Sign in again to return to where you were.")
         )
     if wrong:
-        notes.append(
-            _note("error", "The e-mail address or password is not right. Check both and try again.")
-        )
+        notes.append(_note("error", messages.WRONG_CREDENTIALS))
     if wait_seconds:
-        notes.append(
-            _note(
-                "warn",
-                "Too many attempts for this account or from this address. You can try again in "
-                f"{wait_text(wait_seconds)}. An administrator can reset the password.",
-            )
-        )
+        notes.append(_note("warn", messages.too_many_attempts(wait_seconds)))
     invalid = ' aria-invalid="true" aria-describedby="sign-in-problem"' if wrong else ""
     if wrong:
         notes[-1] = notes[-1].replace("<p ", '<p id="sign-in-problem" ', 1)
@@ -426,16 +412,9 @@ def _recovery_form(step: str, *, wrong: bool, wait_seconds: int) -> str:
 def _factor_notes(wrong: bool, wait_seconds: int) -> str:
     notes = ""
     if wrong:
-        notes += _note(
-            "error",
-            "That code is not right, or was already used. Wait for the next one and try again.",
-        ).replace("<p ", '<p id="code-problem" ', 1)
+        notes += _note("error", messages.WRONG_CODE).replace("<p ", '<p id="code-problem" ', 1)
     if wait_seconds:
-        notes += _note(
-            "warn",
-            "Too many wrong codes for this account or from this address. You can try again in "
-            f"{wait_text(wait_seconds)}. An administrator can reset the second factor.",
-        )
+        notes += _note("warn", messages.too_many_codes(wait_seconds))
     return notes
 
 

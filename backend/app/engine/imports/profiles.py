@@ -29,7 +29,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, paginate_statement, text_key
-from ...errors import api_error
+from ...errors import api_error, require_version
 from ...models.database import ImportProfile, ModelRelease
 from ...models.imports import (
     FixedParent,
@@ -858,10 +858,12 @@ def delete_profile(session: Session, key: str, expected_version: int) -> None:
 
 
 def _claim(profile: ImportProfile, expected_version: int) -> None:
-    if profile.version != expected_version:
-        raise api_error(
-            409,
-            "IMPORT_PROFILE_VERSION_CONFLICT",
-            f"Import profile '{profile.key}' is at version {profile.version}, not {expected_version}",
-            {"currentVersion": profile.version},
-        )
+    require_version(
+        profile,
+        expected_version,
+        "Import profile",
+        message=(
+            f"Import profile '{profile.key}' is at version {profile.version}, "
+            f"not {expected_version}"
+        ),
+    )

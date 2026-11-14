@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from ...errors import api_error
 from ...models.commands import BatchRequest
 from ...models.database import ChangeSet, Job
+from ...models.imports import ImportRequest
 from .batches import BatchContext, check_batch_context, open_batch_context, run_batch
 from .store import finish_job, remember_key, replayed_job, request_fingerprint, start_job
 
@@ -127,18 +128,33 @@ def batch_parameters(request: BatchRequest) -> dict[str, str]:
 
 
 def earlier_job(
-    session: Session, request: BatchRequest, idempotency_key: str | None, fingerprint: str
+    session: Session,
+    request: BatchRequest | ImportRequest,
+    idempotency_key: str | None,
+    fingerprint: str,
+    *,
+    scope: str = BATCHES_SCOPE,
 ) -> Job | None:
-    """The finished job an earlier request with this key ran (P5), or ``None`` to run this one."""
+    """The finished job an earlier request with this key ran (P5), or ``None`` to run this one.
+    ``scope`` keeps ``POST /batches`` and ``POST /imports`` from ever sharing a key."""
     if idempotency_key is None:
         return None
     return replayed_job(
         session,
-        scope=BATCHES_SCOPE,
-        workspace_key=_workspace_key(session, request),
+        scope=scope,
+        workspace_key=workspace_key(session, request),
         key=idempotency_key,
         fingerprint=fingerprint,
     )
+
+
+def check_change_set_claim(context: BatchContext, request: BatchRequest | ImportRequest) -> None:
+    """Refuse a request whose change set is no longer at the version it claims."""
+    if (
+        context.change_set is not None
+        and context.change_set.version != request.expectedChangeSetVersion
+    ):
+        raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
 
 
 def keep_key(
@@ -147,6 +163,8 @@ def keep_key(
     idempotency_key: str | None,
     fingerprint: str,
     job: Job,
+    *,
+    scope: str = BATCHES_SCOPE,
 ) -> Job | None:
     """Store the key with the new job; a concurrent request that stored it first answers instead
     (its job is returned, and this transaction is rolled back)."""
@@ -155,7 +173,7 @@ def keep_key(
     try:
         remember_key(
             session,
-            scope=BATCHES_SCOPE,
+            scope=scope,
             workspace_key=context.workspace_key,
             key=idempotency_key,
             fingerprint=fingerprint,
@@ -166,7 +184,7 @@ def keep_key(
         session.rollback()
         replayed = replayed_job(
             session,
-            scope=BATCHES_SCOPE,
+            scope=scope,
             workspace_key=context.workspace_key,
             key=idempotency_key,
             fingerprint=fingerprint,
@@ -177,17 +195,17 @@ def keep_key(
     return None
 
 
-def _workspace_key(session: Session, request: BatchRequest) -> str:
+def workspace_key(session: Session, request: BatchRequest | ImportRequest) -> str:
     """The workspace an idempotency key is scoped to, read without the write's checks, so a
     finished job is answered again even if its workspace has since been retired."""
     check_batch_context(request)
     if request.changeSetId is None:
         return request.workspaceKey
-    workspace_key = session.scalar(
+    found = session.scalar(
         select(ChangeSet.workspace_key).where(ChangeSet.id == str(request.changeSetId))
     )
-    if workspace_key is None:
+    if found is None:
         raise api_error(
             404, "CHANGE_SET_NOT_FOUND", f"Change set '{request.changeSetId}' not found"
         )
-    return workspace_key
+    return found

@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { objectTypeFor } from "@/model/lookup";
@@ -300,7 +300,7 @@ function ProfileDetail({
       setCheck(started);
       setFollowing(started.jobId);
     } catch (cause) {
-      setSaveError(isApiError(cause, "IMPORT_PROFILE_VERSION_CONFLICT") ? await readAgain(cause) : errorMessage(cause));
+      setSaveError(isVersionConflict(cause, ["VERSION_CONFLICT"]) ? await readAgain(cause) : errorMessage(cause));
     } finally {
       setSaving(false);
     }
@@ -586,7 +586,7 @@ function ProfileDetail({
               await api.deleteImportProfile(profile.key, profile.version);
             } catch (cause) {
               // The dialog stays open with the reason, and the next confirmation uses the version just read.
-              throw isApiError(cause, "IMPORT_PROFILE_VERSION_CONFLICT") ? new Error(await readAgain(cause)) : cause;
+              throw isVersionConflict(cause, ["VERSION_CONFLICT"]) ? new Error(await readAgain(cause)) : cause;
             }
             onDeleted(profile.key);
           }}

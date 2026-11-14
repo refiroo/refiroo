@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import delete, exists, func, or_, select, update
 from sqlalchemy.orm import Session
 
+from ...common.addresses import LOOPBACK
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
 from ...models.database import AgentApplication, UserSession
@@ -23,7 +24,6 @@ from ..identity.settings import IdentitySettings
 
 Source = Literal["registered", "administrator"]
 
-_LOOPBACK = ("localhost", "127.0.0.1", "::1")
 _UNUSED_DAYS = 30
 # Self-registration takes no credentials, so what it can store is bounded: registrations nobody has
 # signed in with yet, across the instance.
@@ -45,7 +45,7 @@ class RegistrationRefused(Exception):
 
 def is_loopback(uri: str) -> bool:
     parts = urlsplit(uri)
-    return parts.scheme == "http" and parts.hostname in _LOOPBACK and not parts.fragment
+    return parts.scheme == "http" and parts.hostname in LOOPBACK and not parts.fragment
 
 
 def _allowed(uri: str, hosts: tuple[str, ...] | None) -> bool:

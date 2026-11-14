@@ -1,5 +1,7 @@
 """The engine's JSON encoding gives what FastAPI's ``jsonable_encoder`` gave for stored data."""
 
+import hashlib
+import json
 from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
@@ -11,7 +13,7 @@ from uuid import UUID
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
-from app.common.encoding import to_jsonable
+from app.common.encoding import canonical_json, sha256_hex, to_jsonable
 from app.models.commands import AttributeInput, ObjectCreate
 
 
@@ -73,3 +75,14 @@ def test_matches_fastapi_encoder():
     for value in VALUES:
         assert to_jsonable(value) == jsonable_encoder(value), value
         assert repr(to_jsonable(value)) == repr(jsonable_encoder(value)), value
+
+
+def test_canonical_json_and_hash_keep_the_values_callers_stored():
+    value = {"b": [1, None], "a": "Ärvíz ✓"}
+    assert canonical_json(value) == json.dumps(value, sort_keys=True, separators=(",", ":"))
+    assert "\\u00c4" in canonical_json(value)
+    assert "Ä" in canonical_json(value, ensure_ascii=False)
+    assert canonical_json({"d": object()}, default=str).startswith('{"d":"<object')
+    digest = hashlib.sha256(b"text").hexdigest()
+    assert sha256_hex("text") == digest
+    assert sha256_hex("text", 32) == digest[:32]

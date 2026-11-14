@@ -25,6 +25,8 @@ GROUPING_SHARE = 0.34
 # At most this many checks of a kind go out: a wide workbook stays readable and in the window.
 PER_KIND = 12
 
+# The stored name is compared as it is stored, lower-cased, and the cell trimmed: one of five
+# comparisons of a name kept apart on purpose (see ``matching._FACTS``).
 _STORED_NAMES = text(
     """
 WITH v AS (

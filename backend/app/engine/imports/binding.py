@@ -50,6 +50,7 @@ from sqlalchemy import cast, column, insert, select, table, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
+from ...common.copy_rows import CopyRows
 from ...errors import ApiError, api_error
 from ...models.commands import BatchItem
 from ...models.database import Job
@@ -505,34 +506,16 @@ def _tally(entry: dict[str, Any], raw: Any, mapped: bool, convert: Callable[[Any
     return value
 
 
+# Each relationship of the context from both of its ends, as plain equalities (``near`` is the end the
+# row's record stands at): the first CTE of every statement that follows a record's relationships.
+_ENDS = """ends AS (
+        SELECT relation_type_key, 'outgoing' AS direction, from_id AS near, to_id AS far
+        FROM import_context_relations
+        UNION ALL
+        SELECT relation_type_key, 'incoming', to_id, from_id FROM import_context_relations),"""
+
+
 # --- writing rows ----------------------------------------------------------------------------------
-
-
-class _Copy:
-    """Rows for one temporary table, written by ``COPY`` in chunks."""
-
-    def __init__(self, session: Session, table_name: str, columns: tuple[str, ...]) -> None:
-        self.session = session
-        self.statement = f"COPY {table_name} ({', '.join(columns)}) FROM STDIN"
-        self.rows: list[tuple[Any, ...]] = []
-
-    def add(self, *values: Any) -> None:
-        self.rows.append(tuple(_copy_value(value) for value in values))
-
-    def flush(self) -> None:
-        if not self.rows:
-            return
-        connection = self.session.connection().connection.driver_connection
-        with connection.cursor() as cursor, cursor.copy(self.statement) as copy:
-            for row in self.rows:
-                copy.write_row(row)
-        self.rows = []
-
-
-def _copy_value(value: Any) -> Any:
-    if isinstance(value, dict | list):
-        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-    return value
 
 
 def _error(code: str, message: str, **details: Any) -> dict[str, Any]:
@@ -560,14 +543,14 @@ def _cells_error(failures: list[dict[str, Any]]) -> dict[str, Any]:
 # --- JSON Lines and the export's tables (no profile) ----------------------------------------------
 
 
-def _items_copy(session: Session) -> _Copy:
-    return _Copy(
+def _items_copy(session: Session) -> CopyRows:
+    return CopyRows(
         session, "import_items", ("phase", "src", "depth", "row_number", "sub", "ref", "item")
     )
 
 
-def _errors_copy(session: Session) -> _Copy:
-    return _Copy(session, "import_errors", ("src", "row_number", "ref", "error"))
+def _errors_copy(session: Session) -> CopyRows:
+    return CopyRows(session, "import_errors", ("src", "row_number", "ref", "error"))
 
 
 def _bind_jsonl(session: Session, path: Path, rows: _RowCounter) -> None:
@@ -1056,7 +1039,7 @@ class _ProfileBinding:
         self.context = context
         self.counter = rows
         self.report = report
-        self.match_cells = _Copy(session, "import_match_cells", ("src", "column_name", "match"))
+        self.match_cells = CopyRows(session, "import_match_cells", ("src", "column_name", "match"))
         # Where new cell records go, by column record (0.17 PP-D24), and the places to create.
         self.places: dict[tuple[str, str, str, str, str], Place] = {}
         self.place_reads = PlaceReads()
@@ -1069,7 +1052,7 @@ class _ProfileBinding:
         # Each source's named columns, by plan index (rows empty in all of them are skipped).
         self._names: dict[int, list[str]] = {}
         self.entry_id = 0
-        self.rows = _Copy(
+        self.rows = CopyRows(
             session,
             "import_rows",
             (
@@ -1091,7 +1074,7 @@ class _ProfileBinding:
                 "expected_version",
             ),
         )
-        self.links = _Copy(
+        self.links = CopyRows(
             session,
             "import_links",
             (
@@ -1109,7 +1092,7 @@ class _ProfileBinding:
                 "scope",
             ),
         )
-        self.related = _Copy(
+        self.related = CopyRows(
             session,
             "import_related",
             (
@@ -2184,11 +2167,6 @@ class _ProfileBinding:
     def _virtual_places(self) -> None:
         """The places this load creates, as records of the context: a match by ID finds them, and
         the records created under them have a parent."""
-        applications = {
-            type_key: application.key
-            for application in reversed(self.model.applications)
-            for type_key in application.objectTypeKeys
-        }
         for place_id, place in self.new_places.items():
             assert place.new is not None
             attributes = [
@@ -2208,7 +2186,7 @@ class _ProfileBinding:
                     "name": place.new.name,
                     "column": self.place_columns[place_id],
                     "attributes": json.dumps(attributes),
-                    "application": applications.get(place.new.object_type_key, ""),
+                    "application": self.model.application_of_type(place.new.object_type_key),
                 },
             )
         self._sql(
@@ -2585,7 +2563,7 @@ class _ProfileBinding:
             ),
             {"workspace": workspace_key, "model": self.model.release.key},
         ).all()
-        counterparts = _Copy(self.session, "import_counterparts", ("match_id", "object_id"))
+        counterparts = CopyRows(self.session, "import_counterparts", ("match_id", "object_id"))
         for match_id, object_id in held:
             counterparts.add(match_id, counterpart(workspace_key, object_id))
         counterparts.flush()
@@ -2947,11 +2925,7 @@ class _ProfileBinding:
         # none of the row's records stays ambiguous.
         self._sql(
             f"""
-            WITH ends AS (
-                SELECT relation_type_key, 'outgoing' AS direction, from_id AS near, to_id AS far
-                FROM import_context_relations
-                UNION ALL
-                SELECT relation_type_key, 'incoming', to_id, from_id FROM import_context_relations),
+            WITH {_ENDS}
             ambiguous AS (
                 SELECT l.row_id, l.link_no, r.record_id, l.relation_type_key, l.direction,
                     m.match_id,
@@ -3144,12 +3118,8 @@ class _ProfileBinding:
         self._sql("ANALYZE import_related")
         self._sql("ANALYZE import_context_relations")
         self._sql(
-            """
-            WITH ends AS (
-                SELECT relation_type_key, 'outgoing' AS direction, from_id AS near, to_id AS far
-                FROM import_context_relations
-                UNION ALL
-                SELECT relation_type_key, 'incoming', to_id, from_id FROM import_context_relations),
+            f"""
+            WITH {_ENDS}
             candidates AS (
                 SELECT d.entry_id, c.object_id, c.name FROM import_related d
                 JOIN import_rows r ON r.row_id = d.row_id AND r.error IS NULL AND r.existing
@@ -3188,12 +3158,8 @@ class _ProfileBinding:
         # A related record named by its ID cell (0.17 EX1): the record of that ID the relationship
         # joins to the row's record, wherever it stands; it keeps its parent.
         self._sql(
-            """
-            WITH ends AS (
-                SELECT relation_type_key, 'outgoing' AS direction, from_id AS near, to_id AS far
-                FROM import_context_relations
-                UNION ALL
-                SELECT relation_type_key, 'incoming', to_id, from_id FROM import_context_relations),
+            f"""
+            WITH {_ENDS}
             found AS (
                 SELECT d.entry_id, c.object_id, c.name, c.parent_object_id, c.application_key
                 FROM import_related d
@@ -3278,10 +3244,11 @@ class _ProfileBinding:
             " ORDER BY a.key), '[]'::jsonb) FROM jsonb_each({s}.attributes) a)"
         )
         # Records a column creates by name (D77) run first, each with the first row naming it.
-        applications: dict[str, str] = {}
-        for application in self.model.applications:
-            for type_key in application.objectTypeKeys:
-                applications.setdefault(type_key, application.key)
+        applications = {
+            item.key: key
+            for item in self.model.objectTypes
+            if (key := self.model.application_of_type(item.key))
+        }
         self.session.execute(
             text(
                 f"""
@@ -3438,13 +3405,9 @@ class _ProfileBinding:
             """
         )
         self._sql(
-            """
+            f"""
             INSERT INTO import_items (phase, src, depth, row_number, sub, ref, item)
-            WITH ends AS (
-                SELECT relation_type_key, 'outgoing' AS direction, from_id AS near, to_id AS far
-                FROM import_context_relations
-                UNION ALL
-                SELECT relation_type_key, 'incoming', to_id, from_id FROM import_context_relations),
+            WITH {_ENDS}
             -- A link-matrix column's part of the set (0.17 EX1): the columns the file edits, and the
             -- row's other links, which the replacement keeps.
             edited AS (
@@ -3491,7 +3454,7 @@ class _ProfileBinding:
                         '[]'::jsonb))
                 || CASE WHEN g.version IS NOT NULL
                     THEN jsonb_build_object('expectedRelationSetVersion', g.version)
-                    ELSE '{}'::jsonb END
+                    ELSE '{{}}'::jsonb END
             FROM grouped g
             """
         )

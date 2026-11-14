@@ -494,7 +494,11 @@ class ApplicationDefinition(ModelDefinition):
 
 
 def _omitted() -> Any:
-    """An optional field left out of the canonical document when absent."""
+    """An optional field left out of the canonical document when absent.
+
+    Kept apart from ``management/schemas/common.omitted`` (the response schemas' field): that one
+    also drops ``default`` from the generated JSON schema, which would change this model
+    definition's own schema document."""
     return Field(default=None, exclude_if=lambda value: value is None)
 
 
@@ -1033,6 +1037,13 @@ class EngineModel(ModelDefinition):
     ) -> ObjectTypeRelationDefinition | None:
         """The binding that permits this relation type from one object type to another."""
         return self._bindings.get((relation_type_key, from_object_type_key, to_object_type_key))
+
+    def application_of_type(self, object_type_key: str, default: str = "") -> str:
+        """The key of the first application that lists the object type, else ``default``."""
+        return next(
+            (item.key for item in self.applications if object_type_key in item.objectTypeKeys),
+            default,
+        )
 
     def containment_relation_keys(self, object_type_key: str | None) -> frozenset[str]:
         """The relation types that place a record of this type under its parent."""

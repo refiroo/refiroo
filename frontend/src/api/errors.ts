@@ -21,11 +21,37 @@ export class ApiError extends Error {
  * Narrows an unknown rejection to an `ApiError`, optionally requiring a specific error code.
  *
  * Prefer this over reading `code` off an untyped cast. Optimistic concurrency is a product
- * invariant, so `isApiError(cause, "VERSION_CONFLICT")` is the single way the UI recognises a
- * stale write.
+ * invariant, so `isVersionConflict` is the single way the UI recognises a stale write.
  */
 export function isApiError(cause: unknown, code?: string): cause is ApiError {
   return cause instanceof ApiError && (code === undefined || cause.code === code);
+}
+
+/** The refusals of a stale write (SR-D4): the one code, and the two that tell a second claim in one request apart. */
+export const VERSION_CONFLICT_CODES = [
+  "VERSION_CONFLICT",
+  "CHANGE_SET_VERSION_CONFLICT",
+  "RELATION_SET_VERSION_CONFLICT",
+] as const;
+
+/**
+ * Whether a rejection is a stale write: any of the three version-conflict codes, or only those in
+ * `codes` where a caller means one claim (the change set's, the relation set's). The mapping
+ * targets read's `MAPPING_VERSION_CONFLICT` is a refused read, not a stale write, and is not one.
+ */
+export function isVersionConflict(
+  cause: unknown,
+  codes: readonly (typeof VERSION_CONFLICT_CODES)[number][] = VERSION_CONFLICT_CODES,
+): cause is ApiError {
+  return cause instanceof ApiError && isVersionConflictCode(cause.code, codes);
+}
+
+/** `isVersionConflict` for a code read off a refused item (a batch item's `code`) rather than a rejection. */
+export function isVersionConflictCode(
+  code: string | undefined,
+  codes: readonly (typeof VERSION_CONFLICT_CODES)[number][] = VERSION_CONFLICT_CODES,
+): boolean {
+  return code !== undefined && (codes as readonly string[]).includes(code);
 }
 
 /**

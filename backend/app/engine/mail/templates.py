@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ...common.brand import is_default_product_name
+from ...common.counts import count_noun
 from ..identity.product import product_name
 from ..notifications import kinds
 from . import html as mailhtml
@@ -260,10 +261,6 @@ class DigestLine:
     job_counts: dict[str, Any] | None = None
 
 
-def _plural(count: int, one: str, many: str) -> str:
-    return f"{count} {one if count == 1 else many}"
-
-
 def _job_line(line: DigestLine) -> str:
     """ "An import, 1,286 rows applied, 14 rows rejected": the job's kind and, while it is kept, its
     applied and rejected counts."""
@@ -272,9 +269,9 @@ def _job_line(line: DigestLine) -> str:
     unit = ("row", "rows") if line.job_kind == "import" else ("item", "items")
     applied, rejected = counts.get("applied"), counts.get("rejected")
     if isinstance(applied, int):
-        words.append(f"{applied:,} {unit[applied != 1]} applied")
+        words.append(f"{count_noun(applied, *unit, thousands=True)} applied")
     if isinstance(rejected, int) and rejected > 0:
-        words.append(f"{rejected:,} {unit[rejected != 1]} rejected")
+        words.append(f"{count_noun(rejected, *unit, thousands=True)} rejected")
     return ", ".join(words)
 
 
@@ -297,7 +294,7 @@ def digest(
     ]
     other = total - sum(counts[kind] for kind in kinds_known if kind in _DIGEST_PHRASES)
     if other:
-        parts.append(_plural(other, *_DIGEST_OTHER))
+        parts.append(count_noun(other, *_DIGEST_OTHER))
     base = application_url.rstrip("/")
     blocks = []
     for line in lines:
@@ -336,11 +333,11 @@ def digest(
         f"You get this because you asked for a {mailhtml.e(every)} digest of your inbox.<br>"
         f"Choose which notices are in it, change it to {other_every}, or switch it off, "
         + SETTINGS_POINTER,
-        f"{_plural(total, 'notice', 'notices')} in your inbox.",
+        f"{count_noun(total, 'notice', 'notices')} in your inbox.",
     )
     return Rendered(
         DIGEST,
-        f"{product}: {_plural(total, 'notice', 'notices')} in your inbox",
+        f"{product}: {count_noun(total, 'notice', 'notices')} in your inbox",
         f"{'; '.join(parts)}.\n\n"
         "Since your last digest:\n\n" + "\n\n".join(blocks) + "\n" + after + "\n"
         f"Open your inbox:\n\n{base}/notifications\n\n"

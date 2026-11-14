@@ -38,7 +38,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import import_profile_page, import_profile_response, job_responses
 from ..projections.job_rows import job_row_page
 from ..projections.profile_check import check_response, finding_page
@@ -62,7 +62,7 @@ write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["i
 def list_import_profiles(
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
     model_key: str | None = Query(default=None, alias="modelKey", description="Only this model's profiles"),
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
 ) -> ImportProfilePage:
@@ -104,7 +104,7 @@ def create_import_profile(
 def update_import_profile(
     profile_key: str, payload: ImportProfileUpdate, session: DbSession
 ) -> ImportProfileResponse:
-    """Replace a profile at ``expectedVersion`` (``409 IMPORT_PROFILE_VERSION_CONFLICT`` naming
+    """Replace a profile at ``expectedVersion`` (``409 VERSION_CONFLICT`` naming
     the current version otherwise); checked as a new one is, and refused
     ``422 IMPORT_PROFILE_MODEL_MISMATCH`` in a workspace running another model."""
     found = update_profile(session, profile_key, payload)
@@ -272,7 +272,7 @@ def list_check_new_values(
     paging: PageQuery,
     workspace_key: WorkspaceKey,
     source: int | None = Query(default=None, ge=0, description="A source, in load order"),
-    page_size: int = Query(default=100, ge=1, le=1000, alias="pageSize"),
+    page_size: int = PageSize(100, 1000),
 ) -> CheckNewValuePage:
     """Values of match columns naming no record, each with its cells: created by the load or
     refused, in source, column and value order."""
@@ -295,7 +295,7 @@ def list_check_drift(
     paging: PageQuery,
     workspace_key: WorkspaceKey,
     source: int | None = Query(default=None, ge=0, description="A source, in load order"),
-    page_size: int = Query(default=100, ge=1, le=1000, alias="pageSize"),
+    page_size: int = PageSize(100, 1000),
 ) -> CheckDriftPage:
     """Rows whose key finds a record named otherwise, in source and row order."""
     found = finding_page(
@@ -319,7 +319,7 @@ def list_check_missing_records(
     paging: PageQuery,
     workspace_key: WorkspaceKey,
     source: int | None = Query(default=None, ge=0, description="A source, in load order"),
-    page_size: int = Query(default=100, ge=1, le=1000, alias="pageSize"),
+    page_size: int = PageSize(100, 1000),
 ) -> CheckMissingRecordPage:
     """Records of a source's type no row names (D82), in source and name order: kept by a load,
     or deleted by one into a change set when the source says ``missing: delete``."""
@@ -344,7 +344,7 @@ def list_check_rows(
     source: int | None = Query(default=None, ge=0, description="A source, in load order"),
     status: Literal["applied", "rejected", "unprocessed"] | None = Query(default=None),
     code: str | None = Query(default=None, description="Rows with an outcome refused this code"),
-    page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
+    page_size: int = PageSize(500, 1000),
 ) -> JobRowPage:
     """The rows behind the check's figures, as ``GET /model-drafts/{id}/dry-run/rows`` reads a
     dry run's."""

@@ -3,7 +3,7 @@ agent clients, the assistants people sign in with, and each call. MCP itself is 
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Request
 from sqlalchemy import select
 
 from ...config import get_settings
@@ -12,7 +12,7 @@ from ...engine.identity.clients import client_page
 from ...models.database import AgentApplication, OAuthClient, User
 from ..access import INSTANCE, AuthorizedRoute, requires
 from ..dependencies import DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..projections import identity as identity_present
 from ..schemas.agent_access import (
     AgentAccessStatus,
@@ -53,7 +53,7 @@ def get_agent_access(request: Request, session: DbSession) -> AgentAccessStatus:
 def list_agent_clients(
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> AgentClientPage:
     """Agent clients with their access and their calls of the last 30 days."""
     page = client_page(session, active=None, kind="agent", page=paging, page_size=page_size)
@@ -96,7 +96,7 @@ def _counted(session: DbSession, row: AgentApplication, now: datetime) -> AgentA
 def list_agent_applications(
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> AgentApplicationPage:
     """The assistants people sign in with: what each says of itself, where it returns, and how many
     people have an open session for it."""
@@ -141,7 +141,7 @@ def restore_agent_application(application_id: str, session: DbSession) -> AgentA
 def list_agent_calls(
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> AgentCallPage:
     """Each tool call through ``/mcp``, newest first, with the names of its arguments and never their
     values."""

@@ -69,7 +69,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import DbSession, RequestModelSnapshot, WorkspaceModelSnapshot
-from ..paging import PageQuery, SeekablePageQuery
+from ..paging import PageQuery, PageSize, SeekablePageQuery
 from ..presenters import (
     audit_event_page,
     build_object_responses,
@@ -337,7 +337,7 @@ def list_objects(
     session: DbSession,
     snapshot: RequestModelSnapshot,
     paging: SeekablePageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
     application_key: str | None = Query(default=None, alias="applicationKey"),
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
@@ -587,7 +587,7 @@ def lookup_objects(
     request: Request,
     session: DbSession,
     paging: SeekablePageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
     object_type_keys: list[str] | None = _LOOKUP_OBJECT_TYPE_KEYS,
     application_key: str | None = Query(default=None, alias="applicationKey"),
     workspace_keys: list[str] | None = _LOOKUP_WORKSPACE_KEYS,
@@ -854,7 +854,7 @@ def get_parent_candidates(
     session: DbSession,
     snapshot: WorkspaceModelSnapshot,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=100, alias="pageSize"),
+    page_size: int = PageSize(50, 100),
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
     parent_object_type_key: str | None = Query(
@@ -906,7 +906,7 @@ def get_object_history(
     object_id: str,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
     kind: Literal["values", "relationships", "structure"] | None = Query(
         default=None,

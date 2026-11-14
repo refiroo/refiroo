@@ -30,7 +30,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..schemas.mappings import (
     MappingInferenceResponse,
     MappingProposalPage,
@@ -106,7 +106,7 @@ def list_model_mappings(
     paging: PageQuery,
     source_model_key: str | None = Query(default=None, alias="sourceModelKey"),
     target_model_key: str | None = Query(default=None, alias="targetModelKey"),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> ModelMappingPage:
     """Model mappings in key order, of one source and one target model when given (D18)."""
     page = mappings.mapping_page(
@@ -147,7 +147,7 @@ def list_model_mapping_operations(
     key: str,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> ModelMappingOperationPage:
     """The mapping's history in sequence order (D105)."""
     mapping = mappings.load_mapping(session, key)
@@ -184,7 +184,7 @@ def list_mapping_proposals(
     source_type: str | None = Query(
         default=None, alias="sourceType", description="The proposals of one source type"
     ),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> MappingProposalPage:
     """The latest inference's proposals in the order they apply: types, then relationships
     (``409 INFERENCE_NOT_READY`` while it runs)."""

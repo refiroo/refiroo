@@ -8,10 +8,12 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page
 from ...common.time import as_utc
 from ...engine.identity.principals import named, ref
-from ...engine.jobs.worker import ASSISTANT_KINDS
+from ...engine.jobs.background import CANCELLABLE
+from ...engine.jobs.kinds import ASSISTANT_KINDS
 from ...engine.tasks import agent
 from ...engine.tasks.model_changes import model_changes
-from ...models.database import AiTask, Job, ModelDraft, ModelRelease, SourceFile
+from ...engine.tasks.store import job_of, workbook_of
+from ...models.database import AiTask, Job, ModelDraft, ModelRelease
 from ..schemas.ai_tasks import AiTaskPage, AiTaskResponse, TaskChange, TaskChangePage
 
 _JOB_PHASES = {"profiling", "reading", "designing", "checking"}
@@ -19,9 +21,9 @@ _JOB_PHASES = {"profiling", "reading", "designing", "checking"}
 
 def _phase(session: Session, task: AiTask) -> str | None:
     """What the running job is doing; ``None`` when none runs."""
-    if task.state not in ("reading", "checking") or task.job_id is None:
+    if task.state not in ("reading", "checking"):
         return None
-    job = session.scalar(select(Job).where(Job.id == task.job_id))
+    job = job_of(session, task)
     if job is None or job.state != "running":
         return None
     if job.kind == "dryRun":
@@ -32,9 +34,9 @@ def _phase(session: Session, task: AiTask) -> str | None:
 def _ahead(session: Session, task: AiTask) -> int | None:
     """The assistant jobs before the task's queued job, in the order the worker takes them (0.13 AQ,
     AQ-D5): a close count, not a promise. ``None`` once the job runs, or when none waits."""
-    if task.state not in ("reading", "checking") or task.job_id is None:
+    if task.state not in ("reading", "checking"):
         return None
-    job = session.scalar(select(Job).where(Job.id == task.job_id))
+    job = job_of(session, task)
     if job is None or job.state != "queued" or job.kind not in ASSISTANT_KINDS:
         return None
     return session.scalar(
@@ -42,7 +44,7 @@ def _ahead(session: Session, task: AiTask) -> int | None:
         .select_from(Job)
         .where(
             Job.kind.in_(ASSISTANT_KINDS),
-            Job.state.in_(("queued", "running")),
+            Job.state.in_(CANCELLABLE),
             Job.sequence_id < job.sequence_id,
         )
     )
@@ -73,7 +75,7 @@ def _can_tell(task: AiTask) -> bool:
 
 
 def task_response(session: Session, task: AiTask) -> AiTaskResponse:
-    source = session.scalar(select(SourceFile).where(SourceFile.task_id == task.id))
+    source = workbook_of(session, task)
     return AiTaskResponse.model_validate(
         {
             "id": task.public_id,

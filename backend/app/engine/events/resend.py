@@ -30,7 +30,9 @@ REDELIVERY_HEADER = "RDM-Redelivery"
 def resend_body(request: ConsumerWebhookRequest, event_id: str, delivery_id: str) -> tuple[Any, str, dict[str, Any]]:
     """The resend's body, its content type and the event as the pull feed has it. The stored body
     says its format: a JSON array is a CloudEvents batch, an object with ``specversion`` a structured
-    CloudEvent, an object with ``events`` an RDM JSON envelope."""
+    CloudEvent, an object with ``events`` an RDM JSON envelope. Not a second copy of
+    ``delivery.RequestFormat.body``: that builds a body from events; this reads one back and keeps
+    the event exactly as it was sent, whatever the subscription's format is now (C-D129)."""
     if request.request_body is None:
         raise api_error(
             409,

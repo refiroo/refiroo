@@ -26,8 +26,9 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
-from .webhook_urls import LOOPBACK, private_addresses_allowed
+from ...common.addresses import LOOPBACK
 from .webhook_urls import address_refusal as webhook_address_refusal
+from .webhook_urls import private_addresses_allowed
 
 READ_BYTES = 4096
 MESSAGE_LENGTH = 200

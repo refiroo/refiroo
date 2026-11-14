@@ -53,6 +53,8 @@ def language_of(header: str) -> str | None:
     return stripped if is_language(stripped) else header_language(header)
 
 
+# Letters and digits only, as a column header names a parent loosely: one of five comparisons of a
+# name kept apart on purpose (see ``matching._FACTS``).
 _NAMED = """
 SELECT DISTINCT object_type_key, name FROM objects
 WHERE workspace_key = :workspace AND object_type_key = ANY(:types)

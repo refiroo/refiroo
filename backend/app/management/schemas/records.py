@@ -9,6 +9,7 @@ from .common import (
     ActorResponse,
     ChangeOrigin,
     CollectionPage,
+    omitted,
     omitted_when_none,
     optional_origin,
     without_default,
@@ -282,16 +283,12 @@ class AuditEventPage(CollectionPage[AuditEventResponse]):
     pass
 
 
-def _omitted() -> Any:
-    return Field(default=None, exclude_if=omitted_when_none, json_schema_extra=without_default)
-
-
 class FeedCause(BaseModel):
     """What made the change: a single write (``user``), a job or a publication."""
 
     kind: Literal["user", "job", "publication"]
     # Omitted for a single write.
-    id: str | SkipJsonSchema[None] = _omitted()
+    id: str | SkipJsonSchema[None] = omitted()
 
 
 class FeedEntry(BaseModel):
@@ -309,13 +306,13 @@ class FeedEntry(BaseModel):
     id: str
     version: int
     # An object entry's type and application, and for ``reclassified`` the type it had.
-    objectTypeKey: str | SkipJsonSchema[None] = _omitted()
-    applicationKey: str | SkipJsonSchema[None] = _omitted()
-    previousObjectTypeKey: str | SkipJsonSchema[None] = _omitted()
+    objectTypeKey: str | SkipJsonSchema[None] = omitted()
+    applicationKey: str | SkipJsonSchema[None] = omitted()
+    previousObjectTypeKey: str | SkipJsonSchema[None] = omitted()
     # A relation entry's type and ends, which identify it after a delete.
-    relationTypeKey: str | SkipJsonSchema[None] = _omitted()
-    fromObjectId: str | SkipJsonSchema[None] = _omitted()
-    toObjectId: str | SkipJsonSchema[None] = _omitted()
+    relationTypeKey: str | SkipJsonSchema[None] = omitted()
+    fromObjectId: str | SkipJsonSchema[None] = omitted()
+    toObjectId: str | SkipJsonSchema[None] = omitted()
     changedFields: list[str]
     attributeTypeKeys: list[str]
     cause: FeedCause

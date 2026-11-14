@@ -10,7 +10,7 @@
  */
 
 import { useState, type FormEvent } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflictCode } from "@/api/errors";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { RELATION_ATTRIBUTES_LABEL, relationAttributeTypes } from "@/features/objects/relations/RelationAttributes";
 import { RelationValueCell } from "@/features/objects/relations/RelationValueCell";
@@ -275,8 +275,7 @@ export function RelationTableView({
         failed: refused?.map((item) => `${chosen.get(item.relationId)?.label ?? item.relationId}: ${item.message}`),
       }));
       // A stale version is cured by reading the rows again: the item's code says it, never its wording.
-      if (refused?.some((item) => item.code === "VERSION_CONFLICT" || item.code === "RELATION_SET_VERSION_CONFLICT"))
-        reload();
+      if (refused?.some((item) => isVersionConflictCode(item.code))) reload();
     } finally {
       setApplying(false);
     }

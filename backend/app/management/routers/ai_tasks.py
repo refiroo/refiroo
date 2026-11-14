@@ -34,7 +34,7 @@ from ...models.database import AiTask, ModelDraft
 from ..access import AI_TASK_PATH, IMPORT_FORM, SIGNED_IN, AuthorizedRoute, forbidden, requires
 from ..ai import GROUP, assistant_requested, configuration
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..projections import ai_tasks as present
 from ..schemas.ai_tasks import AiTaskPage, AiTaskResponse, TaskChangePage
 
@@ -142,7 +142,7 @@ def list_ai_tasks(
     session: DbSession,
     principal: CurrentPrincipal,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> AiTaskPage:
     """The caller's tasks, and those of the workspaces they administer, newest first."""
     permissions = request.state.permissions
@@ -188,7 +188,7 @@ def list_ai_task_changes(
     source: int | None = Query(
         default=None, description="A design's sheet: its source in the check's sheets"
     ),
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> TaskChangePage:
     """The records the latest check would change in a sheet of the check (``source``), each with the fields that differ and what it holds now and after.
     ``409 AI_TASK_STATE`` before a check, ``422 AI_TASK_TABLE_UNKNOWN``."""
@@ -212,7 +212,7 @@ def run_ai_task(
     """Load the checked plan into a new change set (named after the file unless ``changeSetName``
     says otherwise); live data is unchanged. ``saveProfile`` keeps the plan as an import profile.
     Allowed when the task is ``checked``. Refused: ``403 FORBIDDEN`` without Work in change sets,
-    ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``, ``409 IMPORT_PROFILE_EXISTS``."""
+    ``409 VERSION_CONFLICT``, ``409 AI_TASK_STATE``, ``409 IMPORT_PROFILE_EXISTS``."""
     task = _visible(request, session, principal, task_id)
     assistant_requested(request, workspace_key=task.workspace_key)
     if not request.state.permissions.allows("change-sets", task.workspace_key):
@@ -255,7 +255,7 @@ def answer_ai_task(
 ) -> JSONResponse:
     """Answer the design's questions (0.16 AP6): the assistant designs again with the answers and
     the design is checked again. Allowed when the task is ``checked`` and has a design. Refused:
-    ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
+    ``409 VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
     task = _visible(request, session, principal, task_id)
     assistant_requested(request, workspace_key=task.workspace_key)
     limits: BatchLimits = request.app.state.batch_limits
@@ -284,7 +284,7 @@ def correct_ai_task_model(
     own choices. Allowed when the task is ``checked``, ``failed`` or ``stopped`` (the same session goes
     on, or starts when none ran), or ``loaded`` with a change set not yet published: the change set is
     discarded, which needs Work in change sets, and the session loads again. Refused: ``403
-    FORBIDDEN``, ``409 AI_NOT_CONFIGURED``, ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
+    FORBIDDEN``, ``409 AI_NOT_CONFIGURED``, ``409 VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
     task = _visible(request, session, principal, task_id)
     assistant_requested(request, workspace_key=task.workspace_key)
     if task.state == "loaded" and not request.state.permissions.allows(
@@ -316,7 +316,7 @@ def accept_ai_task_model(
     """Accept the proposed model (0.16 AP6r): the assistant maps the sheets onto it and every row
     is checked in a dry run; nothing is installed or loaded before ``/run``. Refused:
     ``403 FORBIDDEN`` without Work in change sets (a proposal that moves whole types loads no change
-    set and needs none), ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE`` (no proposal to
+    set and needs none), ``409 VERSION_CONFLICT``, ``409 AI_TASK_STATE`` (no proposal to
     accept)."""
     task = _visible(request, session, principal, task_id)
     assistant_requested(request, workspace_key=task.workspace_key)
@@ -400,7 +400,7 @@ def reopen_ai_task_proposal(
     principal: CurrentPrincipal,
 ) -> AiTaskResponse:
     """Back from a saved layout's load stage to the proposal it came from (0.16 AP13); no job runs.
-    ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
+    ``409 VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
     _visible(request, session, principal, task_id)
     task = design_job.queue_back(
         session,

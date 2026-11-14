@@ -17,7 +17,7 @@ from sqlalchemy import Select, case, delete, exists, func, insert, or_, select, 
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement, text_key
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, require_version
 from ...models.commands import (
     GrantCreate,
     GroupCreate,
@@ -37,6 +37,7 @@ from ...models.database import (
     Workspace,
 )
 from ..identity import security_events
+from ..identity.lookup import load_user
 from ..model.registry import resolve_model_snapshot
 from ..reads.object_query import name_contains
 from ..workspaces.catalogue import load_workspace
@@ -60,12 +61,6 @@ def _changing[T](session: Session, change: Callable[[], T], *, guard: bool = Fal
         session.rollback()
         raise
     return result
-
-
-def _stale(what: str, current: int) -> ApiError:
-    return api_error(
-        409, "VERSION_CONFLICT", f"{what} version has changed", {"currentVersion": current}
-    )
 
 
 def _holding_roles(group_key: str) -> Select[tuple[int]]:
@@ -259,8 +254,7 @@ def update_role(session: Session, key: str, payload: RoleUpdate) -> Role:
     def change() -> Role:
         role = load_role(session, key, for_update=True)
         _custom(role)
-        if role.version != payload.expectedVersion:
-            raise _stale("Role", role.version)
+        require_version(role, payload.expectedVersion, "Role")
         fields = payload.model_fields_set
         if "name" in fields and payload.name is not None:
             _name_taken(session, payload.name, role.id)
@@ -426,8 +420,7 @@ def create_group(session: Session, payload: GroupCreate) -> UserGroup:
 def update_group(session: Session, public_id: str, payload: GroupUpdate) -> UserGroup:
     def change() -> UserGroup:
         group = load_group(session, public_id, for_update=True)
-        if group.version != payload.expectedVersion:
-            raise _stale("Group", group.version)
+        require_version(group, payload.expectedVersion, "Group")
         fields = payload.model_fields_set
         if "name" in fields and payload.name is not None:
             _group_name(session, payload.name, group.id)
@@ -507,18 +500,11 @@ def member_page(
     )
 
 
-def _user(session: Session, public_id: str) -> User:
-    user = session.scalar(select(User).where(User.public_id == public_id))
-    if user is None:
-        raise api_error(404, "USER_NOT_FOUND", f"User '{public_id}' not found")
-    return user
-
-
 def add_member(session: Session, public_id: str, user_id: str) -> User:
     def change() -> User:
         group = load_group(session, public_id, for_update=True)
         _managed_by_provider(group)
-        user = _user(session, user_id)
+        user = load_user(session, user_id)
         member = session.get(UserGroupMember, (group.id, user.id))
         if member is None:
             session.add(UserGroupMember(group_id=group.id, user_id=user.id))
@@ -536,7 +522,7 @@ def remove_member(session: Session, public_id: str, user_id: str) -> None:
     def change() -> None:
         group = load_group(session, public_id, for_update=True)
         _managed_by_provider(group)
-        user = _user(session, user_id)
+        user = load_user(session, user_id)
         removed = session.execute(
             delete(UserGroupMember).where(
                 UserGroupMember.group_id == group.id, UserGroupMember.user_id == user.id
@@ -1074,7 +1060,7 @@ def user_grant_page(
     session: Session, public_id: str, *, page: PageRequest, page_size: int
 ) -> Page[GrantRow]:
     """A person's grants, direct and through their groups, as their page shows them (D299)."""
-    user = _user(session, public_id)
+    user = load_user(session, public_id)
     return _held_grant_page(
         session, "user", user.id, f"user-grants:{public_id}", page=page, page_size=page_size
     )

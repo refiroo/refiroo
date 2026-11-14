@@ -15,7 +15,7 @@ from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, require_version
 from ...models.commands import ClientCreate, ClientSecretCreate, ClientUpdate
 from ...models.database import AuditEvent, Grant, OAuthClient, OAuthClientSecret, SignInFailure
 from ..authorization.administration import grant_roles
@@ -51,13 +51,7 @@ def load_client(session: Session, public_id: str, *, for_update: bool = False) -
 
 def _claimed(session: Session, public_id: str, expected_version: int) -> OAuthClient:
     client = load_client(session, public_id, for_update=True)
-    if client.version != expected_version:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            "Client version has changed",
-            {"currentVersion": client.version},
-        )
+    require_version(client, expected_version, "Client")
     return client
 
 

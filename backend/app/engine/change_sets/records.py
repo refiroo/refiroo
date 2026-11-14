@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from ...errors import api_error
+from ...errors import api_error, version_conflict
 from ...models.database import (
     ChangeSet,
     ChangeSetObject,
@@ -66,9 +66,7 @@ from .access import change_set_model, load_change_set
 
 def require_record_version(expected: int | None, actual: int, label: str) -> None:
     if expected is not None and expected != actual:
-        raise api_error(
-            409, "VERSION_CONFLICT", f"{label} version has changed", {"currentVersion": actual}
-        )
+        raise version_conflict(actual, label)
 
 
 def stored_attributes(

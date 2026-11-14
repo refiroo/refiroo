@@ -31,6 +31,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+from openpyxl.utils import get_column_letter
 from psycopg import sql
 from sqlalchemy import (
     JSON,
@@ -113,6 +114,40 @@ BUILT_IN_LABELS = {
 
 def invalid_layout(message: str, path: str) -> Any:
     return api_error(422, "INVALID_EXPORT_LAYOUT", message, {"path": path})
+
+
+def named_columns(session: Session, source: Any, named: Sequence[str], type_key: str) -> int:
+    """The columns a matrix or grid request names (``columnIds``) are each a record of the exported
+    context and named once; how many columns the sheet shows (the named ones, else every record of
+    the type). Only the named columns are read back, the whole set is counted in the database."""
+    found = (
+        set(session.scalars(select(source.c.object_id).where(source.c.object_id.in_(named))))
+        if named
+        else set()
+    )
+    for index, key in enumerate(named):
+        if key not in found:
+            raise invalid_layout(
+                f"'{key}' is no '{type_key}' record of the exported context",
+                f"/view/state/columnIds/{index}",
+            )
+    if len(set(named)) != len(named):
+        raise invalid_layout("Each column is named once", "/view/state/columnIds")
+    return len(named) or session.scalar(select(func.count()).select_from(source)) or 0
+
+
+def insert_columns(session: Session, columns: Any, shown: Any, ids: Sequence[str]) -> None:
+    """The columns of a matrix or grid into its temporary table, in the order the request names
+    them, else by name: ``shown`` selects their ``object_id`` and ``name``."""
+    ordered = shown.subquery()
+    position = (
+        func.array_position(literal(list(ids)), ordered.c.object_id)
+        if ids
+        else func.row_number().over(order_by=(ordered.c.name, ordered.c.object_id))
+    )
+    session.execute(
+        insert(columns).from_select(["pos", "column_id"], select(position, ordered.c.object_id))
+    )
 
 
 def text_too_long(sheet: str, row: int, record: str | None, field: str, length: int) -> Any:
@@ -498,11 +533,13 @@ def plan_type(
                     f"/people/referenceLists/{index}",
                 )
         lists = frozenset(people.referenceLists)
-    application = next(
-        (item.key for item in model.applications if type_key in item.objectTypeKeys), ""
-    )
     return PeoplePlan(
-        type_key, application, tuple(columns), tuple(sheets), lists, tuple(sheet_types)
+        type_key,
+        model.application_of_type(type_key),
+        tuple(columns),
+        tuple(sheets),
+        lists,
+        tuple(sheet_types),
     )
 
 
@@ -1215,13 +1252,57 @@ def field_sql(model: EngineModel, alias: str, field_: str | None) -> sql.Composa
     return value_sql(alias, field_, value_type, yes_no=True)
 
 
+def sheet_value_type(value_type: str) -> str:
+    """The value type a cell of the sheets carries: an attribute's, a boolean as ``yesno``."""
+    return "yesno" if value_type == "boolean" else value_type
+
+
+YES_NO_LIST = '"Yes,No"'
+
+
+def yes_no_list(value_type: str) -> str | None:
+    """The drop-down list of a ``yesno`` cell, none for any other type."""
+    return YES_NO_LIST if value_type == "yesno" else None
+
+
+def yes_no_text(value: sql.Composable) -> sql.Composable:
+    """A boolean's JSON text (``true``, ``false``) as the Yes or No a sheet holds."""
+    return sql.SQL("(CASE {} WHEN 'true' THEN 'Yes' WHEN 'false' THEN 'No' END)").format(value)
+
+
+def relation_set_version_sql(
+    workspace_key: str,
+    change_set_id: Any,
+    relation_type_key: str,
+    from_type_key: str,
+    to_type_key: str,
+    direction: str,
+) -> sql.Composable:
+    """The version of the relationship set of the row's record (``r``) under a relationship, 0 when
+    none is stored: the hidden column an import claims the set with."""
+    return sql.SQL(
+        "coalesce((SELECT v.version FROM relation_set_versions v"
+        " WHERE v.workspace_key = {ws} AND v.change_set_id IS NOT DISTINCT FROM {cs}"
+        " AND v.relation_type_key = {rel} AND v.from_object_type_key = {source}"
+        " AND v.to_object_type_key = {target} AND v.direction = {direction}"
+        " AND v.anchor_object_id = r.object_id), 0)"
+    ).format(
+        ws=sql.Literal(workspace_key),
+        cs=sql.Literal(change_set_id),
+        rel=sql.Literal(relation_type_key),
+        source=sql.Literal(from_type_key),
+        target=sql.Literal(to_type_key),
+        direction=sql.Literal(direction),
+    )
+
+
 def value_sql(alias: str, key: str, value_type: str, *, yes_no: bool) -> sql.Composable:
     source = sql.Identifier(alias)
     if value_type == "json":
         return sql.SQL("({}.attributes -> {})::text").format(source, sql.Literal(key))
     value = sql.SQL("({}.attributes ->> {})").format(source, sql.Literal(key))
     if value_type == "boolean" and yes_no:
-        return sql.SQL("(CASE {} WHEN 'true' THEN 'Yes' WHEN 'false' THEN 'No' END)").format(value)
+        return yes_no_text(value)
     return value
 
 
@@ -1570,7 +1651,7 @@ class SheetWriter:
                 bindings.append({"column": label, "field": "name"})
                 continue
             if column.kind == "attribute":
-                value_type = "yesno" if column.value_type == "boolean" else column.value_type
+                value_type = sheet_value_type(column.value_type)
                 cells.append(
                     CellSpec(
                         label,
@@ -1578,7 +1659,7 @@ class SheetWriter:
                         value_type,
                         style=self.date if column.value_type == "date" else 0,
                         header=header,
-                        list_='"Yes,No"' if value_type == "yesno" else None,
+                        list_=yes_no_list(value_type),
                     )
                 )
                 if column.editable:
@@ -1696,23 +1777,15 @@ class SheetWriter:
             cells.append(
                 CellSpec(
                     version_label,
-                    sql.SQL(
-                        "coalesce((SELECT v.version FROM relation_set_versions v"
-                        " WHERE v.workspace_key = {ws} AND v.change_set_id IS NOT DISTINCT FROM {cs}"
-                        " AND v.relation_type_key = {rel} AND v.from_object_type_key = {source}"
-                        " AND v.to_object_type_key = {target} AND v.direction = {direction}"
-                        " AND v.anchor_object_id = r.object_id), 0)"
-                    ).format(
-                        ws=sql.Literal(self.workspace_key),
-                        cs=sql.Literal(
-                            self.context.change_set.id
-                            if self.context and self.context.change_set
-                            else None
-                        ),
-                        rel=sql.Literal(relation.relation_type_key),
-                        source=sql.Literal(binding.fromObjectTypeKey),
-                        target=sql.Literal(binding.toObjectTypeKey),
-                        direction=sql.Literal(relation.direction),
+                    relation_set_version_sql(
+                        self.workspace_key,
+                        self.context.change_set.id
+                        if self.context and self.context.change_set
+                        else None,
+                        relation.relation_type_key,
+                        binding.fromObjectTypeKey,
+                        binding.toObjectTypeKey,
+                        relation.direction,
                     ),
                     "number",
                     hidden=True,
@@ -1808,7 +1881,7 @@ class SheetWriter:
         for key in carried:
             attribute = model.attribute_type(key)
             label = labels.take(attribute.name)
-            value_type = "yesno" if attribute.valueType == "boolean" else attribute.valueType
+            value_type = sheet_value_type(attribute.valueType)
             cells.append(
                 CellSpec(
                     label,
@@ -1816,7 +1889,7 @@ class SheetWriter:
                     value_type,
                     style=self.date if attribute.valueType == "date" else 0,
                     header=header,
-                    list_='"Yes,No"' if value_type == "yesno" else None,
+                    list_=yes_no_list(value_type),
                 )
             )
             values.append(
@@ -1915,7 +1988,7 @@ class SheetWriter:
             label = labels.take(
                 attribute.name if not binding.readOnly else f"{attribute.name} {SUMMARY}"
             )
-            value_type = "yesno" if attribute.valueType == "boolean" else attribute.valueType
+            value_type = sheet_value_type(attribute.valueType)
             cells.append(
                 CellSpec(
                     label,
@@ -1923,7 +1996,7 @@ class SheetWriter:
                     value_type,
                     style=self.date if attribute.valueType == "date" else 0,
                     header=header,
-                    list_='"Yes,No"' if value_type == "yesno" else None,
+                    list_=yes_no_list(value_type),
                 )
             )
             if binding.readOnly:
@@ -2000,9 +2073,7 @@ class SheetWriter:
             ).format(sql.Literal(part)),
             sql.SQL("r.name, r.object_id, o.name, o.object_id"),
         )
-        application = next(
-            (item.key for item in model.applications if owned_key in item.objectTypeKeys), ""
-        )
+        application = model.application_of_type(owned_key)
         source = {
             "headerRow": 1,
             "applicationKey": application,
@@ -2066,9 +2137,7 @@ class SheetWriter:
                 owner_label, sql.SQL("r.name"), style=self.fill(plan.object_type_key), header=header
             )
         ]
-        application = next(
-            (item.key for item in model.applications if owned_key in item.objectTypeKeys), ""
-        )
+        application = model.application_of_type(owned_key)
         bindings: list[dict[str, Any]] = []
         versions: list[CellSpec] = []
         for parent_id, parent_name, parent_type, scope_name in parents:
@@ -2082,13 +2151,7 @@ class SheetWriter:
             for number, field_ in enumerate(layout.fields):
                 attribute = None if field_ == "name" else model.attribute_type(field_)
                 label = labels.take(f"{'Name' if attribute is None else attribute.name} · {named}")
-                value_type = (
-                    "text"
-                    if attribute is None
-                    else "yesno"
-                    if attribute.valueType == "boolean"
-                    else attribute.valueType
-                )
+                value_type = "text" if attribute is None else sheet_value_type(attribute.valueType)
                 cells.append(
                     CellSpec(
                         label,
@@ -2104,7 +2167,7 @@ class SheetWriter:
                             else self.base
                         ),
                         header=header,
-                        list_='"Yes,No"' if value_type == "yesno" else None,
+                        list_=yes_no_list(value_type),
                     )
                 )
                 entry: dict[str, Any] = {
@@ -2293,7 +2356,7 @@ class SheetWriter:
             else max(12.0, len(cell.label) + 2)
             for cell, size in zip(cells, longest, strict=True)
         ]
-        letters = [xlsx.column(index) for index in range(1, len(cells) + 1)]
+        letters = [get_column_letter(index) for index in range(1, len(cells) + 1)]
         with self.connection.cursor(name=f"people_{len(self.book.titles)}") as cursor:
             cursor.itersize = FETCH_ROWS
             cursor.execute(

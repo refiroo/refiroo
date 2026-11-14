@@ -386,7 +386,7 @@ def test_two_mapping_saves_racing_for_one_relation_set_version(client, workspace
         lambda: mapping(client, workspace, source, two),
     )
     assert first.status_code == 200, first.text
-    refused(second, 409, "MAPPING_VERSION_CONFLICT")
+    refused(second, 409, "VERSION_CONFLICT")
 
 
 def test_a_relation_create_and_a_mapping_save_on_one_edge_do_not_deadlock(
@@ -403,7 +403,7 @@ def test_a_relation_create_and_a_mapping_save_on_one_edge_do_not_deadlock(
         lambda: mapping(client, workspace, source, target),
     )
     created(first)
-    refused(second, 409, "MAPPING_VERSION_CONFLICT")
+    refused(second, 409, "VERSION_CONFLICT")
 
 
 def test_two_relations_racing_into_one_matrix_cell_keep_its_stored_state(

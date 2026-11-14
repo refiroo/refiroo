@@ -77,7 +77,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import job_responses, snapshot_attributes
 from ..projections.approvals import request_responses, submission_responses
 from ..projections.home import created_by
@@ -194,7 +194,7 @@ def list_change_sets(
         max_length=36,
         description="Only the change sets this person or client created (D325)",
     ),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> ChangeSetPage:
     load_workspace(session, workspace_key)
     statement = select(ChangeSet).where(ChangeSet.workspace_key == workspace_key)
@@ -226,7 +226,7 @@ def list_own_change_sets(
     principal: CurrentPrincipal,
     permissions: CurrentPermissions,
     paging: PageQuery,
-    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
+    page_size: int = PageSize(20, 100),
 ) -> OwnChangeSetPage:
     """The open change sets the caller created, in every workspace where they hold Browse, newest
     change first, each with its workspace's label and how many records and relations it changes
@@ -530,7 +530,7 @@ def get_object_changes(
     change_set_id: str,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
     kind: list[ChangeKind] | None = _KIND,
     object_type_key: list[str] | None = _OBJECT_TYPE_KEY,
 ) -> ObjectChangePage:
@@ -572,7 +572,7 @@ def get_relation_changes(
     change_set_id: str,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
     kind: list[ChangeKind] | None = _KIND,
     relation_type_key: list[str] | None = _RELATION_TYPE_KEY,
     containment: bool | None = Query(
@@ -857,7 +857,7 @@ def list_publication_requests(
     session: DbSession,
     paging: PageQuery,
     state: RequestState | None = _REQUEST_STATE,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> PublicationRequestPage:
     """Publication requests, newest first, each with its decisions (0.12 A1)."""
     load_workspace(session, workspace_key)
@@ -930,7 +930,7 @@ def list_publications(
     workspace_key: str,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> PublicationPage:
     load_workspace(session, workspace_key)
     page = paginate_statement(

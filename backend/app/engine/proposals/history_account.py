@@ -24,6 +24,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 from sqlalchemy.types import String
 
+from ...common.counts import count_noun
 from ...models.database import AuditEvent, ChangeSet, Job, ModelRelease
 from ...models.schema import EngineModel
 from ..identity import principals
@@ -336,10 +337,6 @@ def fact_id(kind: str, *parts: str) -> str:
     return f"{_PREFIX[kind]}-{digest}"
 
 
-def _plural(count: int, noun: str) -> str:
-    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
-
-
 def _times(count: int) -> str:
     return "once" if count == 1 else f"{count} times"
 
@@ -493,7 +490,7 @@ def _records(reads: _Reads, names: _Names, scope: Scope, rows: list[Any]) -> lis
             plain, data = line, None
         else:
             label = names.type_label(row.type_key)
-            plain = f"{label}: {_plural(row.n, 'record')} {verb}"
+            plain = f"{label}: {count_noun(row.n, 'record')} {verb}"
             shown = named.get((row.type_key, row.act), [])
             line = plain
             data = None
@@ -534,9 +531,7 @@ def _fields(reads: _Reads, names: _Names, scope: Scope) -> list[Fact]:
             line = f"{label}: changed {_times(row.n)}"
             link: dict[str, Any] = {"kind": "history", "query": {"kind": "values", "live": True}}
         else:
-            line = (
-                f"{names.type_label(row.type_key)}, {label}: changed on {_plural(row.n, 'record')}"
-            )
+            line = f"{names.type_label(row.type_key)}, {label}: changed on {count_noun(row.n, 'record')}"
             link = {
                 "kind": "changes",
                 "query": {
@@ -568,7 +563,7 @@ def _relationships(reads: _Reads, names: _Names, scope: Scope) -> list[Fact]:
     for row in rows:
         label = names.relation_label(row.relation_type_key)
         verb = _RELATION_ACTIONS.get(row.action, row.action)
-        line = f"{label}: {_plural(row.n, 'relationship')} {verb}"
+        line = f"{label}: {count_noun(row.n, 'relationship')} {verb}"
         link: dict[str, Any] = (
             {"kind": "history", "query": {"kind": "relationships", "live": True}}
             if scope.record
@@ -609,7 +604,7 @@ def _sources(
         prepared[row.publication_id].append(row)
     facts = []
     for row in sorted(rows, key=lambda item: (item.first_at, item.cause_id or "")):
-        changes = _plural(row.n, "change")
+        changes = count_noun(row.n, "change")
         if row.cause_kind == "job":
             kind, file_name = names.jobs.get(row.cause_id, (None, None))
             when = period.day(row.first_at)
@@ -663,7 +658,7 @@ def _sources(
 def _publication_source(
     period: Period, names: _Names, row: Any, publication: Any | None, prepared: list[Any]
 ) -> Fact:
-    changes = _plural(row.n, "change")
+    changes = count_noun(row.n, "change")
     number = publication.number if publication is not None else None
     when = period.day(publication.occurred_at if publication is not None else row.first_at)
     title = f"Publication {number}" if number is not None else "A publication"
@@ -676,9 +671,9 @@ def _publication_source(
     known, set_name = names.change_sets.get(set_id or "", (False, None))
     parts = []
     if jobs:
-        parts.append(_plural(len(jobs), "job"))
+        parts.append(count_noun(len(jobs), "job"))
     if preparers:
-        parts.append(_plural(len(preparers), "person").replace("persons", "people"))
+        parts.append(count_noun(len(preparers), "person", "people"))
     prepared_by = f", prepared by {' and '.join(parts)}" if parts else ""
     plain = f"{title}, {when}: {changes}{prepared_by}"
     people_names = _named(names, preparers)
@@ -755,7 +750,7 @@ def _people(names: _Names, scope: Scope, direct: list[Any], preparation: list[An
     total = sum(count for _, count in shown)
     listed = ", ".join(f"{person['name']} {count}" for person, count in shown[:LISTED_PEOPLE])
     rest = f" and {len(shown) - LISTED_PEOPLE} more" if len(shown) > LISTED_PEOPLE else ""
-    plain = f"{_plural(len(shown), 'person').replace('persons', 'people')} made {_plural(total, 'change')}"
+    plain = f"{count_noun(len(shown), 'person', 'people')} made {count_noun(total, 'change')}"
     return [
         Fact(
             fact_id("people", scope.object_id or scope.workspace_key),

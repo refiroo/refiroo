@@ -18,8 +18,8 @@ from urllib.parse import urlencode, urlsplit
 
 import jwt
 
+from ...common.addresses import LOOPBACK
 from ..events import webhook_client
-from ..events.webhook_urls import LOOPBACK
 
 TIMEOUT_SECONDS = 10.0
 CACHE_SECONDS = 3600

@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from psycopg import sql
-from sqlalchemy import column, func, insert, literal, select, table, text
+from sqlalchemy import column, select, table, text
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
@@ -34,6 +34,7 @@ from .people import (
     ID_LABEL,
     SUMMARY,
     YES_NO,
+    YES_NO_LIST,
     CellSpec,
     Labels,
     PeoplePlan,
@@ -42,9 +43,14 @@ from .people import (
     ViewWritten,
     field_sql,
     fill_links,
+    insert_columns,
     invalid_layout,
+    named_columns,
     plan_sheet,
     restrict_links,
+    sheet_value_type,
+    yes_no_list,
+    yes_no_text,
 )
 
 GRAY = "FFD9D9D9"
@@ -130,9 +136,7 @@ class _Relationships:
         return planned.query.statement.with_only_columns(planned.query.record.id).order_by(None)
 
     def application(self, type_key: str) -> str:
-        return next(
-            (item.key for item in self.model.applications if type_key in item.objectTypeKeys), ""
-        )
+        return self.model.application_of_type(type_key)
 
 
 @dataclass
@@ -274,28 +278,11 @@ class GridSheets(_Relationships):
     ) -> None:
         state, config = self.view.state, self.config
         to_source = record_source(workspace_key, context, [config.toObjectTypeKey])
-        named = list(state.columnIds or [])
-        # Only the named columns are read back; the whole set is counted in the database.
-        found = (
-            set(
-                session.scalars(
-                    select(to_source.c.object_id).where(to_source.c.object_id.in_(named))
-                )
-            )
-            if named
-            else set()
+        count = named_columns(
+            session, to_source, list(state.columnIds or []), config.toObjectTypeKey
         )
-        for index, key in enumerate(named):
-            if key not in found:
-                raise invalid_layout(
-                    f"'{key}' is no '{config.toObjectTypeKey}' record of the exported context",
-                    f"/view/state/columnIds/{index}",
-                )
-        if len(set(named)) != len(named):
-            raise invalid_layout("Each column is named once", "/view/state/columnIds")
         if state.toWhere:
             self.to_ids(session, workspace_key, context, state.toWhere, "/view/state/toWhere")
-        count = len(named) or session.scalar(select(func.count()).select_from(to_source)) or 0
         wide = len(config.fromColumns) + 1 + count * (1 + len(config.attributeColumns) + 1)
         if wide > xlsx.SHEET_COLUMNS:
             raise invalid_layout(
@@ -328,17 +315,7 @@ class GridSheets(_Relationships):
                     )
                 )
             )
-        ordered = shown.subquery("grid_to")
-        position = (
-            func.array_position(literal(list(state.columnIds)), ordered.c.object_id)
-            if state.columnIds
-            else func.row_number().over(order_by=(ordered.c.name, ordered.c.object_id))
-        )
-        session.execute(
-            insert(_COLUMNS).from_select(
-                ["pos", "column_id"], select(position, ordered.c.object_id)
-            )
-        )
+        insert_columns(session, _COLUMNS, shown, list(state.columnIds or []))
         fill_links(session, 0, self.related(), workspace_key, context, config.fromObjectTypeKey)
         restrict_links(
             session, 0, select(column("column_id")).select_from(text("export_grid_columns"))
@@ -406,14 +383,14 @@ class GridSheets(_Relationships):
                     ),
                     "yesno",
                     header=header,
-                    list_='"Yes,No"',
+                    list_=YES_NO_LIST,
                 )
             )
             values = []
             for key in attributes:
                 attribute = model.attribute_type(key)
                 label = labels.take(f"{attribute.name} · {group}")
-                value_type = "yesno" if attribute.valueType == "boolean" else attribute.valueType
+                value_type = sheet_value_type(attribute.valueType)
                 cells.append(
                     CellSpec(
                         label,
@@ -421,7 +398,7 @@ class GridSheets(_Relationships):
                         value_type,
                         style=writer.date if attribute.valueType == "date" else 0,
                         header=header,
-                        list_='"Yes,No"' if value_type == "yesno" else None,
+                        list_=yes_no_list(value_type),
                     )
                 )
                 values.append(
@@ -524,5 +501,5 @@ def _relationship_value(to_id: str, key: str, value_type: str) -> sql.Composable
             sql.Literal(to_id), sql.Literal(key)
         )
     if value_type == "boolean":
-        return sql.SQL("(CASE {} WHEN 'true' THEN 'Yes' WHEN 'false' THEN 'No' END)").format(value)
+        return yes_no_text(value)
     return value

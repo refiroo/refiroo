@@ -461,7 +461,7 @@ whether it may be deleted, `deletable`, and otherwise the first reason, `deleteB
 workspace runs it), `history` (records, change sets, publications, events or jobs were made under it),
 `importProfile` (an import profile was checked against it) or `mapping` (a model mapping names it). A refusal
 is `409 MODEL_RELEASE_IN_USE` with `details.blockedBy`. Both routes answer `404 MODEL_RELEASE_NOT_FOUND` and
-`409 MODEL_RELEASE_VERSION_CONFLICT` (`details.currentStatusVersion`). Each change is an audit event of the
+`409 VERSION_CONFLICT` (`details.currentVersion`, `releaseId`, `status` and `currentStatusVersion`, the release's status counter). Each change is an audit event of the
 release (`retired`, `restored`, `deleted`). `python -m app.cli.model_release_prune` deletes the retired
 releases nothing refers to at once ([OPERATIONS](OPERATIONS.md)).
 
@@ -1965,7 +1965,14 @@ without the header nothing changes. The browser sends it on its data writes; a b
 origin reads `X-Model-Release-Id` because the API exposes it (CORS `Access-Control-Expose-Headers`). A stale `expectedVersion` on a
 record or relation write (an update, a move, a delete or a single value's write, live or in a change
 set, and a batch item's) returns `409 VERSION_CONFLICT` with `details.currentVersion`, the version to
-read again before retrying (decided 2026-10-03, H4c). A stale `expectedVersion` on a delete with
+read again before retrying (decided 2026-10-03, H4c). Every stale `expectedVersion` on any other resource
+is the same refusal (SR-D4, 0.17.2): `409 VERSION_CONFLICT` with `details.currentVersion` and whatever the
+operation keeps beside it: a model draft or model mapping step's `expectedVersion`, `actualVersion` and the
+`operations` applied since; replacing a mapping source's targets, `targetCount`, `targets` and
+`targetsNextCursor`; a model release's `releaseId`, `status` and `currentStatusVersion`; a publication's
+`conflicts` (a publication refused over live data carries no `currentVersion`: the claim was current). `CHANGE_SET_VERSION_CONFLICT` and `RELATION_SET_VERSION_CONFLICT` stay, since they tell two
+claims in one request apart, and so does `MAPPING_VERSION_CONFLICT` on the read of a source's further targets,
+which is a refused read and not a stale write. A stale `expectedVersion` on a delete with
 `cascade=true` returns `409 DELETION_PREVIEW_CHANGED` instead, live and in a change set: the deletion
 it previewed is no longer what would be deleted.
 
@@ -3084,7 +3091,7 @@ once the job passed its retention.
 
 `PUT` replaces the whole profile at `expectedVersion` in the body; `DELETE` takes `expectedVersion`
 as a parameter. Refusals: `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_FOUND`,
-`409 IMPORT_PROFILE_VERSION_CONFLICT` with `details.currentVersion`,
+`409 VERSION_CONFLICT` with `details.currentVersion`,
 `422 IMPORT_PROFILE_MODEL_MISMATCH` (saved in a workspace running another model).
 
 ### Sending a file
@@ -5919,7 +5926,7 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
   `publicationId`.
   It returns the page's `items` and [paging fields](#collection-paging), then `mappingVersion` and `targetCount`. An observed-version mismatch returns
   `409 MAPPING_VERSION_CONFLICT` with an instruction to refresh coverage and the current version in
-  `error.details.mappingVersion`. A cursor for another version, anchor or context is `422 INVALID_CURSOR`.
+  `error.details.mappingVersion`: a refused read, so it keeps its own code (a stale `PUT /mappings` is `409 VERSION_CONFLICT`). A cursor for another version, anchor or context is `422 INVALID_CURSOR`.
   Confirmed live/change-set object cascade deletion advances both directional set versions for every
   removed edge, so existing continuations also require refresh after a cascade. Preview, refused
   and stale-delete requests leave set versions unchanged.
@@ -6048,8 +6055,8 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
   validated against the final graph, excluding edges being replaced. Duplicate scopes return
   `409 DUPLICATE_RELATION_SCOPE`; a missing required ancestor returns `422 RELATION_ANCESTOR_REQUIRED`
   in both mapping and generic relation writes, live or change set.
-- Tokens are checked before no-op detection. A stale mapping token returns `409 MAPPING_VERSION_CONFLICT`
-  with `{mappingVersion, targetCount, targets (≤20), targetsNextCursor}` in error details and no
+- Tokens are checked before no-op detection. A stale mapping token returns `409 VERSION_CONFLICT`
+  with `{currentVersion, targetCount, targets (≤20), targetsNextCursor}` in error details and no
   changes. Change set aggregate conflicts remain distinct (`409 CHANGE_SET_VERSION_CONFLICT`).
   Large conflict sets include a signed continuation cursor and the selected `applicationKey`/`viewKey`;
   pass these with the binding, source and returned version to `GET /mapping-targets`. When no mapping
@@ -7802,7 +7809,7 @@ registered with `INTEGRATION_JOBS_ENABLED`.
 | `GET /ai/tasks` | The caller's tasks and those of the workspaces they administer, newest first (paging) |
 | `GET /ai/tasks/{id}` | The task. `ahead` (0.13 AQ): while the task's job waits for the assistant's worker, the number of assistant jobs before it (queued or running, by the order the worker takes them; a close count, not a promise); `null` once it runs and in every other state. `design.load` (0.13 AB): when the session sent its records as `items` to the draft's dry run, that run's summary ([A dry run of items](#a-dry-run-of-items-013-ab)): per type the records new, matched, changed and refused, the relationships, examples with their cells, the engine's findings; `design.itemsLoad` is then `true` and accepting loads exactly those items; `check.mode` is `items` and `check.sheets` is empty |
 | `GET /ai/tasks/{id}/changes?source=0` | The records the latest check would change in a sheet of the check (`source`, the sheet's `source` in `check.sheets`; read through the dry run's own profile and the draft's model) (paging): `{recordId, name, table, fields: [{field, label, now, after}]}`, `field` the attribute key or `name`, values typed as records give them. `409 AI_TASK_STATE` before a check, `422 AI_TASK_TABLE_UNKNOWN` for a source the check has no figures for |
-| `POST /ai/tasks/{id}/answers` | `{expectedVersion, answers: {questionText: answer}}`. Allowed when `checked`; `202`, state `checking`: the same session goes on with the answers, rereads the draft in case the person edited it, and the check is made again. When **every answer is its question's `assumed` option** (0.13 AQ) the answers are recorded and nothing is queued: `202` with the task still `checked` and a new `version`, no job `409 AI_TASK_VERSION_CONFLICT` (`details.currentVersion`), `409 AI_TASK_STATE` (`details.state`) |
+| `POST /ai/tasks/{id}/answers` | `{expectedVersion, answers: {questionText: answer}}`. Allowed when `checked`; `202`, state `checking`: the same session goes on with the answers, rereads the draft in case the person edited it, and the check is made again. When **every answer is its question's `assumed` option** (0.13 AQ) the answers are recorded and nothing is queued: `202` with the task still `checked` and a new `version`, no job `409 VERSION_CONFLICT` (`details.currentVersion`), `409 AI_TASK_STATE` (`details.state`) |
 | `POST /ai/tasks/{id}/model` | `{expectedVersion, correction}`: the person's words, in every state where a task can go on (0.16 AP13). Allowed when `checked` (the proposal, or a saved layout's load stage: a session starts on the same task and file, `409 AI_NOT_CONFIGURED` without `AI_AGENT_COMMAND`), `failed` or `stopped` (the same session goes on; a session that never ran starts, with the task's words and the new ones; the task's notes, its old reasons, are cleared), or `loaded` with a change set not yet published (needs Work in change sets: the change set is discarded and the same session loads again from the proposal with the words; `409 AI_TASK_STATE` for a published or discarded change set or a session that ended). `202`, state `checking`: the session changes the model as the words say (kept in `design.corrections`, the newest last) and proposes again, or loads again. Same refusals |
 | `POST /ai/tasks/{id}/accept` | `{expectedVersion}`. Allowed when `checked` with a proposal (`design.stage: model`); `403 FORBIDDEN` naming Work in change sets unless the proposal only moves whole types (it loads no change set); `202`, state `checking`: the same session rereads the draft, installs one release without activating it, makes the change in a new change set on that release and ends with its ID. The task becomes `loaded` and `result` names the change set. **When the proposal holds a dry run of items** (0.13 AB: the session sent `items` to its draft's dry run; the task shows the summary as `design.load` and has `design.itemsLoad: true`; [A dry run of items](#a-dry-run-of-items-013-ab)) no session turn runs: the engine itself installs the draft as one release (what `POST /model-drafts/{id}/installation` does; none when the draft does not change the model), makes a change set on it over the live data (on the workspace's current release when the model does not change), and runs the stored items into it as **one atomic batch**, then the task is `loaded` with `result.counts` (the change set's records and relationships), `result.importJobId` (the batch job) and the change set. The check must be of the task's own workspace: a task whose items dry run was made against another workspace fails, when the proposal lands and again at the accept, and loads nothing (R13-F6). When an earlier accept installed the draft's release and the draft is based on it while the workspace is not, a later accept (after words) makes its change set on that release, never on the workspace's (R13-F7). A stop during the load discards the change set and withdraws the release the accept installed (R13-F8); if the stored items are gone when the load starts, the task fails naming that (R13-F11). A draft changed after the dry run (a step that can change what the load writes) has every item checked again first; a refusal then fails the task before anything is installed. A refusal at the atomic batch (the data moved since the check) writes nothing: the change set is discarded, the task is `failed` with a note naming the refused records and their cells, and `POST …/model` or `…/retry` goes to the session as a correction of the proposal, which checks the records again. The batch is the job `batch` of the task (its `parameters.taskId`). It never activates, migrates or publishes. A words-only task (no file) whose model does not change has a proposal without a draft (`draftId` null, `design.modelUnchanged` true, "no change to the model"): accepting installs and activates nothing, and the session makes the change set on the workspace's current live release; a workbook task always has a draft. When the proposal has `design.moves` (whole types that become others) the session only installs the release, no change set is made, and `result.migration` holds the release and the type mappings for the migration the person confirms. `409 AI_TASK_STATE` without a proposal |
 | `POST /ai/tasks/{id}/retry` | `{expectedVersion, words?}`. A task that `failed` or `stopped` goes on from where the session was, its folder and session kept, with the person's `words` when there are some (no words: "go on from where you were"); a session that never ran starts again. A `checked` task with no session (a saved layout that does not fit) is read with the assistant, which starts on the same task and file. `409 AI_NOT_CONFIGURED`, `409 AI_TASK_STATE` otherwise |

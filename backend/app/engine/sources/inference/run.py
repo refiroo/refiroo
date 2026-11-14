@@ -22,15 +22,13 @@ engine's elements from the administrator's.
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import cast, delete, select, text, update
+from sqlalchemy import cast, delete, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from ....common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ....db import lock_job_subject
 from ....errors import api_error
 from ....models.database import (
     Job,
@@ -40,6 +38,7 @@ from ....models.database import (
     SourceFile,
 )
 from ....models.sources import InferenceApplicationRequest, InferenceRequest
+from ...jobs.background import CANCELLABLE, replace_earlier_job
 from ...jobs.store import job_parameter, start_job
 from ...model.authoring import history
 from ...model.authoring.kinds import Applied
@@ -68,7 +67,6 @@ from .facts import staged_workbook
 from .patterns import find
 
 KIND = "inference"
-RUNNING = ("queued", "running")
 STATUSES = ("open", "applied", "held", "rejected")
 _KEYS = (integer_key("position", ModelDraftProposal.position, "position"),)
 
@@ -109,32 +107,30 @@ def submit_inference(session: Session, draft_id: str, request: InferenceRequest,
             f"Application '{request.applicationKey}' exists; a new application needs a key no application has",
             {"pointer": "/applicationKey"},
         )
-    lock_job_subject(session, KIND, draft.public_id)
-    session.execute(
-        update(Job)
-        .where(Job.kind == KIND, Job.state.in_(RUNNING), job_parameter("draftId") == draft.public_id)
-        .values(cancel_requested_at=datetime.now(UTC))
-        .execution_options(synchronize_session=False)
-    )
-    job = start_job(
-        session,
-        kind=KIND,
-        workspace_key=(workspace_key := resolve_workspace(session, source.workspace_key).key),
-        change_set_id=None,
-        model_release_id=resolve_model_snapshot(session, workspace_key).release_db_id,
-        parameters={
-            "draftId": draft.public_id,
-            "draftVersion": draft.version,
-            "sourceFileId": source.public_id,
-            "mode": request.mode,
-            "applicationKey": request.applicationKey,
-            "applicationName": request.applicationName,
-            "file": {"name": source.name, "format": source.format, "bytes": source.bytes},
-        },
-        total=None,
-        retention_days=retention_days,
-        queued=True,
-    )
+
+    def start() -> Job:
+        workspace_key = resolve_workspace(session, source.workspace_key).key
+        return start_job(
+            session,
+            kind=KIND,
+            workspace_key=workspace_key,
+            change_set_id=None,
+            model_release_id=resolve_model_snapshot(session, workspace_key).release_db_id,
+            parameters={
+                "draftId": draft.public_id,
+                "draftVersion": draft.version,
+                "sourceFileId": source.public_id,
+                "mode": request.mode,
+                "applicationKey": request.applicationKey,
+                "applicationName": request.applicationName,
+                "file": {"name": source.name, "format": source.format, "bytes": source.bytes},
+            },
+            total=None,
+            retention_days=retention_days,
+            queued=True,
+        )
+
+    job = replace_earlier_job(session, KIND, "draftId", draft.public_id, start)
     session.commit()
     return job
 
@@ -584,7 +580,7 @@ def read_inference(session: Session, draft: ModelDraft) -> dict[str, Any]:
     ]
     return {
         "jobId": job.id,
-        "state": "checking" if job.state in RUNNING else job.state,
+        "state": "checking" if job.state in CANCELLABLE else job.state,
         "mode": job.parameters.get("mode"),
         "draftVersion": job.parameters.get("draftVersion"),
         "sourceFileId": job.parameters.get("sourceFileId"),

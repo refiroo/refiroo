@@ -6,6 +6,7 @@ import logging
 import re
 from typing import Any
 
+from ....common.counts import count_noun
 from ...model.migrations import LandingRefusal
 from .sandbox import loopback
 
@@ -252,10 +253,6 @@ def without_files(line: str) -> str:
     return " ".join(s for s in sentences if PROPOSAL not in s and not _INTERNAL.search(s))
 
 
-def plural(number: int, word: str) -> str:
-    return f"{number:,} {word}{'' if number == 1 else 's'}"
-
-
 def _binding(found: dict[str, Any]) -> tuple[bool, bool, str]:
     """What of an attribute binding is meaning, not form: required, read-only and the screen hints
     (a missing value reads as the default; the order of the list is not a change)."""
@@ -309,7 +306,7 @@ def not_its_draft_prompt() -> str:
 def refusal_words(refusals: tuple[LandingRefusal, ...], names: dict[str, str]) -> str:
     """The engine's refusals with their counts per type and a few example records."""
     return "; ".join(
-        f"{found.code}: {found.message} ({found.count} record{'s' if found.count != 1 else ''}"
+        f"{found.code}: {found.message} ({count_noun(found.count, 'record')}"
         + (
             f" of type '{found.type_key}' ({names[found.type_key]})"
             if found.type_key in names
@@ -342,10 +339,6 @@ def plain(text: str) -> str:
     return " ".join(re.sub(r"[\"'`“”‘’«».,;:!?()\[\]]+", " ", text.casefold()).split())
 
 
-def counted(count: int, word: str) -> str:
-    return f"{count:,} {word}{'' if count == 1 else 's'}"
-
-
 _LOSS_KINDS = (("records", "record"), ("values", "value"), ("relationships", "relationship"))
 
 
@@ -354,11 +347,7 @@ def loss_words(losses: dict[str, dict[str, int]], names: dict[str, str]) -> str:
     relationships, translation links among them)."""
     parts = []
     for type_key, counts in sorted(losses.items()):
-        things = [
-            f"{counts[kind]} {word}{'s' if counts[kind] != 1 else ''}"
-            for kind, word in _LOSS_KINDS
-            if counts.get(kind)
-        ]
+        things = [count_noun(counts[kind], word) for kind, word in _LOSS_KINDS if counts.get(kind)]
         if things:
             parts.append(f"{names.get(type_key, type_key)}: {', '.join(things)}")
     return "; ".join(parts)

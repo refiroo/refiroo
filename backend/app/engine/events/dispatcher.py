@@ -35,7 +35,7 @@ import socket
 import threading
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -272,8 +272,8 @@ class EventDispatcher:
         definition = definition_of(model, subscription.consumer_api, subscription.contract_version)
         if definition is None:
             return False
-        workspace = session.scalar(select(Workspace).where(Workspace.key == subscription.workspace_key))
-        if workspace is None or workspace.status != "active":
+        workspace = _active_workspace(session, subscription)
+        if workspace is None:
             return False
         window = event_window(session, workspace.key, self.settings.retention_days)
         stopped = self._stopped_by(session, subscription, model, definition, workspace, window)
@@ -290,8 +290,8 @@ class EventDispatcher:
         self, session: Session, sequence_id: int, subscription: ConsumerSubscription, now: datetime
     ) -> _Prepared | bool:
         """The step of a workspace-source subscription (A2) up to a stored batch."""
-        workspace = session.scalar(select(Workspace).where(Workspace.key == subscription.workspace_key))
-        if workspace is None or workspace.status != "active":
+        workspace = _active_workspace(session, subscription)
+        if workspace is None:
             return False
         earliest = workspace_events.earliest(session, workspace.key)
         if subscription.acknowledged_position < earliest - 1:
@@ -326,20 +326,8 @@ class EventDispatcher:
         )
         if not taken:
             head = through if through is not None else workspace_events.head(session, subscription.workspace_key)
-            moved = head > after
-            if moved:
-                subscription.acknowledged_position, subscription.acknowledged_ordinal = head, 0
-            if through is not None:
-                clear_delivery(subscription)
-                moved = True
-            return moved
-        delivery_id = subscription.pending_delivery_id or str(uuid.uuid4())
-        written = request_format(subscription)
-        events = [row.payload for row in taken]
-        count = written.fitting(events)
-        events = events[:count]
-        end = (taken[count - 1].position, 0)
-        return _Batch(delivery_id, end, events, written.body(delivery_id, events), written.content_type)
+            return _acknowledge(subscription, (head, 0))
+        return _batch_of(subscription, [row.payload for row in taken], lambda count: (taken[count - 1].position, 0))
 
     def _stopped_by(
         self,
@@ -415,12 +403,11 @@ class EventDispatcher:
         )
         if not page.items:
             return _acknowledge(subscription, page.last)
-        delivery_id = subscription.pending_delivery_id or str(uuid.uuid4())
-        written = request_format(subscription)
-        count = written.fitting(page.items)
-        end = page.last if count == len(page.items) else page.keys[count - 1]
-        events = page.items[:count]
-        return _Batch(delivery_id, end, events, written.body(delivery_id, events), written.content_type)
+        return _batch_of(
+            subscription,
+            page.items,
+            lambda count: page.last if count == len(page.items) else page.keys[count - 1],
+        )
 
     # --- sending and recording --------------------------------------------------------------------
 
@@ -678,6 +665,27 @@ def _pending(subscription: ConsumerSubscription) -> Key | None:
     if subscription.pending_position is None or subscription.pending_ordinal is None:
         return None
     return (subscription.pending_position, subscription.pending_ordinal)
+
+
+def _active_workspace(session: Session, subscription: ConsumerSubscription) -> Workspace | None:
+    """The subscription's workspace when it is active, else None: nothing is sent for a retired one."""
+    workspace = session.scalar(select(Workspace).where(Workspace.key == subscription.workspace_key))
+    return workspace if workspace is not None and workspace.status == "active" else None
+
+
+def _batch_of(
+    subscription: ConsumerSubscription,
+    items: Sequence[dict[str, Any]],
+    end_after: Callable[[int], Key],
+) -> _Batch:
+    """The request of as many of ``items`` as fit one body, in the subscription's format, under
+    the delivery ID of the batch being retried or a new one; ``end_after(count)`` is the key of
+    the last event the ``count`` taken cover."""
+    delivery_id = subscription.pending_delivery_id or str(uuid.uuid4())
+    written = request_format(subscription)
+    count = written.fitting(items)
+    events = list(items[:count])
+    return _Batch(delivery_id, end_after(count), events, written.body(delivery_id, events), written.content_type)
 
 
 def _acknowledge(subscription: ConsumerSubscription, through: Key) -> bool:

@@ -2,8 +2,6 @@
 decisions on their requests and jobs they started that finished. For anyone signed in, a client
 included; the live stream is read with ``fetch`` and the ``Authorization`` header (D247)."""
 
-import asyncio
-import json
 import time
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
@@ -17,13 +15,13 @@ from sqlalchemy import select
 from ...common.pagination import paginate_statement, text_key
 from ...engine.authorization.visibility import in_workspaces
 from ...engine.identity.principals import Ref
-from ...engine.jobs.events import JobListener
 from ...engine.notifications import following, inbox
 from ...errors import api_error
 from ...models.database import Workspace, WorkspaceFollower
+from .. import sse
 from ..access import SIGNED_IN, AuthorizedRoute, CurrentPermissions, requires
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..projections import notifications as present
 from ..schemas.notifications import (
     FollowedWorkspacePage,
@@ -38,8 +36,6 @@ from ..schemas.notifications import (
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["notifications"])
 
-# A stream sends a comment this often while nothing changes, so proxies keep it open.
-KEEP_ALIVE_SECONDS = 15.0
 # How long a sent notice is remembered, and how far back a read looks for one that committed late.
 RECENT_SECONDS = 60.0
 
@@ -68,7 +64,7 @@ def list_my_notifications(
         default=None, max_length=160, description="Only notices of this workspace"
     ),
     sort: Literal["newest", "oldest"] = Query(default="newest"),
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> NotificationPage:
     """The caller's notices, newest (or oldest) first, with the count of all their unread ones."""
     page = inbox.notification_page(
@@ -147,7 +143,7 @@ def list_followed_workspaces(
     session: DbSession,
     permissions: CurrentPermissions,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> FollowedWorkspacePage:
     """The workspaces the caller follows and still may browse, by label (0.16 AO3, AO-D38). A client
     has none."""
@@ -245,14 +241,10 @@ async def my_notification_events(
     the count after every change. Nothing is polled: the database tells the engine of each notice
     (like the job stream, D58). A comment line every 15 s keeps an idle stream open."""
     owner = _owner(principal)
-    listener: JobListener = request.app.state.job_listener
-    subscription = listener.subscribe(inbox.principal_key(owner))
     connected = datetime.now(UTC)
-    try:
-        seen, count = await run_in_threadpool(_position, request, owner)
-    except BaseException:
-        listener.unsubscribe(subscription)
-        raise
+    subscription, (seen, count) = await sse.subscribe(
+        request, inbox.principal_key(owner), _position, owner
+    )
 
     # The notices sent, by when: a notice made by a transaction that commits late has a lower ID
     # than one already sent, so each read also lists the notices of the last minute and drops the
@@ -261,45 +253,35 @@ async def my_notification_events(
 
     async def stream() -> AsyncIterator[str]:
         nonlocal seen, count, sent
-        try:
-            yield _event("unread", {"unreadCount": count})
+        yield sse.frame("unread", {"unreadCount": count})
+        while True:
+            if not await sse.woken(subscription):
+                yield sse.KEEP_ALIVE
+                continue
             while True:
-                try:
-                    await asyncio.wait_for(subscription.woken.wait(), KEEP_ALIVE_SECONDS)
-                except TimeoutError:
-                    yield ": keep-alive\n\n"
-                    continue
-                subscription.woken.clear()
-                while True:
-                    clock = time.monotonic()
-                    sent = {key: at for key, at in sent.items() if clock - at < RECENT_SECONDS}
-                    fetched, current = await run_in_threadpool(
-                        _changes,
-                        request,
-                        owner,
-                        seen,
-                        max(connected, datetime.now(UTC) - timedelta(seconds=RECENT_SECONDS)),
-                        frozenset(sent),
-                    )
-                    new = [notice for notice in fetched if notice["sequenceId"] not in sent]
-                    for notice in new:
-                        seen = max(seen, notice["sequenceId"])
-                        sent[notice["sequenceId"]] = clock
-                        yield _event("notification", notice["body"])
-                    if new or current != count:
-                        count = current
-                        yield _event("unread", {"unreadCount": count})
-                    # A full read may have left notices behind: read on until one comes back short.
-                    if not new or len(fetched) < inbox.CATCH_UP_LIMIT:
-                        break
-        finally:
-            listener.unsubscribe(subscription)
+                clock = time.monotonic()
+                sent = {key: at for key, at in sent.items() if clock - at < RECENT_SECONDS}
+                fetched, current = await run_in_threadpool(
+                    _changes,
+                    request,
+                    owner,
+                    seen,
+                    max(connected, datetime.now(UTC) - timedelta(seconds=RECENT_SECONDS)),
+                    frozenset(sent),
+                )
+                new = [notice for notice in fetched if notice["sequenceId"] not in sent]
+                for notice in new:
+                    seen = max(seen, notice["sequenceId"])
+                    sent[notice["sequenceId"]] = clock
+                    yield sse.frame("notification", notice["body"])
+                if new or current != count:
+                    count = current
+                    yield sse.frame("unread", {"unreadCount": count})
+                # A full read may have left notices behind: read on until one comes back short.
+                if not new or len(fetched) < inbox.CATCH_UP_LIMIT:
+                    break
 
-    return StreamingResponse(
-        stream(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    return sse.respond(request, subscription, stream())
 
 
 @router.get("/me/notifications/{notification_id}", response_model=NotificationResponse)
@@ -336,7 +318,3 @@ def _changes(
             for item in inbox.after(session, owner, seen, recent_since=recent_since, known=known)
         ]
         return new, inbox.unread_count(session, owner)
-
-
-def _event(name: str, body: dict) -> str:
-    return f"event: {name}\ndata: {json.dumps(body, separators=(',', ':'))}\n\n"

@@ -36,7 +36,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import (
     diagnostic_details,
     feed_page,
@@ -110,7 +110,7 @@ def list_workspaces(
         default=None,
         description="Only the workspaces where the caller holds this action group (D327)",
     ),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> WorkspacePage:
     return workspace_page(
         session,
@@ -130,7 +130,7 @@ def list_own_workspaces(
     principal: CurrentPrincipal,
     permissions: CurrentPermissions,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> OwnWorkspacePage:
     """The active workspaces where the caller holds Browse, the default first and then by label,
     each with its applications and the open change sets waiting there (0.12 HM1, D332)."""
@@ -184,7 +184,7 @@ def list_workspace_models(
     paging: PageQuery,
     release_key: str | None = Query(default=None, alias="releaseKey"),
     release_id: str | None = Query(default=None, alias="releaseId"),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> WorkspaceAssignmentPage:
     """Every workspace's assignment in workspace key order, of one model (``releaseKey``) or one
     release (``releaseId``) when named (0.11 M1)."""
@@ -234,7 +234,7 @@ def get_feed(
     session: DbSession,
     request: Request,
     after: int = Query(default=0, ge=0, description="The last position the reader processed"),
-    page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
+    page_size: int = PageSize(500, 1000),
     kind: list[FeedKind] | None = _FEED_KIND,
     object_type_key: list[str] | None = _FEED_OBJECT_TYPE_KEY,
 ) -> FeedPage:

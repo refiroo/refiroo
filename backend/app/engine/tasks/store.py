@@ -18,10 +18,20 @@ from sqlalchemy import delete, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ...errors import api_error
-from ...models.database import AiTask, AuditEvent, Grant, Job, ModelDraft, OAuthClient, SourceFile
+from ...errors import api_error, require_version
+from ...models.database import (
+    AiTask,
+    AuditEvent,
+    ChangeSet,
+    Grant,
+    Job,
+    ModelDraft,
+    OAuthClient,
+    SourceFile,
+)
 from ..authorization.permissions import Permissions, PrincipalKind
 from ..authorization.writes import requester_of
+from ..change_sets.lifecycle import discard_change_set
 
 KINDS = ("note", "warning", "refused")
 # States in which the task waits for a job, and the ones that end it.
@@ -41,6 +51,20 @@ def held_counts(session: Session, workspace: str) -> dict[str, int]:
 
 
 _KEYS = (integer_key("id", AiTask.id, "id", descending=True),)
+
+
+def discard_set(session: Session, change_set_id: str, *, refresh: bool = False) -> bool:
+    """The change set goes, claimed at the version the session holds; False when there is none
+    (published or discarded elsewhere), which is no error here: a caller that must refuse a missing
+    one says so itself. ``refresh`` claims the version the database holds, for a load whose batch
+    rolled back and left the session's copy ahead of it."""
+    found = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+    if found is None:
+        return False
+    if refresh:
+        session.refresh(found)
+    discard_change_set(session, found.id, found.version)
+    return True
 
 
 def create_task(
@@ -138,14 +162,13 @@ def task_page(
 
 
 def claim(task: AiTask, expected_version: int) -> None:
-    """``409 AI_TASK_VERSION_CONFLICT`` unless the task is at ``expected_version``."""
-    if task.version != expected_version:
-        raise api_error(
-            409,
-            "AI_TASK_VERSION_CONFLICT",
-            f"AI task '{task.public_id}' is at version {task.version}, not {expected_version}",
-            {"currentVersion": task.version},
-        )
+    """``409 VERSION_CONFLICT`` unless the task is at ``expected_version``."""
+    require_version(
+        task,
+        expected_version,
+        "AI task",
+        message=f"AI task '{task.public_id}' is at version {task.version}, not {expected_version}",
+    )
 
 
 def require_state(task: AiTask, *allowed: str) -> None:
@@ -258,13 +281,25 @@ def stopped(session: Session, task: AiTask, retention_days: int) -> None:
     task.design = design
 
 
+def workbook_of(session: Session, task: AiTask) -> SourceFile | None:
+    """The task's workbook; ``None`` for an instruction given without one."""
+    return session.scalar(select(SourceFile).where(SourceFile.task_id == task.id))
+
+
+def job_of(session: Session, task: AiTask) -> Job | None:
+    """The job the task waits for or last waited for; ``None`` when it has none (or it is gone)."""
+    if task.job_id is None:
+        return None
+    return session.scalar(select(Job).where(Job.id == task.job_id))
+
+
 def sync(session: Session, task: AiTask, retention_days: int) -> None:
     """Carry the state of the job the task waits for to the task: a failed job ends it, a stopped
     one returns it to where the person can go on (:func:`stopped`), and a finished import is
     ``loaded`` (one place, wherever a task is read)."""
     if task.state not in WAITING or task.job_id is None:
         return
-    job = session.scalar(select(Job).where(Job.id == task.job_id))
+    job = job_of(session, task)
     if job is None:
         return
     if job.state == "cancelled":

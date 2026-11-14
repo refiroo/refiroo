@@ -101,7 +101,7 @@ def test_a_retired_release_is_not_chosen_and_what_runs_on_it_keeps_working(world
 def test_retiring_is_refused_for_the_default_workspaces_release_a_stale_version_and_a_reader(world):
     """Given the default workspace's release X and Y's installed. When X is retired, then `409
     MODEL_RELEASE_IS_DEFAULT`. When Y is retired naming an earlier status version, then `409
-    MODEL_RELEASE_VERSION_CONFLICT` with the current one. When a Reader retires Y, then `403`.
+    VERSION_CONFLICT` with the current one. When a Reader retires Y, then `403`.
     Asking for the status a release has changes nothing. An unknown release is `404`."""
     x = _release(world, _model(world)["releaseId"])
     error = refused(_set_status(world, x, "retired"), 409, "MODEL_RELEASE_IS_DEFAULT")
@@ -110,8 +110,9 @@ def test_retiring_is_refused_for_the_default_workspaces_release_a_stale_version_
     y = _release(world, world.install(_other(world).configuration.model, name="Other model")["id"])
     assert ok(_set_status(world, y, "active"))["statusVersion"] == 1
     ok(_set_status(world, y, "retired"))
-    error = refused(_set_status(world, y, "active"), 409, "MODEL_RELEASE_VERSION_CONFLICT")
+    error = refused(_set_status(world, y, "active"), 409, "VERSION_CONFLICT")
     assert error["details"] == {
+        "currentVersion": 2,
         "releaseId": y["id"],
         "status": "retired",
         "currentStatusVersion": 2,
@@ -153,7 +154,7 @@ def test_a_release_nothing_refers_to_is_deleted_and_one_in_use_is_not(world):
     When Y is deleted, it is gone (`404`), its draft stays, and the list leaves it out. Deleting Y′
     is `409 MODEL_RELEASE_IN_USE` blocked by `running`. When the workspace moves to Y″, Y′ is
     blocked by `history` (its record was written under it) and still refused; a stale status
-    version is `409 MODEL_RELEASE_VERSION_CONFLICT`."""
+    version is `409 VERSION_CONFLICT`."""
     other = _other(world)
     y = _release(world, world.install(other.configuration.model, name="Unused")["id"])
     assert (y["deletable"], y.get("deleteBlockedBy")) == (True, None)
@@ -181,7 +182,7 @@ def test_a_release_nothing_refers_to_is_deleted_and_one_in_use_is_not(world):
     assert used["deleteBlockedBy"] == "history"
     refused(_delete(world, used), 409, "MODEL_RELEASE_IN_USE")
     stale = {**used, "statusVersion": used["statusVersion"] + 1}
-    refused(_delete(world, stale), 409, "MODEL_RELEASE_VERSION_CONFLICT")
+    refused(_delete(world, stale), 409, "VERSION_CONFLICT")
 
 
 @pytest.mark.journey("J36.11")

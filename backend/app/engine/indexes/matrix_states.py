@@ -34,7 +34,6 @@ import time
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from itertools import islice
 from typing import Any
 
 from sqlalchemy import (
@@ -55,6 +54,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session, attributes
 
+from ...common.chunks import chunks
 from ...errors import ApiError
 from ...models.database import (
     AttributeValue,
@@ -88,7 +88,6 @@ logger = logging.getLogger(__name__)
 
 # The column of a change set's sentinel row: the row's base states are replaced.
 REPLACED = ""
-_CHUNK = 500
 _PENDING = "matrix_state_changes"
 _DEFERRED = "matrix_state_changes_deferred"
 _KINDS = ("live", "publication", "base", "change_set", "history")
@@ -100,12 +99,6 @@ class Owner:
     kind: str
     id: str
     workspace_key: str
-
-
-def _chunks(items: Iterable[str], size: int = _CHUNK) -> Iterable[list[str]]:
-    iterator = iter(sorted(items))
-    while chunk := list(islice(iterator, size)):
-        yield chunk
 
 
 def _change_set(session: Session, change_set_id: str) -> ChangeSet | None:
@@ -620,7 +613,7 @@ def note_cells(session: Session, object_ids: Iterable[str], *, moved: bool = Fal
 
 def note_relations_removed(session: Session, relation_ids: Iterable[str]) -> None:
     """Live relations a Core statement is about to delete: their ends' cells change."""
-    for chunk in _chunks(relation_ids):
+    for chunk in chunks(sorted(relation_ids)):
         for from_id, to_id in session.execute(
             select(ObjectRelation.from_object_id, ObjectRelation.to_object_id).where(
                 ObjectRelation.id.in_(chunk)
@@ -812,14 +805,14 @@ def _apply_live(session: Session, changes: _Changes) -> None:
     cells = changes.cells | {object_id for object_id, key in changes.attributes if key in conditions}
     touched = changes.all_rows() | cells | changes.moved
     workspace_of: dict[str, str] = {}
-    for chunk in _chunks(touched):
+    for chunk in chunks(sorted(touched)):
         workspace_of.update(
             session.execute(
                 select(RdmObject.id, RdmObject.workspace_key).where(RdmObject.id.in_(chunk))
             ).all()
         )
     # A deleted row keeps no cells in any workspace.
-    for chunk in _chunks(changes.all_rows() - workspace_of.keys()):
+    for chunk in chunks(sorted(changes.all_rows() - workspace_of.keys())):
         session.execute(
             delete(_TABLE).where(_TABLE.c.owner_kind == "live", _TABLE.c.row_id.in_(chunk))
         )
@@ -859,7 +852,7 @@ def _moved_from_base(session: Session, change_set: ChangeSet, object_ids: set[st
         return set()
     base = base_owner(change_set)
     moved = set()
-    for chunk in _chunks(object_ids):
+    for chunk in chunks(sorted(object_ids)):
         overlay = session.execute(
             select(ChangeSetObject.object_id, ChangeSetObject.parent_object_id, ChangeSetObject.is_deleted).where(
                 ChangeSetObject.change_set_id == change_set.id, ChangeSetObject.object_id.in_(chunk)
@@ -904,10 +897,10 @@ def _resolve(scope: CellScope, cells: set[str], moved: set[str]) -> set[str]:
         for key in moved
         if key not in deleted and types.get(key, shape.cell_type) in shape.walk_types
     }
-    for chunk in _chunks(walk_from):
+    for chunk in chunks(sorted(walk_from)):
         candidates |= set(session.scalars(descendants(scope, chunk, shape.walk_types)))
     rows: set[str] = set()
-    for chunk in _chunks(candidates):
+    for chunk in chunks(sorted(candidates)):
         rows |= set(session.scalars(related_rows(scope, chunk)))
     return rows
 
@@ -917,7 +910,7 @@ def _tombstones(scope: CellScope, ids: set[str]) -> set[str]:
     if scope.context is None or scope.context.kind != "change_set" or not ids:
         return set()
     deleted: set[str] = set()
-    for chunk in _chunks(ids):
+    for chunk in chunks(sorted(ids)):
         deleted.update(
             scope.session.scalars(
                 select(ChangeSetObject.object_id).where(
@@ -938,7 +931,7 @@ def _object_types(scope: CellScope, ids: set[str]) -> dict[str, str]:
             key: row.object_type_key for key, row in find_objects(scope.session, scope.context, ids).items()
         }
     types: dict[str, str] = {}
-    for chunk in _chunks(ids):
+    for chunk in chunks(sorted(ids)):
         types.update(
             scope.session.execute(
                 select(RdmObject.id, RdmObject.object_type_key).where(RdmObject.id.in_(chunk))
@@ -951,7 +944,7 @@ def _recompute(session: Session, owner: Owner, scope: CellScope, rows: set[str])
     """Replace the rows' states with ones derived from records. A change set replaces a row's
     base states only where it holds cells for the row or the base does."""
     shape = scope.shape
-    for chunk in _chunks(rows):
+    for chunk in chunks(sorted(rows)):
         session.execute(
             delete(_TABLE).where(
                 _TABLE.c.owner_kind == owner.kind,

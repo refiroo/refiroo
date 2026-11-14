@@ -385,7 +385,7 @@ Retires a release or brings it back. A retired release is refused wherever a rel
 
 - 403 FORBIDDEN: needs Install a model at the instance
 - 404 MODEL_RELEASE_NOT_FOUND: no installed release has this ID
-- 409 MODEL_RELEASE_VERSION_CONFLICT: `expectedStatusVersion` is not current
+- 409 VERSION_CONFLICT: `expectedStatusVersion` is not current
 - 409 MODEL_RELEASE_IS_DEFAULT: the default workspace runs it
 - 422 REQUEST_VALIDATION_ERROR: `status` or `expectedStatusVersion` is invalid
 
@@ -404,7 +404,7 @@ Deletes a release nothing refers to, with its structure. It is refused while a w
 
 - 403 FORBIDDEN: needs Install a model at the instance
 - 404 MODEL_RELEASE_NOT_FOUND: no installed release has this ID
-- 409 MODEL_RELEASE_VERSION_CONFLICT: `expectedStatusVersion` is not current
+- 409 VERSION_CONFLICT: `expectedStatusVersion` is not current
 - 409 MODEL_RELEASE_IN_USE: something refers to the release
 - 422 REQUEST_VALIDATION_ERROR: `expectedStatusVersion` is missing or invalid
 

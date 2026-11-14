@@ -42,6 +42,11 @@ WHERE source_file_id = :file AND sheet_index = :sheet AND row_number > :header
 """
 )
 
+# How a stored name is compared with a cell, five ways on purpose (one rule would change what matches):
+# here both sides are trimmed and lower-cased (``lower(btrim)``); ``design_checks._STORED_NAMES``
+# trims only the cell; ``placement`` casefolds the title in Python against ``lower(name)``;
+# ``translations._NAMED`` keeps letters and digits only, as a header names a parent loosely; and
+# ``reading.stored_names`` compares exactly, since it finds the cells whose spelling differs.
 _FACTS = text(
     """
 CREATE TEMP TABLE match_fact ON COMMIT DROP AS

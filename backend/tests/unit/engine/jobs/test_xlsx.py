@@ -10,6 +10,7 @@ from datetime import datetime
 
 import pytest
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 
 from app.engine.jobs import xlsx
 
@@ -19,7 +20,7 @@ def _written(tmp_path, values, kinds=("text",)):
     path = tmp_path / "book.xlsx"
     book = xlsx.Workbook(path, lambda: None)
     keys = [f"#k{index}" for index in range(len(values))]
-    letters = [xlsx.column(index) for index in range(1, len(keys) + 1)]
+    letters = [get_column_letter(index) for index in range(1, len(keys) + 1)]
     book.data(
         xlsx.Sheet(
             title="Records",
@@ -87,10 +88,6 @@ def test_each_value_type_becomes_the_cell_a_reader_can_trust(tmp_path, value, ki
 def test_text_round_trips_through_a_workbook(tmp_path, text):
     (read,) = _written(tmp_path, [text])
     assert _unescaped(read) == text
-
-
-def test_a_column_letter_follows_excel():
-    assert [xlsx.column(n) for n in (1, 26, 27, 52, 703)] == ["A", "Z", "AA", "AZ", "AAA"]
 
 
 def _unescaped(value: str) -> str:
@@ -216,7 +213,8 @@ def test_a_sheet_for_people_can_be_a_table_a_dropdown_reads_by_a_defined_name(tm
     book = xlsx.Workbook(path, lambda: None)
     book.define("values_1", "tbl_values_1[Value name]")
     encode = lambda row, number: "".join(
-        xlsx.text_cell(f"{xlsx.column(index)}{number}", value) for index, value in enumerate(row, 1)
+        xlsx.text_cell(f"{get_column_letter(index)}{number}", value)
+        for index, value in enumerate(row, 1)
     )
     book.plain(
         xlsx.PlainSheet(

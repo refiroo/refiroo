@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ...common.encoding import to_jsonable
 from ...common.time import as_utc
-from ...errors import api_error
+from ...errors import api_error, require_version, version_conflict
 from ...models.database import AiTask, AuditEvent, ModelDraft, ModelRelease, Workspace
 from .workspace_models import load_assignment
 
@@ -157,11 +157,11 @@ def update_draft(
         .values(**values)
     )
     if result.rowcount != 1:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            f"Model draft '{draft_id}' has changed",
-            {"expectedVersion": expected_version, "actualVersion": draft.version},
+        raise version_conflict(
+            draft.version,
+            "Model draft",
+            message=f"Model draft '{draft_id}' has changed",
+            details={"expectedVersion": expected_version, "actualVersion": draft.version},
         )
     session.expire(draft)
     session.refresh(draft)
@@ -189,11 +189,11 @@ def delete_draft(session: Session, draft_id: str, expected_version: int) -> None
         )
     )
     if result.rowcount != 1:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            f"Model draft '{draft_id}' has changed",
-            {"expectedVersion": expected_version, "actualVersion": draft.version},
+        raise version_conflict(
+            draft.version,
+            "Model draft",
+            message=f"Model draft '{draft_id}' has changed",
+            details={"expectedVersion": expected_version, "actualVersion": draft.version},
         )
     session.add(
         AuditEvent(
@@ -207,13 +207,13 @@ def delete_draft(session: Session, draft_id: str, expected_version: int) -> None
 
 
 def require_draft_version(draft: ModelDraft, expected_version: int) -> None:
-    if draft.version != expected_version:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            f"Model draft '{draft.public_id}' has changed",
-            {"expectedVersion": expected_version, "actualVersion": draft.version},
-        )
+    require_version(
+        draft,
+        expected_version,
+        "Model draft",
+        message=f"Model draft '{draft.public_id}' has changed",
+        details={"expectedVersion": expected_version, "actualVersion": draft.version},
+    )
 
 
 def base_release_public_id(session: Session, draft: ModelDraft) -> str | None:

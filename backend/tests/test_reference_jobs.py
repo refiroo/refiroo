@@ -444,7 +444,7 @@ def test_a_workbook_is_loaded_through_a_profile_and_the_next_one_is_checked(jobs
         path={"profile_key": "dup"},
         query={"expectedVersion": 2},
         status=409,
-        code="IMPORT_PROFILE_VERSION_CONFLICT",
+        code="VERSION_CONFLICT",
     )
     s.call(
         "DELETE",
@@ -725,7 +725,7 @@ def test_a_workbook_is_loaded_through_a_profile_and_the_next_one_is_checked(jobs
         path={"profile_key": "bus-stops-north"},
         body={"name": "Late", "expectedVersion": 1, "sources": renamed["sources"]},
         status=409,
-        code="IMPORT_PROFILE_VERSION_CONFLICT",
+        code="VERSION_CONFLICT",
     )
     s.call(
         "DELETE",

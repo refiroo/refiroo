@@ -14,7 +14,7 @@ version cannot move before the items are written.
 from typing import Any
 from uuid import uuid4
 
-from ...errors import api_error
+from ...errors import api_error, require_version
 from ...models.commands import RelationCreate
 from ...models.schema import EngineModel
 from . import rules
@@ -49,13 +49,7 @@ def check_set_claim(lookup: BatchLookup, key: SetKey, expected: int) -> None:
 
 
 def check_relation_version(relation: Any, expected: int) -> None:
-    if relation.version != expected:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            "Relation version has changed",
-            {"currentVersion": relation.version},
-        )
+    require_version(relation, expected, "Relation")
 
 
 def relation_ends(lookup: BatchLookup, relation: Any) -> dict[str, Any]:

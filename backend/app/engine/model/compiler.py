@@ -1,13 +1,12 @@
 """Validate and canonicalize a model document without touching persistence."""
 
-import hashlib
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from pydantic import ValidationError
 
+from ...common.encoding import canonical_json, sha256_hex
 from ...common.json_pointer import pointer_segment
 from ...models.schema import EngineModel
 from .consumer_definitions import compiled_consumer_apis
@@ -107,8 +106,7 @@ def parse_model(source: Any) -> EngineModel:
 
 def canonical_model(model: EngineModel) -> tuple[dict[str, Any], str]:
     model_json = model.model_dump(mode="json")
-    canonical = json.dumps(model_json, sort_keys=True, separators=(",", ":"))
-    return model_json, hashlib.sha256(canonical.encode()).hexdigest()
+    return model_json, sha256_hex(canonical_json(model_json))
 
 
 def _invalid(

@@ -29,8 +29,9 @@ from ...engine.identity.clients import (
     remove_secret,
     update_client,
 )
+from ...engine.identity.lookup import load_user
 from ...engine.identity.product import product_name
-from ...engine.identity.users import create_user, load_user, update_user, user_page
+from ...engine.identity.users import create_user, update_user, user_page
 from ...engine.mail import links as mail_links
 from ...engine.mail import settings as mail_settings
 from ...errors import api_error
@@ -59,7 +60,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..projections import identity as present
 from ..schemas.identity import (
     ClientPage,
@@ -107,7 +108,7 @@ def list_my_sessions(
     principal: CurrentPrincipal,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> SessionPage:
     """Where the caller is signed in: their open sessions, ``current`` marking this one."""
     page = sessions.own_session_page(
@@ -271,7 +272,7 @@ def list_my_passkeys(
     principal: CurrentPrincipal,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> PasskeyPage:
     """The caller's passkeys in the order they were made, by the name they gave (0.12 I4c, D394);
     never the credential. A passkey is added on the engine's own page, `/oauth/passkeys/new`."""
@@ -326,7 +327,7 @@ def list_user_passkeys(
     user_id: str,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> PasskeyPage:
     """A person's passkeys, as they named them (D394); never the credential."""
     user = load_user(session, user_id)
@@ -359,7 +360,7 @@ def list_users(
     paging: PageQuery,
     q: str | None = Query(default=None, max_length=200),
     active: bool | None = None,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> UserPage:
     """People in the order they were created, each with the roles they hold, directly or through a
     group, and where (D298); ``q`` matches the name or e-mail."""
@@ -470,7 +471,7 @@ def list_clients(
     q: str | None = Query(default=None, max_length=200),
     active: bool | None = None,
     kind: Literal["api", "agent", "session"] | None = None,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> ClientPage:
     """OAuth clients in the order they were created; ``q`` matches the name (D300), ``kind`` keeps
     API or agent clients (0.16 AG-D14)."""
@@ -527,7 +528,7 @@ def delete_client_secret(client_id: str, secret_id: str, session: DbSession) -> 
 def list_signing_keys(
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> SigningKeyPage:
     """The keys that sign access tokens, newest first, with their state; never a private key."""
     return present.signing_key_page(keys.key_page(session, paging, page_size))
@@ -556,7 +557,7 @@ def list_security_events(
     paging: PageQuery,
     principal_id: str | None = Query(default=None, alias="principalId", max_length=36),
     aggregate_type: list[SecurityAggregate] | None = _AGGREGATE_TYPE,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> SecurityEventPage:
     """Changes to people, groups, roles, grants, clients and signing keys, and sign-ins, newest
     first, each naming who made it (D317, D318). ``principalId`` keeps those a person or client
@@ -579,7 +580,7 @@ def list_sign_in_providers(
     request: Request,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> SignInProviderPage:
     """The OpenID Connect providers people sign in with, as created (0.12 I3); never a secret."""
     return present.sign_in_provider_page(

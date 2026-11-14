@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session, object_session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...common.sealing import seal, unseal
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, require_version
 from ...models.commands import (
     ConsumerSubscriptionCreate,
     ConsumerSubscriptionRotate,
@@ -325,13 +325,7 @@ def load_subscription(session: Session, public_id: str, *, for_update: bool = Fa
 
 def _claimed(session: Session, public_id: str, expected_version: int) -> ConsumerSubscription:
     subscription = load_subscription(session, public_id, for_update=True)
-    if subscription.version != expected_version:
-        raise api_error(
-            409,
-            "VERSION_CONFLICT",
-            "Subscription version has changed",
-            {"currentVersion": subscription.version},
-        )
+    require_version(subscription, expected_version, "Subscription")
     return subscription
 
 
@@ -344,6 +338,36 @@ def _changing[T](session: Session, change: Callable[[], T]) -> T:
         raise
     session.commit()
     return result
+
+
+def _rechecked(
+    session: Session,
+    subscription: ConsumerSubscription,
+    events: Sequence[str],
+    filters: Mapping[str, Any],
+    url: str,
+    settings: SubscriptionSettings,
+    checked: UrlChecked,
+) -> tuple[list[ApiError], EngineModel | None, Asked | None]:
+    """The checks of a create over what an existing subscription names (an edit, a resume): its
+    refusals, and for a consumer API the model and the version asked (None for a workspace
+    source, which has neither)."""
+    if is_workspace_source(subscription):
+        findings, _workspace_found = _workspace_findings(
+            session, events, subscription.workspace_key, url, checked
+        )
+        return findings, None, None
+    model = resolve_model_snapshot(session, subscription.workspace_key).model
+    asked = Asked(
+        subscription.consumer_api,
+        events,
+        filters,
+        asked_version(model, subscription.consumer_api, subscription.contract_version),
+    )
+    findings, _workspace_found = _findings(
+        session, model, asked, subscription.workspace_key, url, settings, checked
+    )
+    return findings, model, asked
 
 
 def _touch(subscription: ConsumerSubscription) -> None:
@@ -362,28 +386,18 @@ def update_subscription(
         events = list(dict.fromkeys(payload.events)) if payload.events is not None else subscription.event_keys
         filters = listed(payload.filters) if payload.filters is not None else subscription.filters
         url = payload.url if payload.url is not None else subscription.url
-        if is_workspace_source(subscription):
-            if payload.filters or "payload" in payload.model_fields_set:
-                raise api_error(
-                    400,
-                    "NOT_SUPPORTED_BY_SOURCE",
-                    "Filters and payload do not apply to a subscription to workspace events",
-                    {"pointer": "/filters" if payload.filters else "/payload"},
-                )
-            findings, _workspace_found = _workspace_findings(
-                session, events, subscription.workspace_key, url, checked
+        if is_workspace_source(subscription) and (
+            payload.filters or "payload" in payload.model_fields_set
+        ):
+            raise api_error(
+                400,
+                "NOT_SUPPORTED_BY_SOURCE",
+                "Filters and payload do not apply to a subscription to workspace events",
+                {"pointer": "/filters" if payload.filters else "/payload"},
             )
-        else:
-            model = resolve_model_snapshot(session, subscription.workspace_key).model
-            asked = Asked(
-                subscription.consumer_api,
-                events,
-                filters,
-                asked_version(model, subscription.consumer_api, subscription.contract_version),
-            )
-            findings, _workspace_found = _findings(
-                session, model, asked, subscription.workspace_key, url, settings, checked
-            )
+        findings, _model, _asked = _rechecked(
+            session, subscription, events, filters, url, settings, checked
+        )
         # The workspace is not edited; a retired one is the suspension's business, not the edit's.
         findings = [f for f in findings if f.code != "WORKSPACE_NOT_FOUND"]
         if findings:
@@ -449,22 +463,15 @@ def resume_subscription(
             raise api_error(
                 409, "SUBSCRIPTION_NOT_SUSPENDED", f"Subscription '{public_id}' is not suspended"
             )
-        if is_workspace_source(subscription):
-            findings, _workspace_found = _workspace_findings(
-                session, subscription.event_keys, subscription.workspace_key, subscription.url, checked
-            )
-            model = None
-        else:
-            model = resolve_model_snapshot(session, subscription.workspace_key).model
-            asked = Asked(
-                subscription.consumer_api,
-                subscription.event_keys,
-                subscription.filters,
-                asked_version(model, subscription.consumer_api, subscription.contract_version),
-            )
-            findings, _workspace_found = _findings(
-                session, model, asked, subscription.workspace_key, subscription.url, settings, checked
-            )
+        findings, model, asked = _rechecked(
+            session,
+            subscription,
+            subscription.event_keys,
+            subscription.filters,
+            subscription.url,
+            settings,
+            checked,
+        )
         if findings:
             raise api_error(
                 409,
@@ -472,7 +479,7 @@ def resume_subscription(
                 "The subscription cannot be served as it is: edit what the details list, then resume",
                 {"errors": [finding_body(error) for error in findings]},
             )
-        if model is None:
+        if model is None or asked is None:
             _resume_workspace_events(session, subscription, reset)
             return subscription
         window = event_window(session, subscription.workspace_key, settings.retention_days)

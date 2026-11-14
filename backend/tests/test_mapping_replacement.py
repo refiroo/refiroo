@@ -303,8 +303,8 @@ def test_stale_version_returns_409(client):
     r = client.put(PUT, json=_replacement_body(sv, mv, 0, target=None))
     assert r.status_code == 409
     err = r.json()["error"]
-    assert err["code"] == "MAPPING_VERSION_CONFLICT"
-    assert err["details"]["mappingVersion"] == 1
+    assert err["code"] == "VERSION_CONFLICT"
+    assert err["details"]["currentVersion"] == 1
     assert err["details"]["targetCount"] == 1
 
 
@@ -710,7 +710,7 @@ def test_concurrent_replacements_claim_initial_set_once(client):
         responses = [future.result(timeout=15) for future in futures]
     assert sorted(response.status_code for response in responses) == [200, 409]
     conflict = next(response for response in responses if response.status_code == 409)
-    assert conflict.json()["error"]["code"] == "MAPPING_VERSION_CONFLICT"
+    assert conflict.json()["error"]["code"] == "VERSION_CONFLICT"
     assert _live_set_version(sv["id"], "outgoing") == 1
 
 
@@ -794,7 +794,7 @@ def test_conflict_preview_continues_without_loss(client, change_set_context):
         "toObjectTypeKey": TO_TYPE,
         "direction": "outgoing",
         "sourceObjectId": sv["id"],
-        "mappingVersion": details["mappingVersion"],
+        "mappingVersion": details["currentVersion"],
         "cursor": details["targetsNextCursor"],
         "applicationKey": details["applicationKey"],
         "viewKey": details["viewKey"],
@@ -1181,7 +1181,7 @@ def test_overlapping_generic_write_forces_mapping_save_to_refresh(
         generic_result.text
     )
     assert mapping_result.status_code == 409, mapping_result.text
-    assert mapping_result.json()["error"]["code"] == "MAPPING_VERSION_CONFLICT"
+    assert mapping_result.json()["error"]["code"] == "VERSION_CONFLICT"
     assert _live_set_version(sv["id"], "outgoing") == expected + 1
     assert _live_set_version(mv["id"], "incoming") == expected + 1
     with SessionLocal() as session:

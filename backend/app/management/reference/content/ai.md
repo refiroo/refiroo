@@ -31,7 +31,7 @@ Lists every call made to the provider and every turn of an assistant session, ne
 
 Title: Read how the provider is set up
 
-Reads the provider as the environment set it at start, which features it offers at the send level, the last call and the totals of the last 30 days. Check it before a client offers an AI action. The key is never answered, only whether one is set. With the assistant in a container, `assistantNetwork` says whether its session's network is `restricted` to this engine and the provider's hosts, `unrestricted` (the container has no `NET_ADMIN`; the session can reach any host) or `failed` (the rule could not be set, so assistant turns do not start), with the reason in `assistantNetworkNote`; it is `null` otherwise.
+Reads the provider as the environment set it at start, which features it offers at the send level, the last call and the totals of the last 30 days. Check it before a client offers an AI action. The key is never answered, only whether one is set. With the assistant in a container, `assistantNetwork` says whether its session's network is `restricted`, `unrestricted` or `failed` (assistant turns do not start), with the reason in `assistantNetworkNote`.
 
 ### Errors
 
@@ -236,7 +236,7 @@ Answers the questions of a proposal, by the question's text. The assistant desig
 
 - 403 FORBIDDEN: needs Bulk and import and Use AI proposals in the workspace
 - 404 AI_TASK_NOT_FOUND: no task has this ID, or the caller may not see it
-- 409 AI_TASK_VERSION_CONFLICT: `expectedVersion` is not the task's version
+- 409 VERSION_CONFLICT: `expectedVersion` is not the task's version
 - 409 AI_TASK_STATE: the task is not `checked`
 - 409 AI_NOT_CONFIGURED: no assistant command is set
 - 409 AI_SEND_LEVEL_TOO_LOW: the level in force is below `values`
@@ -256,7 +256,7 @@ Gives the assistant the person's words, which win over its own choices; it propo
 
 - 403 FORBIDDEN: needs Use AI proposals; Work in change sets if loaded
 - 404 AI_TASK_NOT_FOUND: no task has this ID, or the caller may not see it
-- 409 AI_TASK_VERSION_CONFLICT: `expectedVersion` is not the task's version
+- 409 VERSION_CONFLICT: `expectedVersion` is not the task's version
 - 409 AI_TASK_STATE: the task cannot take words now, or its session has ended
 - 409 AI_NOT_CONFIGURED: no assistant command is set
 - 409 AI_SEND_LEVEL_TOO_LOW: the level in force is below `values`
@@ -276,7 +276,7 @@ Accepts the proposal. The assistant maps the sheets onto the proposed model, or 
 
 - 403 FORBIDDEN: needs Use AI proposals and Work in change sets
 - 404 AI_TASK_NOT_FOUND: no task has this ID, or the caller may not see it
-- 409 AI_TASK_VERSION_CONFLICT: `expectedVersion` is not the task's version
+- 409 VERSION_CONFLICT: `expectedVersion` is not the task's version
 - 409 AI_TASK_STATE: the task has no valid proposal to accept
 - 409 AI_NOT_CONFIGURED: no assistant command is set
 - 409 AI_SEND_LEVEL_TOO_LOW: the level in force is below `values`
@@ -296,7 +296,7 @@ Goes back from a saved layout's load stage to the proposal it came from, for exa
 
 - 403 FORBIDDEN: needs Bulk and import and Use AI proposals in the workspace
 - 404 AI_TASK_NOT_FOUND: no task has this ID, or the caller may not see it
-- 409 AI_TASK_VERSION_CONFLICT: `expectedVersion` is not the task's version
+- 409 VERSION_CONFLICT: `expectedVersion` is not the task's version
 - 409 AI_TASK_STATE: the task has no load stage to go back from
 - 422 REQUEST_VALIDATION_ERROR: a field is invalid
 
@@ -314,7 +314,7 @@ Goes on with a task that failed or stopped, from where its session was and with 
 
 - 403 FORBIDDEN: needs Bulk and import and Use AI proposals in the workspace
 - 404 AI_TASK_NOT_FOUND: no task has this ID, or the caller may not see it
-- 409 AI_TASK_VERSION_CONFLICT: `expectedVersion` is not the task's version
+- 409 VERSION_CONFLICT: `expectedVersion` is not the task's version
 - 409 AI_TASK_STATE: the task did not fail or stop, or already has a session
 - 409 AI_NOT_CONFIGURED: no assistant command is set
 - 409 AI_SEND_LEVEL_TOO_LOW: the level in force is below `values`
@@ -334,7 +334,7 @@ Loads the checked plan of a task the saved layout read into a new change set, na
 
 - 403 FORBIDDEN: needs Work in change sets; model release rights for a model change
 - 404 AI_TASK_NOT_FOUND: no task has this ID, or the caller may not see it
-- 409 AI_TASK_VERSION_CONFLICT: `expectedVersion` is not the task's version
+- 409 VERSION_CONFLICT: `expectedVersion` is not the task's version
 - 409 AI_TASK_STATE: the task is not `checked`
 - 409 AI_TASK_NOTHING_TO_LOAD: the task holds no design to load
 - 409 AI_TASK_CHECK_STALE: the draft changed after its check

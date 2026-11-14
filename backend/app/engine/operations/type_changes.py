@@ -132,6 +132,29 @@ class RelationshipState:
     attributes: dict[str, Any]
     version: int
 
+    @classmethod
+    def of(
+        cls,
+        relation: Any,
+        object_id: str,
+        other_id: str,
+        other_type_key: str,
+        other_name: str,
+    ) -> RelationshipState:
+        """``relation`` as the record ``object_id`` held it, whose other end is ``other_id``."""
+        return cls(
+            relation_id=relation.relation_id,
+            relation_type_key=relation.relation_type_key,
+            direction="outgoing" if relation.from_object_id == object_id else "incoming",
+            from_object_id=relation.from_object_id,
+            to_object_id=relation.to_object_id,
+            other_object_id=other_id,
+            other_object_type_key=other_type_key,
+            other_name=other_name,
+            attributes=dict(relation.attributes or {}),
+            version=relation.version,
+        )
+
     def payload(self) -> dict[str, Any]:
         return {
             "relationId": self.relation_id,
@@ -475,6 +498,14 @@ def _require_compatible(
         )
 
 
+def required_by_other_end(binding: Any, outgoing: bool, incoming: bool) -> bool:
+    """Whether a relationship the record loses is one its other end requires: the binding it had
+    is required and runs out of the other end (``outgoing`` and ``incoming`` say which ends are the
+    record; a relationship from the record to itself requires nothing of another record).
+    ``binding`` is the one it had, or None when the model had none."""
+    return binding is not None and binding.required and outgoing and not incoming
+
+
 def _classify_relationships(
     model: EngineModel,
     object_id: str,
@@ -495,17 +526,8 @@ def _classify_relationships(
 
         from_new = at(outgoing, other.object_type_key, new_type.key)
         to_new = at(incoming, other.object_type_key, new_type.key)
-        state = RelationshipState(
-            relation_id=relation.relation_id,
-            relation_type_key=relation.relation_type_key,
-            direction="outgoing" if outgoing else "incoming",
-            from_object_id=relation.from_object_id,
-            to_object_id=relation.to_object_id,
-            other_object_id=other.object_id,
-            other_object_type_key=other.object_type_key,
-            other_name=other.name,
-            attributes=dict(relation.attributes or {}),
-            version=relation.version,
+        state = RelationshipState.of(
+            relation, object_id, other.object_id, other.object_type_key, other.name
         )
         if model.allowed_relation(relation.relation_type_key, from_new, to_new) is not None:
             kept.append((relation, other, state))
@@ -515,7 +537,7 @@ def _classify_relationships(
             at(outgoing, other.object_type_key, old_type.key),
             at(incoming, other.object_type_key, old_type.key),
         )
-        if old_binding is not None and old_binding.required and outgoing and not incoming:
+        if required_by_other_end(old_binding, outgoing, incoming):
             # The other end needs this relationship; removing it would break that record.
             raise api_error(
                 422,

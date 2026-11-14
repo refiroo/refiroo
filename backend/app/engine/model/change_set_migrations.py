@@ -34,17 +34,13 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
-from uuid import uuid4
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from ...errors import ApiError, api_error
+from ...errors import api_error
 from ...models.database import (
     ChangeSet,
-    ChangeSetBase,
-    ChangeSetBaseObject,
-    ChangeSetBaseRelation,
     Job,
     ModelRelease,
     Workspace,
@@ -52,20 +48,24 @@ from ...models.database import (
 from ...models.schema import EngineModel
 from ..change_sets import submissions
 from ..change_sets.access import effective_change_set_membership
+from ..change_sets.lifecycle import capture_base, remove_base
 from ..change_sets.validation import graph_diagnostics
 from ..indexes import matrix_states
-from ..indexes.snapshot_values import copy_live, delete_owner_values, reindex_change_set
-from ..jobs.store import LeaseLost, await_confirmation, complete_job, start_job
+from ..indexes.snapshot_values import reindex_change_set
+from ..jobs.store import await_confirmation, complete_job, start_job
 from ..records.audit import record_audit_event
+from ..records.values import value_json_sql
 from .migrations import (
     COUNTS,
     OUTCOMES,
+    guarded_execution,
     installed_release,
     load_plan,
     parse_type_mappings,
     plan_migration,
     publication_refusal_items,
     record_summary,
+    refusal_columns,
     require_reviewed,
 )
 from .registry import resolve_pinned_release
@@ -141,10 +141,8 @@ _CONVERTED = """(
     WHERE jsonb_typeof(e.value) <> 'null'
 )"""
 
-_LIVE_VALUES = """(
-    SELECT coalesce(jsonb_object_agg(a.attribute_type_key, rdm_value_json(a.value_type,
-        a.text_value, a.integer_value, a.decimal_value, a.boolean_value, a.date_value,
-        a.datetime_value, a.json_value)::jsonb), '{}'::jsonb)
+_LIVE_VALUES = f"""(
+    SELECT coalesce(jsonb_object_agg(a.attribute_type_key, {value_json_sql("a")}::jsonb), '{{}}'::jsonb)
     FROM attribute_values a WHERE a.object_id = l.id
 )"""
 
@@ -674,14 +672,9 @@ class _Move:
         for statement in _APPLY:
             session.execute(text(statement), self._params)
         old_base = change_set.base_id
-        base = ChangeSetBase(
-            workspace_key=change_set.workspace_key,
-            model_release_id=self.target_release.id,
-            model_runtime_version=assignment_version,
+        base = capture_base(
+            session, change_set.workspace_key, self.target_release.id, assignment_version
         )
-        session.add(base)
-        session.flush()
-        copy_live(session, "base", base.id, change_set.workspace_key)
         for owner in (
             matrix_states.Owner("change_set", change_set.id, change_set.workspace_key),
             *(
@@ -697,17 +690,7 @@ class _Move:
         session.flush()
         reindex_change_set(session, change_set.id, self.target_release.id)
         if old_base is not None:
-            delete_owner_values(session, old_base)
-            for table, column in (
-                (ChangeSetBaseRelation, ChangeSetBaseRelation.base_id),
-                (ChangeSetBaseObject, ChangeSetBaseObject.base_id),
-                (ChangeSetBase, ChangeSetBase.id),
-            ):
-                session.execute(
-                    delete(table)
-                    .where(column == old_base)
-                    .execution_options(synchronize_session=False)
-                )
+            remove_base(session, old_base)
         session.expire_all()
         matrix_states.record_change_set(session, self.change_set_row())
         return old_base
@@ -726,24 +709,15 @@ class _Move:
     def write_refusals(self, refused: list[tuple[str, str, str, str]], offset: int) -> None:
         if not refused:
             return
-        ids = [
-            item.removeprefix("object:") if not item.startswith("relation:") else None
-            for item, _code, _path, _message in refused
-        ]
-        relations = [
-            item.removeprefix("relation:") if item.startswith("relation:") else None
-            for item, _code, _path, _message in refused
-        ]
+        columns = refusal_columns(refused)
+        columns.pop("paths")  # the move's statement has no path column
         self.session.execute(
             text(_REFUSALS),
             {
                 "job": self.job.sequence_id,
                 "offset": offset,
                 "change_set": self.job.change_set_id,
-                "ids": [item or None for item in ids],
-                "relations": relations,
-                "codes": [code for _item, code, _path, _message in refused],
-                "messages": [message for _item, _code, _path, message in refused],
+                **columns,
             },
         )
 
@@ -865,31 +839,17 @@ def execute(
 ) -> None:
     """Run a confirmed move and commit it once ``hold`` (the worker's lease) allows; any failure
     rolls back and becomes ``MIGRATION_FAILED`` (or the refusal it was), nothing changed."""
-    try:
-        run_execution(session, job, retention_days=retention_days, hold=hold, renew=renew)
-    except ApiError:
-        session.rollback()
-        raise
-    except LeaseLost:
-        raise
-    except Exception as exc:
-        session.rollback()
-        correlation_id = uuid4().hex
-        logger.exception(
-            "Move of change set %s (job %s) failed and changed nothing (correlation ID %s)",
-            job.change_set_id,
-            job.id,
-            correlation_id,
-        )
-        raise api_error(
-            500,
-            "MIGRATION_FAILED",
+    guarded_execution(
+        session,
+        lambda: run_execution(session, job, retention_days=retention_days, hold=hold, renew=renew),
+        what=f"Move of change set {job.change_set_id} (job {job.id})",
+        failure=(
             f"The move of change set '{job.change_set_id}' failed and changed nothing: the change "
             "set keeps its release and its content. Preview it again; if it fails again, report "
-            "the correlation ID",
-            {"changeSetId": job.change_set_id, "correlationId": correlation_id},
-        ) from exc
-    session.commit()
+            "the correlation ID"
+        ),
+        details={"changeSetId": job.change_set_id},
+    )
 
 
 def record_change_set_moved(

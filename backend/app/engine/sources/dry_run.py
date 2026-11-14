@@ -26,10 +26,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import TypeAdapter
-from sqlalchemy import select, text, update
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from ...db import lock_job_subject
 from ...errors import api_error
 from ...models.commands import BatchItem
 from ...models.database import Job, JobInput, ModelDraft, ModelDraftOperation, SourceFile
@@ -38,12 +37,13 @@ from ...models.schema import EngineModel
 from ...models.sources import DryRunRequest
 from ..imports.profiles import check_profile, invalid_profile, source_order
 from ..imports.readers import TabularFile, open_tabular
-from ..jobs.background import open_job_context
-from ..jobs.batches import BatchContext, JobCancelled, run_items
+from ..jobs.background import open_job_context, replace_earlier_job
+from ..jobs.batches import BatchContext, run_items
 from ..jobs.files import JobFiles
 from ..jobs.inline import BatchLimits
 from ..jobs.store import (
     ItemOutcome,
+    JobCancelled,
     complete_job,
     job_parameter,
     record_outcomes,
@@ -60,7 +60,6 @@ from .staged import StagedFile
 from .store import load_source_file, require_profile
 
 KIND = "dryRun"
-RUNNING = ("queued", "running")
 # The parameter that marks a dry run of items (0.13 AB), and its value.
 MODE = "mode"
 ITEMS = "items"
@@ -114,47 +113,42 @@ def submit_dry_run(
     problems = check_profile(model, definition)
     if problems:
         raise invalid_profile(problems)
-    lock_job_subject(session, KIND, draft.public_id)
-    session.execute(
-        update(Job)
-        .where(
-            Job.kind == KIND,
-            Job.state.in_(RUNNING),
-            job_parameter("draftId") == draft.public_id,
-        )
-        .values(cancel_requested_at=datetime.now(UTC))
-        .execution_options(synchronize_session=False)
-    )
-    job = start_job(
+    job = replace_earlier_job(
         session,
-        kind=KIND,
-        workspace_key=workspace.key,
-        change_set_id=None,
-        model_release_id=resolve_model_snapshot(session, workspace.key).release_db_id,
-        parameters={
-            "policy": "independent",
-            "run": "background",
-            "stage": "preview",
-            "onExisting": request.onExisting,
-            "otherWorkspaceIds": "refuse",
-            "draftId": draft.public_id,
-            "draftVersion": draft.version,
-            "sourceFileId": source.public_id,
-            "profile": {
-                "key": None,
-                "version": None,
-                "definition": definition.model_dump(mode="json", exclude_none=True),
+        KIND,
+        "draftId",
+        draft.public_id,
+        lambda: start_job(
+            session,
+            kind=KIND,
+            workspace_key=workspace.key,
+            change_set_id=None,
+            model_release_id=resolve_model_snapshot(session, workspace.key).release_db_id,
+            parameters={
+                "policy": "independent",
+                "run": "background",
+                "stage": "preview",
+                "onExisting": request.onExisting,
+                "otherWorkspaceIds": "refuse",
+                "draftId": draft.public_id,
+                "draftVersion": draft.version,
+                "sourceFileId": source.public_id,
+                "profile": {
+                    "key": None,
+                    "version": None,
+                    "definition": definition.model_dump(mode="json", exclude_none=True),
+                },
+                "file": {
+                    "name": source.name,
+                    "format": source.format,
+                    "bytes": source.bytes,
+                    "sha256": source.sha256,
+                },
             },
-            "file": {
-                "name": source.name,
-                "format": source.format,
-                "bytes": source.bytes,
-                "sha256": source.sha256,
-            },
-        },
-        total=None,
-        retention_days=retention_days,
-        queued=True,
+            total=None,
+            retention_days=retention_days,
+            queued=True,
+        ),
     )
     session.commit()
     return job
@@ -189,53 +183,55 @@ def _submit_items(
                     "as one batch",
                     {"setting": setting, "maximum": maximum, unit: found},
                 )
-    lock_job_subject(session, KIND, draft.public_id)
-    if _accepting(session, draft):
-        # Accepting loads the checked items, which a new check would take away (R13-F11).
-        raise api_error(
-            409,
-            "AI_TASK_STATE",
-            f"The checked records of model draft '{draft.public_id}' are being loaded by an "
-            "accepted assistant task; check again when it has finished",
+
+    def guard() -> None:
+        if _accepting(session, draft):
+            # Accepting loads the checked items, which a new check would take away (R13-F11).
+            raise api_error(
+                409,
+                "AI_TASK_STATE",
+                f"The checked records of model draft '{draft.public_id}' are being loaded by an "
+                "accepted assistant task; check again when it has finished",
+            )
+
+    def drop_older_inputs() -> None:
+        # Only the newest items run of a draft can be accepted: the older ones' inputs go.
+        session.execute(
+            text(
+                "DELETE FROM job_inputs i USING jobs j WHERE j.sequence_id = i.job_id"
+                " AND j.kind = 'dryRun' AND j.parameters ->> 'draftId' = :draft"
+                " AND j.parameters ->> 'mode' = 'items'"
+            ),
+            {"draft": draft.public_id},
         )
-    session.execute(
-        update(Job)
-        .where(
-            Job.kind == KIND,
-            Job.state.in_(RUNNING),
-            job_parameter("draftId") == draft.public_id,
-        )
-        .values(cancel_requested_at=datetime.now(UTC))
-        .execution_options(synchronize_session=False)
-    )
-    # Only the newest items run of a draft can be accepted: the older ones' inputs go.
-    session.execute(
-        text(
-            "DELETE FROM job_inputs i USING jobs j WHERE j.sequence_id = i.job_id"
-            " AND j.kind = 'dryRun' AND j.parameters ->> 'draftId' = :draft"
-            " AND j.parameters ->> 'mode' = 'items'"
-        ),
-        {"draft": draft.public_id},
-    )
-    job = start_job(
+
+    job = replace_earlier_job(
         session,
-        kind=KIND,
-        workspace_key=workspace.key,
-        change_set_id=None,
-        model_release_id=resolve_model_snapshot(session, workspace.key).release_db_id,
-        parameters={
-            "policy": "independent",
-            "run": "background",
-            "stage": "preview",
-            "onExisting": request.onExisting,
-            "otherWorkspaceIds": "refuse",
-            "draftId": draft.public_id,
-            "draftVersion": draft.version,
-            MODE: ITEMS,
-        },
-        total=len(items),
-        retention_days=retention_days,
-        queued=True,
+        KIND,
+        "draftId",
+        draft.public_id,
+        lambda: start_job(
+            session,
+            kind=KIND,
+            workspace_key=workspace.key,
+            change_set_id=None,
+            model_release_id=resolve_model_snapshot(session, workspace.key).release_db_id,
+            parameters={
+                "policy": "independent",
+                "run": "background",
+                "stage": "preview",
+                "onExisting": request.onExisting,
+                "otherWorkspaceIds": "refuse",
+                "draftId": draft.public_id,
+                "draftVersion": draft.version,
+                MODE: ITEMS,
+            },
+            total=len(items),
+            retention_days=retention_days,
+            queued=True,
+        ),
+        guard=guard,
+        cleanup=drop_older_inputs,
     )
     store_inputs(session, job, items)
     session.commit()

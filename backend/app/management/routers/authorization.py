@@ -21,7 +21,7 @@ from ...models.commands import (
 )
 from ..access import INSTANCE, SIGNED_IN, AuthorizedRoute, CurrentPermissions, requires
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..projections import authorization as present
 from ..schemas.authorization import (
     ActionGroupList,
@@ -42,7 +42,7 @@ from ..schemas.authorization import (
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["security"])
 
-_PAGE_SIZE = Query(default=50, ge=1, le=500, alias="pageSize")
+_PAGE_SIZE = PageSize(50, 500)
 
 
 @router.get("/me/permissions", response_model=PermissionsResponse)

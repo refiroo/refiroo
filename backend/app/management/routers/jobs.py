@@ -4,9 +4,7 @@
 (D10); ``router`` reads them and is always registered.
 """
 
-import asyncio
 import base64
-import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Annotated, Literal
@@ -19,10 +17,10 @@ from ...common.pagination import FIRST_PAGE
 from ...engine.authorization.visibility import visible_jobs
 from ...engine.imports.reread import reread_import
 from ...engine.jobs.background import confirm_preview, request_cancel, submit_background_batch
-from ...engine.jobs.events import JobListener
 from ...engine.jobs.exports import FORMATS, submit_export
 from ...engine.jobs.files import JobFiles
 from ...engine.jobs.inline import BatchLimits, check_batch_request, submit_inline_batch
+from ...engine.jobs.kinds import KIND_NAMES
 from ...engine.jobs.origins import grouped_page, origin_job_ids, parse_origin
 from ...engine.jobs.store import job_item_page, job_page, load_job
 from ...engine.model.migrations import confirm_migration
@@ -31,6 +29,7 @@ from ...errors import api_error
 from ...models.commands import BatchRequest
 from ...models.exports import ExportRequest
 from ...models.imports import ImportRereadRequest
+from .. import sse
 from ..access import (
     BODY,
     JOB_PATH,
@@ -40,7 +39,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import batch_response, job_responses
 from ..presenters import job_group_page as present_job_groups
 from ..presenters import job_item_page as present_job_items
@@ -283,21 +282,7 @@ def list_jobs(
     principal: CurrentPrincipal,
     paging: PageQuery,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
-    kind: Literal[
-        "batch",
-        "import",
-        "export",
-        "profile",
-        "dryRun",
-        "inference",
-        "profileCheck",
-        "migration",
-        "mappingInference",
-        "move",
-        "aiProposal",
-        "aiTask",
-    ]
-    | None = None,
+    kind: Literal[KIND_NAMES] | None = None,
     state: Literal[
         "queued", "running", "awaiting_confirmation", "completed", "failed", "cancelled", "expired"
     ]
@@ -313,7 +298,7 @@ def list_jobs(
         description="One row per origin and one per job without one, newest activity first; a "
         "group's row carries its job count, its jobs per state and its newest job",
     ),
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> JobPage | JobGroupPage:
     """Jobs, newest first: those whose kind's group the caller holds in their workspace (D285).
 
@@ -367,7 +352,7 @@ def list_job_items(
     ref: str | None = Query(
         default=None, description="One row's outcomes, as ``{sheet}!{row}`` (an import's items)"
     ),
-    page_size: int = Query(default=1000, ge=1, le=1000, alias="pageSize"),
+    page_size: int = PageSize(1000, 1000),
 ) -> JobItemPage:
     """A job's outcomes in item order."""
     job = load_job(session, job_id)
@@ -409,7 +394,7 @@ def list_job_rows(
         max_length=160,
         description="A move's rows of this source type",
     ),
-    page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
+    page_size: int = PageSize(500, 1000),
 ) -> JobRowPage | MigrationRowPage | MoveRowPage:
     """An import's outcomes by row of its file, in source then row order (0.9 J3): each row's
     worst status, its applied items by action and its rejected and unprocessed outcomes. A
@@ -490,8 +475,6 @@ def get_job_output(job_id: str, request: Request, session: DbSession) -> FileRes
     )
 
 
-# A stream sends a comment this often while its job does not change, so proxies keep it open.
-KEEP_ALIVE_SECONDS = 15.0
 FINAL_STATES = frozenset({"completed", "failed", "cancelled", "expired"})
 
 
@@ -512,37 +495,21 @@ async def job_events(job_id: str, request: Request) -> StreamingResponse:
     of its state, progress, cancel request or output; the stream ends once the job is completed,
     failed, cancelled or expired. Nothing is polled: the database tells the engine of each change
     (D58). A comment line every 15 s keeps an idle stream open through proxies."""
-    listener: JobListener = request.app.state.job_listener
-    subscription = listener.subscribe(job_id)
-    try:
-        first = await run_in_threadpool(_job_body, request, job_id)
-    except BaseException:
-        listener.unsubscribe(subscription)
-        raise
+    subscription, first = await sse.subscribe(request, job_id, _job_body, job_id)
 
     async def stream() -> AsyncIterator[str]:
-        try:
-            body = first
-            yield _event(body)
-            while body["state"] not in FINAL_STATES:
-                try:
-                    await asyncio.wait_for(subscription.woken.wait(), KEEP_ALIVE_SECONDS)
-                except TimeoutError:
-                    yield ": keep-alive\n\n"
-                    continue
-                subscription.woken.clear()
-                current = await run_in_threadpool(_job_body, request, job_id)
-                if current != body:
-                    body = current
-                    yield _event(body)
-        finally:
-            listener.unsubscribe(subscription)
+        body = first
+        yield sse.frame("job", body)
+        while body["state"] not in FINAL_STATES:
+            if not await sse.woken(subscription):
+                yield sse.KEEP_ALIVE
+                continue
+            current = await run_in_threadpool(_job_body, request, job_id)
+            if current != body:
+                body = current
+                yield sse.frame("job", body)
 
-    return StreamingResponse(
-        stream(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    return sse.respond(request, subscription, stream())
 
 
 def _job_body(request: Request, job_id: str) -> dict:
@@ -550,7 +517,3 @@ def _job_body(request: Request, job_id: str) -> dict:
     read opens a short session of its own instead of holding a connection while the job runs."""
     with request.app.state.session_factory() as session:
         return job_responses(session, [load_job(session, job_id)])[0].model_dump(mode="json")
-
-
-def _event(body: dict) -> str:
-    return f"event: job\ndata: {json.dumps(body, separators=(',', ':'))}\n\n"

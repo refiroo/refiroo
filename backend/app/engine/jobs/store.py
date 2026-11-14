@@ -45,6 +45,7 @@ from ...models.database import (
 from ..authorization.requesters import job_writer
 from ..authorization.writes import requester_of
 from ..records.refusals import ACROSS_MODELS, ELSEWHERE
+from .kinds import PREVIEWED_KINDS, ROW_KINDS
 
 ACTIONS = ("created", "updated", "unchanged", "deleted")
 FINISHED = frozenset({"completed", "failed", "cancelled", "expired"})
@@ -60,6 +61,11 @@ _INSERT_ROWS = 1000
 
 class LeaseLost(Exception):
     """Another worker holds the job now; its work must not commit (``worker.py``)."""
+
+
+class JobCancelled(Exception):
+    """A cancel request reached the job while it ran (D28): the step stops, whatever the job is (a
+    batch's items, a staged file, an export's rows)."""
 
 
 @dataclass(frozen=True)
@@ -304,12 +310,6 @@ def job_parameter(name: str) -> Any:
     if not name.isidentifier():
         raise ValueError(f"not a parameter name: {name!r}")
     return literal_column(f"(jobs.parameters ->> '{name}')", type_=String)
-
-
-PREVIEWED_KINDS = ("import", "batch", "dryRun", "profileCheck", "migration")
-# The jobs whose items are a file's rows, each outcome with its source and row (0.9 J3): an import,
-# a draft's dry run of one (0.10 A3) and a profile's check of its next file (0.10 A5c).
-ROW_KINDS = ("import", "dryRun", "profileCheck")
 
 
 def previewing(job: Job) -> bool:

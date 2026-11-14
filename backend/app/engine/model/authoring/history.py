@@ -21,7 +21,7 @@ from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
 from ....common.time import as_utc
-from ....errors import ApiError, api_error
+from ....errors import ApiError, api_error, version_conflict
 from ....models.database import ImportProfile, ModelDraft, ModelDraftOperation
 from ...authorization.writes import requester_of
 from ...identity.principals import Ref, columns, names, ref
@@ -298,8 +298,11 @@ def conflict(
     }
     if len(rows) > CONFLICT_ENTRIES:
         details["more"] = True
-    return api_error(
-        409, "VERSION_CONFLICT", f"{owner.label} '{owner.public_id(subject)}' has changed", details
+    return version_conflict(
+        subject.version,
+        owner.label,
+        message=f"{owner.label} '{owner.public_id(subject)}' has changed",
+        details=details,
     )
 
 

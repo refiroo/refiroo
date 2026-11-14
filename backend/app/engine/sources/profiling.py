@@ -41,6 +41,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy import delete, insert, select, text
 from sqlalchemy.orm import Session
 
+from ...common.copy_rows import CopyRows
 from ...errors import api_error
 from ...models.database import (
     ModelDraft,
@@ -209,11 +210,12 @@ def _stage(session: Session, source: SourceFile, path: Path, check: Callable[[],
     """Every filled cell of every sheet into ``source_file_cells``; the sheets' names. A
     workbook's import profile sheet (0.9 J6) is not data and is left out."""
     book = open_tabular(path, source.format, source.csv_delimiter or ",")
-    statement = (
-        "COPY source_file_cells (source_file_id, sheet_index, row_number, column_number, kind,"
-        " text, value) FROM STDIN"
+    copy = CopyRows(
+        session,
+        "source_file_cells",
+        ("source_file_id", "sheet_index", "row_number", "column_number", "kind", "text", "value"),
+        after_flush=check,
     )
-    connection = session.connection().connection.driver_connection
     names: list[str] = []
     try:
         sheets = (
@@ -221,26 +223,16 @@ def _stage(session: Session, source: SourceFile, path: Path, check: Callable[[],
             if source.format == "csv"
             else [name for name in book.sheet_names if name != PROFILE_SHEET]
         )
-        pending: list[tuple[Any, ...]] = []
-
-        def flush() -> None:
-            if pending:
-                with connection.cursor() as cursor, cursor.copy(statement) as copy:
-                    for row in pending:
-                        copy.write_row(row)
-                pending.clear()
-                check()
-
         for sheet_index, name in enumerate(sheets):
             names.append(name)
             for row_number, cells in book.rows(name):
                 for column_number, raw in enumerate(cells, start=1):
                     cell = staged(raw)
                     if cell is not None:
-                        pending.append((source.id, sheet_index, row_number, column_number, *cell))
-                if len(pending) >= CHUNK_CELLS:
-                    flush()
-        flush()
+                        copy.add(source.id, sheet_index, row_number, column_number, *cell)
+                if len(copy) >= CHUNK_CELLS:
+                    copy.flush()
+        copy.flush()
     finally:
         book.close()
     return names

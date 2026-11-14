@@ -17,7 +17,7 @@ from sqlalchemy import delete, exists, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, require_version
 from ...models.commands import IdentityLink
 from ...models.database import (
     Grant,
@@ -29,7 +29,7 @@ from ...models.database import (
 )
 from ..authorization.administration import refuse_last_administrator, security_administrators
 from . import security_events, sessions
-from .users import load_user
+from .lookup import load_user
 
 
 def _changing[T](session: Session, change: Callable[[], T]) -> T:
@@ -91,13 +91,7 @@ def link(session: Session, public_id: str, payload: IdentityLink) -> User:
                 "LINK_TARGET_DEACTIVATED",
                 f"{target.name} is deactivated; activate them first, so they can sign in",
             )
-        if target.version != payload.expectedVersion:
-            raise api_error(
-                409,
-                "VERSION_CONFLICT",
-                "User version has changed",
-                {"currentVersion": target.version},
-            )
+        require_version(target, payload.expectedVersion, "User")
         source = load_user(session, payload.fromUserId, for_update=True)
         held = _held_access(session, source)
         if held:

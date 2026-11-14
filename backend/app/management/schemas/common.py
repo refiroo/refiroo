@@ -27,7 +27,7 @@ def omitted_when_none(value: object) -> bool:
     return value is None
 
 
-def _when_known() -> Any:
+def omitted() -> Any:
     """Omitted from the body rather than null."""
     return Field(default=None, exclude_if=omitted_when_none, json_schema_extra=without_default)
 
@@ -42,13 +42,13 @@ class ProposalOrigin(BaseModel):
     model: str | None = None
     promptVersion: str
     # A session gives neither (0.16 AP9, AP-D32).
-    confidence: float | SkipJsonSchema[None] = _when_known()
-    reason: str | SkipJsonSchema[None] = _when_known()
+    confidence: float | SkipJsonSchema[None] = omitted()
+    reason: str | SkipJsonSchema[None] = omitted()
     proposedBy: str | None = None
-    proposedByName: str | SkipJsonSchema[None] = _when_known()
-    editedBy: str | SkipJsonSchema[None] = _when_known()
-    editedByName: str | SkipJsonSchema[None] = _when_known()
-    taskId: str | SkipJsonSchema[None] = _when_known()
+    proposedByName: str | SkipJsonSchema[None] = omitted()
+    editedBy: str | SkipJsonSchema[None] = omitted()
+    editedByName: str | SkipJsonSchema[None] = omitted()
+    taskId: str | SkipJsonSchema[None] = omitted()
 
 
 class AgentOrigin(BaseModel):
@@ -58,9 +58,9 @@ class AgentOrigin(BaseModel):
     kind: Literal["agent"]
     application: str
     proposedBy: str | None = None
-    proposedByName: str | SkipJsonSchema[None] = _when_known()
-    editedBy: str | SkipJsonSchema[None] = _when_known()
-    editedByName: str | SkipJsonSchema[None] = _when_known()
+    proposedByName: str | SkipJsonSchema[None] = omitted()
+    editedBy: str | SkipJsonSchema[None] = omitted()
+    editedByName: str | SkipJsonSchema[None] = omitted()
 
 
 ChangeOrigin = Annotated[ProposalOrigin | AgentOrigin, Field(discriminator="kind")]

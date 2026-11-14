@@ -134,7 +134,7 @@ Reads the targets of one source, a page at a time, for a coverage row that shows
 
 Title: Replace a source's mapping
 
-Replaces all targets of one source with the one target you name, or with none when `targetObjectId` is `null`, live or, with `changeSetId`, in a change set. Send the source's `mappingVersion` as `expectedMappingVersion`: if another write got there first, nothing changes and `details` carry the current targets. A replacement that changes nothing writes nothing.
+Replaces all targets of one source with the one target you name, or with none when `targetObjectId` is `null`, live or, with `changeSetId`, in a change set. Send the source's `mappingVersion` as `expectedMappingVersion`: if another write got there first, nothing changes and `details` carry the current version (`currentVersion`) and the current targets. A replacement that changes nothing writes nothing.
 
 ### Parameters
 
@@ -146,7 +146,7 @@ Replaces all targets of one source with the one target you name, or with none wh
 - 404 CHANGE_SET_NOT_FOUND: `changeSetId` names no change set in this workspace
 - 404 WORKSPACE_NOT_FOUND: `workspace_key` names no workspace
 - 404 MAPPING_ENDPOINT_NOT_FOUND: the source or target is not in the context
-- 409 MAPPING_VERSION_CONFLICT: the mapping changed; `details` has its current targets
+- 409 VERSION_CONFLICT: the mapping changed; `details.currentVersion` is current and `details` has its current targets
 - 409 CHANGE_SET_REQUIRED: `changeSetId` without `expectedChangeSetVersion`
 - 409 CHANGE_SET_VERSION_CONFLICT: `expectedChangeSetVersion` is not current
 - 409 CHANGE_SET_SUBMITTED: the change set is submitted

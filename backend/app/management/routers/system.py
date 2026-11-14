@@ -5,7 +5,7 @@ D246). Read-only and behind no capability, like ``/capabilities``."""
 from dataclasses import asdict
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
@@ -30,7 +30,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..projections import ai as ai_projection
 from ..projections.operations import (
     metrics_text,
@@ -125,7 +125,7 @@ def list_processes(
     request: Request,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> ProcessPage:
     """Every engine process on this database, as it last reported itself, in ID order (0.11 O1):
     live or silent, ready or not, its background threads, its pool, the releases it cannot serve
@@ -151,7 +151,7 @@ def list_readiness(
     request: Request,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> WorkspaceReadinessPage:
     """Each active workspace, in key order, with its release and whether every live process
     serves it; the processes that cannot are named with why (0.11 O1)."""
@@ -189,7 +189,7 @@ def get_summary(request: Request, session: DbSession) -> SystemSummary:
 def list_backup_rehearsals(
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=20, ge=1, le=200, alias="pageSize"),
+    page_size: int = PageSize(20, 200),
 ) -> BackupRehearsalPage:
     """Backups restored into a separate database and checked there with ``python -m
     app.cli.restore_check``, newest first, passed or failed, each with every workspace of the copy

@@ -1,11 +1,11 @@
 import base64
-import hashlib
 import hmac
 import json
 from typing import Any, Literal
 
 from ..config import cursor_signing_key
 from ..errors import api_error
+from .encoding import canonical_json, sha256_hex
 
 # Where a cursor continues relative to its row: strictly after it, from it (inclusive), strictly
 # before it, or up to it (inclusive). Cursors issued before 0.8 carry no direction and mean "after".
@@ -148,8 +148,7 @@ def decode_metadata_cursor(
 
 
 def filter_fingerprint(filters: dict[str, Any]) -> str:
-    canonical = json.dumps(filters, sort_keys=True, separators=(",", ":")).encode()
-    return hashlib.sha256(canonical).hexdigest()
+    return sha256_hex(canonical_json(filters))
 
 
 def _base64_encode(value: bytes) -> str:

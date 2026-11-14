@@ -8,6 +8,8 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from sqlalchemy import ColumnElement, func
+
 from ...common.time import as_utc
 from ...errors import api_error
 from ...models.database import AttributeValue
@@ -61,6 +63,38 @@ VALUE_COLUMNS = {
     "dateTime": "datetime_value",
     "json": "json_value",
 }
+
+# The typed columns of ``attribute_values``, in the order ``rdm_value_json`` reads them after
+# ``value_type``.
+TYPED_VALUE_COLUMNS = (
+    "text_value",
+    "integer_value",
+    "decimal_value",
+    "boolean_value",
+    "date_value",
+    "datetime_value",
+    "json_value",
+)
+
+
+def value_json(source: Any, *, type_: Any = None) -> ColumnElement:
+    """A stored value in its JSON form as a SQL expression (``rdm_value_json``).
+
+    ``source`` is an ``attribute_values`` entity or alias, or a selectable over its columns (a
+    subquery, a lateral: read through ``.c``). ``type_`` is the SQL type of the result where the
+    caller reads it typed (``JSON``); the statement is the same without it.
+    """
+
+    def column(name: str) -> Any:
+        return source.c[name] if hasattr(source, "c") else getattr(source, name)
+
+    arguments = [column("value_type"), *(column(name) for name in TYPED_VALUE_COLUMNS)]
+    return func.rdm_value_json(*arguments, **({} if type_ is None else {"type_": type_}))
+
+
+def value_json_sql(alias: str) -> str:
+    """The same expression as text for a raw statement, over the ``attribute_values`` ``alias``."""
+    return f"rdm_value_json({', '.join(f'{alias}.{name}' for name in ('value_type', *TYPED_VALUE_COLUMNS))})"
 
 
 def normalize_value(definition: AttributeTypeDefinition, value: Any) -> Any:

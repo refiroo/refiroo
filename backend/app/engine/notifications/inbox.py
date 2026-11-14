@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...models.database import Notification
 from ..identity.principals import Ref
+from ..reads.object_query import escape_like
 from .kinds import NOTICE_KINDS
 
 Sort = Literal["newest", "oldest"]
@@ -102,8 +103,7 @@ def close_requests(session: Session, change_set_id: str) -> None:
 def _search(text: str) -> Any:
     """What a person sees of a notice contains ``text``: its kind's words, the change set's name,
     the comment, who acted, the job's kind (D462); other values in ``details`` are not read."""
-    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    pattern = f"%{escaped}%"
+    pattern = f"%{escape_like(text)}%"
     fields = (
         Notification.details["changeSetName"].as_string(),
         Notification.details["comment"].as_string(),

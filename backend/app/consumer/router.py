@@ -66,6 +66,7 @@ from ..engine.reads.consumer_request import (
     ReadParameters,
     is_target,
     multiple_targets,
+    page_size_of,
     read_page,
     targetable,
 )
@@ -689,18 +690,7 @@ def _events_request(
             {"path": "/query/payload"},
         )
     maximum, default = PAGE_SIZES[payload]
-    raw_size = parameters.single("pageSize")
-    try:
-        page_size = default if raw_size is None else int(raw_size)
-    except ValueError:
-        page_size = 0
-    if not 1 <= page_size <= maximum:
-        raise api_error(
-            400,
-            "INVALID_PAGE_SIZE",
-            f"pageSize must be a whole number from 1 to {maximum} with payload '{payload}'",
-            {"path": "/query/pageSize"},
-        )
+    page_size = page_size_of(parameters, default, maximum, when=f" with payload '{payload}'")
     cursor, raw_after = parameters.single("cursor"), parameters.single("after")
     if cursor is not None and raw_after is not None:
         raise api_error(

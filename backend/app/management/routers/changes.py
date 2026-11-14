@@ -8,7 +8,7 @@ from ...engine.reads import changes
 from ...engine.reads.changes import ChangeKind
 from ..access import SIGNED_IN, AuthorizedRoute, CurrentPermissions, requires
 from ..dependencies import DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..projections.changes import change_page
 from ..schemas.changes import ChangePage
 
@@ -35,7 +35,7 @@ def list_changes(
     action: str | None = Query(default=None, max_length=80),
     attribute_key: str | None = Query(default=None, alias="attributeKey", max_length=160),
     live: bool = Query(default=False),
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> ChangePage:
     """Data and model changes newest first, each naming its workspace, its change set, what it
     changed as it is named now, its cause and who made it (D340, D343). ``actorId`` keeps those a

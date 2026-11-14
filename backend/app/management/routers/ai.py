@@ -8,7 +8,7 @@ read at start; nothing here changes it, and the key is never answered.
 from dataclasses import replace
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from ...config import get_settings
@@ -38,7 +38,7 @@ from ..access import (
 )
 from ..ai import ai_requested, configuration
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..projections import ai as present
 from ..schemas.ai import (
     AiCallPage,
@@ -76,7 +76,7 @@ def get_ai_status(request: Request, session: DbSession) -> AiStatusResponse:
 def list_ai_calls(
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> AiCallPage:
     """Every call to the provider, newest first: who asked, for what, the provider and model, the
     sizes, the outcome and, while ``AI_LOG_CONTENT`` keeps it, the request and answer."""
@@ -96,10 +96,7 @@ def test_ai_provider(
         raise api_error(
             409, "AI_NOT_CONFIGURED", "No AI provider is set up on this instance (AI_PROVIDER)"
         )
-    requester = calls.Requester(
-        principal.row_id if principal.kind == "user" else None,
-        principal.row_id if principal.kind == "client" else None,
-    )
+    requester = _requester(principal)
     recorded = []
 
     def record(row: AiCall) -> None:
@@ -178,10 +175,7 @@ def post_query_translation(
     prepared = query_translation.with_names(
         session, prepared, ai.policy, workspace_key=snapshot.workspace_key, context=context
     )
-    requester = calls.Requester(
-        principal.row_id if principal.kind == "user" else None,
-        principal.row_id if principal.kind == "client" else None,
-    )
+    requester = _requester(principal)
     # The provider can take seconds: no transaction is held while it answers (J48.8).
     session.commit()
     translation = query_translation.finish(
@@ -218,10 +212,7 @@ def _summarise(
 ) -> ImpactSummaryResponse:
     ai = impact_summary.with_level(configuration(request), body.sendLevel)
     facts = impact_inputs.facts_of(session, inputs)
-    requester = calls.Requester(
-        principal.row_id if principal.kind == "user" else None,
-        principal.row_id if principal.kind == "client" else None,
-    )
+    requester = _requester(principal)
     summary = impact_summary.explain(
         session,
         ai,

@@ -31,14 +31,12 @@ import re
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ...db import lock_job_subject
 from ...errors import api_error
 from ...models.database import (
     Job,
@@ -48,15 +46,15 @@ from ...models.database import (
     WorkspaceModel,
 )
 from ...models.schema import ObjectTypeRelationDefinition
+from ..jobs.background import CANCELLABLE, replace_earlier_job
 from ..jobs.store import job_parameter, start_job
 from ..model.authoring import history
 from ..model.authoring.kinds import Applied
-from ..records.values import conversion
+from ..records.values import conversion, value_json_sql
 from .mappings import MAPPINGS, Releases, load_mapping, mismatch
 from .sides import Side
 
 KIND = "mappingInference"
-RUNNING = ("queued", "running")
 STATUSES = ("open", "applied", "held", "rejected")
 # A candidate scoring less is not proposed; alternatives are the next ones with any evidence.
 THRESHOLD = 1.0
@@ -450,8 +448,7 @@ def _reversed(cardinality: str) -> str:
 
 # A unique value in its text form, as a name is compared: text as it is, a number, a date or a
 # boolean as its JSON form reads (0.11 Q2, D189).
-_UNIQUE_TEXT = """rdm_value_json(a.value_type, a.text_value, a.integer_value, a.decimal_value,
-        a.boolean_value, a.date_value, a.datetime_value, a.json_value) #>> '{}'"""
+_UNIQUE_TEXT = f"{value_json_sql('a')} #>> '{{}}'"
 
 _SHARED = f"""
 WITH source_values AS (
@@ -526,34 +523,33 @@ def submit_inference(
     target = releases.of_workspace(target_workspace_key)
     if (source.model_key, target.model_key) != (mapping.source_model_key, mapping.target_model_key):
         raise mismatch(mapping, source.model_key, target.model_key)
-    lock_job_subject(session, KIND, mapping.key)
-    session.execute(
-        update(Job)
-        .where(Job.kind == KIND, Job.state.in_(RUNNING), job_parameter("mappingKey") == mapping.key)
-        .values(cancel_requested_at=datetime.now(UTC))
-        .execution_options(synchronize_session=False)
-    )
-    job = start_job(
+    job = replace_earlier_job(
         session,
-        kind=KIND,
-        workspace_key=target_workspace_key,
-        change_set_id=None,
-        model_release_id=session.scalar(
-            select(WorkspaceModel.model_release_id).where(
-                WorkspaceModel.workspace_key == target_workspace_key
-            )
+        KIND,
+        "mappingKey",
+        mapping.key,
+        lambda: start_job(
+            session,
+            kind=KIND,
+            workspace_key=target_workspace_key,
+            change_set_id=None,
+            model_release_id=session.scalar(
+                select(WorkspaceModel.model_release_id).where(
+                    WorkspaceModel.workspace_key == target_workspace_key
+                )
+            ),
+            parameters={
+                "mappingKey": mapping.key,
+                "mappingVersion": mapping.version,
+                "sourceWorkspaceKey": source_workspace_key,
+                "targetWorkspaceKey": target_workspace_key,
+                "sourceReleaseId": mapping.definition["sourceReleaseId"],
+                "targetReleaseId": mapping.definition["targetReleaseId"],
+            },
+            total=None,
+            retention_days=retention_days,
+            queued=True,
         ),
-        parameters={
-            "mappingKey": mapping.key,
-            "mappingVersion": mapping.version,
-            "sourceWorkspaceKey": source_workspace_key,
-            "targetWorkspaceKey": target_workspace_key,
-            "sourceReleaseId": mapping.definition["sourceReleaseId"],
-            "targetReleaseId": mapping.definition["targetReleaseId"],
-        },
-        total=None,
-        retention_days=retention_days,
-        queued=True,
     )
     session.commit()
     return job
@@ -736,7 +732,7 @@ def read_inference(session: Session, mapping: ModelMapping) -> dict[str, Any]:
     parameters = job.parameters
     return {
         "jobId": job.id,
-        "state": "checking" if job.state in RUNNING else job.state,
+        "state": "checking" if job.state in CANCELLABLE else job.state,
         "mappingVersion": parameters.get("mappingVersion"),
         "sourceWorkspaceKey": parameters.get("sourceWorkspaceKey"),
         "targetWorkspaceKey": parameters.get("targetWorkspaceKey"),

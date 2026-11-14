@@ -579,8 +579,8 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
   });
 
   it("handles mapping version conflict and allows retry", async () => {
-    const conflictError = new ApiError(409, "MAPPING_VERSION_CONFLICT", "Mapping changed", {
-      mappingVersion: 7,
+    const conflictError = new ApiError(409, "VERSION_CONFLICT", "Mapping changed", {
+      currentVersion: 7,
       targetCount: 1,
       targets: [coveragePage.items[0].targets[0]],
     });

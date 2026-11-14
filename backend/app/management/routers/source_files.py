@@ -35,7 +35,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import diagnostic_details
 from ..projections.job_rows import job_row_page
 from ..projections.source_files import (
@@ -122,7 +122,7 @@ def list_source_files(
     paging: PageQuery,
     draft_id: str | None = Query(default=None, alias="draftId"),
     profile_key: str | None = Query(default=None, alias="profileKey"),
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> SourceFilePage:
     """Source files, newest first: a draft's, a profile's, or all; a profile's only where the
     caller may use them (D295)."""
@@ -173,7 +173,7 @@ def list_source_sheets(
     permissions: CurrentPermissions,
     principal: CurrentPrincipal,
     paging: PageQuery,
-    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(50, 500),
 ) -> SourceSheetPage:
     """The file's sheets in workbook order, each with its rows, header row and blocks (D68);
     ``409 SOURCE_FILE_PROFILE_NOT_READY`` with the profile's state until it is stored."""
@@ -193,7 +193,7 @@ def list_source_columns(
     permissions: CurrentPermissions,
     principal: CurrentPrincipal,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> SourceColumnPage:
     """A sheet's columns in column order with their statistics (D68–D70); ``404
     SOURCE_SHEET_NOT_FOUND`` for a sheet the file does not have."""
@@ -214,7 +214,7 @@ def list_source_cells(
     principal: CurrentPrincipal,
     paging: PageQuery,
     cell_range: str = Query(alias="range", description="The rectangle to read, such as A3:C12"),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> SourceCellPage:
     """The rows of a range of a sheet that hold a cell, in row order, each with its cells by column
     letter: the staged text and its value type (0.10 A8b, D124). Refused: ``422 INVALID_RANGE``
@@ -286,7 +286,7 @@ def list_dry_run_rows(
     source: int | None = Query(default=None, ge=0, description="A source, in load order"),
     status: Literal["applied", "rejected", "unprocessed"] | None = Query(default=None),
     code: str | None = Query(default=None, description="Rows with an outcome refused this code"),
-    page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
+    page_size: int = PageSize(500, 1000),
 ) -> JobRowPage:
     """The rows behind the latest dry run's figures, in source then row order, as ``GET
     /jobs/{id}/rows`` reads an import's."""

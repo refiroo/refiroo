@@ -3,12 +3,12 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, require_version
 from ...models.commands import UserCreate, UserUpdate
 from ...models.database import PasswordResetLink, User
 from ..authorization.administration import (
@@ -16,7 +16,9 @@ from ..authorization.administration import (
     refuse_last_administrator,
     security_administrators,
 )
+from ..reads.object_query import escape_like
 from . import providers, security_events, sessions
+from .lookup import load_user, user_by_email
 from .passwords import DEFAULT_MIN_LENGTH, check_password, hash_secret
 
 _KEYS = (integer_key("sequenceId", User.id, "id"),)
@@ -40,19 +42,8 @@ def _taken() -> ApiError:
 
 
 def _refuse_taken_email(session: Session, email: str, *, except_id: int | None = None) -> None:
-    statement = select(User.id).where(func.lower(User.email) == email.lower())
-    if except_id is not None:
-        statement = statement.where(User.id != except_id)
-    if session.scalar(statement) is not None:
+    if user_by_email(session, email, except_id=except_id) is not None:
         raise _taken()
-
-
-def load_user(session: Session, public_id: str, *, for_update: bool = False) -> User:
-    statement = select(User).where(User.public_id == public_id)
-    user = session.scalar(statement.with_for_update() if for_update else statement)
-    if user is None:
-        raise api_error(404, "USER_NOT_FOUND", f"User '{public_id}' not found")
-    return user
 
 
 def create_user(
@@ -99,13 +90,7 @@ def create_user(
 def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
     def change() -> User:
         user = load_user(session, public_id, for_update=True)
-        if user.version != payload.expectedVersion:
-            raise api_error(
-                409,
-                "VERSION_CONFLICT",
-                "User version has changed",
-                {"currentVersion": user.version},
-            )
+        require_version(user, payload.expectedVersion, "User")
         fields = payload.model_fields_set
         will_be_active = payload.active if payload.active is not None else user.active
         will_have = payload.email if "email" in fields else user.email
@@ -179,7 +164,7 @@ def user_page(
     """People in the order they were created; ``q`` matches the name or e-mail."""
     statement = select(User)
     if q:
-        pattern = f"%{q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')}%"
+        pattern = f"%{escape_like(q)}%"
         statement = statement.where(or_(User.name.ilike(pattern), User.email.ilike(pattern)))
     if active is not None:
         statement = statement.where(User.active.is_(active))

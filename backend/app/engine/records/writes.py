@@ -48,7 +48,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
-from ...errors import api_error
+from ...common.chunks import chunks
+from ...errors import api_error, version_conflict
 from ...models.database import (
     AttributeValue,
     AuditEvent,
@@ -87,16 +88,6 @@ def note_locked(session: Session, change_set_id: str) -> None:
 @event.listens_for(Session, "after_soft_rollback")
 def _forget_locked_change_sets(session: Session, *_: object) -> None:
     session.info.pop(LOCKED_CHANGE_SETS, None)
-# IDs bound into one statement.
-_CHUNK = 500
-
-
-def _chunks(ids: Iterable[str]) -> Iterator[list[str]]:
-    ordered = list(ids)
-    for start in range(0, len(ordered), _CHUNK):
-        yield ordered[start : start + _CHUNK]
-
-
 def _listed(ids: Iterable[str]) -> Any:
     """``ids`` as one array parameter: a write may remove more records than PostgreSQL's 65,535
     parameters allow in an ``IN`` list (0.11 X5)."""
@@ -284,9 +275,7 @@ class LiveWrites(_Permits):
         )
         if result.rowcount != 1:
             current = self.session.scalar(select(RdmObject.version).where(RdmObject.id == item.id))
-            raise api_error(
-                409, "VERSION_CONFLICT", "Object version has changed", {"currentVersion": current}
-            )
+            raise version_conflict(current, "Object")
         self.session.refresh(item)
 
     def write(self, model: EngineModel, changes: Changes) -> dict[str, RdmObject]:
@@ -301,7 +290,7 @@ class LiveWrites(_Permits):
         self.permit_changes(changes)
         if changes.removed:
             matrix_states.note_relations(session, changes.removed.values())
-            for chunk in _chunks(sorted(changes.removed)):
+            for chunk in chunks(sorted(changes.removed)):
                 session.execute(delete(ObjectRelation).where(ObjectRelation.id.in_(chunk)))
         rows: dict[str, RdmObject] = {}
         for object_id, record in changes.records.items():
@@ -320,7 +309,7 @@ class LiveWrites(_Permits):
         updated = [object_id for object_id in changes.records if object_id not in changes.created]
         stored = {
             row.id: row
-            for chunk in _chunks(updated)
+            for chunk in chunks(updated)
             for row in session.scalars(select(RdmObject).where(RdmObject.id.in_(chunk)))
         }
         now = datetime.now(UTC)
@@ -334,7 +323,7 @@ class LiveWrites(_Permits):
         self._save_saved_values(model, changes)
         if changes.changed:
             # Through the ORM, so the matrix states follow the attribute change (ADR-033).
-            for chunk in _chunks(sorted(changes.changed)):
+            for chunk in chunks(sorted(changes.changed)):
                 for row in session.scalars(
                     select(ObjectRelation).where(ObjectRelation.id.in_(chunk))
                 ):
@@ -362,7 +351,7 @@ class LiveWrites(_Permits):
         existing = [object_id for object_id in changes.saved if object_id not in changes.created]
         stored = {
             (row.object_id, row.attribute_type_key): row
-            for chunk in _chunks(existing)
+            for chunk in chunks(existing)
             for row in self.session.scalars(
                 select(AttributeValue).where(AttributeValue.object_id.in_(chunk))
             )
@@ -499,9 +488,7 @@ class LiveWrites(_Permits):
             current = self.session.scalar(
                 select(ObjectRelation.version).where(ObjectRelation.id == relation.id)
             )
-            raise api_error(
-                409, "VERSION_CONFLICT", "Relation version has changed", {"currentVersion": current}
-            )
+            raise version_conflict(current, "Relation")
         self.session.refresh(relation)
 
     def remove_relation(self, relation: ObjectRelation) -> None:
@@ -802,7 +789,7 @@ class ChangeSetWrites(_Permits):
         self.permit_changes(changes)
         stored = {
             row.object_id: row
-            for chunk in _chunks(
+            for chunk in chunks(
                 object_id for object_id in changes.records if object_id not in changes.created
             )
             for row in session.scalars(
@@ -831,7 +818,7 @@ class ChangeSetWrites(_Permits):
             rows[object_id] = row
         removed = {
             row.relation_id: row
-            for chunk in _chunks(sorted(changes.removed))
+            for chunk in chunks(sorted(changes.removed))
             for row in session.scalars(
                 select(ChangeSetRelation).where(
                     ChangeSetRelation.change_set_id == self.change_set_id,
@@ -859,7 +846,7 @@ class ChangeSetWrites(_Permits):
                 row.is_deleted = True
         owned = {
             row.relation_id: row
-            for chunk in _chunks(sorted(changes.changed))
+            for chunk in chunks(sorted(changes.changed))
             for row in session.scalars(
                 select(ChangeSetRelation).where(
                     ChangeSetRelation.change_set_id == self.change_set_id,

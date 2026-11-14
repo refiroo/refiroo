@@ -17,16 +17,15 @@ from pathlib import Path
 from typing import Any, BinaryIO
 
 from pydantic import ValidationError
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
-from ...models.database import ChangeSet, Job
+from ...models.database import Job
 from ...models.imports import ImportProfileDefinition, ImportRequest
-from ..jobs.batches import check_batch_context, open_batch_context
+from ..jobs.batches import open_batch_context
 from ..jobs.files import JobFiles
-from ..jobs.store import remember_key, replayed_job, request_fingerprint, start_job
+from ..jobs.inline import check_change_set_claim, earlier_job, keep_key
+from ..jobs.store import request_fingerprint, start_job
 from .profiles import check_profile, invalid_profile, load_profile, parsed, require_model
 from .readers import PROFILE_SHEET, carried_profile, unreadable
 
@@ -98,23 +97,12 @@ def submit_import(
     fingerprint = request_fingerprint(
         {"request": request.model_dump(mode="json", exclude_unset=True), "file": upload.sha256}
     )
-    if idempotency_key is not None:
-        replayed = replayed_job(
-            session,
-            scope=IMPORTS_SCOPE,
-            workspace_key=_workspace_key(session, request),
-            key=idempotency_key,
-            fingerprint=fingerprint,
-        )
-        if replayed is not None:
-            return replayed, True
+    replayed = earlier_job(session, request, idempotency_key, fingerprint, scope=IMPORTS_SCOPE)
+    if replayed is not None:
+        return replayed, True
     found_format = file_format(request, upload)
     context = open_batch_context(session, request)
-    if (
-        context.change_set is not None
-        and context.change_set.version != request.expectedChangeSetVersion
-    ):
-        raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
+    check_change_set_claim(context, request)
     profile = _profile(session, request, context.model, found_format, upload, origin)
     if context.change_set is None and _deletes_missing(profile):
         raise api_error(
@@ -157,30 +145,13 @@ def submit_import(
     try:
         with target.open("wb") as copy:
             shutil.copyfileobj(upload.file, copy, _READ)
-        if idempotency_key is not None:
-            try:
-                remember_key(
-                    session,
-                    scope=IMPORTS_SCOPE,
-                    workspace_key=context.workspace_key,
-                    key=idempotency_key,
-                    fingerprint=fingerprint,
-                    job=job,
-                )
-            except IntegrityError:
-                # A concurrent request with the key committed first: answer as its retry.
-                session.rollback()
-                target.unlink(missing_ok=True)
-                replayed = replayed_job(
-                    session,
-                    scope=IMPORTS_SCOPE,
-                    workspace_key=context.workspace_key,
-                    key=idempotency_key,
-                    fingerprint=fingerprint,
-                )
-                if replayed is None:
-                    raise
-                return replayed, True
+        replayed = keep_key(
+            session, context, idempotency_key, fingerprint, job, scope=IMPORTS_SCOPE
+        )
+        if replayed is not None:
+            # A concurrent request with the key committed first: answer as its retry.
+            target.unlink(missing_ok=True)
+            return replayed, True
         if before_commit is not None:
             before_commit()
         session.commit()
@@ -254,19 +225,3 @@ def _deletes_missing(profile: dict[str, Any] | None) -> bool:
     if profile is None:
         return False
     return any(source.get("missing") == "delete" for source in profile["definition"]["sources"])
-
-
-def _workspace_key(session: Session, request: ImportRequest) -> str:
-    """The workspace an idempotency key is scoped to, read without the write's checks, so a
-    finished job is answered again even if its workspace has since been retired."""
-    check_batch_context(request)
-    if request.changeSetId is None:
-        return request.workspaceKey
-    workspace_key = session.scalar(
-        select(ChangeSet.workspace_key).where(ChangeSet.id == str(request.changeSetId))
-    )
-    if workspace_key is None:
-        raise api_error(
-            404, "CHANGE_SET_NOT_FOUND", f"Change set '{request.changeSetId}' not found"
-        )
-    return workspace_key

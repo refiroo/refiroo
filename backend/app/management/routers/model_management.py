@@ -67,7 +67,7 @@ from ..access import (
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession, DefaultModelSnapshot
-from ..paging import PageQuery
+from ..paging import PageQuery, PageSize
 from ..presenters import (
     candidate_compatibility_response,
     change_response,
@@ -337,7 +337,7 @@ def list_model_drafts(
     session: DbSession,
     principal: CurrentPrincipal,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> ModelDraftPage:
     statement = select(ModelDraft)
     if principal.kind == "client":
@@ -430,7 +430,7 @@ def list_model_draft_operations(
     draft_id: str,
     session: DbSession,
     paging: PageQuery,
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    page_size: int = PageSize(100, 500),
 ) -> ModelDraftOperationPage:
     draft = load_draft(session, draft_id)
     page = paginate_statement(

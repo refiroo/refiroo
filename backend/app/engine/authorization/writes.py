@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
 from ...models.database import OAuthClient
+from ..jobs.kinds import JOB_KINDS
 from .catalogue import ACTIONS, group_names
 from .permissions import EVERYTHING, Narrowing, Permissions, PrincipalKind
 
@@ -37,20 +38,7 @@ WRITE_GROUPS = frozenset(
 )
 
 # How a job's step is named in a refusal, by its kind (D294).
-JOB_ACTIONS: dict[str, str] = {
-    "batch": "bulk.write",
-    "import": "bulk.write",
-    "profile": "source-files.manage",
-    "profileCheck": "import-profiles.manage",
-    "export": "exports.create",
-    "move": "moves.create",
-    "mappingInference": "model-mappings.manage",
-    "aiProposal": "records.write",
-    "aiTask": "bulk.write",
-    "migration": "model.activate",
-    "dryRun": "model.author",
-    "inference": "model.author",
-}
+JOB_ACTIONS: dict[str, str] = {kind.name: kind.action for kind in JOB_KINDS}
 
 _WRITES = {"edit-live": "Changing records live", "change-sets": "Changing records in a change set"}
 

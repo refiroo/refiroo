@@ -13,11 +13,11 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit
 
+from ...common.addresses import LOOPBACK
 from ...config import get_settings
 from ...errors import ApiError, api_error
 
 MAX_URL_LENGTH = 2048
-LOOPBACK = frozenset({"localhost", "127.0.0.1", "::1"})
 SETTING = "WEBHOOK_PRIVATE_ADDRESSES_ALLOWED"
 
 _NAT64 = ipaddress.ip_network("64:ff9b::/96")

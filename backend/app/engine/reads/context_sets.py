@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import JSON, cast, func, literal, select
 
 from ...models.database import AttributeValue, ObjectRelation, RdmObject
+from ..records.values import value_json
 from .snapshot_reads import SnapshotContext, object_projection, relation_projection
 
 
@@ -35,16 +36,7 @@ def record_source(
         select(
             func.json_object_agg(
                 values.attribute_type_key,
-                func.rdm_value_json(
-                    values.value_type,
-                    values.text_value,
-                    values.integer_value,
-                    values.decimal_value,
-                    values.boolean_value,
-                    values.date_value,
-                    values.datetime_value,
-                    values.json_value,
-                ),
+                value_json(values),
             )
         )
         .where(values.object_id == RdmObject.id)

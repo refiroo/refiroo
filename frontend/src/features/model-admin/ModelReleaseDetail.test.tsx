@@ -356,7 +356,7 @@ describe("ModelReleaseDetail retiring and deleting (0.12 MR1)", () => {
     const { onStatusChanged } = lifecycle(r06);
     vi.mocked(api.setModelReleaseStatus)
       .mockRejectedValueOnce(
-        new ApiError(409, "MODEL_RELEASE_VERSION_CONFLICT", "Model release 'r06' changed status since version 1"),
+        new ApiError(409, "VERSION_CONFLICT", "Model release 'r06' changed status since version 1"),
       )
       .mockResolvedValueOnce({ ...r06, status: "retired", statusVersion: 4 });
     await chooseAction("Retire…");

@@ -47,6 +47,12 @@ class Refusal(Exception):
         self.message = message
 
 
+def is_containment(relation_type: dict[str, Any] | None) -> bool:
+    """Whether a relation type's definition is a containment (``features.parentOf``); no
+    definition is not one. Layout, the kinds and the outline all ask through this."""
+    return bool(relation_type and (relation_type.get("features") or {}).get("parentOf"))
+
+
 def identity(item: Any, identities: tuple[tuple[str, ...], ...] = _IDENTITIES) -> dict[str, Any]:
     """The path segment naming ``item`` within its list."""
     if isinstance(item, dict):

@@ -52,7 +52,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from ...common.cursors import decode_cursor, encode_cursor
-from ...errors import ApiError, api_error
+from ...errors import ApiError, api_error, version_conflict
 from ...models.database import AuditEvent, ChangeSet, ObjectRelation, RdmObject
 from ...models.schema import EngineModel
 from ..authorization.writes import allowance, refuse_types
@@ -1241,9 +1241,7 @@ def apply_object_delete(
     if current != expected_version:
         if cascade:
             raise deletion_preview_changed()
-        raise api_error(
-            409, "VERSION_CONFLICT", "Object version has changed", {"currentVersion": current}
-        )
+        raise version_conflict(current, "Object")
     (result,) = delete_records(
         LiveScope(session, model, workspace_key, model_identity),
         [Deletion(0, object_id, object_type_key, cascade, deletion_preview)],

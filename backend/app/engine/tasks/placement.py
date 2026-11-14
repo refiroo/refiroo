@@ -108,6 +108,8 @@ def choose(
         parent = _parent_ref(session, workspace, types, shared[0], SHARED)
         if parent is not None:
             return Placement(parent, True)
+    # The title is casefolded here and compared with ``lower(name)``: one of five comparisons of a
+    # name kept apart on purpose (see ``matching._FACTS``).
     wanted = sorted({t.strip().casefold() for t in titles if t and t.strip()})
     if wanted:
         named = (

@@ -7,12 +7,12 @@ the person, is refused before the earlier link is replaced.
 
 from datetime import datetime
 
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
 from ...models.database import User
 from ..identity import resets, sign_in
+from ..identity.lookup import user_by_email
 from ..identity.settings import IdentitySettings
 from . import outbox, templates
 from . import settings as mail_settings
@@ -75,16 +75,16 @@ def request_reset(
         return wait
     sign_in.record_failure(session, email, address, now, sign_in.RESET)
     session.commit()
-    typed = email.strip().lower()
-    people = session.scalars(
-        select(User.public_id).where(
+    person = user_by_email(
+        session,
+        email.strip(),
+        where=(
             User.active.is_(True),
             User.password_hash.is_not(None),
             User.sign_in_managed.is_(False),
-            func.lower(User.email) == typed,
-        )
-    ).all()
-    for public_id in people:
+        ),
+    )
+    for public_id in [person.public_id] if person else []:
         try:
             create_and_send(session, settings, public_id, requested=True)
         except ApiError:

@@ -153,9 +153,7 @@ describe("The assistant task page (0.16 AP6a, AP10)", () => {
 
   it("reloads the task and says so on a version conflict", async () => {
     vi.mocked(ai.task).mockResolvedValue(task());
-    vi.mocked(ai.runTask).mockRejectedValue(
-      new ApiError(409, "AI_TASK_VERSION_CONFLICT", "Changed", { currentVersion: 5 }),
-    );
+    vi.mocked(ai.runTask).mockRejectedValue(new ApiError(409, "VERSION_CONFLICT", "Changed", { currentVersion: 5 }));
     open();
     await screen.findByRole("heading", { name: "What the load would do" });
     fireEvent.click(screen.getByRole("button", { name: "Activate the model and load" }));

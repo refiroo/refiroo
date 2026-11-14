@@ -34,6 +34,7 @@ from .document import (
     Refusal,
     apply_changes,
     identity,
+    is_containment,
 )
 from .keys import key_from_label
 from .layout import (
@@ -552,7 +553,7 @@ def _parent(context: Context, raw: Any, child: str, name: str = "parent") -> tup
     relation = raw.get("relationType")
     if isinstance(relation, str):
         found = context.relation_type(relation, f"{name}/relationType")
-        if not (found.get("features") or {}).get("parentOf"):
+        if not is_containment(found):
             raise Refusal(f"{name}/relationType", "invalidValue", f"'{relation}' is not a containment relation type")
         return list(parents), relation
     if not isinstance(relation, dict):
@@ -803,7 +804,9 @@ def merge_object_types(context: Context, raw: dict[str, Any]) -> Applied:
         ends = (binding.get("fromObjectTypeKey"), binding.get("toObjectTypeKey"))
         if source not in ends:
             continue
-        if set(ends) == {into, source} and _is_containment(context, binding.get("relationTypeKey")):
+        if set(ends) == {into, source} and is_containment(
+            context.document.find(["relationTypes", {"key": binding.get("relationTypeKey")}])
+        ):
             # The two types are one now: a containment between them would make it contain itself.
             document.remove(["objectTypeRelations"], identity(binding))
             dropped.add(binding["relationTypeKey"])
@@ -842,11 +845,6 @@ def merge_object_types(context: Context, raw: dict[str, Any]) -> Applied:
         {"kind": "mergeObjectTypes", **raw},
         Applied(raw, {}, named={atom("objectType", into), atom("objectType", source)}),
     )
-
-
-def _is_containment(context: Context, relation_key: Any) -> bool:
-    relation = context.document.find(["relationTypes", {"key": relation_key}])
-    return bool(relation and (relation.get("features") or {}).get("parentOf"))
 
 
 def _binds_to(document: Document, relation_key: str, type_key: str) -> bool:

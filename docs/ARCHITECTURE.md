@@ -577,12 +577,23 @@ its parameters, state, progress and one outcome per item, kept for a retention p
   process queues or changes a job, so an idle node starts a job queued on a busy one at once.
   Submitting a dry run, an inference, a mapping inference or a profile's check takes an advisory
   lock on its kind and subject (`db.lock_job_subject`), so the stop request it sends to the
-  subject's earlier job sees one submitted at the same moment. An export's partial file is named
+  subject's earlier job sees one submitted at the same moment; the lock, the stop and the start
+  are one function (`replace_earlier_job`), and every stop request is `request_stop` in
+  `engine/jobs/background.py` (queued and running jobs, `CANCELLABLE`; a repeated stop keeps the
+  time of the first). The kinds of job are one registry (`engine/jobs/kinds.py`: group, worker,
+  step, whether it previews, whether it has rows, its place in the claim order) that the worker's
+  dispatch, the groups and the API's kind lists read. An export's partial file is named
   after its worker's lease, so a worker that lost an export never writes or removes the new owner's
   file; it is renamed into place under the job row's lock.
 - **A job pins its model release** and fails with `MODEL_RELEASE_CHANGED` when it moves. In a change
   set it holds the change set's version and fails if anyone else writes to it.
 - **Idempotency keys** replay a finished job's response and refuse a reused key with a different body.
+- **A stale write is refused in one place** (`require_version` and `version_conflict` in
+  `app/errors.py`, called under the row lock; a compare-and-set write keeps its `UPDATE … WHERE
+  version =` and raises through the same function): `409 VERSION_CONFLICT` with
+  `details.currentVersion` beside whatever the write adds (a draft's `operations`, a release's
+  status counter, a mapping replacement's targets). Only `CHANGE_SET_VERSION_CONFLICT` and
+  `RELATION_SET_VERSION_CONFLICT` stay apart, since they tell two claims in one request apart.
 - **Staging is the change set**: a job targets live data or a named change set; there is no separate
   staging store.
 - **Exports** (`engine/jobs/exports.py`) run on a second worker thread that claims only `export`

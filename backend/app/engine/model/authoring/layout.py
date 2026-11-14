@@ -7,7 +7,7 @@ same layout from the same operations ([API.md § Draft operations](../../../../d
 
 from typing import Any
 
-from .document import Document, Path, identity
+from .document import Document, Path, identity, is_containment
 from .keys import key_from_label
 
 PAGE_SIZE = 50
@@ -113,7 +113,7 @@ def held_relations(document: Document, type_key: str) -> list[tuple[str, str]]:
     for binding in document.items("objectTypeRelations"):
         relation_key = binding.get("relationTypeKey")
         relation = document.find(["relationTypes", {"key": relation_key}]) or {}
-        if not relation or _is_containment(document, relation_key):
+        if not relation or is_containment(relation):
             continue
         if binding.get("fromObjectTypeKey") == type_key and (relation_key, "outgoing") not in held:
             held.append((relation_key, "outgoing"))
@@ -456,11 +456,6 @@ def _append_new(document: Document, path: Path, value: str) -> None:
 def _bindings_in_order(object_type: dict[str, Any]) -> list[dict[str, Any]]:
     bindings = [b for b in object_type.get("attributes") or [] if isinstance(b, dict)]
     return sorted(bindings, key=lambda b: b.get("order", 0))
-
-
-def _is_containment(document: Document, relation_key: str) -> bool:
-    relation = document.find(["relationTypes", {"key": relation_key}]) or {}
-    return bool((relation.get("features") or {}).get("parentOf"))
 
 
 def _hierarchy_panel() -> dict[str, Any]:

@@ -531,7 +531,7 @@ item (J10.10), through the same replacement.
   filters as sources only the records meeting the criteria at the source end, plus any that already
   holds a relationship of the binding (kept, not flagged, D175).
 
-**Refusals:** `409 MAPPING_VERSION_CONFLICT`, `422 INVALID_CLEAR_ATTRIBUTES`,
+**Refusals:** `409 VERSION_CONFLICT` (a stale replacement; `409 MAPPING_VERSION_CONFLICT` on the read of a source's further targets), `422 INVALID_CLEAR_ATTRIBUTES`,
 `422 REQUIRED_OWNERSHIP_BINDING`, `422 RELATION_ANCESTOR_REQUIRED`, `422 REQUIRED_RELATION`,
 `409 CARDINALITY_VIOLATION`, `409 DUPLICATE_RELATION_SCOPE`; publishing a change set whose set live
 changed meanwhile is `409 VERSION_CONFLICT` with a `MAPPING_SET_CHANGED` conflict; `422 INVALID_CURSOR`, and the view and binding refusals (`mapping_view_*`, `mapping_*`). Through a batch
@@ -1207,7 +1207,7 @@ lookup (J36.7) has no screen; migrating a workspace's data is J37.
 `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `422 COUNTERPARTS_ACROSS_MODELS`,
 `422 IMPORT_PROFILE_MODEL_MISMATCH`, `409 RELEASE_IDENTITY_CONFLICT` (with `freeVersion`),
 `503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace; `409 MODEL_RELEASE_RETIRED`,
-`409 MODEL_RELEASE_IS_DEFAULT`, `409 MODEL_RELEASE_IN_USE`, `409 MODEL_RELEASE_VERSION_CONFLICT` (J36.10–J36.11).
+`409 MODEL_RELEASE_IS_DEFAULT`, `409 MODEL_RELEASE_IN_USE`, `409 VERSION_CONFLICT` (J36.10–J36.11).
 
 **Evidence today:** `tests/journeys/test_j36_workspace_models.py` (7 cases, generated A beside B and
 B beside A); `tests/journeys/test_j36_workspace_resources.py` (5 cases, M3: a workbook's new model in
@@ -1812,7 +1812,7 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
 `404 PUBLICATION_NOT_FOUND`, `422 REQUEST_VALIDATION_ERROR`; on the output `404 JOB_NOT_FOUND`,
 `404 JOB_HAS_NO_OUTPUT`, `409 JOB_NOT_COMPLETED`, `410 JOB_EXPIRED`, `410 JOB_OUTPUT_MISSING`.
 Profiles: `422 INVALID_IMPORT_PROFILE`, `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_FOUND`,
-`409 IMPORT_PROFILE_VERSION_CONFLICT`. Imports: `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`;
+`409 VERSION_CONFLICT`. Imports: `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`;
 a job's `IMPORT_FILE_MISMATCH`, `IMPORT_FILE_UNREADABLE`, `IMPORT_TOO_MANY_ITEMS`,
 `IMPORT_FILE_MISSING`; a row's `INVALID_ATTRIBUTE_VALUE`, `REFERENCE_NOT_FOUND`,
 `REFERENCE_AMBIGUOUS`, `DUPLICATE_KEY_IN_FILE`, `REFERENCE_CYCLE`, `MISSING_RECORD_KEY`,
@@ -2799,7 +2799,7 @@ API; it calls no AI provider.
   differs from the stored records is a question), and the load gives what an import through the profile
   gives.
 - **J50.19 Answers**: `POST /ai/tasks/{id}/answers` is allowed only on a `checked` task (`409
-  AI_TASK_STATE`) and claims the version (`409 AI_TASK_VERSION_CONFLICT`).
+  AI_TASK_STATE`) and claims the version (`409 VERSION_CONFLICT`).
 - **J50.20 The draft is the person's**: the task's `draftId` opens through `GET /model-drafts/{id}` and holds
   the operations the session applied; the person's edits are read by the session before it goes on.
 - **J50.21 An instruction without a workbook**: a task may come with only words (`422 AI_TASK_NEEDS_WORDS`
@@ -2809,7 +2809,7 @@ API; it calls no AI provider.
   session install and load; `accept` without a proposal is `409 AI_TASK_STATE`.
 - **J50.24 A correction in words**: `POST /ai/tasks/{id}/model` with a correction has the same session change
   the proposal as the words say (`corrections`, newest last); a stale version is `409
-  AI_TASK_VERSION_CONFLICT`.
+  VERSION_CONFLICT`.
 - **J50.30 Claude Code as the assistant**: with `AI_AGENT_COMMAND` set, the person's words, the workbook, the
   model and the OpenAPI document go to one session working through the API. It stops at a model draft with
   every row checked, nothing installed; the person edits the draft or says what to change and the same
@@ -2929,7 +2929,7 @@ API; it calls no AI provider.
   cut at a word boundary.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
-AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409
+AI_TASK_NOT_FOUND`, `409 VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409
 AI_TASK_NOTHING_TO_LOAD`, `409 AI_TASK_DRAFT_HELD`, `413 IMPORT_TOO_LARGE`, `422
 UNSUPPORTED_FILE_FORMAT`, `422 AI_TASK_NEEDS_WORDS`.
 
