@@ -17,6 +17,7 @@ import io
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import wait as wait_futures
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -24,7 +25,7 @@ from uuid import uuid4
 
 import pytest
 from openpyxl import Workbook, load_workbook
-from scenario import ok, refused
+from scenario import ok, refused, wait_for
 from test_j24_job_stream import served  # noqa: F401  (the journey application over HTTP)
 from test_j34_onboard import _all
 
@@ -53,7 +54,7 @@ def _run(world):
             ran = 0
             while not session.done():
                 ran += state.job_worker.run_until_idle()
-                time.sleep(0.1)
+                wait_futures([session], timeout=0.1)  # returns the moment the session ends
             ran += session.result() + state.job_worker.run_until_idle()
         if not ran:
             return chunks
@@ -555,7 +556,16 @@ if config.get("api"):
         sent = httpx.request(method, base + path, headers=head, timeout=60, **kw)
         assert sent.status_code < 300, (method, path, sent.status_code, sent.text)
         return sent.json()
-    def until(path, done):
+    def follow(job):
+        # The job's event stream: it sends the job at each change, so the wait ends when it does.
+        with httpx.stream("GET", base + "/jobs/" + job + "/events", headers=head, timeout=120) as sent:
+            for line in sent.iter_lines():
+                if line.startswith("data:") and json.loads(line[5:])["state"] in (
+                        "completed", "failed", "cancelled", "expired"):
+                    return
+    def until(path, done, job=None):
+        if job:
+            follow(job)
         for _ in range(300):
             found = api("GET", path)
             if done(found):
@@ -608,17 +618,19 @@ else:
     if config.get("api") and config.get("dryRun"):
         source = api("POST", "/source-files", files=workbook(), data={"request": json.dumps({
             "owner": {"draftId": config["draft"]}, "workspaceKey": config["workspace"]})})
-        until("/source-files/" + source["id"], lambda f: f["profile"]["state"] == "completed")
+        until("/source-files/" + source["id"], lambda f: f["profile"]["state"] == "completed",
+              source["profile"]["jobId"])
         # The design carries the profile it was checked by: stored on the draft, then sent (0.17 PL3b).
         stored = api("GET", "/model-drafts/" + config["draft"])
         api("POST", "/model-drafts/" + config["draft"] + "/operations", json={
             "expectedVersion": stored["version"],
             "operations": [{"kind": "setProfile", "sources": config["profile"]["sources"],
                             "valueMaps": config["profile"].get("valueMaps") or {}}]})
-        api("POST", "/model-drafts/" + config["draft"] + "/dry-run", json={
+        checking = api("POST", "/model-drafts/" + config["draft"] + "/dry-run", json={
             "sourceFileId": source["id"], "workspaceKey": config["workspace"],
             "profile": config["profile"]})
-        until("/model-drafts/" + config["draft"] + "/dry-run", lambda f: f["state"] == "completed")
+        until("/model-drafts/" + config["draft"] + "/dry-run", lambda f: f["state"] == "completed",
+              checking["jobId"])
     draft_id = config["draft"]
     turned = os.path.exists("turned")
     open("turned", "w").close()
@@ -894,7 +906,7 @@ folder = os.path.dirname(os.path.realpath(__file__))
 config = json.load(open(os.path.join(folder, "config.json")))
 open(os.path.join(folder, "token"), "w").write(os.environ["REFIROO_TOKEN"])
 while not os.path.exists(os.path.join(folder, "go")):
-    time.sleep(0.1)
+    time.sleep(0.02)
 json.dump({"draftId": config["draft"], "summary": "A plan."}, open("proposal.json", "w"))
 print(json.dumps({"type": "result", "result": "Ready."}))
 """
@@ -927,10 +939,12 @@ def test_a_job_the_session_queues_runs_under_its_grants_even_when_the_session_ha
 
     with ThreadPoolExecutor(1) as pool:
         session = pool.submit(state.assistant_worker.run_until_idle)
-        deadline = time.monotonic() + 30
-        while not (tmp_path / "token").exists():
-            assert time.monotonic() < deadline and not session.done()
-            time.sleep(0.1)
+        wait_for(
+            (tmp_path / "token").exists,
+            "the session to write its token",
+            timeout=30,
+            abandoned=session.done,
+        )
         token = (tmp_path / "token").read_text()
         upload = world.api.client.post(
             "/api/v1/source-files",

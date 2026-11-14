@@ -41,8 +41,15 @@ log = open(config["log"], "a")
 log.write(json.dumps({"prompt": prompt}) + "\\n")
 log.close()
 if "accepted" not in prompt:
-    api("POST", "/model-drafts/" + config["draft"] + "/dry-run",
+    checking = api("POST", "/model-drafts/" + config["draft"] + "/dry-run",
         json={"workspaceKey": config["workspace"], "items": config["items"]})
+    # The job's event stream sends it at each change: the wait ends when the check does.
+    with httpx.stream("GET", base + "/jobs/" + checking["jobId"] + "/events", headers=head,
+                      timeout=120) as sent:
+        for line in sent.iter_lines():
+            if line.startswith("data:") and json.loads(line[5:])["state"] in (
+                    "completed", "failed", "cancelled", "expired"):
+                break
     for _ in range(300):
         found = api("GET", "/model-drafts/" + config["draft"] + "/dry-run")
         if found["state"] != "checking":

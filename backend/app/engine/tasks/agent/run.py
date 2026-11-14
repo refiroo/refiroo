@@ -736,7 +736,9 @@ def _turn_as(
                         },
                     }
                     session.commit()
-                time.sleep(2)
+                # Ends the moment the session's process exits, not up to 2 s later.
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    process.wait(timeout=2)
             _await_its_jobs(session, ctx, started, client)
         except BaseException as error:
             _stop_earlier({"pid": process.pid, "session": session_id})

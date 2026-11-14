@@ -10,11 +10,10 @@ configurations and names no configuration's keys.
 
 import copy
 import json
-import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from scenario import ok, refused
+from scenario import ok, refused, wait_for
 from test_j24_job_stream import served  # noqa: F401  (the journey application over HTTP)
 from test_j34_onboard import _all
 from test_j37_workspace_migration import _confirm, _previewed
@@ -137,10 +136,11 @@ class Way:
         start()
         with ThreadPoolExecutor(1) as pool:
             session = pool.submit(state.assistant_worker.run_until_idle)
-            deadline = time.monotonic() + 60
-            while not (self.dir / "holding").exists():
-                assert time.monotonic() < deadline and not session.done()
-                time.sleep(0.1)
+            wait_for(
+                (self.dir / "holding").exists,
+                "the stand-in to hold the turn",
+                abandoned=session.done,
+            )
             ok(self.world.api.post(f"/ai/tasks/{task['id']}/cancel", {}), 202)
             session.result(timeout=120)
         (self.dir / "hold").unlink()
@@ -387,10 +387,11 @@ def test_a_task_queued_behind_a_running_one_says_how_many_are_ahead_until_it_run
     assert first["ahead"] == 0 and second["ahead"] == 1
     with ThreadPoolExecutor(1) as pool:
         session = pool.submit(state.assistant_worker.run_until_idle)
-        deadline = time.monotonic() + 60
-        while not (way.dir / "holding").exists():
-            assert time.monotonic() < deadline and not session.done()
-            time.sleep(0.1)
+        wait_for(
+            (way.dir / "holding").exists,
+            "the first stand-in to hold its turn",
+            abandoned=session.done,
+        )
         assert _task(world, first)["ahead"] is None
         waiting = _task(world, second)
         assert waiting["state"] == "reading" and waiting["ahead"] == 1

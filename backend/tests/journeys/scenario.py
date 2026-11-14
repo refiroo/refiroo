@@ -115,6 +115,24 @@ def _params(params: dict[str, Any]) -> list[tuple[str, Any]]:
     return pairs
 
 
+def wait_for(
+    condition: Callable[[], Any],
+    what: str,
+    *,
+    timeout: float = 60.0,
+    interval: float = 0.02,
+    abandoned: Callable[[], bool] = lambda: False,
+) -> None:
+    """Until ``condition()`` holds, checked every ``interval`` s: a wait for a state, not a sleep.
+    It fails naming ``what`` after ``timeout`` s, or at once when ``abandoned()`` says what the
+    state depended on has ended (a session that finished)."""
+    deadline = time.monotonic() + timeout
+    while not condition():
+        assert not abandoned(), f"waiting for {what}: what it depended on ended first"
+        assert time.monotonic() < deadline, f"waiting for {what}: not there after {timeout:g} s"
+        time.sleep(interval)
+
+
 def ok(response: Response, status: int = 200) -> Any:
     assert response.status_code == status, f"{response.status_code}: {response.text}"
     return response.json() if response.content else None
