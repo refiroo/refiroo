@@ -87,6 +87,10 @@ def test_the_server_never_turns_fsync_on():
 
 
 def test_no_run_stops_a_server_another_run_still_uses(tmp_path, monkeypatch):
+    try:
+        postgres_server._binary("pg_ctl")
+    except postgres_server.ServerUnavailable:
+        pytest.skip("needs the PostgreSQL binaries; CI uses an external server")
     # A server of its own (a short path: a socket's is limited), so the shared one is never touched.
     root = Path(tempfile.mkdtemp(prefix="pgt", dir="/tmp"))
     monkeypatch.setattr(postgres_server, "ROOT", root)
