@@ -41,9 +41,9 @@ tooling.
 
 | Package | Holds | May not import |
 | --- | --- | --- |
-| `common/` | Paging, signed cursors, JSON encoding, time, JSON pointers | The model, the engine, any API |
+| `common/` | Paging, signed cursors, JSON encoding, time, JSON pointers, the log and the request observation and metrics (`logs`, `request_observation`, `request_metrics`, `prometheus`), the request gate, secret sealing (`sealing`), background-thread outage reporting (`outage`), route markers, the product's names (`brand`) and the build's commit and tag (`build_reference`) | The model, the engine, any API |
 | `models/` | The model contract (`schema.py`), write commands, the persistence schema | The engine, any API |
-| `engine/` | The domain: model compilation and releases, records and write rules, change sets, operations, reads, indexes, jobs, workspaces | FastAPI, API schemas |
+| `engine/` | The domain: model compilation and releases, records and write rules, change sets, operations, reads, indexes, jobs, workspaces, identity and authorization, mail, events, notifications, imports and sources, moves, proposals and the assistant's tasks, agent access, backups, processes | FastAPI, API schemas |
 | `management/` | The management API (`/api/v1`): routes, request and response schemas, presenters, projections, the `/docs` page | The consumer tier |
 | `consumer/` | The consumer API (`/api/consumer`): routes that resolve a definition, check its parameters and the workspace, and read through the engine | The management tier |
 
@@ -90,12 +90,13 @@ release, [APPLICATION_MODEL](APPLICATION_MODEL.md#schema-versions-and-the-window
 change without installing and selecting another release.
 
 **Consumer API definitions have one internal form.** A model document holds its definitions as the
-author wrote them, which is also its canonical document and `modelHash`: schema 0.9's syntax, or a
-stored 0.8 release's own shape (`engine/model/consumer_legacy.py` reads such a document with its own
-classes, so its hash holds). Every reader works on `ConsumerApiDefinition`, the internal form:
-`engine/model/consumer_definitions.py` expands a 0.9 definition once per parsed model
-(`engine/model/consumer_expansion.py`, every default written out) and takes a 0.8 one as it is, every
-operation offered, and `consumer_apis(model)` is the only way code reads them. The expansion keeps a
+author wrote them, which is also its canonical document and `modelHash`: the syntax of the schema in the
+window. A stored release of a schema that left the window is rewritten in place by `engine/model/raising.py`
+(a document of schema 0.8 or earlier has its `consumerApis` rewritten from the old internal shape to the
+present syntax, by a read-only class of its own there), so no reader carries an older form. Every reader works
+on `ConsumerApiDefinition`, the internal form: `engine/model/consumer_definitions.py` expands a definition once
+per parsed model (`engine/model/consumer_expansion.py`, every default written out), and `consumer_apis(model)` is
+the only way code reads them. The expansion keeps a
 map from each internal pointer to the authored one, so the reference rules, which run on the
 internal form, and the contract check report at the node the author wrote.
 `engine/model/consumer_rendering.py` writes the internal form back as a 0.9 definition with every
@@ -1094,6 +1095,10 @@ groups (`user_groups` with a provider and claim value), and ends as the password
 one-time code whose session records the provider's key in `signed_in_with`. Providers' settings and
 the local sign-in switch are in `engine/identity/providers.py`, the client secret sealed like the
 signing keys. While local sign-in is off, the password check accepts only `users.local_kept`.
+A first sign-in takes the token's e-mail address (the sign-in name) only when `_believed` allows it: an address the
+token calls unverified never is, and one that does not say is taken only from a provider whose `emails_trusted`
+is on (default off; migration `20261203_01` set every existing provider on), as a provider may let people set
+their own address (R17-F20); otherwise the sign-in ends as `email_unverified`.
 
 **Signing out of a provider** (I4a): the app signs out by navigating to `GET /oauth/sign-out`, since
 only a navigation can take the browser to the provider. The engine ends the session from its
@@ -1157,7 +1162,7 @@ instance's template: Markdown with `{{content}}` (exactly once), `{{product_name
 message is queued (`outbox.enqueue` calls `mail_template.apply`, so the sealed body is already wrapped) around the
 message's own heading, text and button; the Markdown is converted with raw HTML, images and links other than
 http, https and mailto switched off. The logo is attached inline (`cid:`) when the message is sent
-(`sender.py` reads `logo_of`). With no row the engine's own layout (`html.layout`) is used; reset deletes the row.
+(`sender.py`: `_logo` reads the copy a message was rendered with). A message keeps the logo it was rendered with by the SHA-256 of its bytes: `mail_logos` holds one copy per digest, `mail_outbox.logo_digest` and `mail_template.logo_digest` refer to it (`keep_logo`, `logo_by_digest`; `prune_logos` deletes the copies no saved template and no pending message refers to; migration `20261203_01`, R17-F22), so a changed logo does not change a message already waiting; a message queued before then has no digest and is sent with the saved logo. With no row the engine's own layout (`html.layout`) is used; reset deletes the row.
 The routes are `/mail-template` with `/logo`, `/preview` and `/test` (`routers/mail.py`, action
 `mail-template.manage`, held by Operations at the instance). The row is part of the database and of its backup.
 
@@ -1263,7 +1268,7 @@ cancel while it does:
   is followed first. If that profile reads the file as well as the engine's own match does
   (`design_job.saved_layout_fits`), the task takes the engine's path below; otherwise a session starts.
   A task given words and no file starts the session at once.
-- **session** (`agent.py`): one Claude Code process of the assistant worker, in a folder of the task's own
+- **session** (`agent/`, the `run` and `outcome` modules): one Claude Code process of the assistant worker, in a folder of the task's own
   that is kept for its next turn. It is given the words, the workbook, the workspace's model and the
   OpenAPI document, and works through the API under a client of its own (`ai_tasks.client_id`, kind
   `session`) whose grants are made per turn from what the person holds in the workspace (Browse, Work in

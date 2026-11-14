@@ -8,7 +8,8 @@ The release train is 0.6 for daily live operations and optional coordinated desi
 (translations among its uses) and hierarchy editing, 0.9 for integration APIs, 0.10 for model authoring and spreadsheet onboarding (one editor for the
 model and the import mapping, ADR-035), 0.11 for production hardening and staged workspace model rollout,
 0.12 for security (authentication and authorization across the backend, frontend and APIs), 0.13 for the documentation, 0.14 for the management API reference, 0.15 for the interface language, 0.16 for AI integration (proposals, agent access, operations summaries), 0.17 for the plain path, and 1.0 for
-migration-class model changes, protected publishing and extensions.
+protected publishing and extensions (migration-class model changes, first planned for 1.0, moved to 0.13 MG
+by the user on 2026-11-09).
 
 ## Current development baseline — Base 0.17 complete
 
@@ -20,7 +21,7 @@ e-mail as the sign-in name, any view in a navigation group, and the complete man
 ([product release 0.17](#product-release-017--the-plain-path),
 [product release 0.14](#product-release-014--management-api-reference-and-ui-refinements)). 0.13, the documentation,
 was released before them as 0.16.1-alpha.5 (2026-11-11) and is part of 0.17.0. **0.15, the interface language, is the
-only release left before 1.0.**
+only release left before 1.0.** Since 0.17.1 only internal work is unreleased (the assistant task's code split, the frontend's shared-state layer, and test runs side by side, in lanes and chosen by what they import: SR1, SR2, TS2–TS4 in the [changelog](../CHANGELOG.md)); no product scope changed.
 
 ## Base 0.16 complete
 

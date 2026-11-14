@@ -27,8 +27,8 @@ or recent incidents. Test count and line coverage are not quality measures here;
 | --- | --- | --- |
 | T0 | Pure function or static source check, no database | `test_model.py`, `test_model_diagnostics.py`, `test_model_independence.py` |
 | T1 | Component test, Vitest + jsdom, mocked API | `src/**/*.test.tsx` |
-| T2 | Real HTTP request through FastAPI `TestClient` on a temporary or shared SQLite database | most `backend/tests/test_*.py` |
-| T3 | Startup, lifespan, Alembic upgrade or interrupted migration against a real temporary database | `test_startup.py`, `test_migrations.py`, `test_wp8_audit_migration.py`, `test_model_schema_upgrade.py` |
+| T2 | Real HTTP request through FastAPI `TestClient` on a temporary or shared SQLite database (PostgreSQL clones of a seed since 0.9.0-alpha.1 PG1; [execution guide](EXECUTION_GUIDE.md)) | most `backend/tests/test_*.py` |
+| T3 | Startup, lifespan, Alembic upgrade or interrupted migration against a real temporary database | `test_startup.py`, `test_migrations.py`, `test_wp8_audit_migration.py`, `test_model_schema_upgrade.py` (the last three were removed with the SQLite migration modules at 0.9.0-alpha.1 PG1; `test_schema_drift.py` and the J12 journey tests now hold this tier) |
 | T4 | Real browser against isolated real backend and Vite servers | `frontend/e2e/wp9-*.mjs`, `wp11/12/14-*.mjs`, `ui03*.mjs` |
 | T5 | Comprehensive build gates | `npm run test:a11y`, `npm run test:visual`, full suites (WP-9) |
 
@@ -39,7 +39,7 @@ contexts) and existing evidence. Section 3 ranks the H contracts.
 Test references use `file::test` with the `test_` prefix dropped; backend files are under
 `backend/tests/`, frontend files under `frontend/src/`, browser runners under `frontend/e2e/`.
 
-**Inventory at audit:** 528 backend test cases collected (after this package's changes, counting
+**Inventory at audit (2026-09-24; the suite has since moved to PostgreSQL only, gained the journey tests under `backend/tests/journeys/` and the unit tests under `backend/tests/unit/`, and is selected by `python -m tests.affected`, see the [execution guide](EXECUTION_GUIDE.md)):** 528 backend test cases collected (after this package's changes, counting
 parameterizations), 36 frontend component/unit files with ~200 cases, 10 browser journey scripts,
 and accessibility and visual gates with 13 committed baselines. No suite was run in full; collection and source inspection only.
 
@@ -242,7 +242,8 @@ integer change set paging in both sort directions in `::numeric_ranges_and_capab
 - **Order-dependent test (resolved in WP-13B):** `pagination::statement_paginator_accepts_the_historical_draft_cursor_identity`
   failed when run alone (no schema yet); it now owns a migrated database.
 - **Concurrency** is proven on SQLite only; PostgreSQL locking behavior is not exercised. WP-9 did not
-  add a PostgreSQL run; it remains for the production milestone.
+  add a PostgreSQL run; it remains for the production milestone. _Since 0.9.0-alpha.1 (PG3) the
+  backend runs on PostgreSQL only, and `test_pg3_concurrency` holds each race at the workspace row lock._
 - **Frontend mapping controls** (contextual target creation, keyboard operation, narrow layout)
   and every materially changed 0.7 surface's state inventory belong to WP-13C.
 - **Timing and command grouping** are delivered in the [execution guide](EXECUTION_GUIDE.md) (WP-13B):

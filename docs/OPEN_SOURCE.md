@@ -38,6 +38,7 @@ work is in [LICENSING_TODO](LICENSING_TODO.md).
 | [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) (`@fontsource-variable/jetbrains-mono`, variable weight) | 5.3.0 (package) | SIL Open Font Licence 1.1 | As above | Codes, keys and URLs in the UI (0.9 U2, ADR-039) |
 | [Inter](https://github.com/rsms/inter) (`@fontsource-variable/inter`, variable weight) | 5.3.0 (package) | SIL Open Font Licence 1.1 | As above | The text face of the Instrument theme (0.17 UX1) |
 | [Fraunces](https://github.com/undercasetype/Fraunces) (`@fontsource-variable/fraunces`, variable weight and optical size) | 5.3.0 (package) | SIL Open Font Licence 1.1 | As above | The title face of the Hearth theme (0.17 UX1) |
+| [Bricolage Grotesque](https://fontsource.org/fonts/bricolage-grotesque) (`@fontsource-variable/bricolage-grotesque`, variable weight and optical size) | 5.3.0 (package) | SIL Open Font Licence 1.1 | As above | The title face of the Studio theme (0.17 UX1) |
 
 The script is the npm package's file unchanged, so its SHA-384 matches the copy jsDelivr serves for the
 same version (the CDN setting relies on it). To upgrade: replace the file from the new version's
@@ -51,7 +52,7 @@ bundling them with software; the font files are not modified. To upgrade: change
 ## Before the first public release
 
 - Finish the licensing work in [LICENSING_TODO](LICENSING_TODO.md).
-- Add a code of conduct (with the contributor agreement).
+- Add a code of conduct (with the contributor agreement). The code of conduct exists: [CODE_OF_CONDUCT](../CODE_OF_CONDUCT.md), the Contributor Covenant 2.1 (0.13).
 - Run the secret scan over the whole history (`gitleaks`) once, before the first push.
 - Confirm that all committed examples are synthetic.
 - Establish semantic versioning and a public compatibility policy for the model language and API.

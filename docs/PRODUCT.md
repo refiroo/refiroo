@@ -46,13 +46,16 @@ Operator, Security administrator; [ADR-044](DECISIONS.md#adr-044--authorization-
 
 ## What you can do today
 
-Status as of Base 0.8 (released 2026-09-29) and the 0.9 work delivered since. "Browser" means a person
+Status as of 0.17.1 (released 2026-11-13), which holds everything delivered through Base 0.17. "Browser" means a person
 can complete the task in the application; "API" means another system can.
 
 ### Find and understand data — browser and API
 
 - Choose a workspace, then an application, and browse its collections; where the model groups them,
-  fold and unfold the groups in the sidebar and open a group's page to find a collection by name.
+  fold and unfold the groups in the sidebar and open a group's page to find a collection by name. Any
+  view, not only a relation matrix, can stand in a group. Each workspace has a page of its own (a search over
+  every record's name, its applications, the change sets that wait there and its latest changes), and a
+  person's shelf holds the lists and views they bring there from any application.
 - Search, filter by typed fields and sort lists of any size. Lists scroll continuously in both
   directions, show their totals and jump to a page, a value, the start or the end.
 - Switch between the views a collection offers: a table, a mapping grid, a relation matrix or a tree.
@@ -65,11 +68,15 @@ can complete the task in the application; "API" means another system can.
 - Browse a hierarchy of any depth in the sidebar tree, and search it to find a record with its path;
   select several records there and drag them to a new parent together.
 - Export what a collection page shows, with its filters, as an Excel workbook, CSV or JSON Lines; a
-  notification says when the file is ready, with Download and the job's page.
+  notification says when the file is ready, with Download and the job's page. The Export dialog opens on
+  **This view** and says what it holds (rows and columns, or records); a table, a tree, a relation matrix, a
+  relationships table or a mapping grid is exported as it is shown, and a type, an application or a workspace
+  can be exported for editing, a sheet per type. Every workbook for people has an "About this export" sheet.
 - Export a collection as a workbook for people: the table's columns, its relationship columns as
   lists of names, a sheet per chosen relationship, coloured as the app is; edit it in Excel and
   import it back without a profile, changing exactly what was edited, refused where someone else
-  changed a record meanwhile. Records that belong to the exported ones, such as translations, can be
+  changed a record meanwhile. Cells that name records offer their drop-down lists in every such workbook,
+  as pop-up menus in Numbers too. Records that belong to the exported ones, such as translations, can be
   laid out as a column per parent (a language's group): fill a new language's column to add every
   translation at once. Cells naming another record choose from a list of the records allowed.
 
@@ -80,7 +87,11 @@ can complete the task in the application; "API" means another system can.
   may choose, only those are offered, everywhere it can be chosen.
 - A save is live immediately and recorded in the record's history. If someone else changed the record
   meanwhile, nothing is overwritten: your input is kept and the newer version is shown.
-- Deleting a record first shows what else it would remove or disconnect, and asks for confirmation.
+- Deleting a record first shows what else it would remove or disconnect, and asks for confirmation once;
+  the confirmation covers exactly what was shown. Removing a relationship or clearing an optional value
+  asks nothing and offers Undo.
+- Edit one field where it stands: the value becomes its input, leaving it saves it, Escape puts the old value
+  back, and the saved value offers Undo; a refusal keeps the input open with the reason beside it.
 - Mark a value unavailable through its availability field, as an ordinary edit.
 - Select records in a collection (by hand, a range, or every record the search and filters match)
   and, after a preview of what will change and what will be refused, set or clear fields on all of
@@ -141,7 +152,23 @@ can complete the task in the application; "API" means another system can.
   languages, active model release, database revision) and how it is configured: every setting with
   its value, its default and where it came from, and the capability groups on or off. Settings are
   read here, never edited; secrets show only whether they are set.
-- Choose the theme and the default table density for this browser.
+- Deploy and upgrade with Docker Compose in one command each: `scripts/deploy.sh` makes the first deployment
+  (address, HTTPS mode, first administrator, generated secrets) and `scripts/upgrade.sh` checks the host, backs
+  up the database, the job files and the env file, upgrades and prints how to restore the backup.
+- Choose the theme and the default table density for this browser. Settings › **Appearance** offers
+  Current, Hearth, Studio, Instrument and Website purple, each in light and dark; a theme sets colours,
+  type and corners, and Studio and Instrument also arrange the frame (one side column, or a narrow strip with
+  a status line along the bottom) on screens wider than a phone. Settings opens on an index by task
+  (You, Workspaces and models, People and access, Connections, This instance), and every page has one shape:
+  a header, then groups of settings as rows; a list opens each item as a page.
+- Change how every mail looks: under Settings › This instance › **E-mail template** an operator edits one
+  template for the instance (a logo, and the message's own text placed where the template says), sees a live
+  preview, sends a test to themselves or goes back to the default.
+- Sign in with an e-mail address, which is the sign-in name and is unique. A sign-in provider's address is
+  taken only when the provider confirms it or the administrator has chosen to trust the provider's addresses.
+  An administrator can manage a person's sign-in for them (a shared or kiosk account), which takes the person's own
+  password, second factor and passkeys out of their hands. A person is written to when their password,
+  authenticator app or passkey changes.
 - In Settings › **Connections**, read each consumer API the active release declares (its version,
   base URL, exposed types, lists and events), follow and cancel jobs beside the batch, job and feed
   limits, and open each job's page with its state, progress and, for an export, what the file
@@ -248,9 +275,12 @@ can complete the task in the application; "API" means another system can.
   kept valid as the model is renamed and reorganized, and dry-run again after each step; installing
   the draft saves the profile for the load. A lookup may create the list values it names.
 - Shape a workbook into a model on the workbook canvas: drag sheets and columns onto lists, connect lists into a
-  hierarchy or relationship (the column that fills the link is found over every row), read wide sheets as rows, add
-  filters, see every row counted and the refused ones explained, then create a workspace from it. The model editor
-  and the canvas edit the same draft.
+  hierarchy or relationship (the column that fills the link is found over every row), read wide sheets as rows,
+  fill values down and read heading rows as parents, add filters, see every row counted and the refused ones
+  explained, then create a workspace from it in one step (**New workspace from a workbook** on Home). The model
+  editor and the canvas edit the same draft, and the canvas is a full model editor of its own: with or without a
+  workbook, every list, field, relationship, navigation group and application frame has the editor's menu, issues
+  and history, and an Editor | Canvas switch moves between the two.
 - Start a draft from a workbook and map it in the model editor: the sheets and columns beside the
   model, a column's mapping in the centre, Map to… by keyboard or by dragging a column onto a type,
   value maps, the dry run after each step with the rows behind each figure; then load the workbook
@@ -296,12 +326,17 @@ can complete the task in the application; "API" means another system can.
 
 | Release | What it adds |
 | --- | --- |
-| 0.9.0-alpha.1 | PostgreSQL as the only database, with real concurrency: workspaces write in parallel (in progress) |
-| 0.9 | Bulk relationship and mapping loads; the consumer APIs (lookup by code across systems, lists, crosswalks) with change events that carry the changed data, and signed webhooks; import and export of files with a preview |
-| 0.10 | Turn a spreadsheet into a working application; one structured editor for the model and the import mapping ([design](MODEL_AUTHORING.md)) |
-| 0.11 | Production readiness: performance at scale, several servers, monitoring, rehearsed backup and restore, moving workspaces between model versions in stages |
-| 0.12 | Sign-in for people and systems, permissions per application, record type and operation, rotating webhook signing keys |
-| 1.0 | Change released structure through the editor (renames, splits, merges) with a migration preview; reusable model modules |
+| 0.9.0-alpha.1 | PostgreSQL as the only database, with real concurrency: workspaces write in parallel (released 2026-10-03) |
+| 0.9 | (Released 2026-10-11.) Bulk relationship and mapping loads; the consumer APIs (lookup by code across systems, lists, crosswalks) with change events that carry the changed data, and signed webhooks; import and export of files with a preview |
+| 0.10 | (Released 2026-10-15.) Turn a spreadsheet into a working application; one structured editor for the model and the import mapping ([design](MODEL_AUTHORING.md)) |
+| 0.11 | (Released 2026-10-22.) Production readiness: performance at scale, several servers, monitoring, rehearsed backup and restore, moving workspaces between model versions in stages |
+| 0.12 | (Released 2026-10-28.) Sign-in for people and systems, permissions per application, record type and operation, rotating webhook signing keys |
+| 0.13 | (Released 2026-11-11, part of 0.17.0.) The documentation: a guide served by the engine and a public site, with a page for every capability; a model editor that sets everything a model holds and makes migration-class changes (renames, splits, merges) with a preview |
+| 0.14 | (Released 2026-11-13 with 0.17.) The management API reference: every management operation described, with recorded examples and an error catalogue |
+| 0.15 | The interface language: English and German, chosen in Settings › Appearance (planned; the only release left before 1.0) |
+| 0.16 | (Released 2026-11-02.) AI integration: proposals in the screens, the assistant that loads a workbook or designs a model from a few words, agent access over MCP, accounts of a model change and of a period, notification digests |
+| 0.17 | (Released 2026-11-13.) The plain path: a workbook shaped on a canvas into a workspace, the canvas as a full model editor, themes, a page per workspace, Settings by task, an e-mail template, e-mail as the sign-in name |
+| 1.0 | Protected publishing workflows, extension packaging and reusable model modules |
 
 The [roadmap](ROADMAP.md) has each release's scope and exit criteria.
 

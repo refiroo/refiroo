@@ -204,11 +204,12 @@ no renderer branches on an application or object-type key.
   way back; an opened item's header in its colour with at most two actions and a ⋯ menu; logs on a tab with totals,
   state chips and "n of m". Each Settings group has a colour (`features/settings/navigation`), a person and a client
   have theirs by name, and a role, a state and a kind of event keep their colours wherever they are shown.
-- **Settings:** a persistent control at the bottom of the rail opens Account and Appearance.
-  Account is a placeholder (local single-user session, disabled Sign in) for the planned multi-user
-  authentication. Appearance offers System, Light and Dark; the choice is stored per browser and
-  applied before first paint. Dark mode redefines the same semantic tokens, so renderers never
-  branch on the theme.
+- **Settings:** (as 0.7 first drew it: a control at the bottom of the rail opening Account and Appearance,
+  Account a placeholder for the planned authentication.) Since 0.12 and 0.17 Settings is the gear in the top bar and
+  opens on an index by task (You, Workspaces and models, People and access, Connections, This instance); Account is the
+  signed-in person's own page, and Appearance offers the colour scheme System, Light and Dark beside the theme (below);
+  the choice is stored per browser and applied before first paint. Dark mode redefines the same semantic tokens, so
+  renderers never branch on the theme.
 - **One way to edit (0.17 UX1 and UX2, PP-D40, PP-D68):** a value is changed where it stands (`ui/EditInPlace`,
   `ui/TextInPlace`): the value becomes its control, with no form around it and no Cancel and Save, and leaving it
   saves, as Enter does (Ctrl or Cmd with Enter in a text of several lines); a choice or a tick saves as it is made;
@@ -261,7 +262,10 @@ collection create action; contained types are created from parent-filtered panel
 core fields with optimistic concurrency and provides a two-stage delete action. The first request is
 non-cascading; when dependencies exist, the dialog renders the returned child objects, PK/FK
 dependents and relationships in model-derived language. Only a second explicit confirmation sends the
-cascade option.
+cascade option. (Since 0.17 UX1 the dialog reads what the delete would take with it before anything is
+asked, from `GET /objects/{objectTypeKey}/{objectId}/deletion-impact`, and one confirmation deletes under the
+`deletionPreviewToken` that names exactly that impact; if the impact changed meanwhile, the fresh impact is shown
+once and asked again.)
 
 When a contained object also has a required non-parent relationship, the generated create form derives
 the permitted source object types from the allowed relation triples and includes cross-application
@@ -272,7 +276,8 @@ can be created from its Translation Group or directly from the translated object
 the latter preselects and locks the target while retaining model-derived parent selection.
 
 Attribute panels distinguish an unset value from a stored falsy or null value. Editable bindings expose
-model-driven add/edit actions, while optional stored values can be removed with confirmation. Required,
+model-driven add/edit actions, while optional stored values can be removed (with confirmation until 0.17 UX1; since
+then removed at once, with Undo in a toast). Required,
 read-only and hidden bindings retain their declared behavior. All eight value types use one typed field
 renderer. Individual attribute writes claim the containing object’s current version; only explicitly
 change-set-scoped writes additionally claim the change set’s current version.

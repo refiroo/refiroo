@@ -1,6 +1,6 @@
 # Consumer API (Product 0.9)
 
-Status: accepted scope for 0.9, alongside the integration items already listed in ROADMAP.md.
+Status: accepted scope for 0.9, alongside the integration items already listed in ROADMAP.md; delivered with Base 0.9 (C1–C17, complete 2026-10-11, as [INTEGRATION_API.md](INTEGRATION_API.md) records) and secured in 0.12.
 All decisions (C-D1 to C-D16) are accepted as of 2026-09-29 and listed at the end.
 Each contract version, the events and the `RDM-*` headers are committed from 0.12.0: see [COMPATIBILITY.md](COMPATIBILITY.md).
 

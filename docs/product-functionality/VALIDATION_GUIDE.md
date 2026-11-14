@@ -16,6 +16,10 @@ Prepare new journey, accessibility and visual scenarios as their features are im
 Run comprehensive suites and composed release journeys at build acceptance (WP-9 for Base 0.7).
 Retain focused startup/migration, concurrency and security checks within the affected package.
 Report deferred checks explicitly; package evidence and release acceptance are distinct.
+The focused checks are chosen with the [execution guide](../testing/EXECUTION_GUIDE.md): for the backend
+`python -m tests.affected` (the tests importing the changed code, the tests that start the application and
+reach it, with the expected time) and the journey tests of the journeys the package touches; for the browser
+the named runners, which a release's block runs in lanes (`npm run test:lanes`).
 
 ## Evidence levels
 
@@ -104,6 +108,31 @@ acceptance evidence.
 | US-I09 | Advanced integration query | Roadmap; query grammar requires agreement | SC-10 extension / 0.9 |
 | US-O06 | Service observability | Health foundation; production measures planned | SC-13 / 0.11 |
 | US-P08 | Reusable definition package | Roadmap; two reuse cases required | SC-12 extension / 1.0 |
+
+## Journey tests since this guide's tables (2026-11-14)
+
+The two tables above record the position of 2026-09-08. Since then the backend suite holds
+**journey tests** (`backend/tests/journeys/`, [testing strategy](../testing/STRATEGY.md)): each walks
+a journey of [USER_JOURNEYS.md](USER_JOURNEYS.md) through the public API on at least two model
+configurations and asserts the data, the status and the error code, which is E2 evidence. The stories
+the tables list as roadmap (E5) now have journey tests; each remains subject to the rule above that a
+service-only pass cannot close a browser story, and the browser runners are named in the
+[execution guide](../testing/EXECUTION_GUIDE.md):
+
+| Stories | Journey and its tests |
+| --- | --- |
+| US-M01–M04 (mapping coverage, atomic replacement, ambiguity, target creation) | J10 `test_j10_replace.py` |
+| US-I03 (bulk changes) | J11 `test_j11_bulk_change.py` |
+| US-I04, US-I07, US-I08 (import and export jobs, file preview, scoped export) | J27 `test_j27_import.py`, `test_j27_export.py`, `test_j27_export_views.py`; J24 `test_j24_background_job.py` |
+| US-I05 (change feed, webhooks) | J26 `test_j26_follow_changes.py` |
+| US-I06 (effective and as-of query) | J22 `test_j22_precise_dataset.py`, J23 `test_j23_business_date.py` |
+| US-P05, US-P06 (structured authoring) | J33 `test_j33_operations.py`, `test_j33_outline.py`, `test_j33_design.py` |
+| US-P09, US-P10 (spreadsheet onboarding, reload through a saved profile) | J34 `test_j34_onboard.py` |
+| US-S01 (authentication and authorization) | J39 `test_j39_sign_in.py` and its sibling modules, J40 `test_j40_authorization.py`, J41 `test_j41_client_pages.py`, J42 `test_j42_approvals.py` |
+| US-O03, US-O04, US-O06 (several processes, restore rehearsal, observability) | J12 `test_j12_j36_several_processes.py`, `test_j12_rehearse_restore.py`, `test_j12_observe.py` |
+
+A story's delivery status stays in [USER_STORIES.md](USER_STORIES.md) and the journey's own
+**Status** line in USER_JOURNEYS.md; the table names tests that exist, not stories accepted.
 
 ## Required recurring journeys
 

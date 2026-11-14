@@ -303,7 +303,7 @@ database IDs.
 
 ### Navigation groups (`navigation`, schema 0.10)
 
-An application may arrange its collections, and its relation matrices, in labelled, foldable sidebar
+An application may arrange its collections, and its views, in labelled, foldable sidebar
 sections (0.10 N1, A-D2), and choose the view a collection opens on:
 
 ```json
@@ -815,6 +815,15 @@ Their shape, defaults, validation and contract rules are specified in
   `hierarchy`, `related` blocks reached by a relation's `key` or `reverseKey`), how XREF matches
   (`operations.xref.matchOn`, `alsoMatchThrough`) and its `filters` (`byType`, `under`, `linkedTo`,
   `onRelated`).
+- The `parent` block may serve more than the roles' names (0.17 CA1): `object.parent.fields` is written as the object's
+  `fields` are (an output name to its sources: `objectType`, `id`, `code`, `name`, an attribute a parent type binds, or
+  `ancestor:<type>.<field>`; `null` where a record's parent has none) and `parent.related` blocks are written as the
+  object's, one level only. Every related block, the object's and the parent's, takes `served`: `always` (the default)
+  or `onRequest`, a block read and served only when the request names it in `include` (`include=translations`,
+  `include=parent.systemVariants`; repeated or comma-separated; an unknown name is `400 UNKNOWN_INCLUDE`). An
+  `onRelated` filter may name a block of the parent (`onRelated: "parent.systemVariants"`). Adding parent fields,
+  parent blocks, `include` and filters is compatible; serving a block only on request that was served always is
+  breaking and needs a higher `contractVersion`.
 - A definition may keep **earlier versions** (`earlierVersions`, 0.13 DF3): a list, newest first, of
   frozen copies of the definition at an older `contractVersion`. Each holds that version's `contractVersion`
   (below the definition's own, once each), everything the definition itself holds except its `key` and `name`
@@ -874,7 +883,12 @@ Their shape, defaults, validation and contract rules are specified in
 Schema 0.10 is opened by Base 0.10 N1 (2026-10-11) and grows with 0.10's packages until 0.10.0 is
 released. It adds to 0.9:
 
-- `navigation` on an application ([above](#navigation-groups-navigation-schema-010)).
+- `navigation` on an application ([above](#navigation-groups-navigation-schema-010)); since 0.17 NG1 an entry
+  of a group may be a view of any kind, not only a relation matrix.
+- The `relationTable` view type ([above](#relationships-table-view-type-relationtable-schema-010-013-rv), 0.13 RV).
+- A table view's `availabilityField` ([above](#table-view-type-table), 0.13 LB).
+- On a consumer API definition: the parent's own `fields` and `related` blocks and `served` on every related
+  block (0.17 CA1; [below](#consumer-api-definitions-in-schema-09)).
 
 Every other part of a 0.10 document is as in 0.9, and a 0.9 document is valid unchanged, with the
 same content hash. A 0.9 document that declares `navigation` is refused with `INVALID_MODEL` at the
@@ -909,7 +923,7 @@ a migration (0.11 V1–V3); it never mutates an immutable release or bypasses va
 | 0.7 | Relations-panel sort options (`sortFields`, `defaultSort`); the `relationMatrix` and `tree` view types |
 | 0.8 | `effectivePeriod` ([above](#schema-08-additions-product-09)) |
 | 0.9 | `consumerApis` in its present syntax; relation columns; `many-to-one`; a binding's `candidates` ([above](#schema-09-product-09)) |
-| 0.10 | An application's `navigation` ([above](#schema-010-product-010)) |
+| 0.10 | An application's `navigation` ([above](#schema-010-product-010)), a view of any kind in a group (0.17 NG1), the `relationTable` view type, a table's `availabilityField`, the parent's `fields` and `related` blocks and `served` of a consumer API's related blocks (0.17 CA1) |
 
 Schema 0.4 and earlier are outside the window. `form` and `dashboard` view types remain unimplemented.
 

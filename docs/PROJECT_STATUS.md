@@ -1,5 +1,20 @@
 # Project status
 
+## Unreleased after 0.17.1 — internal work (2026-11-13 and 2026-11-14)
+
+Five internal packages since `v0.17.1`, none changing the application's behaviour, API or database
+([CHANGELOG](../CHANGELOG.md) "Unreleased"). **SR1:** `engine/tasks/agent.py` is now the package
+`engine/tasks/agent/` (`sandbox`, `files`, `words`, `run`, `outcome`). **SR2:** the frontend's features import
+shared state from one layer (`src/state/`, with parts several features show in `src/ui/`, `src/lib/` and
+`src/model/`), a lint rule (ADR-046) keeps features from importing each other beyond a short list of deliberate
+edges, and two import cycles are gone. **TS2:** test runs side by side on one server (databases named with a run
+ID, a volume seed cloned only when no live run holds one, the shared server stopped by the last run using it,
+`python -m tests.clean_copy` for a package's final checks). **TS3:** browser runners in lanes
+(`npm run test:lanes`), port reservation, and a backend selection holding journey or assistant tests runs with
+`-n 4` then its `-m serial` part. **TS4:** `python -m tests.affected` selects tests by what they import, with the
+checked reach map `backend/tests/reach_map.json` and each test's recorded duration giving the selection's expected
+time; `pytest-testmon` is removed. The next release is 0.15 (the interface language), the last before 1.0.
+
 ## 0.17.1 — released 2026-11-13
 
 Fixes after 0.17.0, reviewed as a release (every change since `v0.17.0`; two findings fixed, R17-F49
@@ -20,25 +35,25 @@ exit gate), and PP-D11 (a grouped view also stays among its collection's views),
 behaviour. The full-size budgets were not measured. Next: 0.15 (the interface language), the last release
 before 1.0.
 
-## 0.13 (the documentation release) — R run, release pending (2026-11-11)
+## 0.13 (the documentation release) — released 2026-11-11 as 0.16.1-alpha.5, part of 0.17.0 (2026-11-13)
 
 0.13's build acceptance R ran on 2026-11-10 and 2026-11-11 ([record](BASE_0_13_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)):
 the full review of every change since `v0.16.0` (R13-F1–F34, all fixed), every block of build acceptance run, and 11 more
 defects found by the runs fixed (R13-F36–F45 and the Add members dialog). 0.16 was released before 0.13 finished, so 0.13
-ships as **0.16.1-alpha.5**. The release commit and tag wait for the reference-list UI work the user placed in 0.13; then
-only the checks that work changes are rerun. Known limit recorded: assistant sessions in a container share one user.
+ships as **0.16.1-alpha.5**. The release commit and tag waited for the reference-list UI work the user placed in 0.13; then
+only the checks that work changed were rerun. 0.13 is part of **0.17.0** (released 2026-11-13, see above) and of 0.17.1. Known limit recorded: assistant sessions in a container share one user.
 
 **0.16.2-alpha.1 (2026-11-12) is an interim release** the user asked for, to deploy to a production environment: `main`
 as it stands, with the 0.17 packages delivered so far (EM1, EX1, MC1, CA1, SA1, RF1 to RF6). It was tagged without a
 release's full review and without the build acceptance runs; the packages' own targeted checks ran. Assistant sessions in a
 container no longer share one user (0.17 RF5).
 
-## Current development baseline — Base 0.16 complete (2026-11-02)
+## Base 0.16 complete (2026-11-02), as it stood then (the current baseline is 0.17.1, above)
 
 **Base 0.16 is complete**, build acceptance R included
 ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#r-record-2026-11-02)), version 0.16.0; the commit and the tag `v0.16.0`
-follow the user's instruction. 0.16 was released before 0.13–0.15. 0.14's Track V is begun: V3 (the reference's conventions, the error catalogue, the workspaces, system and changes text, the gap list and the examples as files) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v3-record-and-the-example-data-inventory-2026-11-11)), V4 (the records text: `objects` and `attributes`, 13 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v4-record-2026-11-11)), V5 (the relations text: `relations`, `mapping` and `relation-matrix`, 18 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v5-record-2026-11-11)), V6 (the change sets text: `change-sets`, 23 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v6-record-2026-11-11)), V7 (the jobs, imports and source files text, 30 operations with their examples, and the fix that builds the document with any optional surface off) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v7-record-2026-11-11)), V8 (the model text: `model`, `model administration`, `model mappings` and `moves`, 64 operations with their examples, and the 78 operation kinds as schemas) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v8-record-2026-11-11)) with a fix to `POST /imports` naming a stored file, V11 (the security text: `security`, `oauth` and `agent-access`, 79 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v11-record-2026-11-11)), V12 (the AI, mail and notifications text, 36 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v12-record-2026-11-11)), and V9 (the webhooks text, 11 operations with their examples, and the close-out: the gap list deleted for a completeness test, every schema described without package numbers, the code check widened) closes Track V, the management API reference ([closing record](BASE_0_14_IMPLEMENTATION_PLAN.md#v9-record-and-the-closing-record-of-track-v-2026-11-11)); VD resolves its 20 open API documentation discrepancies (API.md corrected for 11, the code fixed for 9; [record](BASE_0_14_IMPLEMENTATION_PLAN.md#vd-record-2026-11-11)); 0.14's release step R and 0.15 are not built; 0.13 (the guide) is built and not released: what is left is
-the "Open for 0.13" list in [its plan](BASE_0_13_IMPLEMENTATION_PLAN.md#open-for-013) and the release step R. The version after 0.12 is 0.16.0 for that reason. The AI integration: the proposal provider and its
+follow the user's instruction. 0.16 was released before 0.13–0.15. 0.14's Track V is begun: V3 (the reference's conventions, the error catalogue, the workspaces, system and changes text, the gap list and the examples as files) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v3-record-and-the-example-data-inventory-2026-11-11)), V4 (the records text: `objects` and `attributes`, 13 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v4-record-2026-11-11)), V5 (the relations text: `relations`, `mapping` and `relation-matrix`, 18 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v5-record-2026-11-11)), V6 (the change sets text: `change-sets`, 23 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v6-record-2026-11-11)), V7 (the jobs, imports and source files text, 30 operations with their examples, and the fix that builds the document with any optional surface off) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v7-record-2026-11-11)), V8 (the model text: `model`, `model administration`, `model mappings` and `moves`, 64 operations with their examples, and the 78 operation kinds as schemas) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v8-record-2026-11-11)) with a fix to `POST /imports` naming a stored file, V11 (the security text: `security`, `oauth` and `agent-access`, 79 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v11-record-2026-11-11)), V12 (the AI, mail and notifications text, 36 operations with their examples) is delivered ([record](BASE_0_14_IMPLEMENTATION_PLAN.md#v12-record-2026-11-11)), and V9 (the webhooks text, 11 operations with their examples, and the close-out: the gap list deleted for a completeness test, every schema described without package numbers, the code check widened) closes Track V, the management API reference ([closing record](BASE_0_14_IMPLEMENTATION_PLAN.md#v9-record-and-the-closing-record-of-track-v-2026-11-11)); VD resolves its 20 open API documentation discrepancies (API.md corrected for 11, the code fixed for 9; [record](BASE_0_14_IMPLEMENTATION_PLAN.md#vd-record-2026-11-11)); 0.14's release step R and 0.15 were not built then; 0.13 (the guide) was built and not released: what was left was
+the "Open for 0.13" list in [its plan](BASE_0_13_IMPLEMENTATION_PLAN.md#open-for-013) and the release step R. Since then 0.13 was released (as 0.16.1-alpha.5 on 2026-11-11) and 0.14, with its release step R, was released in 0.17.0 (2026-11-13); 0.15 is still not built. The version after 0.12 is 0.16.0 for that reason. The AI integration: the proposal provider and its
 settings (AP1), targets for unmapped values (AP2), the assistant as a Claude Code session that designs, checks and loads
 a workbook (AP8–AP10), the model shape (AP11), changing a workspace's model with its records moved (AP12), always a way
 out (AP13), agent access over `/mcp` with read tools, prepared changes and natural-language search (AG1–AG4), an account
@@ -56,7 +71,7 @@ mapping grid, a job asking the provider among the grid's own candidates and writ
 provenance on change-set relations through publication into history, the Proposed filter,
 `AI_CONTEXT_TOKENS`. **AP6a, loading a workbook with the assistant, is delivered (2026-10-29)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap6a-record-2026-10-29)): the naming helper removed; Import offers the assistant first; a task reads the workbook (a stored profile that fits followed first), shows what needs the person, checks every row in a dry run, has the assistant fix refused values and loads into a change set.
 
-**The assistant is now a Claude Code session (AP8, the user's decision of 2026-10-31)**, built and tried on sample files; it supersedes AP3–AP7, which are kept as [history](BASE_0_16_IMPLEMENTATION_PLAN.md#history-of-the-assistant). The plan was [reconciled](BASE_0_16_IMPLEMENTATION_PLAN.md#where-each-decision-stands) with the code on 2026-10-31. **Open:** WM1 (planned, not built); AP9 (who did it) built 2026-10-31, its real try waiting; AP10 (one path) delivered 2026-10-31; AP11 (good models in time) closed 2026-11-01; AP12 (reshaping, "Change this model…") delivered 2026-11-01; [AP13, always a way out](BASE_0_16_IMPLEMENTATION_PLAN.md#ap13-record-2026-11-02), built 2026-11-02 (a failed or stopped turn takes words, Stop ends the turn and not the task, a wrong load takes words and loads again, the session lives until the work is published, discarded or confirmed, a published task points onward), **its one real walk-through of the acceptance workbook still waiting**; Track O (not started); R.
+**The assistant is now a Claude Code session (AP8, the user's decision of 2026-10-31)**, built and tried on sample files; it supersedes AP3–AP7, which are kept as [history](BASE_0_16_IMPLEMENTATION_PLAN.md#history-of-the-assistant). The plan was [reconciled](BASE_0_16_IMPLEMENTATION_PLAN.md#where-each-decision-stands) with the code on 2026-10-31. **Open then (2026-11-02):** WM1 (planned, not built); AP9 (who did it) built 2026-10-31, its real try waiting; AP10 (one path) delivered 2026-10-31; AP11 (good models in time) closed 2026-11-01; AP12 (reshaping, "Change this model…") delivered 2026-11-01; [AP13, always a way out](BASE_0_16_IMPLEMENTATION_PLAN.md#ap13-record-2026-11-02), built 2026-11-02 (a failed or stopped turn takes words, Stop ends the turn and not the task, a wrong load takes words and loads again, the session lives until the work is published, discarded or confirmed, a published task points onward), **its one real walk-through of the acceptance workbook still waiting**; Track O (not started); R. Later that day AP13's walk-through ran once and was accepted by the user ([plan](BASE_0_16_IMPLEMENTATION_PLAN.md#packages)), and 0.16 was released as 0.16.0 after its build acceptance R.
 
 ## Previous baseline — Base 0.12 complete (2026-10-28)
 
@@ -565,7 +580,7 @@ for every user journey of every client, the API as the product, specification-fi
 every client) and the API inventory mapping every route, parameter, error code and setting to journeys,
 with seven decisions, all taken the same day ([record](TEST_HARNESS_PLAN.md#h4a-the-journey-catalogue)). **H4b is delivered
 (2026-10-02):** journey markers checked against the catalogue, the journey and unit layout, the API
-inventory check, selection by change (`pytest-testmon`, on the C tracer) with `tests.affected` for
+inventory check, selection by change (`pytest-testmon`, on the C tracer, replaced in TS4 by `tests.affected` choosing by import and a checked reach map) with `tests.affected` for
 what coverage cannot see, and the trace report; mutation testing was tried and dropped in favour of
 planted faults per area in H4d ([record](TEST_HARNESS_PLAN.md#h4b-traceability-and-selection)).
 **H4c is delivered (2026-10-03):** journey tests for every catalogue entry with an API or operator

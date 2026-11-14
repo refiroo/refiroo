@@ -238,9 +238,10 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | Marker | Contracts (coverage map) | Modules | Cases |
 | --- | --- | --- | --- |
 | `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility`, `test_effective_periods`, the unit tests under `tests/unit/engine/model/` (0.9 C15) | 348 |
-| `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context`, `test_w5_activation_write_race`, `test_pg3_concurrency` | 187 |
-| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup` (clean bootstrap, restart, the database refusals, a failed migration rolled back), `test_model_schema_upgrade`, `test_matrix_states`, `test_schema_drift` (the PostgreSQL baseline against the ORM), `test_foreign_keys` (every `ondelete` rule, PG-D4), `tests/unit/test_config.py` (with the settings catalogue, 0.9 U3) and `test_main.py`, the J12 and J31 journey tests (J31: `test_j31_system`, `GET /system`) | 103 |
+| `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade` (the module is gone; its manifest entry remains), `test_wp81a_context`, `test_w5_activation_write_race`, `test_pg3_concurrency` | 187 |
+| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup` (clean bootstrap, restart, the database refusals, a failed migration rolled back), `test_model_schema_upgrade` (gone, as above), `test_matrix_states`, `test_schema_drift` (the PostgreSQL baseline against the ORM), `test_foreign_keys` (every `ondelete` rule, PG-D4), `tests/unit/test_config.py` (with the settings catalogue, 0.9 U3) and `test_main.py`, the J12 and J31 journey tests (J31: `test_j31_system`, `GET /system`) | 103 |
 | `workspace_models` | J36: each workspace's model, its activation and the commit guard per workspace (0.11 M1); what follows the workspace's model: import profiles, drafts, consumer documents (M3); reads spanning workspaces and counterparts across models (M4); the reads the browser's workspace screens need (M5); a request naming the release it was built on (M6a) | `tests/journeys/test_j36_workspace_models.py`, `test_j36_workspace_resources.py`, `test_j36_spanning_reads.py`, `test_j36_workspace_ui_reads.py`, `test_j36_expected_release.py` (J36 selects them) | 44 |
+| `migration` | J37: a workspace's data migrated to another release: the preview, the confirmation and the conversions (0.11 V1); a change set moved onto its workspace's release (V3), the schema window and raising a release | the J37 journey tests (`tests/journeys/test_j37_workspace_migration.py`, `test_j37_6_change_set_release.py`, `test_j37_7_change_set_moved.py`, `test_j37_8_schema_window.py`, `test_j37_9_raise_release.py`; J37 selects them) and `test_migration_budget` (also `volume`, and `budget`, left out by default) | not counted |
 | `move` | J38: data moved between workspaces whose models differ; the model-to-model mapping, its operations, history and inference (0.11 X1); the selection and the dry run of a move (0.11 X2); the move into change sets, origins and the move back (0.11 X3) | `tests/journeys/test_j38_1_model_mapping.py`, `test_j38_2_move_dry_run.py` and `test_j38_3_move.py` (J38 selects them), the unit tests under `tests/unit/engine/moves/`, `test_move_statements.py` (also `volume`) | 53 |
 | `docs` | The guide served at `/docs` with its headers, built or absent (0.13 DOC1) | `tests/unit/management/test_guide_site.py`. Run `cd backend && .venv/bin/python -m pytest -m docs -q`. The guide's own checks run from `guide/` (`npm run verify`, which builds the guide and runs every check; `guide/AGENTS.md`) | 7 |
 | `reference` | The management API's reference text (`management/reference/content/`) merged into its OpenAPI document: a section naming a missing route fails, every code an operation lists has a catalogue entry and every entry is listed or badged as no response status, no package or decision IDs in a description; the examples recorded from a run on the guide's reference model and its `docs` set (0.14 V3) | `tests/unit/management/reference/test_content.py`, `tests/test_reference_recording.py`, `tests/test_reference_records.py`, `tests/test_reference_relations.py`, `tests/test_reference_change_sets.py`, `tests/test_reference_jobs.py`, `tests/test_reference_model.py`, `tests/test_reference_mappings.py`, `tests/test_reference_security.py`, `tests/test_reference_mail.py`, `tests/test_reference_ai.py`, `tests/test_reference_webhooks.py` and `tests/test_reference_complete.py` (the completeness test: every operation has its section and example, every parameter and field a description, no description a package or decision number, every code an entry and every entry listed; the scenario's seed, `reference-docs`, is built once and reused until the model, the data, the loader or the module changes). `RDM_RECORD_EXAMPLES=1` makes the scenario write `content/examples/*.json`, normalised and short; without it the steps only assert status and code. Run `cd backend && .venv/bin/python -m pytest -m reference -q` | 64 |
@@ -597,7 +598,7 @@ visual evidence separately.
 Run once, against the finished build, after all implementation packages close. Runs may share the harness's
 PostgreSQL server (§ Backend: the PostgreSQL test harness), but a release's heavy blocks run one at a time.
 Inside the browser block the runners and both gates run in lanes (`npm run test:lanes -- all`, TS3), not in
-one queue; the chain below names the same runners one by one. The backend suite is one
+one queue; the chain below names the same runners one by one (all but the two Docker runners, `test:browser:real-provider` and `test:deployment`, which run only when named). The backend suite is one
 parallel invocation followed by its serial part, without `budget` (11-minute ceiling, six workers); the full-size
 budgets run only at a release's acceptance (§1).
 
@@ -625,7 +626,18 @@ budgets run only at a release's acceptance (§1).
   && npm run test:browser:authoring-t1 && npm run test:browser:authoring-a5 \
   && npm run test:browser:authoring-a6 && npm run test:browser:authoring-a7 \
   && npm run test:browser:authoring-a8 && npm run test:browser:authoring-a9 && npm run test:browser:authoring-mg \
-  && npm run test:browser:authoring-r)
+  && npm run test:browser:authoring-r && npm run test:browser:lb && npm run test:browser:authoring-matrix \
+  && npm run test:browser:pl3b && npm run test:browser:ce1 && npm run test:browser:workspace-v1 \
+  && npm run test:browser:workspace-x4 && npm run test:browser:wm1 && npm run test:browser:workspace-r \
+  && npm run test:browser:sign-in && npm run test:browser:security && npm run test:browser:security-r \
+  && npm run test:browser:permissions && npm run test:browser:home && npm run test:browser:changes \
+  && npm run test:browser:clients && npm run test:browser:sign-in-providers && npm run test:browser:i4 \
+  && npm run test:browser:operations && npm run test:browser:mail && npm run test:browser:ai \
+  && npm run test:browser:agent-access && npm run test:browser:ag3 && npm run test:browser:ag4 \
+  && npm run test:browser:ap12 && npm run test:browser:ap13 && npm run test:browser:ao1 \
+  && npm run test:browser:ao2 && npm run test:browser:ao3 && npm run test:browser:reset \
+  && npm run test:browser:one-address && npm run test:browser:link-mail && npm run test:browser:ex1 \
+  && npm run test:browser:touch-u1)
 (cd frontend && npm run test:a11y && npm run test:visual)
 ```
 

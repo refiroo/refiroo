@@ -160,11 +160,17 @@ coherent edit is one save; the record keeps its identity, its place and its rela
   subtitle are edited in place in its header, on the full page and in the inspector, as a details
   field is; an empty editable subtitle offers Add; saving claims the record's version.
 - **J02.7 Correct it in a list** (UI, Base 0.10 A9): a name or value is edited, or an optional
-  value removed after its confirmation, from its cell in a collection or a record's table: the
+  value removed (after its confirmation until 0.17 UX1, since then at once with Undo), from its cell in a collection or a record's table: the
   cell under the pointer shows a pencil and a trash beside its value (always on touch), a click on
   the value still opens the record; saving claims the record's version, goes to the open change set
   when there is one and says where it went; a read-only binding, a computed field and a
   publication show no icons.
+- **J02.8 One field saves when it is left** (UI, 0.17 UX2): clicking a value turns it into its input where it stands, with
+  no form, Cancel or Save; leaving the field saves it (Enter does too; Ctrl or Cmd with Enter in a text of several lines),
+  a choice or a tick saves as it is made, Escape puts the old value back, an input left as it was saves nothing, and the
+  saved value is told "‹Field› saved" with Undo (an optional field left empty is "removed" with Undo). A refusal (a model
+  rule, a record changed elsewhere) keeps the field open with the reason under it and the input kept; a required field left
+  empty is refused under the field.
 
 **Refusals:** `409 VERSION_CONFLICT`, `409 DUPLICATE_ATTRIBUTE_VALUE`, `422 INVALID_ATTRIBUTE_VALUE`
 (a value of the wrong type), `422 ATTRIBUTE_BELOW_MINIMUM`, `422 ATTRIBUTE_ABOVE_MAXIMUM`,
@@ -787,7 +793,8 @@ US-I01. **Scenario:** SC-14, SC-08. **Status:** delivered (0.8 W).
   a later write is refused.
 - **J19.3 Search and page the catalogue.**
 - **J19.4 Administration disabled**: the catalogue stays readable and the change-set workflow works.
-- **J19.5 Read the workspace's activity** (planned, decided D-5): change sets created, renamed and
+- **J19.5 Read the workspace's activity** (decided D-5; delivered as the **Activity** tab of a workspace's page in
+  Settings › Workspaces, newest first, by day, with repeats of one change folded): change sets created, renamed and
   discarded, publications published and withdrawn, the default switched, with who and when.
 
 **Refusals:** `409 WORKSPACE_ALREADY_EXISTS`, `409 VERSION_CONFLICT`, `409 WORKSPACE_RETIRED`,
@@ -1299,7 +1306,7 @@ refusals, a stale review, 390px); the budget `test_migration_budget` (100,000 re
 **Stories:** US-P09. **Status:** J38.1 delivered through the API (0.11 X1); the selection and the
 dry run of every item delivered through the API (0.11 X2); the move into change sets, copy or move,
 found again and moved back, delivered through the API (0.11 X3); the move editor delivered in the
-browser (0.11 X4); the checkpoint at full volume planned (0.11 X5).
+browser (0.11 X4); the checkpoint at full volume delivered (0.11 X5; 0.11 was released 2026-10-22).
 
 1. Open a mapping from the source workspace's model to the target's; the engine proposes it and the
    user completes it.
@@ -1828,7 +1835,7 @@ unit tests of `engine/imports/` (cells, profiles, readers, the binding report) a
 
 **Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
 **Status:** get by ID delivered (0.9 C2), lists and parameters (0.9 C3), publications and ETag (0.9
-C6a); XREF is J29 (0.9 C4); the rest follows in C6b and C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
+C6a); XREF is J29 (0.9 C4); the typed document per API (0.9 C6b) and `asOf` reads (0.9 C16) were delivered with 0.9 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Read one business object by its object ID from a consumer API's contract version:
    `GET /api/consumer/{consumerApi}/v{contractVersion}/objects/{id}`; or read a declared list of them,
@@ -3150,8 +3157,9 @@ workspace card on Home), API (`GET`/`PUT /me/notification-mail`, `GET /me/follow
 
 **Actor:** a model author with a workbook on a draft. **Channel:** UI (the workbook canvas, 0.17 PL3b), API (`POST
 /model-drafts/{id}/operations` with the reading kinds, `POST /model-drafts/{id}/join-candidates`, `GET`/`PATCH
-/model-drafts/{id}/canvas`). **Status:** the engine and API delivered by 0.17 PL3b (2026-11-12); the canvas UI is its
-other half.
+/model-drafts/{id}/canvas`). **Status:** delivered by 0.17 PL3b (2026-11-12) and released in 0.17.0 (2026-11-13): the
+engine and API, and the canvas UI as their other half; since 0.17 CE1 the same page is a full model editor
+(Editor | Canvas) and **New workspace from a workbook** makes a workspace from the workbook in one step.
 
 The canvas is a view of the draft, and each drop is one operations request, so one undo step. Nothing here is the canvas's
 own: an integrator shapes a workbook with the same requests.

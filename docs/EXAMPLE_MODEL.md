@@ -13,7 +13,7 @@ application declares, and explains why the three differ.
 
 | Layer | What it is | What it knows |
 | --- | --- | --- |
-| **Engine** | Generic capabilities: object types, typed attributes, relation types and their patterns (containment, recursive hierarchy, cross-reference), view types (`table`, `mappingGrid`, `relationMatrix`, `tree`), detail composition, live editing, change sets, publications, model releases, paged APIs | Nothing about any application, object type or relation key. No backend or frontend code branches on a model key. |
+| **Engine** | Generic capabilities: object types, typed attributes, relation types and their patterns (containment, recursive hierarchy, cross-reference), view types (`table`, `mappingGrid`, `relationMatrix`, `relationTable`, `tree`), navigation groups, detail composition, live editing, change sets, publications, model releases, consumer APIs, paged APIs | Nothing about any application, object type or relation key. No backend or frontend code branches on a model key. |
 | **Model** | A versioned JSON declaration of applications, object types, attribute types, relation types, allowed relationships and views | The structure of one use case |
 | **Application** | A named selection of object types plus the views declared for it | Only what its declaration says |
 

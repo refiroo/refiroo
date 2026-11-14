@@ -286,7 +286,12 @@ binding; profiles are instance-wide). This is the outline as first written:
   the attribute registry), to a parent or relation by a match key (optionally split on a delimiter),
   a set of flag columns to one relation, to translations (a column per language, or a row per
   language), to a system mapping, or ignored.
-- **Value maps** are named and reusable across columns.
+- **Readings of a source's table** (0.17 PL3b) change how its rows are read before any column is bound, and hold for any
+  import, a dry run and a saved profile: `unpivot` (a wide table read as rows: each filled cell of the listed columns
+  becomes a row, the column's header in a new column and the cell in another), `fillDown` (an empty cell takes the nearest
+  filled cell above it) and `headings` (a row holding only a heading is the parent of the rows beneath it).
+- **Value maps** are named and reusable across columns. A relationship's own value takes a value map as a column does
+  (`relation.attributes[].valueMap`, 0.17.1).
 - **Upsert keys** are the 0.9 upsert keys (D2): the public ID or one unique attribute.
 - **Outcomes** are 0.9 item outcomes, reported per row with the sheet and row number.
 - A profile names the model release it was checked against. Running it against another release re-checks
@@ -474,7 +479,18 @@ chosen columns dropped on a list or field are read as rows (`setUnpivot`), the t
 fills blanks from above and reads heading rows; a press on a row number of the sheet preview sets the header row. Every
 gesture has a menu or keyboard path (Enter on Connect, arrow keys move a card 16px, Shift with the arrows chooses columns),
 and on a phone the menus do what the drags do. A card's refused count shows the reasons; wrong values are corrected with a
-value map. Create workspace…, Apply and Load into an existing workspace… finish from the canvas.
+value map. Create workspace…, Apply and Load into an existing workspace… finish from the canvas. A sheet tab has a menu
+with "Make an object type of this sheet", by mouse or keyboard and on a phone.
+
+Since 0.17 CE1 the canvas is also a full editor of the model, with or without a workbook: every list, field,
+relationship line, navigation group and application frame is a target of the editor's own operation table (its menu
+is the editor's `OperationsMenu`), the issues and history drawer is the editor's, and an **Editor | Canvas** switch
+stands at the top of both pages (a draft opens on the view the person used last, and on the canvas from a workbook
+flow). The strip offers Whole model, Changed in this draft and, with a workbook, From the workbook. Card positions, folds
+and the chosen scope are kept in the draft's canvas document (`GET`/`PATCH /api/v1/model-drafts/{id}/canvas`), outside
+the draft's version, history and releases. A workspace is made from a workbook in one step (**New workspace from a
+workbook**, 0.17 PL4): the file and a name, what was found, then the workspace is made on a model of its own with the
+workbook loaded; **Adjust** opens the canvas first.
 
 ## Lists as object types
 
@@ -533,9 +549,9 @@ An application may declare navigation groups:
   maintain lists.
 - Groups are presentation only. They change no API, data or record validation and carry no
   permissions, so regrouping never needs a migration; in the editor it is an additive operation.
-- Validation: each entry is a collection of the application (a view source type) or a relation matrix
-  view of it (`{ "view": key }`, which then has an entry of its own in the sidebar), a collection or a
-  matrix is in at most one group, group keys are unique within the application. `navigation.opens`
+- Validation: each entry is a collection of the application (a view source type) or a view of it of any kind
+  (`{ "view": key }`, which then has an entry of its own in the sidebar; relation matrices from 0.13 NG, any
+  view from 0.17 NG1), a collection or a view is in at most one group, group keys are unique within the application. `navigation.opens`
   names, per collection, the view its entry opens on.
 - The field is optional and arrives in 0.10's first schema language version; existing models stay
   valid unchanged.

@@ -51,4 +51,6 @@ The wordmark is dark ink on a transparent ground; on a dark surface it is drawn 
 filter, so the mascot (whose colours work on both) is never filtered.
 
 The colours the logo uses (periwinkle, mint and navy) are not yet the interface's colours; the
-palettes in `tokens.css` are unchanged.
+Normal palette in `tokens.css` is unchanged. Settings › Appearance also offers Website purple, built
+from the website's colours (`website/src/styles/tokens.css`), and the 0.17 themes Hearth, Studio and
+Instrument, each with palettes of its own (`frontend/tools/gen_themes.py`).

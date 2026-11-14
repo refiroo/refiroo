@@ -13,12 +13,17 @@ available today is in the [functionality catalogue](CURRENT_FUNCTIONALITY.md).
 | 0.6 | Model-driven daily browser use and optional change sets | US-D01–D14, US-W01–W08, US-L01–L02, US-P06, US-U01 | Delivered 2026-09-11 |
 | 0.7 | Review mapping coverage and replace one mapping atomically | US-M01–M04, US-W09 | Delivered 2026-09-25 |
 | 0.8 | Work with translation coverage and deep hierarchies at any size | US-L03–L04, US-H01–H03 | Delivered 2026-09-29 |
-| 0.9.0-alpha.1 | PostgreSQL runtime with real concurrency | — (no user-visible change) | In progress |
-| 0.9 | Exchange and synchronise data at integration scale | US-I03–I09 | In progress: queries, `asOf`, bulk jobs, the change feed, the consumer API reads, its change events and webhook subscriptions delivered; webhook delivery and file import and export to come |
-| 0.10 | Turn spreadsheets into applications; edit models in one structured editor | US-P05 (additive), US-P09–P10 | Roadmap |
-| 0.11 | Operate reliably with multiple writers and nodes, and staged models | US-O03–O04, US-O06, US-P07 | Roadmap |
-| 0.12 | Authenticate every caller and authorise every operation | US-S01, US-O05 | Roadmap |
-| 1.0 | Change released structure through the editor; reuse proven definitions | US-P05 (migrations), US-P08 | Roadmap |
+| 0.9.0-alpha.1 | PostgreSQL runtime with real concurrency | — (no user-visible change) | Delivered 2026-10-03 |
+| 0.9 | Exchange and synchronise data at integration scale | US-I03–I09 | Delivered 2026-10-11: queries, `asOf`, bulk jobs, the change feed, the consumer API reads, its change events, signed webhooks, and file import and export with a preview |
+| 0.10 | Turn spreadsheets into applications; edit models in one structured editor | US-P05 (additive), US-P09–P10 | Delivered 2026-10-15 |
+| 0.11 | Operate reliably with multiple writers and nodes, and staged models | US-O03–O04, US-O06, US-P07 | Delivered 2026-10-22 |
+| 0.12 | Authenticate every caller and authorise every operation | US-S01, US-O05 | Delivered 2026-10-28 |
+| 0.13 | A reader finds the page for a goal in a guide served by the engine; the editor makes migration-class changes with a preview | US-P05 (migrations) | Delivered 2026-11-11 (released as 0.16.1-alpha.5; part of 0.17.0) |
+| 0.14 | Every management operation described in the API reference, with recorded examples and an error catalogue | — (no story of its own yet) | Delivered 2026-11-13, released with 0.17 |
+| 0.15 | Choose the interface language in Settings › Appearance; English and German | — (no story of its own yet) | Roadmap: the only release left before 1.0 |
+| 0.16 | AI proposals in the screens, the assistant that loads a workbook or changes a model from words, agent access, accounts of a change and of a period, digests | — (no story of its own yet) | Delivered 2026-11-02 |
+| 0.17 | The plain path: a workbook shaped on a canvas into a workspace, the canvas as a full model editor, themes, a page per workspace, Settings by task, a field that saves when left, an e-mail template, e-mail as the sign-in name | — (no story of its own yet) | Delivered 2026-11-13 (0.17.0; 0.17.1 the same day) |
+| 1.0 | Reuse proven definitions; protected publishing | US-P08 | Roadmap |
 
 ## Delivered: 0.6 — Daily operations
 
@@ -57,7 +62,7 @@ lists everything a change set changes before publishing, and a Workspaces screen
 Both specialist lenses are generic: any application may declare them, and the generic record and
 relationship flows remain an alternative (see [Capability preservation](#capability-preservation-across-releases)).
 
-## In progress: 0.9 — Integration-grade APIs
+## Delivered: 0.9 — Integration-grade APIs (released 2026-10-11)
 
 **Why here:** extend validated single-record semantics to reliable larger exchanges.
 **Acceptance:** SC-10–SC-11, stories US-I03–I09. SC-11 passes through the management API (Q4) and the consumer API (C16).
@@ -72,7 +77,7 @@ rather than loops over user-interface operations or undocumented unlimited respo
 
 ### Functions
 
-Delivered:
+Delivered first:
 
 - model-aware query across types, by ancestor and by a related record (F20);
 - model-declared effective periods and `asOf` reads (F21);
@@ -81,7 +86,7 @@ Delivered:
 - consumer API definitions in the model, with a breaking-change check at activation (F23); and
 - the built-in API reference page (F24).
 
-Remaining:
+Delivered before the release of 2026-10-11 (these were the remaining items when this section was first written):
 
 - bulk relationship and mapping items;
 - an ordered change feed;
@@ -96,7 +101,7 @@ Remaining:
 - Bulk behavior is a first-class service, not client-side repetition of one-item calls.
 - Current type, relationship, workspace and concurrency rules still apply.
 
-## Product 0.10 — Model authoring and spreadsheet onboarding
+## Product 0.10 — Model authoring and spreadsheet onboarding (released 2026-10-15)
 
 **Why before production controls:** reference data arrives in spreadsheets, and today each upload needs
 hand-written model JSON and a bespoke import script. The editor's operations in 0.10 are limited to
@@ -121,7 +126,7 @@ through the saved mapping and shows only its differences.
 - generated default views and detail panels, edited in the preview;
 - saved import profiles, executed by the 0.9 import job into a change set by default.
 
-## Product 0.11 — Production hardening and staged model rollout
+## Product 0.11 — Production hardening and staged model rollout (released 2026-10-22)
 
 **Why it matters:** with 0.12, this is the gate for authenticated shared production use, not optional
 polish. Earlier milestones are pre-production capabilities. **Acceptance:** SC-13, stories US-O03–O04,
@@ -150,7 +155,7 @@ Workspace model assignment is not merely a pin. The product must resolve the wor
 model, migrate its data, keep every permitted schema executable and prevent one request from combining
 different model snapshots.
 
-## Product 0.12 — Security, authentication and authorization
+## Product 0.12 — Security, authentication and authorization (released 2026-10-28)
 
 **Why it matters:** the security release, after everything else works; with 0.11 it gates shared
 production use. **Acceptance:** stories US-S01 and US-O05, the identity part of SC-13.
@@ -169,6 +174,32 @@ path, and changes are attributed to a proven identity.
 - UI administration of OAuth clients and webhook subscriptions; and
 - authenticated audit identity.
 
+## Delivered: 0.13 to 0.17 (2026-11-02 to 2026-11-13)
+
+**0.13 — Documentation** (2026-11-11, as 0.16.1-alpha.5). A guide served by the engine at `/docs` and as a public site, a
+page for every capability, setting, error code and command, checked by a coverage inventory; the model editor sets
+everything a model holds and makes the changes that need a migration (renames, splits, merges, key changes), each
+marked with the migration it implies; mail through Microsoft 365; relationship attributes in views and consumer APIs.
+
+**0.14 — Management API reference** (2026-11-13, with 0.17). Every management operation at `/docs/api` is described,
+with its parameters, errors and a recorded example, and an error catalogue.
+
+**0.16 — AI integration** (2026-11-02). Proposals in the screens, the assistant that loads a workbook or changes a
+model from a few words, agent access over MCP, an account of a model change and of a period, and notification digests.
+
+**0.17 — The plain path** (2026-11-13; 0.17.1 the same day). A workbook is shaped on a canvas and made into a workspace
+in one step; the canvas edits the whole model; themes (Current, Hearth, Studio, Instrument, Website purple) with their
+frames; a page for each workspace and a shelf of the lists a person brings there; Settings by task, every page of one
+shape; one field saved when it is left; deleting after one confirmation; change sets in two clicks; an e-mail template
+and mail when a person's sign-in changes; the e-mail address as the sign-in name; any view in a navigation group;
+exports that follow the view, with drop-down lists in every workbook for people; `scripts/deploy.sh` and
+`scripts/upgrade.sh` for Docker Compose.
+
+## Planned: 0.15 — Interface language
+
+A person chooses a language in Settings › Appearance and the whole interface reads in it, the engine's error messages
+the interface can meet included; English and German ship. It is the only release left before 1.0.
+
 ## Product 1.0 — Self-service model authoring and extensions
 
 **Why after production controls:** changing released structure needs protected changes and safe migration.
@@ -182,8 +213,7 @@ changes that need a data migration, and reuses proven definitions.
 
 ### Planned functions
 
-- the 0.10 editor's migration-class operations (key renames, splits, merges, cardinality changes on
-  released structure), each with an impact preview;
+- (the 0.10 editor's migration-class operations, with an impact preview, moved to 0.13 and are delivered there;)
 - dependency visualization only where it improves comprehension;
 - protected publish, activation and rollback on the 0.11 migration boundary; and
 - reusable extension packages after two real reuse cases establish the abstraction.

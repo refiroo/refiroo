@@ -6,8 +6,8 @@ that use it. The API is the product: an option is justified by a journey of any 
 steward, operator, model author), not by the built-in UI. What maps to no journey, or reaches one goal
 in two ways without a reason, is listed under [Decisions](#decisions).
 
-Built from the OpenAPI document of `create_app()` (81 operations, model administration enabled) and
-the codes the backend raises (139). `tests/test_api_journeys.py` (H4b) keeps this file in step with both: a route,
+Built from the OpenAPI document of `create_app()` (81 operations, model administration enabled; 296 on
+2026-11-14) and the codes the backend raises (139; 363 on 2026-11-14). `tests/test_api_journeys.py` (H4b) keeps this file in step with both: a route,
 parameter or code missing here fails it.
 
 ## Shared parameter groups

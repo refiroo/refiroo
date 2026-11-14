@@ -419,7 +419,7 @@ each item so that I can recover rejected work without creating duplicates.
 items are distinguishable, and retry does not duplicate successful work. The same data and conflict
 rules apply as for individual edits. Live changes and optional staged changes are clearly distinguished.
 
-**Coverage:** Planned integration APIs. **Status:** Available through the API for record items, inline or in the background (0.9 B1, B2); relationship and mapping items follow in 0.9 (B3).
+**Coverage:** Planned integration APIs. **Status:** Available through the API for record items, relationship items and mapping items, inline or in the background (0.9 B1–B3, released 2026-10-11).
 ### US-I04 — Import and export asynchronously
 
 **Story:** As an integration operator, I want validated, resumable import/export jobs so that large
@@ -428,7 +428,7 @@ files do not require an unbounded synchronous request.
 **Accepted when:** validation can be previewed, job status resumes safely, failures are itemized and
 completed output can be retrieved without holding one request open.
 
-**Coverage:** Background jobs, export and import jobs (`POST /batches`, `POST /exports`, `POST /imports`). **Status:** In progress for 0.9: background jobs with resumable status (B2), export jobs (J1) and import jobs through profiles (J2) are available through the API; the import preview follows (J3).
+**Coverage:** Background jobs, export and import jobs (`POST /batches`, `POST /exports`, `POST /imports`). **Status:** Available through the API and in the browser (0.9, released 2026-10-11): background jobs with resumable status (B2), export jobs (J1) and import jobs through profiles (J2) with the preview (J3); Import and Export are screens on a collection page and on Jobs (J4, J1u).
 ### US-I05 — Follow and deliver changes reliably
 
 **Story:** As an integration developer, I want an ordered change feed and retryable webhooks so that
@@ -438,7 +438,7 @@ downstream systems can synchronize without repeatedly scanning all data.
 repeated delivery. An expired position has an explicit recovery path. Delivery guarantees and retention
 are documented; exactly-once delivery is not assumed.
 
-**Coverage:** F25. **Status:** API available for the ordered feed, resume by position and repeat recognition (0.9 F1, journey J26); the expired-position recovery (F2) and consumer events and webhooks (C9–C13) are planned for 0.9.
+**Coverage:** F25. **Status:** API available for the ordered feed, resume by position and repeat recognition (0.9 F1, journey J26); the expired-position recovery (F2) and consumer events and signed webhooks (C9–C13) were delivered with 0.9 (released 2026-10-11).
 ### US-I06 — Query effective historical data
 
 **Story:** As an integration consumer, I want model-declared effective-date and “as of” behavior so that
@@ -457,7 +457,7 @@ proposed changes and errors so that I can correct mistakes before importing them
 with declared fields, and the preview explains invalid values, duplicate keys and proposed additions
 or updates by row. Preview changes no data; execution reports its agreed failure policy and outcomes.
 
-**Coverage:** Import profiles and import jobs (`/import-profiles`, `POST /imports`). **Status:** In progress for 0.9: profiles identify a file's columns, and rejected rows are reported by sheet, row and column (J2); the preview that changes nothing follows (J3), and its screen (J4). **Example:** SC-10.
+**Coverage:** Import profiles and import jobs (`/import-profiles`, `POST /imports`). **Status:** Browser validated and API available (0.9, released 2026-10-11): profiles identify a file's columns, rejected rows are reported by sheet, row and column (J2), the preview changes nothing (J3) and its screen is Import on a collection page and on Jobs (J4). **Example:** SC-10.
 ### US-I08 — Export the intended dataset
 
 **Story:** As a data owner, I want to export a clearly selected workspace and scope so that the
@@ -468,7 +468,7 @@ are explicit. Completion can be checked later, large output is retrievable in th
 partial output cannot be mistaken for a complete export. Field representation follows the documented
 format contract.
 
-**Coverage:** Export jobs (`POST /exports`, `GET /jobs/{id}/output`). **Status:** Available through the API (0.9 J1): live, change-set and publication context, per-type criteria, a subtree, a business date, relationships, JSON Lines, CSV and XLSX, a manifest on the job and no output unless completed; the screen follows (J1u). **Example:** SC-10.
+**Coverage:** Export jobs (`POST /exports`, `GET /jobs/{id}/output`). **Status:** Available through the API (0.9 J1): live, change-set and publication context, per-type criteria, a subtree, a business date, relationships, JSON Lines, CSV and XLSX, a manifest on the job and no output unless completed; Export is a dialog on a collection page and in Settings › Connections (J1u). Since 0.17 EX1 the dialog opens on **This view** and exports a table, a tree, a relation matrix, a relationships table or a mapping grid as it is shown. **Example:** SC-10.
 ### US-I09 — Request the precise dataset an integration needs
 
 **Story:** As an integration developer, I want supported combinations of business criteria beyond a
@@ -558,8 +558,8 @@ so that I can evolve a model without editing raw JSON or relying on a graph canv
 **Accepted when:** references are selected from catalogues, unsafe changes remain blocked pending an
 explicit migration, previews use the same validation as installation and releases stay reproducible.
 
-**Coverage:** Planned self-service authoring. **Status:** Roadmap 0.10 for the editor with additive and
-draft-only operations ([MODEL_AUTHORING.md](../MODEL_AUTHORING.md)); changes that need a migration in 1.0.
+**Coverage:** Planned self-service authoring. **Status:** Available (0.10, released 2026-10-15, the editor with additive and
+draft-only operations; 0.13 MG, changes that need a migration are made in the editor and marked with the migration they imply; 0.17 CE1, the canvas as a second structured view of the same draft; [MODEL_AUTHORING.md](../MODEL_AUTHORING.md)).
 
 ### US-P06 — Introduce another reference-data application without bespoke software
 
@@ -570,7 +570,7 @@ fields, relationships and views so that the organization can expand without comm
 rules and supported views are available through existing generic behavior. The standard maintenance
 journeys work for two differently configured types without a custom domain-specific code path.
 
-**Coverage:** F01, F15. **Status:** Available: a new application is a model release edited as JSON in the workbench, and the generic browser serves it. Structured authoring follows in 0.10. **Example:** SC-12.
+**Coverage:** F01, F15. **Status:** Available: a new application is a model release edited as JSON in the workbench, and the generic browser serves it. Structured authoring is the model editor (0.10) and, since 0.17, the canvas. **Example:** SC-12.
 ### US-P07 — Introduce new rules to one workspace in a controlled stage
 
 **Story:** As a model administrator, I want to migrate one workspace to a new definition before
@@ -585,7 +585,7 @@ cancels. Cancel changes nothing; stale review requires a fresh check; confirmati
 valid target graph and supported schema. Other workspaces and immutable history remain unchanged.
 Recovery and the supported compatibility period are documented.
 
-**Coverage:** Planned staged model rollout. **Status:** Roadmap 0.11; model selection is global today.
+**Coverage:** Planned staged model rollout. **Status:** Available (0.11, released 2026-10-22): each workspace runs a model of its own, installed, activated and migrated on its own, with the migration previewed and confirmed.
 **Example:** SC-13.
 
 ### US-P08 — Reuse a proven definition package
@@ -612,8 +612,7 @@ installed and activated through the normal release checks; the data arrives in a
 before publishing; and the journey works for two differently shaped workbooks, extending an existing
 model and starting a new application.
 
-**Coverage:** Planned model authoring. **Status:** Roadmap 0.10
-([MODEL_AUTHORING.md](../MODEL_AUTHORING.md)). **Example:** SC-12 through the editor.
+**Coverage:** F15, F22. **Status:** Available (0.10, released 2026-10-15; since 0.17 a workbook becomes a workspace in one step, **New workspace from a workbook**, or is shaped on the canvas first; [MODEL_AUTHORING.md](../MODEL_AUTHORING.md)). **Example:** SC-12 through the editor.
 
 ### US-P10 — Load the next version of a workbook through its saved mapping
 
@@ -624,7 +623,7 @@ that I review only what changed instead of repeating the setup.
 records are matched by their stable keys; the change set review shows the added, changed and missing
 records; and missing records are never deleted unless the mapping says so.
 
-**Coverage:** Planned model authoring, on the 0.9 import job. **Status:** Roadmap 0.10.
+**Coverage:** F15, F22, on the 0.9 import job. **Status:** Available (0.10, released 2026-10-15).
 
 ## All users
 
@@ -669,7 +668,7 @@ uniqueness, activation and runtime selection remain correct across concurrent pr
 **Accepted when:** production-like tests prove multi-writer uniqueness, release propagation,
 workspace migration, backup/restore and rollback without mixed-model requests.
 
-**Coverage:** Planned production hardening. **Status:** Roadmap 0.11.
+**Coverage:** F19. **Status:** Available (0.11, released 2026-10-22): several processes and nodes on one database.
 
 ### US-O04 — Restore a matching application and database backup
 
@@ -681,7 +680,7 @@ migration.
 configuration together, verifies readiness and data, and keeps this procedure separate from model
 release activation.
 
-**Coverage:** Planned production hardening. **Status:** Roadmap 0.11.
+**Coverage:** F19. **Status:** Available (0.11, released 2026-10-22): a rehearsed backup and restore; since 0.17 `scripts/upgrade.sh` backs up and upgrades a Docker Compose installation in one command.
 
 ### US-O05 — Know who changed governed data
 
@@ -692,8 +691,8 @@ I can follow up with the responsible person or integration.
 display name; record, relationship and administrative changes remain traceable through the appropriate
 history. Access to history follows the agreed permissions.
 
-**Coverage:** F11 plus authenticated audit. **Status:** Change history exists; authenticated attribution
-is roadmap 0.12. **Example:** SC-13.
+**Coverage:** F11 plus authenticated audit. **Status:** Available (0.12, released 2026-10-28): a change names the signed-in
+person or system; changes from before sign-in name nobody. **Example:** SC-13.
 
 ### US-O06 — Detect and investigate service degradation
 
@@ -706,7 +705,7 @@ unexpected fault. Representative load and recovery tests report results against 
 operating targets.
 
 **Coverage:** F19 plus metrics and structured operational diagnostics. **Status:** Health and expected
-refusal foundation present; production observability is roadmap 0.11. **Example:** SC-13 under the
+refusal foundation present; production observability (metrics, structured logs, health and readiness) was delivered with 0.11. **Example:** SC-13 under the
 agreed representative workload.
 
 ### US-S01 — Authenticate and authorize sensitive operations
@@ -717,4 +716,4 @@ and operations so that deployment flags are not mistaken for user access control
 **Accepted when:** administrative, ordinary and bulk paths enforce the same authenticated scope and
 cannot be bypassed through a less-visible API.
 
-**Coverage:** Planned security release. **Status:** Roadmap 0.12.
+**Coverage:** F26, F27. **Status:** Available (0.12, released 2026-10-28): sign-in for people and systems, roles and grants per workspace, application, record type and operation; since 0.17 the e-mail address is the sign-in name.

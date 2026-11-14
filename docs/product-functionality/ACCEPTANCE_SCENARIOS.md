@@ -97,7 +97,7 @@ opaque token returned by that exact preview and never silently expands or change
 
 ## SC-05 — Start a design from what is live today
 
-**Stories:** US-W01, US-W08. **Target:** 0.6 design acceptance; WP8.1-B provides the SQLite API boundary, while the browser journey remains WP9/WP10 work.
+**Stories:** US-W01, US-W08. **Target:** 0.6 design acceptance; WP8.1-B provides the SQLite API boundary, while the browser journey remains WP9/WP10 work. (The backend has run on PostgreSQL only since 0.9.0-alpha.1; the journey tests of J05 walk the API side.)
 
 **Given** the latest publication predates a live `LOCKER` addition and a corrected label, **when** a
 steward chooses “start from current live data,” **then** the new change set contains both the addition and
@@ -130,7 +130,7 @@ publishing; activation checks the final combined result again even if a previous
 
 ## SC-07 — Resolve a mapping without losing the existing answer
 
-**Stories:** US-M01–M04. **Target:** 0.7; planned.
+**Stories:** US-M01–M04. **Target:** 0.7; planned. Composed since in the browser runner `test:browser:sc07` (`sc07-mapping-acceptance.mjs`, WP-9) and walked through the API by the J10 journey tests (`test_j10_replace`).
 
 **Given** `PICKUP` needs a canonical target, **when** the steward opens mapping coverage, searches for
 “Collection” and saves the selection, **then** the row has that one target. Repeat from an unmapped
@@ -253,7 +253,7 @@ behavior from an arbitrary date field.
 
 ## SC-12 — Introduce a new reference-data domain
 
-**Stories:** US-P01–P06, US-D13. **Target:** existing definition workbench; 1.0 structured authoring.
+**Stories:** US-P01–P06, US-D13. **Target:** existing definition workbench; 1.0 structured authoring. The structured editor was delivered in 0.10 (J33, `test_j33_operations`) and 0.17 made the canvas a full model editor (`test:browser:ce1`); migrations stay 1.0.
 
 An administrator defines a new “Return Reasons” domain with its own fields, relationships and table.
 They save and check a proposed definition, inspect differences and compatibility, install it, then
@@ -271,7 +271,7 @@ ordinary data steward.
 ## SC-13 — Operate safely and move one workspace to new rules
 
 **Stories:** US-S01, US-O01–O06, US-P07. **Target:** existing operational refusal behavior; remaining
-production controls and staged rollout are 0.11 plans.
+production controls and staged rollout are 0.11 plans. Delivered since: operation and recovery (0.11, J12), a model of its own per workspace and the migration of a workspace's data (0.11, J36 and J37), and authentication, authorization and attributed history (0.12, J39 to J42, J44).
 
 Verify an expected startup problem reports what failed, the service state and the safe recovery action
 without requiring traceback interpretation. In the production milestone, a reader cannot edit through
@@ -318,9 +318,9 @@ the interface or integration rather than copied manually during ordinary steward
 
 ## SC-15 — Prepare for the next model version in one change set while live keeps the current one
 
-**Stories:** US-W01, US-W03, US-W08, US-W09, US-P03. **Target:** model selection remains global;
+**Stories:** US-W01, US-W03, US-W08, US-W09, US-P03. **Target:** model selection remains global (in 0.7; since 0.11 each workspace has a model of its own, J36);
 change set version selection is delivered in WP-6/WP-7 with WP-11 refusal and UI hardening. Composed
-scenario acceptance remains WP-9 (ADR-028).
+scenario acceptance remains WP-9 (ADR-028; browser runner `test:browser:sc15`, `sc15-model-version-acceptance.mjs`).
 
 A model administrator installs a candidate definition without activating it. Retail has two drafts:
 draft1 works under the definition that serves live data, and draft2 is created against the candidate.

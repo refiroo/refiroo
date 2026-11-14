@@ -5861,9 +5861,12 @@ sent.
 Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 [Base 0.9 plan](BASE_0_9_IMPLEMENTATION_PLAN.md); each contract moves here when its package is delivered.
 
-- Webhook subscriptions
+- Webhook subscriptions (delivered: [Consumer subscriptions](#consumer-subscriptions-base-09-c11),
+  [Webhook delivery](#webhook-delivery-base-09-c12))
 - Consumer API publications and events ([CONSUMER_API.md](CONSUMER_API.md)); get by ID, lists,
-  XREF, batch resolve and crosswalk are delivered (above)
+  XREF, batch resolve and crosswalk are delivered (above), and so are the events
+  ([Consumer events](#consumer-events-base-09-c10)) and the publications and caching headers
+  ([Publications and caching](#publications-and-caching))
 
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.

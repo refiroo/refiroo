@@ -12,7 +12,7 @@ The documents use product language. Implementation links are evidence, not the m
 
 ## Documentation set
 
-- [Current functionality](CURRENT_FUNCTIONALITY.md): the capability catalogue, F01–F24, with what
+- [Current functionality](CURRENT_FUNCTIONALITY.md): the capability catalogue, F01–F30, with what
   works in the browser and through the API.
 - [Worked examples](PRODUCT_GUIDE.md): everyday situations, the three kinds of change and what history
   answers.
@@ -20,7 +20,7 @@ The documents use product language. Implementation links are evidence, not the m
 - [User journeys](USER_JOURNEYS.md): the shortest understandable flows for important tasks.
 - [Acceptance scenarios](ACCEPTANCE_SCENARIOS.md): fictional but realistic data, observable outcomes,
   failure cases and simplicity measures.
-- [Roadmap coverage](ROADMAP_COVERAGE.md): user outcomes per release, 0.5 through 1.0.
+- [Roadmap coverage](ROADMAP_COVERAGE.md): user outcomes per release, 0.5 through 1.0 (0.17.1 is the latest release).
 - [Validation guide](VALIDATION_GUIDE.md): traceability, regression checks and the recurring review
   method.
 - [Planning handoff](PLANNING_HANDOFF.md): the gap register GAP-01–GAP-08 and its accepted answers.
@@ -50,7 +50,7 @@ A routine data edit never requires a change set or a model release.
 | **Roadmap** | A direction for a later release, not current functionality |
 | **Not planned** | Deliberately outside the stated product scope or release |
 
-"Available" does not imply authentication or authorization; both arrive in 0.12. Where a deployment
+"Available" does not imply that a caller may use a function: authentication and authorization arrived in 0.12, and what a person or system may do is set by role (F26, F27). Where a deployment
 setting controls a function, the catalogue says so.
 
 ## Maintenance rule

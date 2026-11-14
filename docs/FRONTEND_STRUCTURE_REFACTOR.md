@@ -7,6 +7,12 @@ equivalent pass over `backend/app`.
 **Status:** Phases 0–5 complete on `refactor/frontend-structure`. Phase 6 is pending Base 0.6
 implementation under accepted ADR-021.
 
+**Current layout (2026-11-14):** this file records the refactor as it was done. `frontend/src` has since
+grown to the layers `api`, `app`, `features`, `lib`, `model`, `routing`, `state`, `styles`, `types` and
+`ui`; SR2 moved app-wide state into `src/state/` and shared parts into `src/ui/`, `src/lib/` and
+`src/model/`, with a lint rule that keeps features from importing each other (ADR-046). The layout as it
+is now is described in [ARCHITECTURE.md, Presentation](ARCHITECTURE.md#presentation) (import tiers).
+
 ## Scope
 
 No API contract change, no change to the declarative model contract, and no architectural change.

@@ -4,7 +4,7 @@ What the product does today, function by function, with the browser and the API 
 backend coverage is not mistaken for a complete user experience. Reviewed 2026-10-02 against Base 0.8
 (released 2026-09-29) and the 0.9 packages delivered by then (Q1–Q4, C1, V1, B1, B2 and the
 0.9.0-alpha.1 PostgreSQL work PG1–PG3b); each later package updated it on delivery, up to Base
-0.11's completion (2026-10-22, its R's fixes included). Statuses use the
+0.11's completion (2026-10-22, its R's fixes included); brought up to date with 0.17.1 (released 2026-11-13) on 2026-11-14. Statuses use the
 [status vocabulary](README.md#status-vocabulary). The overview is [PRODUCT.md](../PRODUCT.md).
 
 ## Summary
@@ -33,13 +33,14 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4, C16 |
 | F22 | Load data in bulk as jobs | Validated: imports previewed and loaded from a collection or Jobs; jobs listed and cancelled in Settings | Available | 0.9 B1–B2; import screen 0.9 J4 |
-| F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
+| F23 | Declare consumer APIs and read through them | The model editor's Consumer APIs tab (and the JSON workbench); each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
 | F24 | Read the API reference | Available at `/docs/api`, each source linked from Settings; the page carries the application's header (logo to the app, Documentation \| API reference, the theme choice) | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › People and access › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
 | F27 | Control who can do what | Settings › People and access (People, Groups, Roles, Signing keys) and Settings › Connections › Clients, a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
 | F28 | Send mail | Settings › This instance › Mail | The organisation's mail server (SMTP, or Microsoft 365 through Microsoft Graph, signing in with a client secret, a certificate or a managed identity) saved with its secret sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1, 0.13 MS |
 | F28a | Brand the mail refiroo sends | Settings › This instance › E-mail template (Operator) | One template for the instance: Markdown with placeholders (the message's own text, the product's name, the instance's address, the person's name, the logo) and an uploaded logo, around every mail refiroo sends, with a text version; a preview with sample values, a test to your own address and a reset to the default; until one is saved refiroo's own layout is used | e-mail template |
+| F29 | Use AI proposals | Settings › This instance › AI; suggestions in the screens; the assistant in Import and on a workspace's ⋯ menu (Change this model…); explanations of a model change and of a period | AI tasks, the provider's calls and the explanation reads, each within what the caller may do | 0.16 |
 | F30 | Reach refiroo from an assistant | Settings › Connections › Agent access; an assistant, at `/mcp` | An assistant signs in or uses an agent client, reads, prepares changes in change sets of its own and submits them, works within what its person or client may do, and never approves or publishes |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
@@ -148,12 +149,16 @@ search over the names of every record in the workspace whatever its list or appl
 type and where each stands (the arrow keys move through them, Enter opens the record), the applications, the person's
 change sets that wait there, the five latest changes there, **Edit model** and a ⋯ menu to Rename, Access, Approval,
 Copy or move and Retire, each only for a person who may use it. The same search is in the top bar on every page of
-the workspace; applications that do not fit the bar are under **More**, and inside Settings the bar offers **← Back
+the workspace. A person's **shelf** on the workspace's page holds the lists and other views (a matrix, a tree) they
+bring there from any application, as tiles with the number of records, in their own order: dragged there from an
+application, by **Add a list**, or by the pin on a list's own page; it is kept in the browser. Applications that do
+not fit the bar are under **More**, and inside Settings the bar offers **← Back
 to the workspace** (the one the person came from) instead of its application tabs. The coloured strip under the bar
 says which data the page reads (Live, a change set, a publication) once: it no longer repeats the workspace and the
 application, and a change set's strip is one row (its name, how many changes it holds and its state, with who made it,
 when, its version and model under **Details**). A record has one line above its title, "← the list it was opened
-from" and the records above it; its ID and version are under **Details** and **Copy ID** is in its ⋯ menu. A list's
+from" and the records above it; its ID and version are under **Details**, which once opened stays open on the next record until it is closed again
+(kept per browser), and **Copy ID** is in its ⋯ menu. A list's
 page is titled by the sidebar entry it was opened from, its other views being tabs under the title. **Browse
 records** in the sidebar is folded until opened (and stays as it was left); a change set opened from the change set
 list shows its changes first, with **See the data with these changes**. **Settings** opens on an index of its pages
@@ -317,8 +322,12 @@ required fields, defaults, read-only bindings, numeric ranges, "at least one of"
 (also within an ancestor). In the browser a field is edited in place with an editor for its type, and a
 missing optional value is kept distinct from a stored false, zero, empty or null value. Clicking a value
 (or Enter on it) opens its editor, clicking an empty field adds a value, and an optional value is
-removed by its trash icon after a confirmation; saving is always explicit (Save or Enter, Escape
-cancels), and selecting a value's text to copy it does not open the editor. The record's header
+removed by its trash icon without a question (a toast says "removed" and offers Undo); the value becomes its input where
+it stands, and leaving the field saves it as Enter does (in a text of several lines Enter is a new line and Ctrl or
+Cmd with Enter saves; a choice or a tick saves as it is made), Escape puts the old value back, an input left as it was
+saves nothing, and the saved value offers Undo. A refusal (a rule of the model, a record changed elsewhere, a change
+set conflict) keeps the field open with the reason under it and the input kept, with **Cancel** and **Save again**.
+A required field left empty is refused under the field. Selecting a value's text to copy it does not open the editor. The record's header
 edits its title (usually the name) and subtitle the same way, on the full page and beside a tree,
 and offers Add for an empty subtitle; **Edit record**, the form with every field, is in the record's
 ⋯ menu. A list of records (a collection, or a record's table) edits in its cells too: the cell
@@ -465,7 +474,10 @@ Evidence: [relation matrix](../../frontend/src/features/objects/RelationMatrixVi
 
 Deleting first returns an impact preview without changing data: contained children, owned dependants
 and affected relationships. Removing owned dependants needs explicit confirmation; independent
-records are unlinked, not deleted. A live deletion is immediate and recorded; in a change set it is a
+records are unlinked, not deleted. The delete dialog reads the preview when it opens
+(`GET /objects/{objectTypeKey}/{objectId}/deletion-impact`, live or in a change set), shows what is lost with one
+danger button and deletes under a token that confirms exactly that impact; if the impact changed meanwhile it
+shows the fresh impact once and asks again, and if it cannot be read it says so and offers Retry. A live deletion is immediate and recorded; in a change set it is a
 staged removal. Publications and history are never erased.
 
 Evidence: [delete dialog](../../frontend/src/features/objects/ObjectDeleteDialog.tsx),
@@ -1000,7 +1012,10 @@ menus and shortcuts, managed dialog focus, dirty-input guards, narrow-screen nav
 mode, resizable panels and display preferences. On a phone the band under the top bar is one line:
 tapping the workspace, the application (with its icon) or Live, the change set or the publication
 opens that choice, so the top bar has no application tabs and the navigation drawer holds only the
-collections and records; Settings returns to the application through its Back link. Settings › **Appearance** sets the theme and the table
+collections and records; Settings returns to the application through its Back link. Settings › **Appearance** sets the theme (Current, Hearth, Studio, Instrument or Website purple, each in light and
+dark; a theme sets colours, the title typeface, corners and type sizes, and from 761px Studio arranges the frame as one side
+column beside a raised page and Instrument as a narrow strip with the data context as a status line along the bottom,
+while the others keep the top bar and sidebar; on a phone every theme keeps the bar and the drawer) and the table
 density every table starts from; a view's own density choice overrides it. It also sets the palette
 of the record type colours (B, magenta and olive, or A, plum and gold) and when a record's editable
 fields show their pencil: on hover and focus (the default), or faintly all the time. An automated accessibility gate (axe) and a visual
@@ -1474,7 +1489,12 @@ receives a link to choose a new password only if they have a local password and 
 
 The organisation's sign-in provider (OpenID Connect: Entra ID, Google, Keycloak and others) is added
 on Settings › People and access › Sign-in, with the address to register there shown to copy; the sign-in page
-then offers "Continue with" it, and the provider's own multi-factor sign-in applies. A person signing
+then offers "Continue with" it, and the provider's own multi-factor sign-in applies. The e-mail address is the sign-in name and is unique (ignoring case); a provider's
+person is still matched by the provider and its subject, never by e-mail, and needs an e-mail claim: a first sign-in
+without it is refused, saying the provider's administrator adds it, and so is one whose address another person holds.
+A provider's address is taken only when the provider confirms it (`email_verified`) unless **Trust the e-mail addresses it
+sends** is on for that provider (off for a new provider; turn it on only where people cannot set their own address); an
+unconfirmed address is refused with a message to ask an administrator. A person signing
 in through it for the first time is created with their name and e-mail from the provider, and the
 provider's groups become groups of the engine, listed under the provider, whose membership each
 sign-in updates; roles granted to such a group, even before anyone in it has signed in, apply to its
@@ -1676,7 +1696,7 @@ Settings › You › Notification email lists the followed workspaces with Stop 
 
 Limits: the page has no way to send a failed message again; there is no mail for clients, no choice of the digest's hour or an
 evening digest, and no names in a digest (D432); there is no mail provider's
-API, only SMTP; the organisation sets up SPF and DKIM for the from address's domain.
+API other than Microsoft 365's (Graph) beside SMTP; the organisation sets up SPF and DKIM for the from address's domain.
 
 Evidence: [mail contract](../API.md#mail), [OPERATIONS](../OPERATIONS.md#sending-mail),
 [outbox](../../backend/app/engine/mail/outbox.py), [sender](../../backend/app/engine/mail/sender.py),
@@ -1693,8 +1713,9 @@ The AI provider, set separately, serves the suggestions in the screens (today, t
 and nothing else. Either can be on without the other.
 
 An operator sets the provider in the server's settings: the Claude API with the organisation's key,
-or any endpoint that speaks the common chat-completions protocol, which also covers a model the
-organisation runs on its own machines. They choose how much may be sent: names, headers and types
+any endpoint that speaks the common chat-completions protocol, which also covers a model the
+organisation runs on its own machines, or Claude Code (`AI_PROVIDER=claude-code`, built into the engine: one headless
+call per request with no tools, signed in as Claude Code is and needing no key). They choose how much may be sent: names, headers and types
 only; also a few sample values; or also the record values a feature needs, up to a set number. A
 setting that cannot work stops the server from starting and names the setting. With neither the
 assistant's command nor a provider, nothing is sent anywhere and no AI action appears.

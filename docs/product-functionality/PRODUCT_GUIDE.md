@@ -35,18 +35,21 @@ current live data, including edits made since the last publication, or from an e
 
 An administrator needs a new field or relationship rule. They edit a proposed application definition,
 check it against existing data and make a new definition available before selecting it for use.
-Existing released definitions remain inspectable. An incompatible change needs a migration capability;
-the planned 0.11 flow previews affected data and potential loss, then allows explicit confirmation
-of that migration or cancellation. Confirmation applies to the reviewed change, not to invalid data
-or an unsupported model language. Current ordinary activation does not offer this override.
+Existing released definitions remain inspectable. An incompatible change needs a migration; since 0.11 the flow
+previews affected data and potential loss, then allows explicit confirmation of that migration or cancellation,
+and since 0.13 the model editor makes such changes (a rename, a split, a merge, a key change) and marks them with
+the migration they imply. Confirmation applies to the reviewed change, not to invalid data
+or an unsupported model language. Ordinary activation does not offer this override.
 
-The current definition applies globally. Assigning different definitions to different workspaces is
-planned for 0.11, not a present property of workspace selection.
+Since 0.11 each workspace runs a definition of its own: a model is installed and activated into one workspace the
+administrator chooses or creates in the same step, and a workspace is moved to another release by a migration
+that is previewed and confirmed. Since 0.17 a workbook can be shaped into a definition on a canvas and made into a
+workspace in one step.
 
 ## History answers different questions
 
-- Record history answers “what changes were made to this item?” Authenticated attribution to a named
-  person is future production work.
+- Record history answers “what changes were made to this item?” Since 0.12 a change names the signed-in
+  person or system that made it (changes from before sign-in name nobody).
 - A workspace snapshot answers “what did this coordinated publication contain?” Later live edits do
   not rewrite it. A snapshot is not a complete archive of every moment between publications.
 - A released application definition answers “what fields and rules did this version define?”

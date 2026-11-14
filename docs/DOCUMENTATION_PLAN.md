@@ -1,6 +1,6 @@
 # Documentation plan
 
-**Status:** Draft, 2026-10-05; revised 2026-10-26. Started at the user's request: the engine needs very
+**Status:** Draft, 2026-10-05; revised 2026-10-26. _Delivered since:_ 0.13 released as 0.16.1-alpha.5 (2026-11-11) and is part of 0.17.0 (2026-11-13), and the management API reference of 0.14 Track V is part of 0.17.0 too. Started at the user's request: the engine needs very
 good user documentation. [DOC-D1–DOC-D3](#decisions) approved by the user on 2026-10-05; DOC-D4–DOC-D9
 are recommendations awaiting approval. _Revised 2026-10-26:_ the earlier foundation packages were never
 built, so the release 0.13 delivers the whole guide, and its inventory, packages and further decisions
@@ -33,7 +33,7 @@ for the people who use it.
 | [GLOSSARY.md](product-functionality/GLOSSARY.md) | 81 | Everyone | Directly reusable |
 | `/docs` (Scalar) | — | Integrators | The management API and every consumer API as OpenAPI, served offline. Good reference. Its quality depends on the operation, parameter and schema descriptions |
 
-[TODO](TODO.md#open-decisions) records that user documentation is not scheduled, and lists five
+[TODO](TODO.md#open-decisions) recorded on 2026-10-05 that user documentation was not scheduled (it is since scheduled as release 0.13), and lists five
 points it must state very clearly: reading an older publication after a model release (C-D60), the
 consumer search limits (C-D37), which workspace a consumer read addresses (C-D16, C-D23),
 publications and `latest` (C-D61, C-D62), and ETag (C-D65). Each one has a page in this plan
@@ -124,7 +124,7 @@ authentication and the browser's final screens. The packages are DOC1–DOC12 in
 user-visible behaviour updates its guide pages in the same change" starts when DOC1 lands, so it applies
 to 0.14, 0.15 and every later release.
 
-The 0.14 release writes the management API reference on `/docs` (Track V). The guide links to it and
+The 0.14 release wrote the management API reference on `/docs` (Track V; released in 0.17.0 on 2026-11-13). The guide links to it and
 does not repeat it; the error catalogue has one owner ([DOC-D13](BASE_0_13_IMPLEMENTATION_PLAN.md#decisions)).
 
 ## Decisions
