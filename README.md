@@ -16,9 +16,10 @@ Model-driven, API-first, open source — every feature, no paid edition.
 </p>
 
 <p align="center">
-<img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-7b8ff7">
-<img alt="Version 0.17.1" src="https://img.shields.io/badge/version-0.17.1-8ee3c0">
-<img alt="PostgreSQL 17" src="https://img.shields.io/badge/PostgreSQL-17-ff8a6b">
+<a href="LICENSE"><img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-7b8ff7"></a>
+<a href="CHANGELOG.md"><img alt="Version 0.17.1" src="https://img.shields.io/badge/version-0.17.1-8ee3c0"></a>
+<a href="https://claude.com/product/claude-code"><img alt="Built with Claude Code" src="https://img.shields.io/badge/built%20with-Claude%20Code-ff8a6b"></a>
+<a href="https://openai.com/codex/"><img alt="Built with ChatGPT Codex" src="https://img.shields.io/badge/built%20with-ChatGPT%20Codex-7b8ff7"></a>
 </p>
 
 ---
