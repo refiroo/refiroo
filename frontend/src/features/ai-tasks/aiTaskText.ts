@@ -1,7 +1,7 @@
 /** Words for the assistant's load of a workbook (0.16 AP6a): its phases, a check's figures and what a load leaves out. */
 
+import { counted } from "@/lib/count";
 import type { AiTask, AiTaskPhase } from "@/types";
-import { count } from "@/ui/limits";
 
 export const PHASE: Record<AiTaskPhase, string> = {
   profiling: "Reading the workbook",
@@ -14,7 +14,7 @@ export const PHASE: Record<AiTaskPhase, string> = {
 export function waitingText(ahead: number | null | undefined): string | null {
   if (ahead === null || ahead === undefined) return null;
   if (ahead === 0) return "Starting…";
-  return `Waiting for the assistant: ${ahead} ${ahead === 1 ? "task" : "tasks"} ahead`;
+  return `Waiting for the assistant: ${counted(ahead, "task")} ahead`;
 }
 
 /** What a job running for the task is doing, in plain words. */
@@ -44,8 +44,6 @@ export function refusalText(code: string | null): string {
   if (!code) return "Refused";
   return code.charAt(0) + code.slice(1).toLowerCase().replace(/_/g, " ");
 }
-
-export const plural = (n: number, one: string, many = `${one}s`) => `${count(n)} ${n === 1 ? one : many}`;
 
 /** Items grouped by the sheet they are on, in the order the sheets first appear. */
 export interface SheetItems {
@@ -81,7 +79,7 @@ function designNotLoaded(task: AiTask, columns: boolean): { sheet: string; text:
 
 /** "3 title rows and 2 sheets" for a fold's label. */
 export function skippedText(parts: [number, string, string?][]): string {
-  const said = parts.filter(([n]) => n > 0).map(([n, one, many]) => plural(n, one, many));
+  const said = parts.filter(([n]) => n > 0).map(([n, one, many]) => counted(n, one, many));
   return said.length > 1 ? `${said.slice(0, -1).join(", ")} and ${said[said.length - 1]}` : (said[0] ?? "");
 }
 

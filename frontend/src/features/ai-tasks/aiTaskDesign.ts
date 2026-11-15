@@ -3,12 +3,9 @@
  * what changes in the model and a profile source's columns in plain words. Unknown shapes read as what they are, never fail.
  */
 
+import { record, text } from "@/lib/coerce";
 import type { AiTask, AiTaskDesign, AiTaskDesignSource, AiTaskOperation, EngineModel } from "@/types";
 import { shown } from "./aiTaskText";
-
-const text = (value: unknown): string => (typeof value === "string" ? value : "");
-const record = (value: unknown): Record<string, unknown> =>
-  value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 
 /** Operations that change the model; `setRelease` only names the release. */
 export const modelOperations = (design: AiTaskDesign) => design.operations.filter((op) => op.kind !== "setRelease");

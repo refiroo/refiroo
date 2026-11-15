@@ -5,14 +5,14 @@
  */
 
 import { useState } from "react";
+import { count, counted } from "@/lib/count";
 import type { AiTaskLoad, AiTaskLoadExample, AiTaskLoadFinding, AiTaskLoadPart } from "@/types";
-import { count } from "@/ui/limits";
 import { Card } from "@/ui/Card";
 import { Disclosure } from "@/ui/Disclosure";
 import { Notice } from "@/ui/Notice";
 import { SettingsTable } from "@/ui/SettingsTable";
 import type { ModelNames } from "./aiTaskDesign";
-import { plural, shown } from "./aiTaskText";
+import { shown } from "./aiTaskText";
 
 const FIGURES: { key: string; value: (load: AiTaskLoad) => number; label: (load: AiTaskLoad) => string }[] = [
   { key: "new", value: (l) => l.figures.recordsNew, label: () => "records new" },
@@ -27,7 +27,7 @@ const FIGURES: { key: string; value: (load: AiTaskLoad) => number; label: (load:
   {
     key: "rows",
     value: (l) => l.figures.rowsRead,
-    label: (l) => (l.sheets.length > 0 ? `rows read from ${plural(l.sheets.length, "sheet")}` : "rows read"),
+    label: (l) => (l.sheets.length > 0 ? `rows read from ${counted(l.sheets.length, "sheet")}` : "rows read"),
   },
 ];
 
@@ -128,7 +128,7 @@ export function DesignLoad({
               className={`load-type${expanded ? " is-open" : ""}`}
               tabIndex={0}
               aria-expanded={type.examples.length > 0 ? expanded : undefined}
-              aria-label={`${label}: ${plural(type.new, "new record")}, ${plural(type.matched, "matched")}`}
+              aria-label={`${label}: ${counted(type.new, "new record")}, ${counted(type.matched, "matched")}`}
               onClick={() => type.examples.length > 0 && toggle(type.objectTypeKey)}
               onKeyDown={(event) => {
                 if (type.examples.length === 0 || (event.key !== "Enter" && event.key !== " ")) return;
@@ -175,14 +175,14 @@ export function DesignLoad({
                 `${names.relation(r.relationTypeKey)} ${count(r.new)} new${r.matched ? `, ${count(r.matched)} found` : ""}`,
             ),
             ...(load.figures.parentLinksNew
-              ? [`${plural(load.figures.parentLinksNew, "link")} of new records to their parents`]
+              ? [`${counted(load.figures.parentLinksNew, "link")} of new records to their parents`]
               : []),
           ].join("; ")}
           .
         </p>
       )}
       {load.figures.refused > 0 && (
-        <Notice tone="warning" title={`${plural(load.figures.refused, "item")} refused`}>
+        <Notice tone="warning" title={`${counted(load.figures.refused, "item")} refused`}>
           <ul className="task-sheet-list">
             {load.refused.slice(0, 10).map((item) => (
               <li key={item.index}>
@@ -215,7 +215,7 @@ export function DesignLoad({
                       {part.objectTypeKey
                         ? names.typePlural(part.objectTypeKey)
                         : `${names.relation(part.relationTypeKey)} relationships`}{" "}
-                      ({plural(part.items, "item")})
+                      ({counted(part.items, "item")})
                     </li>
                   ))}
               </ul>

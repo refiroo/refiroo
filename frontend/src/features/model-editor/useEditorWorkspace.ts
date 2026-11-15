@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "@/api/client";
+import { allWorkspaces } from "@/api/allWorkspaces";
 import type { Workspace } from "@/types";
 
 /**
@@ -11,9 +11,8 @@ export function useEditorWorkspace(modelKey: string | undefined, preferred: stri
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
   useEffect(() => {
     let active = true;
-    api
-      .workspaces({ status: "active", pageSize: 100 })
-      .then((page) => active && setWorkspaces(page.items))
+    allWorkspaces({ status: "active" })
+      .then((items) => active && setWorkspaces(items))
       .catch(() => undefined);
     return () => {
       active = false;

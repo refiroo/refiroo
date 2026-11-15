@@ -6,6 +6,8 @@
  * (`INVALID_OPERATION`) and shown at its row.
  */
 
+import { attributeName } from "@/model/fields";
+import { attributeTypeFor, objectTypeFor, relationTypeFor, typeName } from "@/model/lookup";
 import type {
   EngineModel,
   MappingMatch,
@@ -55,11 +57,9 @@ export interface MappingBlock {
   problems: MappingProblem[];
 }
 
-const name = (model: EngineModel, key: string) => model.objectTypes.find((item) => item.key === key)?.name ?? key;
-const attributeName = (model: EngineModel, key: string) =>
-  model.attributeTypes.find((item) => item.key === key)?.name ?? key;
+const name = (model: EngineModel, key: string) => typeName(model, key);
 const relationName = (model: EngineModel, key: string, direction: "outgoing" | "incoming" = "outgoing") => {
-  const relation = model.relationTypes.find((item) => item.key === key);
+  const relation = relationTypeFor(model, key);
   if (!relation) return key;
   return direction === "incoming" ? relation.reverseName : relation.name;
 };
@@ -83,7 +83,7 @@ export function relationsFrom(model: EngineModel, typeKey: string): ObjectTypeRe
 
 /** Where a type's records may stand: (containment relation, parent type). */
 function parentsOf(model: EngineModel, typeKey: string): { relation: string; parentType: string }[] {
-  const own = new Set(model.objectTypes.find((type) => type.key === typeKey)?.behavior.parentRelationTypeKeys ?? []);
+  const own = new Set(objectTypeFor(model, typeKey)?.behavior.parentRelationTypeKeys ?? []);
   return model.objectTypeRelations
     .filter((item) => item.toObjectTypeKey === typeKey && own.has(item.relationTypeKey))
     .map((item) => ({ relation: item.relationTypeKey, parentType: item.fromObjectTypeKey }));
@@ -161,8 +161,8 @@ export function mappingBlocks(
   return mapping.types.map((entry, index) => {
     const sourceType = entry.source;
     const typeProposal = proposals.find((item) => item.kind === "type" && item.sourceType === sourceType);
-    const sourceDefinition = source.objectTypes.find((type) => type.key === sourceType);
-    const targetDefinition = target.objectTypes.find((type) => type.key === entry.target);
+    const sourceDefinition = objectTypeFor(source, sourceType);
+    const targetDefinition = objectTypeFor(target, entry.target);
     const targetAttributes = (targetDefinition?.attributes ?? []).map((binding) => ({
       value: binding.attributeTypeKey,
       label: attributeName(target, binding.attributeTypeKey),
@@ -190,7 +190,7 @@ export function mappingBlocks(
     for (const binding of sourceDefinition?.attributes ?? []) {
       const attribute = binding.attributeTypeKey;
       const current = entry.attributes.find((item) => item.source === attribute);
-      const valueType = source.attributeTypes.find((item) => item.key === attribute)?.valueType ?? "";
+      const valueType = attributeTypeFor(source, attribute)?.valueType ?? "";
       const at = entry.attributes.indexOf(current!);
       rows.push({
         key: `attribute:${attribute}`,
@@ -291,7 +291,7 @@ export function mappingBlocks(
     }
 
     const uniques = (targetDefinition?.attributes ?? []).filter(
-      (binding) => target.attributeTypes.find((item) => item.key === binding.attributeTypeKey)?.features.unique,
+      (binding) => attributeTypeFor(target, binding.attributeTypeKey)?.features.unique,
     );
     rows.push({
       key: "match",

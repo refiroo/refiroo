@@ -10,6 +10,7 @@
 
 import { useCallback } from "react";
 import { api } from "@/api/client";
+import { count } from "@/lib/count";
 import { routePath } from "@/routing/routes";
 import type { ConsumerApiDocument, ConsumerApiIndexEntry, SettingsRoute } from "@/types";
 import { CopyValue } from "@/ui/CopyValue";
@@ -21,7 +22,6 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { allConsumerApis, baseUrl, consumerSlug, openapiUrl, operationUrl } from "./consumerAddresses";
 import { ReferenceWorkspace } from "./ReferenceWorkspace";
-import { count } from "@/ui/limits";
 import { settingsHead } from "@/ui/settingsNavigation";
 import { useCapabilities, useSettingsRead } from "@/state/useSystem";
 

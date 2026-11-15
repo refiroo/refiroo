@@ -4,13 +4,13 @@
  * plans and refuses. This only decides what a tree offers, and names no type.
  */
 
-import { objectTypeFor } from "@/model/lookup";
+import { typeName } from "@/model/lookup";
 import { possibleTypes } from "@/model/placements";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 
 /** Type names as a sentence lists them: "A", "A or B", "A, B or C". */
 export function typeNames(model: EngineModel, keys: readonly string[]): string {
-  const names = keys.map((key) => objectTypeFor(model, key)?.name ?? key);
+  const names = keys.map((key) => typeName(model, key));
   return names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names.at(-1)}` : (names[0] ?? "");
 }
 

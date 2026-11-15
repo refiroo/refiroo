@@ -5,6 +5,7 @@
  */
 
 import { useId, type ReactNode } from "react";
+import { count } from "@/lib/count";
 import type { Hue } from "@/model/hues";
 import { HUE_SLOTS } from "@/model/hues";
 import { Icon, type IconName } from "@/ui/Icon";
@@ -289,9 +290,7 @@ export function LogFoot({
   return (
     <div className="log-foot">
       <span role="status">
-        {total !== undefined
-          ? `${shown.toLocaleString()} of ${total.toLocaleString()} ${noun}`
-          : `${shown.toLocaleString()} ${noun}`}
+        {total !== undefined ? `${count(shown)} of ${count(total)} ${noun}` : `${count(shown)} ${noun}`}
       </span>
       {onMore && (
         <button type="button" className="secondary" onClick={onMore} disabled={loading}>

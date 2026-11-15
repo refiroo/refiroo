@@ -24,6 +24,7 @@ import {
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
+import { counted, plural } from "@/lib/count";
 import type {
   ModelChange,
   ModelCompilation,
@@ -42,7 +43,8 @@ import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
 import { DraftMigrationNotice, proposalOf, useDraftMigration } from "@/features/model-editor/DraftMigration";
 import type { RunStep } from "@/features/model-editor/OperationDialog";
-import { suggestedVersion, typeName } from "@/model/outline";
+import { attributeTypeName, relationTypeName, suggestedVersion, typeName } from "@/model/outline";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 const COLLECTIONS: Record<string, string> = {
   objectTypes: "Object types",
@@ -80,8 +82,8 @@ export function summarizeChanges(
             : collection === "consumerApis"
               ? (outline.consumerApis.find((a) => a.key === parts[1])?.name ?? parts[1])
               : collection === "attributeTypes"
-                ? (outline.attributeTypes.find((a) => a.key === parts[1])?.name ?? parts[1])
-                : (outline.relationTypes.find((r) => r.key === parts[1])?.name ?? parts[1]);
+                ? attributeTypeName(outline, parts[1])
+                : relationTypeName(outline, parts[1]);
     const label = `${COLLECTIONS[collection]} ${kind}`;
     lines.set(label, (lines.get(label) ?? new Set()).add(name));
   }
@@ -222,9 +224,8 @@ export function InstallDialog({
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .workspaces({ status: "active", pageSize: 100 })
-      .then((page) => !cancelled && setWorkspaces(page.items))
+    allWorkspaces({ status: "active" })
+      .then((items) => !cancelled && setWorkspaces(items))
       .catch((cause) => !cancelled && setLoadError(errorMessage(cause)));
     return () => {
       cancelled = true;
@@ -454,10 +455,10 @@ export function InstallDialog({
                 </Notice>
               ) : (
                 <Notice tone="error" title="Not valid">
-                  {errors.length} {errors.length === 1 ? "issue stops" : "issues stop"} this step.{" "}
+                  {counted(errors.length, "issue stops", "issues stop")} this step.{" "}
                   {onShowIssues ? (
                     <button type="button" className="link-button" onClick={onShowIssues}>
-                      Show {errors.length === 1 ? "it" : "each"} in the Issues list
+                      Show {plural(errors.length, "it", "each")} in the Issues list
                     </button>
                   ) : (
                     "Each is in the Issues list."

@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import type { DraftOperation, ModelDraftOperationEntry, ModelDraftOutline, ModelDraftStep } from "@/types/modelAdmin";
 
 export type StepOutcome = "applied" | "stale";
@@ -90,7 +90,7 @@ export function useDraftSteps(draftId: string, options: DraftStepsOptions = {}):
         version.current = answer.version;
         handlers.current.onAnswer?.(answer);
       } catch (cause) {
-        if (!isApiError(cause, "VERSION_CONFLICT")) throw cause;
+        if (!isVersionConflict(cause, ["VERSION_CONFLICT"])) throw cause;
         const details = (cause.details ?? {}) as { operations?: ModelDraftOperationEntry[]; more?: boolean };
         handlers.current.onStale?.({ since: details.operations ?? [], more: Boolean(details.more), send });
         await reload();

@@ -7,6 +7,7 @@
  */
 
 import { useState } from "react";
+import { counted } from "@/lib/count";
 import type { Noun } from "@/ui/BatchOutcome";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import type { EngineModel, Job, ObjectTypeDefinition } from "@/types";
@@ -99,7 +100,7 @@ export function BulkChangeDialog({
       noun={noun}
       summary={
         added.length
-          ? `Changes ${added.length} ${added.length === 1 ? "field" : "fields"} on ${targetText(selection, selected, noun)}`
+          ? `Changes ${counted(added.length, "field")} on ${targetText(selection, selected, noun)}`
           : "Add a field to change"
       }
       target={targetText(selection, selected, noun)}

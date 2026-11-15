@@ -8,6 +8,7 @@
  */
 
 import { isApiError } from "@/api/errors";
+import { objectTypeFor } from "@/model/lookup";
 import type {
   EngineModel,
   ImportOnExisting,
@@ -73,7 +74,7 @@ export const keyless = (profile: ImportProfile) =>
 export function profileSummary(model: EngineModel, profile: ImportProfile): string {
   return profile.sources
     .map((source) => {
-      const type = model.objectTypes.find((item) => item.key === source.objectTypeKey);
+      const type = objectTypeFor(model, source.objectTypeKey);
       return `${source.sheet ?? "the first sheet"} → ${type?.pluralName ?? source.objectTypeKey}`;
     })
     .join("; ");

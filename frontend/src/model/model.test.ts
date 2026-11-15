@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { fallbackDetail } from "@/model/defaults";
 import { attributeName, fieldValue } from "@/model/fields";
-import { isManagedRelation, objectTypeFor, relationChoices } from "@/model/lookup";
+import { countedType, isManagedRelation, objectTypeFor, relationChoices, typeName } from "@/model/lookup";
 import {
   childCollectionGroups,
   collectionGroups,
@@ -337,5 +337,23 @@ describe("fallbackDetail", () => {
     ]);
     expect(pageTitle(testModel, application, units)).toBe("Units list");
     expect(pageTitle(testModel, application, domains)).toBe(objectTypeFor(testModel, "domain")?.pluralName);
+  });
+});
+
+describe("typeName and countedType (SR-D2)", () => {
+  it("names a type, its plural, in lower case, and reads the key where the model names nothing", () => {
+    const type = objectTypeFor(testModel, "domain")!;
+    expect(typeName(testModel, "domain")).toBe(type.name);
+    expect(typeName(testModel, "domain", { plural: true, lower: true })).toBe(type.pluralName.toLowerCase());
+    expect(typeName(testModel, "missing", { plural: true, lower: true })).toBe("missing");
+    expect(typeName(testModel, "")).toBe("");
+    expect(typeName(testModel, undefined)).toBe("");
+  });
+
+  it("counts a type's records by their name, singular for one", () => {
+    const type = objectTypeFor(testModel, "domain")!;
+    expect(countedType(testModel, "domain", 1)).toBe(`1 ${type.name.toLowerCase()}`);
+    expect(countedType(testModel, "domain", 2)).toBe(`2 ${type.pluralName.toLowerCase()}`);
+    expect(countedType(testModel, "missing", 3)).toBe("3 missing");
   });
 });

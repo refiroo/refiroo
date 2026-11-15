@@ -7,11 +7,12 @@
  */
 
 import { useEffect, useId, useState } from "react";
+import { count } from "@/lib/count";
 import { useDataApi } from "@/state/WorkspaceDataContext";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeHue } from "@/model/hues";
 import type { CandidateScope } from "@/model/candidates";
-import { objectTypeFor } from "@/model/lookup";
+import { typeName } from "@/model/lookup";
 import type { EngineModel } from "@/types";
 import { Icon } from "@/ui/Icon";
 import { RecordChip } from "@/ui/RecordChip";
@@ -128,7 +129,7 @@ export function RecordChecklist({
           if (type && !inGroup.length) return null;
           return (
             <div key={type ?? "all"}>
-              {type && <p className="record-checklist-heading">{objectTypeFor(model, type)?.pluralName ?? type}</p>}
+              {type && <p className="record-checklist-heading">{typeName(model, type, { plural: true })}</p>}
               {inGroup.map((record) => {
                 const hint = record.hint ?? hintFor?.(record.id);
                 return (
@@ -153,7 +154,7 @@ export function RecordChecklist({
         {listed === undefined && <p className="record-checklist-empty">Searching…</p>}
       </div>
       <p id={`${id}-count`} className="record-checklist-count" aria-live="polite">
-        {chosen.length === 1 ? "1 selected" : `${chosen.length} selected`}
+        {count(chosen.length)} selected
       </p>
     </div>
   );

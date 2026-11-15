@@ -18,7 +18,10 @@ vi.mock("./useAssistantOffers", () => ({ useAssistantOffers: () => ({ changeMode
 vi.mock("@/state/useWorkspaceAiOffer", () => ({
   useAssistantOfferIn: () => ({ assistant: true }),
 }));
-vi.mock("@/state/useJobStream", () => ({ useJobStream: vi.fn() }));
+// No stream is opened: a job's changes are not under test here.
+vi.mock("@/api/eventStream", () => ({
+  openEventStream: (url: string) => ({ url, addEventListener: () => undefined, close: () => undefined }),
+}));
 vi.mock("@/state/permissions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/state/permissions")>()),
   useHeldAnywhere: () => [{ key: "model-release", name: "Model release", instance: true, workspaces: [] }],

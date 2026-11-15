@@ -21,7 +21,8 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
 import type { EditorMode, EditorSelection, EngineModel, JourneyRef, RouteState } from "@/types";
 import { ColumnPanel } from "@/features/model-editor/ColumnPanel";
 import { ListPanel } from "@/features/model-editor/ListPanel";
@@ -36,7 +37,7 @@ import { useDraftActions, draftJsonRoute } from "@/features/model-editor/useDraf
 import { DraftEditingDialogs, DraftEditingNotices } from "@/features/model-editor/DraftEditingDialogs";
 import { DraftPreview } from "@/features/model-editor/DraftPreview";
 import { DraftViewSwitch, draftViewRoute } from "@/features/model-editor/DraftViewSwitch";
-import { useInference } from "@/features/model-editor/useInference";
+import { useProposing } from "@/features/model-editor/useProposing";
 import { ProposeDialog } from "@/features/model-editor/ProposeDialog";
 import { ProposedBecause } from "@/ui/ProposedBecause";
 import {
@@ -69,7 +70,14 @@ import { IssuesDrawer, issueCountOf, useIssuesDrawer } from "@/features/model-ed
 import { droppedColumn, ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
 import { topOf, typeIn } from "@/features/model-editor/MoveToDialog";
 import { refusalText } from "@/features/model-editor/OperationDialog";
-import { applicationOf, attributeTypeOf, consumerApiOf, relationTypeOf, typeName } from "@/model/outline";
+import {
+  applicationOf,
+  attributeTypeName,
+  attributeTypeOf,
+  consumerApiOf,
+  relationTypeName,
+  typeName,
+} from "@/model/outline";
 import { ConsumerApiPane, ConsumerApiPanel } from "@/features/model-editor/ConsumerApis";
 import { RelationshipMatrix } from "@/features/model-editor/RelationshipMatrix";
 import { AddMenu } from "@/features/model-editor/AddMenu";
@@ -208,7 +216,7 @@ export function ModelEditor({
     errorsSeen.current = { draftId, count };
     if (!before || before.draftId !== draftId || count <= before.count) return;
     const more = count - before.count;
-    toast(`The draft now has ${count} ${count === 1 ? "issue" : "issues"}, ${more} more than before.`, {
+    toast(`The draft now has ${counted(count, "issue")}, ${more} more than before.`, {
       tone: "info",
       actions: [{ label: "Show issues", onPress: () => showIssuesNow.current() }],
     });
@@ -218,47 +226,29 @@ export function ModelEditor({
   const steps = historySteps(history.items);
 
   // The inference completed: its open proposals become steps, one each (D89).
-  const inference = useInference(draftId, outline?.version, (done) => {
-    if (!done.counts.open) {
-      inference.settled();
+  const inference = useProposing(draftId, outline?.version, {
+    step,
+    say: setNotice,
+    nothingNew: (done) => {
       const nothing = done.disagreements.length
-        ? `Nothing new to propose. The workbook reads ${done.disagreements.length} ${done.disagreements.length === 1 ? "column" : "columns"} otherwise than you decided: see Issues.`
+        ? `Nothing new to propose. The workbook reads ${counted(done.disagreements.length, "column")} otherwise than you decided: see Issues.`
         : "Nothing new to propose: the draft holds what the workbook shows.";
       setNotice({ tone: "success", text: nothing });
-      return;
-    }
-    void guarded(async () => {
-      try {
-        let first: string | undefined;
-        const outcome = await step(async (at) => {
-          const answer = await api.applyProposals(draftId, at);
-          // The sheet's type the first proposal added: shown, so the proposals are in view.
-          // A model description's type, when the workbook describes one (0.10 A7).
-          first = answer.entries.find(
-            (entry) =>
-              entry.kind === "addObjectType" &&
-              (entry.origin.pattern === "keyColumn" || entry.origin.pattern === "modelDescription"),
-          )?.parameters.key as string | undefined;
-          return answer;
-        }, true);
-        if (outcome === "applied" && first) select({ show: "type", key: first });
-        if (outcome === "applied") {
-          toast(`${done.counts.open} ${done.counts.open === 1 ? "proposal" : "proposals"} applied, one step each.`);
-          setBottomTab("history");
-        }
-      } catch (cause) {
-        setNotice({
-          tone: "error",
-          text: isApiError(cause, "INFERENCE_STALE")
-            ? "The draft changed while the workbook was read. Propose again from the ⋯ menu."
-            : outline
-              ? refusalText(cause, outline)
-              : errorMessage(cause),
-        });
-      } finally {
-        inference.settled();
-      }
-    });
+    },
+    staleText: "The draft changed while the workbook was read. Propose again from the ⋯ menu.",
+    refusal: (cause) => (outline ? refusalText(cause, outline) : errorMessage(cause)),
+    around: guarded,
+    // The sheet's type the first proposal added is shown, so the proposals are in view; a model
+    // description's type counts too, when the workbook describes one (0.10 A7).
+    onApplied: (answer) => {
+      const first = answer.entries.find(
+        (entry) =>
+          entry.kind === "addObjectType" &&
+          (entry.origin.pattern === "keyColumn" || entry.origin.pattern === "modelDescription"),
+      )?.parameters.key as string | undefined;
+      if (first) select({ show: "type", key: first });
+      setBottomTab("history");
+    },
   });
   // Stop before the workbook is profiled drops the request that waits for it.
   const [dropped, setDropped] = useState(false);
@@ -366,9 +356,9 @@ export function ModelEditor({
           : selection.show === "application"
             ? (applicationOf(outline, selection.key)?.name ?? selection.key)
             : selection.show === "relationType"
-              ? (relationTypeOf(outline, selection.key)?.name ?? selection.key)
+              ? relationTypeName(outline, selection.key)
               : selection.show === "attributeType"
-                ? (attributeTypeOf(outline, selection.key)?.name ?? selection.key)
+                ? attributeTypeName(outline, selection.key)
                 : selection.show === "consumerApi"
                   ? (consumerApiOf(outline, selection.key)?.name ?? selection.key)
                   : selection.show === "column"
@@ -746,11 +736,7 @@ export function ModelEditor({
                   : []),
                 {
                   icon: errors ? "state-conflict" : "check",
-                  label: errors
-                    ? `${errors} ${errors === 1 ? "error" : "errors"}`
-                    : warnings
-                      ? `${warnings} warnings`
-                      : "Valid",
+                  label: errors ? `${counted(errors, "error")}` : warnings ? `${warnings} warnings` : "Valid",
                 },
               ]}
             />

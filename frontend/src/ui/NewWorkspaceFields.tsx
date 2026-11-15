@@ -5,10 +5,12 @@
 
 import { useId, useState } from "react";
 import { api } from "@/api/client";
+import { newestFirst } from "@/model/newestFirst";
 import { OlderVersionsToggle, useReleaseChoices } from "@/ui/ReleaseChoices";
 import { workspaceModelLabel } from "@/ui/WorkspaceSelector";
 import type { ModelReleaseSummary, Workspace } from "@/types";
 import { SelectField } from "@/ui/Selection";
+import { everyPage } from "@/lib/everyPage";
 
 export const KEY_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*";
 
@@ -89,14 +91,8 @@ export function NewWorkspaceFields({
 
 /** Every release a new workspace may start on (active, of a schema this version reads), newest first. */
 export async function installedReleases(): Promise<ModelReleaseSummary[]> {
-  const items: ModelReleaseSummary[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await api.modelReleases({ cursor, pageSize: 500, usable: true });
-    items.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return items.sort((a, b) => b.installedAt.localeCompare(a.installedAt));
+  const items = await everyPage((cursor) => api.modelReleases({ cursor, pageSize: 500, usable: true }));
+  return newestFirst(items, "installedAt");
 }
 
 /**

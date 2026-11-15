@@ -4,6 +4,8 @@
  * what a grant allows. Roles, workspaces, applications and record types are named as data.
  */
 
+import { text } from "@/lib/coerce";
+import { counted, plural } from "@/lib/count";
 import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
 import type {
   ActionGroup,
@@ -63,7 +65,7 @@ export function providerUseLine(
   now: Date = new Date(),
 ): string {
   if (!provider.lastSignInAt) return "Nobody has signed in yet";
-  const people = `${provider.people} ${provider.people === 1 ? "person" : "people"}`;
+  const people = `${counted(provider.people, "person", "people")}`;
   return `${people} · last sign-in ${formatServerAgo(provider.lastSignInAt, now)}`;
 }
 
@@ -98,11 +100,11 @@ export function unlinkSentence(person: string, provider: string): string {
 /** Local accounts' line on Sign-in (D365). */
 export function localSignInLine(local: Pick<LocalSignIn, "enabled" | "keptPeople">): string {
   if (local.enabled) return "On · people sign in with an e-mail address and password";
-  return `Off · ${administrators(local.keptPeople)} ${local.keptPeople === 1 ? "keeps" : "keep"} a password`;
+  return `Off · ${administrators(local.keptPeople)} ${plural(local.keptPeople, "keeps", "keep")} a password`;
 }
 
 function administrators(count: number): string {
-  return `${count} administrator${count === 1 ? "" : "s"}`;
+  return `${counted(count, "administrator")}`;
 }
 
 /** What turning local sign-in off does (D365), naming the providers people continue with. */
@@ -110,7 +112,7 @@ export function turnOffSentence(providers: readonly string[], keptPeople: number
   const names =
     providers.length > 1 ? `${providers.slice(0, -1).join(", ")} or ${providers.at(-1)}` : (providers[0] ?? "");
   const kept = keptPeople
-    ? `except for the ${administrators(keptPeople)} made on the server, who ${keptPeople === 1 ? "keeps" : "keep"} local sign-in as the way back`
+    ? `except for the ${administrators(keptPeople)} made on the server, who ${plural(keptPeople, "keeps", "keep")} local sign-in as the way back`
     : "and nobody keeps local sign-in: make an administrator on the server with create_admin first";
   return `People sign in with ${names} only. Passwords stop working, ${kept}. Clients are not affected.`;
 }
@@ -246,8 +248,6 @@ const MAIL_FIELDS: Record<string, string> = {
   applicationUrl: "application address",
 };
 
-const text = (value: unknown) => (typeof value === "string" ? value : "");
-
 /** What a grant event names: "Data steward in Herbarium", "Consumer API: x in …", by the
  * workspace's label where known, else its key. */
 function grantEventWords(details: Record<string, unknown>, labels: ReadonlyMap<string, string>): string {
@@ -341,7 +341,7 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
         const hours = typeof details.overlapHours === "number" ? details.overlapHours : undefined;
         if (hours === 0) return "New secret made; the earlier ones stopped at once";
         return hours
-          ? `New secret made; the earlier one works ${hours} more hour${hours === 1 ? "" : "s"}`
+          ? `New secret made; the earlier one works ${hours} more hour${plural(hours, "")}`
           : "New secret made";
       }
       if (event.action === "secret-removed") return "A secret was ended";

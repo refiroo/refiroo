@@ -3,7 +3,7 @@
  * lists the notices. Shown to a signed-in person only; a client never uses the browser.
  */
 
-import { useMe } from "@/app/useMe";
+import { useMe } from "@/state/useMe";
 import type { RouteState } from "@/types";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { Icon } from "@/ui/Icon";

@@ -4,7 +4,7 @@ import type { Job } from "@/types";
 import { JobProduced, producedBy } from "./JobProduced";
 
 const held = vi.hoisted(() => ({ groups: [] as string[] }));
-vi.mock("@/app/useMe", () => ({ useHoldsGroup: (key: string) => held.groups.includes(key) }));
+vi.mock("@/state/useMe", () => ({ useHoldsGroup: (key: string) => held.groups.includes(key) }));
 
 const job = (kind: Job["kind"], parameters: Record<string, unknown>): Job => ({ id: "j", kind, parameters }) as Job;
 

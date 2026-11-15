@@ -7,6 +7,7 @@
 import { useState, type FormEvent } from "react";
 import { errorMessage } from "@/api/errors";
 import { createWorkspaceFromDraft, ProblemList, problemsOf } from "@/features/workspaces/NewFromWorkbook";
+import { count } from "@/lib/count";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 
@@ -71,8 +72,8 @@ export function CreateWorkspaceDialog({
         </label>
         {figures && (
           <p className="muted">
-            {figures.loads.toLocaleString("en-US")} rows load
-            {figures.refused > 0 ? `; ${figures.refused.toLocaleString("en-US")} are refused and stay out` : ""}.
+            {count(figures.loads)} rows load
+            {figures.refused > 0 ? `; ${count(figures.refused)} are refused and stay out` : ""}.
           </p>
         )}
         {error && (

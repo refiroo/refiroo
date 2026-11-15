@@ -4,12 +4,11 @@
  * job's page, one step further.
  */
 
-import { useEffect, useState } from "react";
-import { api } from "@/api/client";
-import { errorMessage } from "@/api/errors";
-import { isFinal, useJobStream } from "@/state/useJobStream";
+import { useState } from "react";
+import { count, counted } from "@/lib/count";
+import { isFinal, useFollowedJob } from "@/state/useFollowedJob";
 import { forgetWorkspaceLoad, workspaceLoadOf } from "@/features/workspaces/fromWorkbook";
-import type { Job, RouteState } from "@/types";
+import type { RouteState } from "@/types";
 import { Notice } from "@/ui/Notice";
 
 export function WorkspaceLoad({
@@ -20,22 +19,10 @@ export function WorkspaceLoad({
   onNavigate: (route: RouteState) => void;
 }) {
   const remembered = workspaceLoadOf(workspaceKey);
-  const [job, setJob] = useState<Job>();
-  const [error, setError] = useState("");
   const [dismissed, setDismissed] = useState(false);
   const jobId = remembered?.jobId;
-  useEffect(() => {
-    if (!jobId) return;
-    let active = true;
-    api.job(jobId).then(
-      (loaded) => active && setJob(loaded),
-      (cause) => active && setError(errorMessage(cause)),
-    );
-    return () => {
-      active = false;
-    };
-  }, [jobId]);
-  useJobStream(job && !isFinal(job) ? job.id : undefined, setJob);
+  // Followed until it is final: a load has no preview to wait for.
+  const { job, error } = useFollowedJob(jobId, { done: isFinal });
   if (!remembered || dismissed) return null;
 
   const dismiss = (
@@ -72,8 +59,8 @@ export function WorkspaceLoad({
       <section className="fw-load" aria-label={`Loading ${remembered.file}`}>
         <p role="status">
           Loading {remembered.file}
-          {job ? ` · ${job.progress.processed.toLocaleString("en")}` : ""}
-          {job?.progress.total ? ` of ${job.progress.total.toLocaleString("en")}` : ""}
+          {job ? ` · ${count(job.progress.processed)}` : ""}
+          {job?.progress.total ? ` of ${count(job.progress.total)}` : ""}
           {job ? " items" : "…"}
         </p>
       </section>
@@ -96,11 +83,9 @@ export function WorkspaceLoad({
       }
     >
       {counts
-        ? `${counts.created.toLocaleString("en")} created, ${counts.updated.toLocaleString("en")} updated, ${counts.unchanged.toLocaleString("en")} unchanged`
+        ? `${count(counts.created)} created, ${count(counts.updated)} updated, ${count(counts.unchanged)} unchanged`
         : "Loaded"}
-      {refused > 0
-        ? `; ${refused.toLocaleString("en")} ${refused === 1 ? "row did" : "rows did"} not load.`
-        : "; every row loaded."}
+      {refused > 0 ? `; ${counted(refused, "row did", "rows did")} not load.` : "; every row loaded."}
     </Notice>
   );
 }

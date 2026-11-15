@@ -12,7 +12,8 @@ import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { ShellFrame } from "@/app/ShellFrame";
 import { TopBar } from "@/app/TopBar";
-import { useHoldsGroup } from "@/app/useMe";
+import { count, counted, plural } from "@/lib/count";
+import { useHoldsGroup } from "@/state/useMe";
 import { ChangeTitle } from "@/ui/ChangeTitle";
 import { changeWhere } from "@/ui/changeText";
 import { holds, useWorkspacePermissions } from "@/state/permissions";
@@ -22,7 +23,7 @@ import { WorkspaceLoad } from "@/features/workspaces/WorkspaceLoad";
 import { WorkspaceSearch } from "@/features/workspaces/WorkspaceSearch";
 import { pinKey, useWorkspacePins, type WorkspacePin } from "@/lib/workspacePins";
 import { useEditModel } from "@/features/workspaces/useEditModel";
-import { byDay, formatServerAgo } from "@/lib/dates";
+import { byDay, formatServerAgo, timeOfDay } from "@/lib/dates";
 import { collectionGroups, entryLabel, viewSourceObjectTypeKey } from "@/model/collections";
 import { applicationHue, objectTypeTile } from "@/model/hues";
 import { changeReviewFor, routePath, viewRoute } from "@/routing/routes";
@@ -45,6 +46,7 @@ import { actorText } from "@/ui/ActorName";
 import { RouteLink } from "@/ui/RouteLink";
 import { Skeleton } from "@/ui/Skeleton";
 import { WorkspaceTile } from "@/ui/WorkspaceTile";
+import { everyPage } from "@/lib/everyPage";
 
 type Navigate = (route: RouteState) => void;
 
@@ -60,19 +62,12 @@ function useWaitingChangeSets(workspaceKey: string) {
   const [state, setState] = useState<{ key: string; items: OwnChangeSet[]; error: string }>();
   useEffect(() => {
     let active = true;
-    (async () => {
-      const found: OwnChangeSet[] = [];
-      let cursor: string | undefined;
-      do {
-        const page = await api.myChangeSets(cursor);
-        found.push(...page.items.filter((item) => item.workspaceKey === workspaceKey));
-        cursor = page.nextCursor ?? undefined;
-      } while (cursor);
-      return found;
-    })().then(
-      (items) => active && setState({ key: workspaceKey, items, error: "" }),
-      (cause) => active && setState({ key: workspaceKey, items: [], error: errorMessage(cause) }),
-    );
+    everyPage((cursor) => api.myChangeSets(cursor))
+      .then((all) => all.filter((item) => item.workspaceKey === workspaceKey))
+      .then(
+        (items) => active && setState({ key: workspaceKey, items, error: "" }),
+        (cause) => active && setState({ key: workspaceKey, items: [], error: errorMessage(cause) }),
+      );
     return () => {
       active = false;
     };
@@ -258,16 +253,16 @@ export function WorkspacePage({
           <ul className="ws-facts" aria-label="In this workspace">
             <li>
               <strong>{model.applications.length}</strong>
-              {model.applications.length === 1 ? "application" : "applications"}
+              {plural(model.applications.length, "application")}
             </li>
             <li>
               <strong>{lists.filter((list) => list.isList).length}</strong>
-              {lists.filter((list) => list.isList).length === 1 ? "list" : "lists"}
+              {plural(lists.filter((list) => list.isList).length, "list")}
             </li>
             {waiting && !waiting.error && (
               <li>
                 <strong>{waiting.items.length}</strong>
-                {waiting.items.length === 1 ? "change set of yours" : "change sets of yours"}
+                {plural(waiting.items.length, "change set of yours", "change sets of yours")}
               </li>
             )}
           </ul>
@@ -528,9 +523,7 @@ function Shelf({
                 <RouteLink className="ws-pin-link" href={routePath(route)} onNavigate={() => onNavigate(route)}>
                   <span className="ws-pin-name">{list.name}</span>
                   <span className="ws-pin-where">
-                    {total === undefined
-                      ? list.application.name
-                      : `${total.toLocaleString("en")} · ${list.application.name}`}
+                    {total === undefined ? list.application.name : `${count(total)} · ${list.application.name}`}
                   </span>
                 </RouteLink>
                 <span
@@ -577,11 +570,7 @@ function WaitingList({
     <Card as="section" className="ws-card" aria-labelledby="workspace-waiting">
       <h2 id="workspace-waiting" className="ws-title">
         Needs you
-        {state && state.items.length > 0 && (
-          <small>
-            {state.items.length} {state.items.length === 1 ? "change set" : "change sets"}
-          </small>
-        )}
+        {state && state.items.length > 0 && <small>{counted(state.items.length, "change set")}</small>}
       </h2>
       {!state ? (
         <Skeleton label="Loading your change sets" lines={2} />
@@ -602,8 +591,8 @@ function WaitingList({
                   <span className="ws-row-text">
                     <strong>{name}</strong>
                     <small>
-                      {item.changeCount} {item.changeCount === 1 ? "change" : "changes"} ·{" "}
-                      {waits ? "waits for approval" : "open"} · {formatServerAgo(item.updatedAt)}
+                      {counted(item.changeCount, "change")} · {waits ? "waits for approval" : "open"} ·{" "}
+                      {formatServerAgo(item.updatedAt)}
                     </small>
                   </span>
                   {application && (
@@ -690,8 +679,7 @@ function LatestChanges({
                       <ChangeTitle entry={entry} application={application} onNavigate={onNavigate} />
                     </strong>
                     <small>
-                      {new Date(entry.occurredAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}{" "}
-                      · {actorText(entry.actor)}
+                      {timeOfDay(entry.occurredAt)} · {actorText(entry.actor)}
                       {changeWhere(entry)
                         .slice(1)
                         .map((part) => ` · ${part}`)}

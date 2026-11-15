@@ -11,9 +11,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
-import { everyPage } from "@/lib/everyPage";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
+import { count, counted, plural } from "@/lib/count";
 import { PHONE_WIDTH, useMediaQuery } from "@/lib/hooks/useMediaQuery";
+import { attributeTypeFor, typeName } from "@/model/lookup";
 import { workspaceModel } from "@/model/workspaceModels";
 import { routePath } from "@/routing/routes";
 import type {
@@ -55,9 +56,9 @@ import {
 } from "@/model/moveRun";
 import { moveAbility } from "@/lib/moveAbility";
 import { useMoveDryRun } from "./useMoveDryRun";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 const MOVES: RouteState = { kind: "settings", page: "moves" };
-const n = (value: number) => value.toLocaleString("en-GB");
 
 /** The row a problem points at: `/types/{i}/…` within that type's block. */
 function problemRow(mapping: ModelMapping, problem: MappingProblem): string | undefined {
@@ -136,12 +137,7 @@ export function MoveEditor({
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      everyPage((cursor) => api.workspaces({ cursor, status: "all" })),
-      workspaceModel(from),
-      workspaceModel(to),
-      fetchMapping(),
-    ])
+    Promise.all([allWorkspaces({ status: "all" }), workspaceModel(from), workspaceModel(to), fetchMapping()])
       .then(([items, source, target, read]) => {
         if (!active) return;
         setWorkspaces(items);
@@ -215,18 +211,18 @@ export function MoveEditor({
     if (summary) {
       for (const item of summary.types) {
         const cannot = item.counts.refused + item.counts.notMoved;
-        if (cannot) reported[rowId(item.sourceType, "type")] = `${n(cannot)} ${w.cannot.toLowerCase()}`;
+        if (cannot) reported[rowId(item.sourceType, "type")] = `${count(cannot)} ${w.cannot.toLowerCase()}`;
       }
       for (const item of summary.attributesNotCarried) {
         const key = rowId(item.sourceType, `attribute:${item.attributeTypeKey}`);
-        reported[key] = `${n(item.count)} ${item.count === 1 ? "value" : "values"} not carried`;
+        reported[key] = `${count(item.count)} ${plural(item.count, "value")} not carried`;
       }
       for (const block of blocks)
         for (const relation of summary.relationships) {
           const dropped = relation.counts.refused + relation.counts.notMoved;
           const key = rowId(block.sourceType, `relation:${relation.relationTypeKey}`);
           if (dropped && block.rows.some((row) => rowId(block.sourceType, row.key) === key))
-            reported[key] = `${n(dropped)} dropped`;
+            reported[key] = `${count(dropped)} dropped`;
         }
     }
     return { refused, reported };
@@ -242,7 +238,7 @@ export function MoveEditor({
     } catch (cause) {
       if (isApiError(cause, "INVALID_OPERATION") && row) {
         setRefused({ [row]: errorMessage(cause) });
-      } else if (isApiError(cause, "VERSION_CONFLICT")) {
+      } else if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         setStepError(
           "The mapping was changed in another session; it was read again. Make the change again if it is still needed.",
         );
@@ -583,21 +579,18 @@ export function MoveEditor({
           <div key={type.key} className="move-type-card">
             <span className="move-type-card-head">
               <strong>{type.pluralName}</strong>
-              <span className="muted">{total === undefined ? "Not selected" : `${n(total)} selected`}</span>
+              <span className="muted">{total === undefined ? "Not selected" : `${count(total)} selected`}</span>
             </span>
             <span className="muted move-type-card-fields">
               {type.attributes
                 .map(
                   (binding) =>
-                    models.source.attributeTypes.find((item) => item.key === binding.attributeTypeKey)?.name ??
-                    binding.attributeTypeKey,
+                    attributeTypeFor(models.source, binding.attributeTypeKey)?.name ?? binding.attributeTypeKey,
                 )
                 .join(" · ") || "Name only"}
             </span>
             <span className={entry ? "move-type-state is-mapped" : "move-type-state"}>
-              {entry
-                ? `Mapped to ${models.target.objectTypes.find((item) => item.key === entry.target)?.pluralName ?? entry.target}`
-                : "Not mapped"}
+              {entry ? `Mapped to ${typeName(models.target, entry.target, { plural: true })}` : "Not mapped"}
             </span>
           </div>
         );
@@ -612,10 +605,7 @@ export function MoveEditor({
         {models.target.objectTypes.map((type) => {
           const fromTypes = mapping.types
             .filter((entry) => entry.target === type.key)
-            .map(
-              (entry) =>
-                models.source.objectTypes.find((item) => item.key === entry.source)?.pluralName ?? entry.source,
-            );
+            .map((entry) => typeName(models.source, entry.source, { plural: true }));
           return (
             <li key={type.key}>
               <span>{type.pluralName}</span>
@@ -727,7 +717,7 @@ export function MoveEditor({
               ? `What the ${w.verb} loaded, mapping version ${summary?.mapping.version ?? mapping.version}: the items below were not ${w.past}, or were ${w.past} without a value.`
               : `Dry run of every item, mapping version ${summary?.mapping.version ?? mapping.version}: ${
                   summary
-                    ? `${n(figuresOf(summary).create + figuresOf(summary).update)} records are created or updated in ${targetLabel}; the items below cannot be ${w.past}, or are ${w.past} without a value.`
+                    ? `${count(figuresOf(summary).create + figuresOf(summary).update)} records are created or updated in ${targetLabel}; the items below cannot be ${w.past}, or are ${w.past} without a value.`
                     : "running."
                 } Nothing has changed in either workspace.`}
           </p>
@@ -755,7 +745,7 @@ export function MoveEditor({
                           className="link-button"
                           onClick={() => onAddress({ ...address, view: "report", reason: card.code })}
                         >
-                          {n(card.count)} · {card.label}
+                          {count(card.count)} · {card.label}
                         </button>
                         <span className="muted">{card.fix}</span>
                       </li>
@@ -880,7 +870,7 @@ function FigureBand({
     <section className="move-figures" aria-label="Dry run of every item" aria-busy={checking}>
       {items.map((item) => {
         const value = figures?.[item.key];
-        const text = value === undefined ? "…" : n(value);
+        const text = value === undefined ? "…" : count(value);
         const change = value === undefined ? "" : difference(value, previous?.[item.key]);
         return (
           <div key={item.key} className="move-figure">
@@ -916,7 +906,6 @@ function selectionWords(address: MoveAddress, source: EngineModel, mappedCount: 
 
 function selectionChips(address: MoveAddress, source: EngineModel, mappedCount: number): string[] {
   const choice = address.selection;
-  const typeName = (key: string) => source.objectTypes.find((type) => type.key === key)?.pluralName ?? key;
   return choice?.kind === "all"
     ? ["The whole workspace"]
     : choice?.kind === "subtree"
@@ -924,7 +913,7 @@ function selectionChips(address: MoveAddress, source: EngineModel, mappedCount: 
       : choice?.kind === "types"
         ? choice.types.map(
             (item) =>
-              `${typeName(item.objectTypeKey)}${item.filters.length ? ` (${item.filters.length} ${item.filters.length === 1 ? "filter" : "filters"})` : ""}`,
+              `${typeName(source, item.objectTypeKey, { plural: true })}${item.filters.length ? ` (${counted(item.filters.length, "filter")})` : ""}`,
           )
         : [mappedCount ? `Every mapped type (${mappedCount})` : "The whole workspace"];
 }

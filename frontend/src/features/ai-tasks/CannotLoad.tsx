@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { Notice } from "@/ui/Notice";
+import { copyText } from "@/lib/copyText";
 
 export function CannotLoad({ workspaceLabel }: { workspaceLabel: string }) {
   const [copied, setCopied] = useState(false);
@@ -20,10 +21,7 @@ export function CannotLoad({ workspaceLabel }: { workspaceLabel: string }) {
           type="button"
           className="secondary"
           onClick={() => {
-            void navigator.clipboard
-              ?.writeText(window.location.href)
-              .then(() => setCopied(true))
-              .catch(() => undefined);
+            void copyText(window.location.href).then((copied) => copied && setCopied(true));
           }}
         >
           Copy the link to this task

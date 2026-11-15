@@ -7,9 +7,9 @@
  * shares (`BulkJobDialog`); the deleted records leave the selection (D125).
  */
 
+import { countedType } from "@/model/lookup";
 import type { Noun, TypeName } from "@/ui/BatchOutcome";
 import { BatchDeletionSection } from "@/ui/BatchOutcome";
-import { count } from "@/ui/limits";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import type { EngineModel, Job, ObjectTypeDefinition } from "@/types";
 import { BulkJobDialog, targetText } from "./BulkJobDialog";
@@ -47,11 +47,7 @@ export function BulkDeleteDialog({
   onOpenRecord: (id: string) => void;
 }) {
   const noun: Noun = [objectType.name.toLowerCase(), objectType.pluralName.toLowerCase()];
-  const typeName: TypeName = (key, records) => {
-    const type = model.objectTypes.find((item) => item.key === key);
-    const name = type ? (records === 1 ? type.name : type.pluralName).toLowerCase() : key;
-    return `${count(records)} ${name}`;
-  };
+  const typeName: TypeName = (key, records) => countedType(model, key, records);
 
   function summary(job: Job) {
     const words = deletionWords(job, objectType.key, typeName);

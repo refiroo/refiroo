@@ -19,6 +19,7 @@ import {
 } from "@/api/signInClient";
 import { API_URL } from "@/api/address";
 import { browserNavigation, prepareSignIn, type SignInRequest } from "@/api/session";
+import { counted } from "@/lib/count";
 import { PasskeyError, signInWithPasskey } from "@/lib/passkeySignIn";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
@@ -31,9 +32,9 @@ type View =
   | { kind: "codes"; step: SecondStep; codes: string[] };
 
 export function waitText(seconds: number): string {
-  if (seconds < 90) return `${seconds} second${seconds === 1 ? "" : "s"}`;
+  if (seconds < 90) return `${counted(seconds, "second")}`;
   const minutes = Math.ceil(seconds / 60);
-  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  return `${counted(minutes, "minute")}`;
 }
 
 /** The words for a refusal: the engine's own, so a wording is never kept twice (D415). */

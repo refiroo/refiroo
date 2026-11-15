@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import { useJobStream } from "@/state/useJobStream";
 import { useHeldAnywhere } from "@/state/permissions";
 import { useCapabilities } from "@/state/useSystem";
 import { outlineFixture } from "@/test/draftOutline";
@@ -16,9 +15,9 @@ vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
 });
-vi.mock("@/state/useJobStream", async (load) => ({
-  ...(await load<typeof import("@/state/useJobStream")>()),
-  useJobStream: vi.fn(),
+// No stream is opened: a job's changes are not under test here.
+vi.mock("@/api/eventStream", () => ({
+  openEventStream: (url: string) => ({ url, addEventListener: () => undefined, close: () => undefined }),
 }));
 vi.mock("@/state/permissions", async (load) => ({
   ...(await load<typeof import("@/state/permissions")>()),
@@ -70,7 +69,6 @@ const answered = { version: 5, entries: [], valid: true, diagnostics: [] };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(useJobStream).mockReturnValue(undefined as never);
   vi.mocked(api.modelDraftOutline).mockResolvedValue(outlineFixture());
   vi.mocked(api.modelDraft).mockResolvedValue({
     id: "d1",

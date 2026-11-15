@@ -5,7 +5,7 @@
  * is not offered the relationship, with the reason said in words.
  */
 
-import { objectTypeFor } from "@/model/lookup";
+import { attributeTypeFor, relationTypeFor, typeName } from "@/model/lookup";
 import type { CandidateCriterion, EngineModel, ObjectTypeRelationDefinition } from "@/types";
 
 export type Direction = "outgoing" | "incoming";
@@ -18,7 +18,7 @@ export interface CandidateScope {
 
 /** The relation key read `direction` from the anchor: its key outgoing, its reverse key incoming. */
 export function relationKey(model: EngineModel, relationTypeKey: string, direction: Direction) {
-  const definition = model.relationTypes.find((item) => item.key === relationTypeKey);
+  const definition = relationTypeFor(model, relationTypeKey);
   if (!definition) return relationTypeKey;
   return direction === "outgoing" ? definition.key : definition.reverseKey;
 }
@@ -89,7 +89,7 @@ function criteriaParts(model: EngineModel, criteria: CandidateCriterion[]): Word
     const subject = fieldLabel(model, ancestor ? ancestor[2] : field);
     if (parts.length) parts.push({ text: ", " });
     if (ancestor) {
-      const type = objectTypeFor(model, ancestor[1])?.name ?? ancestor[1];
+      const type = typeName(model, ancestor[1]);
       parts.push({ text: `under a ${type}`, mark: "parent" }, { text: " " });
     }
     items.forEach((item, index) => {
@@ -106,13 +106,13 @@ function plainText(parts: WordPart[]) {
 
 function fieldLabel(model: EngineModel, field: string) {
   if (field === "name") return "name";
-  return model.attributeTypes.find((item) => item.key === field)?.name ?? field;
+  return attributeTypeFor(model, field)?.name ?? field;
 }
 
 function condition(model: EngineModel, subject: string, field: string, item: CandidateCriterion): WordPart[] {
   if (item.op === "isNull" || item.op === "isUnset")
     return [{ text: item.value ? `with no ${subject}` : `with a ${subject}` }];
-  const valueType = model.attributeTypes.find((attribute) => attribute.key === field)?.valueType;
+  const valueType = attributeTypeFor(model, field)?.valueType;
   if (valueType === "boolean")
     return [{ text: `with ${subject}: ` }, { text: item.value ? "Yes" : "No", mark: "value" }];
   return [
@@ -126,7 +126,7 @@ export function candidateHint(model: EngineModel, binding: ObjectTypeRelationDef
   const criteria = criteriaAt(binding, direction, "far");
   if (!criteria.length) return undefined;
   const far = direction === "outgoing" ? binding.toObjectTypeKey : binding.fromObjectTypeKey;
-  const plural = objectTypeFor(model, far)?.pluralName ?? far;
+  const plural = typeName(model, far, { plural: true });
   return `Offers only ${plural.toLowerCase()} ${describeCriteria(model, criteria)}.`;
 }
 
@@ -145,7 +145,7 @@ export function ownEndReasonParts(
   const criteria = criteriaAt(binding, direction, "own");
   if (!criteria.length) return undefined;
   const own = direction === "outgoing" ? binding.fromObjectTypeKey : binding.toObjectTypeKey;
-  const plural = objectTypeFor(model, own)?.pluralName ?? own;
+  const plural = typeName(model, own, { plural: true });
   return [
     { text: `Only ${plural.toLowerCase()} ` },
     ...criteriaParts(model, criteria),

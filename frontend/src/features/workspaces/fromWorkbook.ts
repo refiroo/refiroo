@@ -9,6 +9,7 @@
 import { api } from "@/api/client";
 import { emptyDraftModel } from "@/model/emptyDraftModel";
 import { nameOfFile } from "@/ui/ProposeFields";
+import { schemaLanguages } from "@/state/useSystem";
 import { holdsAnywhere } from "@/state/permissions";
 import type { CapabilitiesResponse, DryRun, DryRunSource, HeldAnywhere, ModelDraft } from "@/types";
 
@@ -73,7 +74,7 @@ export async function lookAtWorkbook(file: File, name: string, onStage: (stage: 
   onStage("Reading the workbook");
   const created = await api.createModelDraft({
     name,
-    model: emptyDraftModel(name, (await api.system()).schemaLanguages),
+    model: emptyDraftModel(name, await schemaLanguages()),
   });
   try {
     const stored = await api.uploadSourceFile(file, { owner: { draftId: created.id } });

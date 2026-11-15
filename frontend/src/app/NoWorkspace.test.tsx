@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { noWorkspaceText } from "./NoWorkspace";
 import { openingWorkspace } from "./useRouter";
 import { api } from "@/api/client";
+import { resetPermissionsForTests } from "@/state/permissions";
 import { permissionsFixture } from "@/test/permissions";
 
 vi.mock("@/api/client", () => ({ api: { myPermissions: vi.fn(), workspaces: vi.fn() } }));
@@ -26,6 +27,8 @@ describe("the workspace the application opens in (0.12 Z5, D326)", () => {
     vi.mocked(api.myPermissions).mockResolvedValue(permissionsFixture("default", []));
     vi.mocked(api.workspaces).mockResolvedValue(page([]));
     expect(await openingWorkspace("default")).toBeUndefined();
+    // The permissions are kept for the page load: a new read needs them forgotten.
+    resetPermissionsForTests();
     vi.mocked(api.myPermissions).mockRejectedValue(new Error("offline"));
     expect(await openingWorkspace("default")).toBe("default");
   });

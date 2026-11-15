@@ -13,7 +13,7 @@ import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { useDataApi } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
 import { Icon } from "@/ui/Icon";
@@ -24,7 +24,7 @@ import { Notice } from "@/ui/Notice";
 import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { Candidate } from "@/ui/Candidate";
 import { objectTypeTile } from "@/model/hues";
-import { objectTypeFor } from "@/model/lookup";
+import { attributeTypeFor, objectTypeFor, typeName } from "@/model/lookup";
 import { columnLabel, StateMark, stateLabel, type MatrixBinding } from "@/features/objects/relationMatrixStates";
 import {
   RelationAttributes,
@@ -126,7 +126,7 @@ export function RelationMatrixCellDialog({
     const scope =
       details.ancestorObjectId === column.id
         ? `in ${columnLabel(column)}`
-        : `under the same ${(objectTypeFor(model, details.ancestorObjectTypeKey ?? "")?.name ?? "record").toLowerCase()}`;
+        : `under the same ${typeName(model, details.ancestorObjectTypeKey, { lower: true })}`;
     const condition = binding.conditionText ? ` where ${binding.conditionText}` : "";
     return `${row.row.name} already has a ${cellType.name.toLowerCase()} ${scope}${condition}, and only one may count there.`;
   }
@@ -146,7 +146,7 @@ export function RelationMatrixCellDialog({
           message: duplicateMessage(details) ?? errorMessage(cause),
           conflictingObjectId: details?.conflictingObjectId,
         });
-      } else if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "RELATION_SET_VERSION_CONFLICT")) {
+      } else if (isVersionConflict(cause, ["VERSION_CONFLICT", "RELATION_SET_VERSION_CONFLICT"])) {
         setError({ message: errorMessage(cause), stale: true });
         await onRefresh();
       } else {
@@ -169,7 +169,7 @@ export function RelationMatrixCellDialog({
     setError(undefined);
     setDirty(false);
   };
-  const typeName = cellType.name.toLowerCase();
+  const cellName = cellType.name.toLowerCase();
   const canLink = can("link");
   const canCreate = can("create");
   const empty = cell.records.length === 0;
@@ -178,7 +178,7 @@ export function RelationMatrixCellDialog({
   const width = showing === "view" && !empty ? `${Math.max(640, 330 + columnCount * 150)}px` : undefined;
   const linkButton = canLink && (
     <button type="button" className="secondary" onClick={() => choose({ kind: "link" })}>
-      <Icon name="link" size={15} /> Link existing {typeName}
+      <Icon name="link" size={15} /> Link existing {cellName}
     </button>
   );
   // A filled cell offers Create as well (PP-D23), unless it may hold only one record: the binding's
@@ -191,7 +191,7 @@ export function RelationMatrixCellDialog({
         binding.definition.cardinality === (rowEnd === "from" ? "many-to-one" : "one-to-many")));
   const createButton = canCreate && (empty || cell.state === "inactive" || history || !holdsOne) && (
     <button type="button" className="primary" onClick={() => choose({ kind: "create" })}>
-      <Icon name="plus" size={15} /> Create {typeName}
+      <Icon name="plus" size={15} /> Create {cellName}
     </button>
   );
 
@@ -211,11 +211,11 @@ export function RelationMatrixCellDialog({
             <strong>{stateLabel(cell.state, cell.conflict, cell.recordCount)}</strong>
             <span className="muted">
               {cell.conflict
-                ? ` · only one ${typeName} may count here${binding.conditionText ? ` (${binding.conditionText})` : ""}`
+                ? ` · only one ${cellName} may count here${binding.conditionText ? ` (${binding.conditionText})` : ""}`
                 : history && cell.publication
                   ? ` · held in publication ${cell.publication.number}, read-only`
                   : cell.state === "none"
-                    ? ` · no ${typeName} yet`
+                    ? ` · no ${cellName} yet`
                     : ""}
             </span>
           </p>
@@ -254,7 +254,7 @@ export function RelationMatrixCellDialog({
                   <Icon name="plus" size={18} />
                 </span>
                 <p>
-                  <strong>{row.row.name}</strong> has no {typeName} in {columnLabel(column)} yet.
+                  <strong>{row.row.name}</strong> has no {cellName} in {columnLabel(column)} yet.
                 </p>
                 {(linkButton || createButton) && (
                   <div className="matrix-cell-empty-actions">
@@ -308,7 +308,7 @@ export function RelationMatrixCellDialog({
                         className="secondary"
                         onClick={() => onOpenRecord(details.conflictingObjectId!, cellType.key)}
                       >
-                        Open the {typeName} already here
+                        Open the {cellName} already here
                       </button>
                     ),
                   };
@@ -323,7 +323,7 @@ export function RelationMatrixCellDialog({
                 <button type="button" className="ghost" onClick={() => onOpenRecord(row.row.id, row.row.objectTypeKey)}>
                   Open {row.row.name}
                 </button>{" "}
-                to see every related {typeName}.
+                to see every related {cellName}.
               </p>
             )}
             {!actions.length && <p className="muted-text">This cell is read-only here.</p>}
@@ -398,7 +398,7 @@ export function RelationMatrixCellDialog({
                 className="secondary"
                 onClick={() => onOpenRecord(error.conflictingObjectId!, cellType.key)}
               >
-                Open the {typeName} already here
+                Open the {cellName} already here
               </button>
             )}
           </Notice>
@@ -463,7 +463,7 @@ function CellRecordForm({
   onSubmit: (values: CellValues) => void;
 }) {
   const attributes = fields.flatMap((field) => {
-    const definition = model.attributeTypes.find((item) => item.key === field);
+    const definition = attributeTypeFor(model, field);
     const binding = cellType.attributes.find((item) => item.attributeTypeKey === field);
     return definition && binding ? [{ definition, binding }] : [];
   });
@@ -691,11 +691,11 @@ function CreateCellRecord({
         <div className="matrix-proposed-place">
           <p className="admin-hint">
             No group under {column.name} holds cells of this view yet. refiroo proposes a new{" "}
-            {objectTypeFor(model, place.objectTypeKey)?.name.toLowerCase() ?? "group"} under it, named like the ones the
-            other columns use. OK creates it with the {cellType.name.toLowerCase()}.
+            {typeName(model, place.objectTypeKey, { lower: true })} under it, named like the ones the other columns use.
+            OK creates it with the {cellType.name.toLowerCase()}.
           </p>
           <label>
-            Name of the new {objectTypeFor(model, place.objectTypeKey)?.name.toLowerCase() ?? "group"}
+            Name of the new {typeName(model, place.objectTypeKey, { lower: true })}
             <input
               name="place-name"
               required

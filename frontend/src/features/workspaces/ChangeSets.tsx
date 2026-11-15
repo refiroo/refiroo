@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
+import { counted, plural } from "@/lib/count";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useWorkspaceData } from "@/state/WorkspaceDataContext";
-import { useMe } from "@/app/useMe";
+import { useMe } from "@/state/useMe";
 import { holds } from "@/state/permissions";
 import { allowNavigation } from "@/routing/navigationGuard";
 import type { ApprovalPolicy, ChangeSet, ChangeSetValidation, ModelReleaseSummary } from "@/types";
@@ -316,7 +317,7 @@ export function conflictsLeftOut(leftOut: unknown): Array<Record<string, unknown
   return [
     {
       code: "CONFLICTS_LEFT_OUT",
-      message: `${total} more ${total === 1 ? "problem is" : "problems are"} not listed.`,
+      message: `${total} more ${plural(total, "problem is", "problems are")} not listed.`,
     },
   ];
 }
@@ -433,8 +434,8 @@ function useChangeSetChangeCount(changeSetId: string | undefined, version: numbe
 /** "Your changes to 3 records and 2 relationships", or "your changes" where the totals are not known. */
 function publishCounts(counts: { records: number; relationships: number } | undefined) {
   if (!counts) return "your changes";
-  const records = `${counts.records} ${counts.records === 1 ? "record" : "records"}`;
-  const relationships = `${counts.relationships} ${counts.relationships === 1 ? "relationship" : "relationships"}`;
+  const records = `${counted(counts.records, "record")}`;
+  const relationships = `${counted(counts.relationships, "relationship")}`;
   return `your changes to ${records} and ${relationships}`;
 }
 
@@ -833,7 +834,7 @@ export function ChangeSetActions({
           <h2 title={current.name || undefined}>{current.name || "Untitled change set"}</h2>
           {/* The band's one row: the change count, the state, who and when; version and model are under Details. */}
           <span className="change-set-bar-state">
-            {changeCount !== undefined && `${changeCount} ${changeCount === 1 ? "change" : "changes"} · `}
+            {changeCount !== undefined && `${counted(changeCount, "change")} · `}
             {waiting ? "waits for approval" : request?.state === "sentBack" ? "sent back" : "open"}
             {current.createdBy && ` · ${principalName(current.createdBy)}`}
             {` · ${formatServerAgo(current.createdAt)}`}

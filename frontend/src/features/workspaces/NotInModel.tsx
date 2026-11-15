@@ -17,6 +17,7 @@ import { missingElement, parseRoute, type MissingElement } from "@/routing/route
 import type { EngineModel, RouteState, Workspace } from "@/types";
 import { PageHeader } from "@/ui/PageHeader";
 import { RuledList, RuledListItem } from "@/ui/RuledList";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 /** The address of the element, as the router reads it: the path is all `missingElement` needs. */
 function elementPath(element: MissingElement) {
@@ -87,11 +88,10 @@ export function NotInModel({
     const element = problem as MissingElement;
     const path = elementPath(element);
     // Workspaces are few (ADR-042); each model is read once and kept for the switch that follows.
-    api
-      .workspaces({ status: "active", pageSize: 100 })
-      .then(async (page) => {
+    allWorkspaces({ status: "active" })
+      .then(async (items) => {
         const found: Holder[] = [];
-        for (const item of page.items) {
+        for (const item of items) {
           if (item.key === problem.workspaceKey) continue;
           const other = await workspaceModel(item.key).catch(() => undefined);
           if (!other || missingElement(other, { pathname: path })) continue;

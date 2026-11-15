@@ -18,6 +18,33 @@ export class ApiError extends Error {
 }
 
 /**
+ * The `ApiError` an unsuccessful response's `body` describes: the engine's envelope (`error.code`,
+ * `error.message`, `error.details`), or `fallback` as the message and `HTTP_ERROR` as the code for
+ * a body that is not one. Reads only: a caller that reacts to a code (the client's model-release
+ * and forbidden reports) does so after. `detail: false` leaves out the framework's own `detail`
+ * as a message, for a caller whose `fallback` is its own wording (a download).
+ */
+export function errorFromResponse(
+  status: number,
+  body: string,
+  fallback: string,
+  { detail = true }: { detail?: boolean } = {},
+): ApiError {
+  let message = fallback;
+  let code = "HTTP_ERROR";
+  let details: unknown;
+  try {
+    const parsed = JSON.parse(body);
+    message = parsed.error?.message ?? (detail ? parsed.detail : undefined) ?? message;
+    code = parsed.error?.code ?? code;
+    details = parsed.error?.details;
+  } catch {
+    // Non-JSON response evidence belongs in controlled server diagnostics, not the rendered UI.
+  }
+  return new ApiError(status, code, message, details);
+}
+
+/**
  * Narrows an unknown rejection to an `ApiError`, optionally requiring a specific error code.
  *
  * Prefer this over reading `code` off an untyped cast. Optimistic concurrency is a product

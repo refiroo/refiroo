@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { Icon } from "@/ui/Icon";
+import { copyText } from "@/lib/copyText";
 
 export function CopyValue({
   label,
@@ -24,13 +25,9 @@ export function CopyValue({
 }) {
   const [message, setMessage] = useState("");
   async function copy() {
-    try {
-      if (!navigator.clipboard) throw new Error("Clipboard access is unavailable");
-      await navigator.clipboard.writeText(value);
-      setMessage(`${label} copied.`);
-    } catch {
-      setMessage(`Could not copy the ${label}. Select it and copy it manually.`);
-    }
+    setMessage(
+      (await copyText(value)) ? `${label} copied.` : `Could not copy the ${label}. Select it and copy it manually.`,
+    );
   }
   return (
     <span className="copy-value">

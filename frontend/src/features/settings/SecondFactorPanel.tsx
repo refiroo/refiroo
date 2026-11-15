@@ -22,6 +22,8 @@ import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
 import { settingsHead } from "@/ui/settingsNavigation";
 import { useSettingsRead } from "@/state/useSystem";
+import { copyText } from "@/lib/copyText";
+import { saveBlob } from "@/lib/download";
 
 type Mode =
   { kind: "idle" } | { kind: "setting-up"; enrolment: SecondFactorEnrolment } | { kind: "codes"; codes: string[] };
@@ -233,20 +235,15 @@ function RecoveryCodes({ codes, onKept }: { codes: string[]; onKept: () => void 
   const toast = useToast();
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(codes.join("\n"));
-      toast("The recovery codes were copied.");
-    } catch {
-      toast("Could not copy them. Select them and copy by hand.");
-    }
+    toast(
+      (await copyText(codes.join("\n")))
+        ? "The recovery codes were copied."
+        : "Could not copy them. Select them and copy by hand.",
+    );
   }
 
   function download() {
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([`${codes.join("\n")}\n`], { type: "text/plain" }));
-    link.download = "recovery-codes.txt";
-    link.click();
-    URL.revokeObjectURL(link.href);
+    saveBlob("recovery-codes.txt", new Blob([`${codes.join("\n")}\n`], { type: "text/plain" }));
   }
 
   return (

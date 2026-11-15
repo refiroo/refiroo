@@ -7,6 +7,7 @@
  */
 
 import { API_URL } from "@/api/client";
+import { count } from "@/lib/count";
 import type { CapabilitiesResponse, SystemSetting } from "@/types";
 import type { DescriptionItem } from "@/ui/DescriptionList";
 import { InlineError } from "@/ui/InlineError";
@@ -15,7 +16,7 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
-import { bytes, count, feedRetentionItem, jobLimitItems } from "@/ui/limits";
+import { bytes, feedRetentionItem, jobLimitItems } from "@/ui/limits";
 import { settingsHead } from "@/ui/settingsNavigation";
 import { useCapabilities, useSystemConfiguration } from "@/state/useSystem";
 

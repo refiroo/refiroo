@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { ExportDialog } from "@/features/jobs/ExportDialog";
 import { ImportDialog } from "@/features/jobs/ImportDialog";
 import { JobPage } from "@/features/jobs/JobPage";
+import { count, counted } from "@/lib/count";
 import { useJobNotifications } from "@/ui/JobNotifications";
 import { routePath } from "@/routing/routes";
 import { api } from "@/api/client";
@@ -33,10 +34,10 @@ import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { ORIGIN, STATE, cancellable, kindOf } from "@/ui/jobText";
-import { count, jobLimitItems } from "@/ui/limits";
+import { jobLimitItems } from "@/ui/limits";
 import { useWorkspaceLabels } from "@/features/security/GrantsSection";
 import { useCapabilities } from "@/state/useSystem";
-import { useHoldsGroup } from "@/app/useMe";
+import { useHoldsGroup } from "@/state/useMe";
 import { OriginName } from "@/features/jobs/OriginName";
 import { JobGroupView } from "./JobGroupView";
 import { JOB_COLUMNS, JobRow } from "./JobRow";
@@ -393,9 +394,7 @@ function GroupedRow({
         </RouteLink>
       </th>
       <td data-label="Workspace">{workspace}</td>
-      <td data-label="Jobs">
-        {count(group.jobs)} {group.jobs === 1 ? "job" : "jobs"}
-      </td>
+      <td data-label="Jobs">{counted(group.jobs, "job")}</td>
       <td data-label="State">
         <span className="job-group-states">
           {(["running", "queued", "awaiting_confirmation", "failed", "completed", "cancelled", "expired"] as const)

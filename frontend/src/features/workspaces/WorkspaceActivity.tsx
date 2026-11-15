@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
+import { workspaceModel } from "@/model/workspaceModels";
 import { ChangeTitle } from "@/ui/ChangeTitle";
 import { periodLabel, WhatChanged, type ShownFact } from "@/ui/WhatChanged";
 import { NarrowedBanner } from "@/ui/CollectionScope";
@@ -11,7 +12,7 @@ import {
   outcomeOf,
   type ActivityItem,
 } from "@/features/workspaces/activityGroups";
-import { byDay, formatServerTime } from "@/lib/dates";
+import { byDay, formatServerTime, timeOfDay } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { objectTypeHue } from "@/model/hues";
 import { objectTypeFor } from "@/model/lookup";
@@ -32,13 +33,6 @@ const KIND_DOT: Partial<Record<ChangeEntryKind, string>> = {
   relationship: "var(--text-tertiary)",
   "change-set": "var(--hue-6-marker)",
   publication: "var(--state-selected-text)",
-};
-
-const timeOfDay = (iso: string) => {
-  const date = new Date(iso);
-  return Number.isNaN(date.valueOf())
-    ? iso
-    : date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 };
 
 function MarkTile({ mark, hue, icon }: { mark: string; hue?: 6 | 8; icon: IconName }) {
@@ -132,7 +126,7 @@ export function WorkspaceActivity({
   const application = model?.applications[0]?.key;
   useEffect(() => {
     let active = true;
-    api.model({ workspaceKey }).then(
+    workspaceModel(workspaceKey).then(
       (loaded) => active && setModel(loaded),
       () => undefined,
     );

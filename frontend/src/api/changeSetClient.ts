@@ -1,5 +1,5 @@
 import { api, type ChangeSetWriteContext } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import type { ChangeSet } from "@/types";
 
 /** One mounted change set owns its aggregate token. Record versions remain the forms' responsibility. */
@@ -37,8 +37,7 @@ export function createChangeSetClient(
       return result;
     } catch (cause) {
       if (
-        isApiError(cause, "CHANGE_SET_VERSION_CONFLICT") ||
-        isApiError(cause, "VERSION_CONFLICT") ||
+        isVersionConflict(cause, ["CHANGE_SET_VERSION_CONFLICT", "VERSION_CONFLICT"]) ||
         isApiError(cause, "DELETION_PREVIEW_CHANGED")
       ) {
         changeSet = undefined;

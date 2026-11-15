@@ -5,6 +5,7 @@
  * whether a binding holds, which the step's diagnostics say.
  */
 
+import { text } from "@/lib/coerce";
 import type {
   DraftOperation,
   DraftProfile,
@@ -17,7 +18,16 @@ import type {
   ProfileSource,
   SourceColumn,
 } from "@/types";
-import { attributeTypeOf, keyFromLabel, keysOf, objectTypeOf, relationTypeOf, typeName } from "@/model/outline";
+import {
+  attributeTypeName,
+  attributeTypeOf,
+  relationTypeName,
+  keyFromLabel,
+  keysOf,
+  objectTypeOf,
+  relationTypeOf,
+  typeName,
+} from "@/model/outline";
 
 /** A column of a sheet, as the profile names it: its sheet and its header text. */
 export const columnId = (sheet: string, header: string) => `${sheet}\u0000${header}`;
@@ -143,10 +153,9 @@ export function columnsOfType(profile: DraftProfileDocument | null | undefined, 
   return found;
 }
 
+/** The relation a profile column names, read from the end it stands at. */
 function relationName(outline: ModelDraftOutline, relation: ProfileRelation): string {
-  const type = relationTypeOf(outline, relation.relationTypeKey ?? "");
-  const name = relation.direction === "incoming" ? (type?.reverseName ?? type?.name) : type?.name;
-  return name ?? relation.relationTypeKey ?? "";
+  return relationTypeName(outline, relation.relationTypeKey ?? "", { reverse: relation.direction === "incoming" });
 }
 
 /** What a column feeds, in words: "Item · Item code", "Item · Made of → Material". */
@@ -154,8 +163,7 @@ export function feedWords(outline: ModelDraftOutline, { source, binding }: Colum
   const type = typeName(outline, source.objectTypeKey);
   if (binding.ignore) return "Ignored";
   if (binding.field === "name") return `${type} · name`;
-  if (binding.attributeTypeKey)
-    return `${type} · ${attributeTypeOf(outline, binding.attributeTypeKey)?.name ?? binding.attributeTypeKey}`;
+  if (binding.attributeTypeKey) return `${type} · ${attributeTypeName(outline, binding.attributeTypeKey)}`;
   if (binding.parent) return `${type}’s parent · ${typeName(outline, binding.parent.objectTypeKey ?? "")}`;
   const relation = binding.relation ?? binding.relationFlags;
   if (relation) {
@@ -194,7 +202,7 @@ export function matchWords(outline: ModelDraftOutline, relation: ProfileRelation
   if (relation.matchBy.field === "name") return `${far} by name`;
   if (relation.matchBy.field === "id") return `${far} by ID`;
   const attribute = relation.matchBy.attributeTypeKey ?? "";
-  return `${far} by ${attributeTypeOf(outline, attribute)?.name ?? attribute}`;
+  return `${far} by ${attributeTypeName(outline, attribute)}`;
 }
 
 /** The statistics of a column in a line: "200 of 200 filled · 187 distinct · candidate key". */
@@ -513,8 +521,6 @@ export function dropChoice(
 // --- history ---
 
 type Names = (kind: "objectType" | "attributeType" | "relationType", key: string) => string;
-
-const text = (value: unknown) => (typeof value === "string" ? value : "");
 
 function bindingTarget(binding: ProfileBinding, names: Names): string {
   if (binding.field === "name") return "the name";

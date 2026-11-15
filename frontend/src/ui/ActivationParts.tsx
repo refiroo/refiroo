@@ -4,18 +4,13 @@
  */
 
 import { api } from "@/api/client";
+import { plural } from "@/lib/count";
 import type { ChangeSet, ModelDiagnostic } from "@/types";
+import { everyPage } from "@/lib/everyPage";
 
 /** Every open change set of the workspace, page by page (a workspace holds few). */
-export async function openChangeSets(workspaceKey: string): Promise<ChangeSet[]> {
-  const found: ChangeSet[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await api.changeSets(workspaceKey, cursor);
-    found.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return found;
+export function openChangeSets(workspaceKey: string): Promise<ChangeSet[]> {
+  return everyPage((cursor) => api.changeSets(workspaceKey, cursor));
 }
 
 /** The candidate releases by model, the workspace's own model first, each newest first (M6). */
@@ -69,7 +64,7 @@ export function MigrationReasons({ diagnostics }: { diagnostics: ModelDiagnostic
       ))}
       {more > 0 && (
         <li>
-          And {more} more {more === 1 ? "reason" : "reasons"}, listed on the release's page.
+          And {more} more {plural(more, "reason")}, listed on the release's page.
         </li>
       )}
     </ul>

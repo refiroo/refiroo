@@ -11,6 +11,7 @@
  * (`useJobEnded`), so a collection reloads after an import into it.
  */
 
+import { typeName } from "@/model/lookup";
 import { loadedWorkspaceModel } from "@/model/workspaceModels";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { jobOutputUrl } from "@/api/client";
@@ -20,7 +21,8 @@ import type { EngineModel, Job, RouteState } from "@/types";
 import { useToast, type ToastAction } from "@/ui/Toast";
 import { importTitle } from "./ImportOutcome";
 import { forPeople, KIND } from "@/ui/jobText";
-import { isFinal, useJobStream } from "@/state/useJobStream";
+import { isFinal, useFollowedJob } from "@/state/useFollowedJob";
+import { readSessionPreference, writeSessionPreference } from "@/lib/localPreference";
 
 const STORAGE_KEY = "rdm.followedJobs";
 
@@ -38,20 +40,14 @@ interface JobNotifications {
 const JobNotificationsContext = createContext<JobNotifications | undefined>(undefined);
 
 function remembered(): string[] {
-  try {
-    const value = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? "[]");
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
+  return readSessionPreference<unknown[]>(STORAGE_KEY, [], Array.isArray).filter(
+    (item): item is string => typeof item === "string",
+  );
 }
 
+/** Without storage the tab still follows its jobs until it is reloaded. */
 function remember(ids: string[]) {
-  try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
-  } catch {
-    // Without storage the tab still follows its jobs until it is reloaded.
-  }
+  writeSessionPreference(STORAGE_KEY, ids);
 }
 
 export function JobNotificationsProvider({
@@ -165,9 +161,12 @@ function FollowedJob({
   onEnded: (job: Job) => void;
   onWaiting: (job: Job) => void;
 }) {
-  useJobStream(jobId, (job) => {
-    if (isFinal(job)) onEnded(job);
-    else if (job.state === "awaiting_confirmation") onWaiting(job);
+  useFollowedJob(jobId, {
+    keep: false,
+    onChange: (job) => {
+      if (isFinal(job)) onEnded(job);
+      else if (job.state === "awaiting_confirmation") onWaiting(job);
+    },
   });
   return null;
 }
@@ -213,9 +212,7 @@ export function jobTitle(model: EngineModel, job: Job): string {
     : undefined;
   const names = viewName
     ? [viewName]
-    : (scope?.types ?? []).map(
-        (item) => model.objectTypes.find((type) => type.key === item.objectTypeKey)?.pluralName ?? item.objectTypeKey,
-      );
+    : (scope?.types ?? []).map((item) => typeName(model, item.objectTypeKey, { plural: true }));
   if (forPeople(job)) return names.length ? `Workbook for people of ${names.join(", ")}` : "Workbook for people";
   return names.length ? `Export of ${names.join(", ")}` : "Export";
 }

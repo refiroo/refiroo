@@ -7,6 +7,7 @@
 
 import type { ReactNode } from "react";
 import { api } from "@/api/client";
+import { count } from "@/lib/count";
 import { WorkspaceField } from "@/ui/WorkspaceField";
 import type { ChangeSet, Job } from "@/types";
 import { FormField } from "@/ui/FormField";
@@ -78,8 +79,8 @@ export function LoadProgress({ job, stage }: { job: Job | undefined; stage: "loa
     <>
       {job && stage === "loading" && (
         <p role="status">
-          Loading · {job.progress.processed.toLocaleString()}
-          {job.progress.total ? ` of ${job.progress.total.toLocaleString()}` : ""} items
+          Loading · {count(job.progress.processed)}
+          {job.progress.total ? ` of ${count(job.progress.total)}` : ""} items
         </p>
       )}
       {stage === "done" && counts && (

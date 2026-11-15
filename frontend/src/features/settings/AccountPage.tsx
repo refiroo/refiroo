@@ -9,10 +9,12 @@ import { useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { signOut } from "@/api/session";
+import { counted } from "@/lib/count";
+import { objectTypeFor } from "@/model/lookup";
 import type { Navigate } from "@/state/openWorkspace";
 import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
 import { applicationHue } from "@/model/hues";
-import type { EngineModel, Grant, Me, SignInSession, WorkspacePage } from "@/types";
+import type { EngineModel, Grant, Me, SignInSession, Workspace } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
@@ -29,6 +31,7 @@ import { settingsHead } from "@/ui/settingsNavigation";
 import { PasskeysPanel } from "./PasskeysPanel";
 import { SecondFactorPanel } from "./SecondFactorPanel";
 import { useSettingsRead } from "@/state/useSystem";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 const SIGNED_IN_WITH: Record<string, string> = {
   password: "Signed in with your password",
@@ -299,11 +302,7 @@ function Sessions() {
       description={
         <>
           <p>Every browser, and every assistant, signed in as you.</p>
-          {sessions && (
-            <p>
-              {sessions.length} browser{sessions.length === 1 ? "" : "s"}
-            </p>
-          )}
+          {sessions && <p>{counted(sessions.length, "browser")}</p>}
         </>
       }
     >
@@ -381,12 +380,12 @@ function Sessions() {
 
 /** The action groups each grant gives, read from the person's permissions in every workspace (Z1). */
 async function grantsAndGroups(): Promise<
-  [Grant[], WorkspacePage, ReadonlyMap<string, ReadonlySet<string>>, ReadonlyMap<string, AppsByName>]
+  [Grant[], Workspace[], ReadonlyMap<string, ReadonlySet<string>>, ReadonlyMap<string, AppsByName>]
 > {
-  const [grants, workspaces] = await Promise.all([api.myGrants(), api.workspaces()]);
+  const [grants, workspaces] = await Promise.all([api.myGrants(), allWorkspaces()]);
   const [read, models] = await Promise.all([
-    Promise.all(workspaces.items.map((workspace) => api.myPermissions(workspace.key).catch(() => null))),
-    Promise.all(workspaces.items.map((workspace) => api.model({ workspaceKey: workspace.key }).catch(() => null))),
+    Promise.all(workspaces.map((workspace) => api.myPermissions(workspace.key).catch(() => null))),
+    Promise.all(workspaces.map((workspace) => api.model({ workspaceKey: workspace.key }).catch(() => null))),
   ]);
   const groups = new Map<string, Set<string>>();
   for (const permissions of read)
@@ -397,7 +396,7 @@ async function grantsAndGroups(): Promise<
       }
   // Each application's hue is the one the rest of the app gives it: its place in its workspace's model.
   const hues = new Map<string, AppsByName>();
-  workspaces.items.forEach((workspace, index) => hues.set(workspace.key, applicationHues(models[index])));
+  workspaces.forEach((workspace, index) => hues.set(workspace.key, applicationHues(models[index])));
   return [grants, workspaces, groups, hues];
 }
 
@@ -409,9 +408,7 @@ function applicationHues(model: EngineModel | null): AppsByName {
       key: application.key,
       defaultView: application.defaultView,
       hue: applicationHue(model!, application.key),
-      recordTypes: application.objectTypeKeys.flatMap(
-        (key) => model!.objectTypes.find((type) => type.key === key)?.name ?? [],
-      ),
+      recordTypes: application.objectTypeKeys.flatMap((key) => objectTypeFor(model!, key)?.name ?? []),
     });
   return found;
 }
@@ -420,7 +417,7 @@ function applicationHues(model: EngineModel | null): AppsByName {
 function Permissions({ onNavigate }: { onNavigate?: Navigate }) {
   const { data, error, retry } = useSettingsRead<Awaited<ReturnType<typeof grantsAndGroups>>>(grantsAndGroups);
   const grants = data?.[0];
-  const labels = new Map(data?.[1].items.map((workspace) => [workspace.key, workspace.label]));
+  const labels = new Map(data?.[1].map((workspace) => [workspace.key, workspace.label]));
   return (
     <SettingsGroup
       stacked

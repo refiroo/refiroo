@@ -11,19 +11,20 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { count, counted } from "@/lib/count";
 import type { Noun } from "@/ui/BatchOutcome";
-import { count } from "@/ui/limits";
 import { useCapabilities } from "@/state/useSystem";
 import { useDataApi } from "@/state/WorkspaceDataContext";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import { candidateHint, candidateScope, ownEndReason } from "@/model/candidates";
-import { bulkRelationChoices, objectTypeFor, type BulkRelationChoice } from "@/model/lookup";
+import { bulkRelationChoices, objectTypeFor, type BulkRelationChoice, typeName } from "@/model/lookup";
 import type { EngineModel, ObjectTypeDefinition } from "@/types";
 import { Choice } from "@/ui/Choice";
 import type { IconName } from "@/ui/Icon";
 import { RecordChecklist, type ChecklistRecord } from "@/ui/RecordChecklist";
 import { claimedByPreview, itemCount, relationItems, type RelationChange } from "./bulkRelations";
 import { BulkJobDialog, targetText, type Problem } from "./BulkJobDialog";
+import { everyPage } from "@/lib/everyPage";
 
 const POLICIES = [
   ["independent", "Change the rest"],
@@ -92,7 +93,6 @@ export function BulkRelationDialog({
   const [records, setRecords] = useState<ChecklistRecord[]>([]);
   const other = choice ? objectTypeFor(model, choice.otherObjectTypeKey) : undefined;
   const otherNoun: Noun = other ? [other.name.toLowerCase(), other.pluralName.toLowerCase()] : ["record", "records"];
-  const counted = (value: number, [single, many]: Noun) => `${count(value)} ${value === 1 ? single : many}`;
 
   // What the selection holds through the relationship (D165): read for Remove and Clear and, for a
   // hand selection, for Add's "already on" marks. The latest reader of all matching, for the effect.
@@ -116,23 +116,23 @@ export function BulkRelationDialog({
         : (await readAll.current(stop.signal, () => undefined)).map((row) => row.id);
       const counts = new Map<string, ChecklistRecord & { count: number }>();
       for (let start = 0; start < ids.length; start += HELD_BATCH) {
-        let cursor: string | undefined;
-        do {
-          const page = await api.heldRecords({
-            objectTypeKey: objectType.key,
-            relationTypeKey,
-            direction,
-            objectIds: ids.slice(start, start + HELD_BATCH),
-            workspaceKey,
-            cursor,
-          });
-          for (const item of page.items) {
-            if (item.object.objectTypeKey !== otherKey) continue;
-            const known = counts.get(item.object.id);
-            counts.set(item.object.id, { ...item.object, count: (known?.count ?? 0) + item.count });
-          }
-          cursor = page.nextCursor ?? undefined;
-        } while (cursor && !stop.signal.aborted);
+        const read = await everyPage(
+          (cursor) =>
+            api.heldRecords({
+              objectTypeKey: objectType.key,
+              relationTypeKey,
+              direction,
+              objectIds: ids.slice(start, start + HELD_BATCH),
+              workspaceKey,
+              cursor,
+            }),
+          { signal: stop.signal },
+        );
+        for (const item of read) {
+          if (item.object.objectTypeKey !== otherKey) continue;
+          const known = counts.get(item.object.id);
+          counts.set(item.object.id, { ...item.object, count: (known?.count ?? 0) + item.count });
+        }
       }
       if (!stop.signal.aborted)
         setHeld({ of: heldKey, records: [...counts.values()].sort((a, b) => a.name.localeCompare(b.name)) });
@@ -200,16 +200,16 @@ export function BulkRelationDialog({
   const clearing = action === "clear" ? heldCount() : undefined;
   const size =
     action === "add"
-      ? `${counted(selected, noun)} × ${counted(records.length, otherNoun)}: up to ${counted(items, ["change", "changes"])}`
+      ? `${counted(selected, ...noun)} × ${counted(records.length, ...otherNoun)}: up to ${counted(items, "change")}`
       : action === "remove"
         ? removing !== undefined
-          ? `Removes ${counted(removing, ["relationship", "relationships"])}`
-          : `${counted(selected, noun)} × ${counted(records.length, otherNoun)}: up to ${counted(items, ["change", "changes"])}`
+          ? `Removes ${counted(removing, "relationship")}`
+          : `${counted(selected, ...noun)} × ${counted(records.length, ...otherNoun)}: up to ${counted(items, "change")}`
         : action === "clear"
           ? clearing !== undefined
-            ? `Removes ${counted(clearing, ["relationship", "relationships"])}`
-            : `Clears it on ${counted(selected, noun)}`
-          : `One change for each selected ${noun[0]}: ${counted(items, ["change", "changes"])}`;
+            ? `Removes ${counted(clearing, "relationship")}`
+            : `Clears it on ${counted(selected, ...noun)}`
+          : `One change for each selected ${noun[0]}: ${counted(items, "change")}`;
   const explain =
     action === "add"
       ? `Each selected ${noun[0]} gains the ${otherNoun[1]} you tick; ones it already has stay as they are.`
@@ -263,7 +263,7 @@ export function BulkRelationDialog({
                   <span className="relation-pill-name">{item.label}</span>
                   <span className="relation-pill-other">
                     <span className="visually-hidden"> · </span>
-                    {objectTypeFor(model, item.otherObjectTypeKey)?.pluralName ?? item.otherObjectTypeKey}
+                    {typeName(model, item.otherObjectTypeKey, { plural: true })}
                   </span>
                 </button>
               ))}

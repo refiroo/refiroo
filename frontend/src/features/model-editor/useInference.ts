@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { Inference, InferenceRequest, Proposal } from "@/types";
-import { isFinal, useJobStream } from "@/state/useJobStream";
+import { isFinal, useFollowedJob } from "@/state/useFollowedJob";
 
 export interface DraftInference {
   inference?: Inference;
@@ -90,30 +90,28 @@ export function useInference(
     };
   }, [draftId, jobId, proposals?.jobId]);
 
-  useJobStream(follow, (job) => {
-    if (!isFinal(job)) {
-      // The job moved on: read the inference again.
-      void read();
-      return;
-    }
-    setFollow(undefined);
-    ended.current = job.id;
-    // A read of its own: one already in flight (the poll below) may answer from before the end.
-    void read(true).then((next) => {
-      if (next?.state === "completed") completed.current(next);
-      else {
-        setRunning(false);
-        setError(next?.error?.message ?? "The inference did not complete; propose again from the ⋯ menu.");
+  useFollowedJob(follow, {
+    keep: false,
+    onChange: (job) => {
+      if (!isFinal(job)) {
+        // The job moved on: read the inference again.
+        void read();
+        return;
       }
-    });
+      setFollow(undefined);
+      ended.current = job.id;
+      // A read of its own: one already in flight (the poll below) may answer from before the end.
+      void read(true).then((next) => {
+        if (next?.state === "completed") completed.current(next);
+        else {
+          setRunning(false);
+          setError(next?.error?.message ?? "The inference did not complete; propose again from the ⋯ menu.");
+        }
+      });
+    },
+    // A job's change is pushed when it commits; reading now and then keeps the read from lagging.
+    poll: { every: 3000, run: () => void read() },
   });
-
-  // A job's change is pushed when it commits; reading now and then keeps the read from lagging.
-  useEffect(() => {
-    if (!follow) return;
-    const timer = setInterval(() => void read(), 3000);
-    return () => clearInterval(timer);
-  }, [follow, read]);
 
   const stop = useCallback(async () => {
     if (!follow) {

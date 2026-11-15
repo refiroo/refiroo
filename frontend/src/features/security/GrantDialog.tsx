@@ -14,7 +14,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import type { ActionGroup, Grant, GrantCreate, GrantOptions, Role, Workspace } from "@/types";
@@ -41,20 +40,14 @@ import {
 } from "./grantPlan";
 import { PrincipalPicker, type PickedPrincipal } from "./PrincipalPicker";
 import { grantSentence, instanceOnly } from "./securityText";
+import { allWorkspaces } from "@/api/allWorkspaces";
+import { everyPage } from "@/lib/everyPage";
 
 type Place = { key: string; label: string };
 
 /** Every grant the principal holds directly, page after page. */
-async function grantsHeldBy(principalId: string): Promise<Grant[]> {
-  const held: Grant[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await security.grantsOf(principalId, cursor);
-    held.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return held;
-}
+const grantsHeldBy = (principalId: string): Promise<Grant[]> =>
+  everyPage((cursor) => security.grantsOf(principalId, cursor));
 
 export function GrantDialog({
   who,
@@ -99,16 +92,14 @@ export function GrantDialog({
 
   useEffect(() => {
     let active = true;
-    Promise.all([security.roles(), security.actionGroups(), workspace ? undefined : api.workspaces({ pageSize: 500 })])
-      .then(([rolePage, groups, workspacePage]) => {
+    Promise.all([security.roles(), security.actionGroups(), workspace ? undefined : allWorkspaces()])
+      .then(([rolePage, groups, everyWorkspace]) => {
         if (!active) return;
         setRoles(rolePage.items);
         setCatalogue(groups);
-        if (workspacePage) {
-          setWorkspaces(workspacePage.items);
-          setPlaceKeys((current) =>
-            current.length ? current : workspacePage.items[0] ? [workspacePage.items[0].key] : [],
-          );
+        if (everyWorkspace) {
+          setWorkspaces(everyWorkspace);
+          setPlaceKeys((current) => (current.length ? current : everyWorkspace[0] ? [everyWorkspace[0].key] : []));
         }
       })
       .catch((cause) => active && setLoadError(errorMessage(cause)));

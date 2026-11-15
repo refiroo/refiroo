@@ -7,7 +7,7 @@
 
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { useHoldsGroup } from "@/app/useMe";
+import { useHoldsGroup } from "@/state/useMe";
 import { holds, useWorkspacePermissions } from "@/state/permissions";
 import { useCapabilities } from "@/state/useSystem";
 import type { RouteState } from "@/types";

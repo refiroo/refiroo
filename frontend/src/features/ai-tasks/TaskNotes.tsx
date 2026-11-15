@@ -1,10 +1,10 @@
 /** What the assistant said, a provider failure or an operation the engine refused (0.16 AP6a), above the tables: the newest three, the earlier ones folded (0.16 AP13: what the person just did is the newest). */
 
+import { counted } from "@/lib/count";
 import type { AiTaskNote } from "@/types";
 import { AssistantText } from "@/ui/AssistantText";
 import { Disclosure } from "@/ui/Disclosure";
 import { Notice } from "@/ui/Notice";
-import { plural } from "./aiTaskText";
 
 const LAST = 3;
 
@@ -26,7 +26,7 @@ export function TaskNotes({ notes }: { notes: AiTaskNote[] }) {
   return (
     <div className="task-notes">
       {earlier.length > 0 && (
-        <Disclosure variant="link" label={`${plural(earlier.length, "earlier note")}`}>
+        <Disclosure variant="link" label={`${counted(earlier.length, "earlier note")}`}>
           {earlier.map((note, index) => (
             <One key={`${note.at}-${index}`} note={note} />
           ))}

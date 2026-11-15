@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
-import { useJobStream } from "@/state/useJobStream";
 import { outlineFixture } from "@/test/draftOutline";
 import { useHeldAnywhere } from "@/state/permissions";
 import { useCapabilities } from "@/state/useSystem";
@@ -14,9 +13,9 @@ vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
 });
-vi.mock("@/state/useJobStream", async (load) => ({
-  ...(await load<typeof import("@/state/useJobStream")>()),
-  useJobStream: vi.fn(),
+// No stream is opened: a job's changes are not under test here.
+vi.mock("@/api/eventStream", () => ({
+  openEventStream: (url: string) => ({ url, addEventListener: () => undefined, close: () => undefined }),
 }));
 
 // Who may do what is not under test here, except that the one-step finish is left out for a person who may not.
@@ -106,7 +105,6 @@ const answer = (candidates: Partial<JoinCandidates["candidates"][number]>[]): Jo
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(useJobStream).mockReturnValue(undefined as never);
   vi.mocked(api.modelDraftOutline).mockResolvedValue({ ...outlineFixture(), valid: true, diagnostics: [] });
   vi.mocked(api.modelDraft).mockResolvedValue({
     id: "d1",

@@ -10,8 +10,9 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, isApiError, refusalMessage } from "@/api/errors";
+import { errorMessage, refusalMessage, isVersionConflict } from "@/api/errors";
 import { security } from "@/api/securityClient";
+import { counted, plural } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -52,7 +53,7 @@ type GroupsRoute = Extract<SettingsRoute, { page: "groups" }>;
 
 const GROUPS: GroupsRoute = { kind: "settings", page: "groups" };
 
-const members = (count: number) => `${count} member${count === 1 ? "" : "s"}`;
+const members = (count: number) => `${counted(count, "member")}`;
 
 /** A group's count: a provider group's are only those seen at a sign-in (D364). */
 const memberLine = (group: Group) =>
@@ -125,9 +126,7 @@ function GroupList({
       }
     >
       <SettingsTools
-        count={
-          feed.loading && !shown ? undefined : `${shown}${feed.hasMore ? "+" : ""} ${shown === 1 ? "group" : "groups"}`
-        }
+        count={feed.loading && !shown ? undefined : `${shown}${feed.hasMore ? "+" : ""} ${plural(shown, "group")}`}
       >
         <SearchField label="Search groups" placeholder="Group name" value={search} onChange={setSearch} clearOnEscape />
       </SettingsTools>
@@ -228,7 +227,7 @@ function GroupDetail({
         setGroup(restored);
       };
     } catch (cause) {
-      if (!isApiError(cause, "VERSION_CONFLICT"))
+      if (!isVersionConflict(cause, ["VERSION_CONFLICT"]))
         throw new Error(refusalMessage(cause, { name: "Name", description: "Description" }), { cause });
       const current = await security.group(group.id).catch(() => undefined);
       if (current) setGroup(current);
@@ -422,9 +421,7 @@ function GroupMembers({
       {!seen && shownTicked.length > 0 && (
         <div className="selection-bar" role="group" aria-label="Selected members">
           <div className="selection-bar-row">
-            <strong className="selection-count">
-              {shownTicked.length} {shownTicked.length === 1 ? "member" : "members"} selected
-            </strong>
+            <strong className="selection-count">{counted(shownTicked.length, "member")} selected</strong>
             <div className="selection-actions">
               <button
                 type="button"
@@ -531,7 +528,7 @@ function GroupMembers({
           <LogFoot
             shown={feed.items.length}
             total={feed.hasMore ? undefined : group.members === feed.items.length ? group.members : undefined}
-            noun={feed.items.length === 1 ? "member" : "members"}
+            noun={plural(feed.items.length, "member")}
             onMore={feed.hasMore ? feed.loadMore : undefined}
             loading={feed.loading}
           />
@@ -550,8 +547,8 @@ function GroupMembers({
             onChanged();
             const left = result.items.filter((item) => item.outcome === "deactivated").length;
             toast(
-              `${result.changed} ${result.changed === 1 ? "person" : "people"} added to ${group.name}.` +
-                (left ? ` ${left} deactivated ${left === 1 ? "person was" : "people were"} left out.` : ""),
+              `${counted(result.changed, "person", "people")} added to ${group.name}.` +
+                (left ? ` ${left} deactivated ${plural(left, "person was", "people were")} left out.` : ""),
             );
             addRef.current?.focus();
           }}

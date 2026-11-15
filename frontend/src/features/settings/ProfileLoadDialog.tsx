@@ -8,10 +8,10 @@
 
 import { useState } from "react";
 import { errorMessage } from "@/api/errors";
-import type { Job, SourceFile } from "@/types";
+import type { SourceFile } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
-import { isFinal, useJobStream } from "@/state/useJobStream";
+import { isFinal, useFollowedJob } from "@/state/useFollowedJob";
 import {
   ChangeSetFields,
   changeSetName,
@@ -44,13 +44,11 @@ export function ProfileLoadDialog({
   const [workspace, setWorkspace] = useState(defaultWorkspace);
   const [stage, setStage] = useState<Stage>("ready");
   const [error, setError] = useState("");
-  const [job, setJob] = useState<Job>();
-  const [changeSetId, setChangeSetId] = useState<string>();
-
-  useJobStream(job && !isFinal(job) ? job.id : undefined, (next) => {
-    setJob(next);
-    if (isFinal(next)) setStage(next.state === "completed" ? "done" : "stopped");
+  const { job, setJob } = useFollowedJob(undefined, {
+    done: isFinal,
+    onFinal: (next) => setStage(next.state === "completed" ? "done" : "stopped"),
   });
+  const [changeSetId, setChangeSetId] = useState<string>();
 
   async function load() {
     setError("");

@@ -18,6 +18,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RecordChecklist, type ChecklistRecord } from "@/ui/RecordChecklist";
 import { checklistChange, relationItems } from "./bulkRelations";
+import { everyPage } from "@/lib/everyPage";
 
 /** How many relationships one read of the held set asks for. */
 const PAGE = 200;
@@ -52,24 +53,21 @@ export function RelatedRecordsDialog({
   useEffect(() => {
     let current = true;
     (async () => {
-      const records: ChecklistRecord[] = [];
-      let cursor: string | undefined;
-      do {
-        const page = await api.relations(object.id, {
-          workspaceKey: object.workspaceKey,
-          direction: edit.direction,
-          relationTypeKey: edit.relationTypeKey,
-          pageSize: PAGE,
-          ...(cursor ? { cursor } : {}),
-        });
-        records.push(
-          ...page.items
-            .filter((item) => types.includes(item.object.objectTypeKey))
-            .map((item) => ({ id: item.object.id, name: item.object.name, objectTypeKey: item.object.objectTypeKey })),
-        );
-        cursor = page.nextCursor ?? undefined;
-      } while (cursor && current);
+      const read = await everyPage(
+        (cursor) =>
+          api.relations(object.id, {
+            workspaceKey: object.workspaceKey,
+            direction: edit.direction,
+            relationTypeKey: edit.relationTypeKey,
+            pageSize: PAGE,
+            ...(cursor ? { cursor } : {}),
+          }),
+        { stop: () => !current },
+      );
       if (!current) return;
+      const records: ChecklistRecord[] = read
+        .filter((item) => types.includes(item.object.objectTypeKey))
+        .map((item) => ({ id: item.object.id, name: item.object.name, objectTypeKey: item.object.objectTypeKey }));
       setHeld(records);
       setTicked(records);
     })().catch((cause) => current && setError(errorMessage(cause)));

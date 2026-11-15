@@ -3,6 +3,8 @@
  * line, from its entries' kinds and parameters, and what the history says about undo and redo.
  */
 
+import { text } from "@/lib/coerce";
+import { counted } from "@/lib/count";
 import type { EditorSelection, ModelDraftOperationEntry, RemovedElement } from "@/types";
 import type { ElementKind } from "@/model/outline";
 import { describeConsumerOperation } from "@/features/model-editor/consumer";
@@ -28,8 +30,6 @@ export interface HistoryStep<E extends StepEntry = ModelDraftOperationEntry> {
 
 type Names = (kind: ElementKind, key: string, applicationKey?: string) => string;
 
-const str = (value: unknown) => (typeof value === "string" ? value : "");
-
 function elementWords(element: unknown, names: Names): string {
   const item = (element ?? {}) as Record<string, string>;
   if (item.group) return `group ${names("group", item.group, item.applicationKey)}`;
@@ -43,16 +43,16 @@ function elementWords(element: unknown, names: Names): string {
 
 /** A view, a detail page or a panel, as a layout operation names it (D19). */
 function layoutTarget(p: Record<string, unknown>, names: Names): string {
-  if (p.view) return `view ${str(p.view)}`;
-  const page = `the page of ${names("objectType", str(p.detail))}`;
-  return p.panel ? `panel ${str(p.panel)} on ${page}` : page;
+  if (p.view) return `view ${text(p.view)}`;
+  const page = `the page of ${names("objectType", text(p.detail))}`;
+  return p.panel ? `panel ${text(p.panel)} on ${page}` : page;
 }
 
 /** A list item: a field or column by its name, a panel by its title. */
 function itemWords(item: unknown, names: Names): string {
   if (item && typeof item === "object")
-    return `panel ${str((item as { title?: string }).title) || str((item as { key?: string }).key)}`;
-  const key = str(item);
+    return `panel ${text((item as { title?: string }).title) || text((item as { key?: string }).key)}`;
+  const key = text(item);
   if (key === "name") return "Name";
   return names("attributeType", key);
 }
@@ -76,21 +76,21 @@ const PROPERTY_WORDS: Record<string, string> = {
 };
 
 function listWords(p: Record<string, unknown>, names: Names): string {
-  if (str(p.list) === "panels") return layoutTarget(p, names);
-  return `${LISTS[str(p.list)] ?? `${str(p.list)} of`} ${layoutTarget(p, names)}`;
+  if (text(p.list) === "panels") return layoutTarget(p, names);
+  return `${LISTS[text(p.list)] ?? `${text(p.list)} of`} ${layoutTarget(p, names)}`;
 }
 
 function propertyWords(p: Record<string, unknown>, names: Names): string {
   const target = layoutTarget(p, names);
   const value = p.value;
   if (p.property === "visible") return `${value === false ? "Hid" : "Showed"} ${target}`;
-  if (p.property === "region") return `Moved ${target} to the ${str(value)} region`;
-  if (p.property === "title" || p.property === "name") return `Renamed ${target} to ${str(value)}`;
+  if (p.property === "region") return `Moved ${target} to the ${text(value)} region`;
+  if (p.property === "title" || p.property === "name") return `Renamed ${target} to ${text(value)}`;
   if (p.property === "defaultSort") {
-    const field = str(value).replace(/^-/, "");
-    return `Sorted ${target} by ${itemWords(field, names)}${str(value).startsWith("-") ? ", descending" : ""}`;
+    const field = text(value).replace(/^-/, "");
+    return `Sorted ${target} by ${itemWords(field, names)}${text(value).startsWith("-") ? ", descending" : ""}`;
   }
-  return `Set ${str(p.property)} of ${target}`;
+  return `Set ${text(p.property)} of ${target}`;
 }
 
 /** One operation in words. Unknown kinds fall back to their name, so a later kind still reads.
@@ -101,54 +101,56 @@ export function describeOperation(
   names: Names,
   inverse?: Record<string, unknown> | null,
 ): string {
-  const type = (key: unknown) => names("objectType", str(key));
-  const attribute = (key: unknown) => names("attributeType", str(key));
-  const relation = (key: unknown) => names("relationType", str(key));
+  const type = (key: unknown) => names("objectType", text(key));
+  const attribute = (key: unknown) => names("attributeType", text(key));
+  const relation = (key: unknown) => names("relationType", text(key));
   switch (kind) {
     case "setLabel": {
-      const labels = [p.name, p.pluralName, p.reverseName, p.label, p.title].map(str).filter(Boolean);
+      const labels = [p.name, p.pluralName, p.reverseName, p.label, p.title].map(text).filter(Boolean);
       // The element by its name before the step: the current name is the new one (R, A6b's TODO).
-      const was = str(inverse?.name) || elementWords(p.element, names);
+      const was = text(inverse?.name) || elementWords(p.element, names);
       return labels.length
         ? `Renamed ${was} to ${labels.join(" / ")}`
         : `Changed the description of ${elementWords(p.element, names)}`;
     }
     case "setKey":
-      return `Changed the key of ${elementWords(p.element, names)} to ${str(p.key)}`;
+      return `Changed the key of ${elementWords(p.element, names)} to ${text(p.key)}`;
     case "setRelease":
-      return `Set the release to ${[str(p.key), str(p.version)].filter(Boolean).join(" ")}`.trim();
+      return `Set the release to ${[text(p.key), text(p.version)].filter(Boolean).join(" ")}`.trim();
     case "addApplication":
-      return `Added application ${str(p.name)}`;
+      return `Added application ${text(p.name)}`;
     case "removeApplication":
-      return `Removed application ${names("application", str(p.applicationKey))}`;
+      return `Removed application ${names("application", text(p.applicationKey))}`;
     case "addObjectType": {
       const parent = (p.parent as { objectTypes?: string[] } | null)?.objectTypes?.[0];
-      return parent ? `Added type ${str(p.name)} under ${type(parent)}` : `Added type ${str(p.name)} at the top level`;
+      return parent
+        ? `Added type ${text(p.name)} under ${type(parent)}`
+        : `Added type ${text(p.name)} at the top level`;
     }
     case "removeObjectType":
       return `Removed type ${type(p.objectType)}`;
     case "splitObjectType":
-      return `Split ${str(p.name)} out of ${type(p.objectType)}`;
+      return `Split ${text(p.name)} out of ${type(p.objectType)}`;
     case "mergeObjectTypes":
       return `Merged ${type(p.from)} into ${type(p.into)}`;
     case "convertAttributeToListType":
-      return `Turned ${attribute(p.attributeType)} on ${type(p.objectType)} into the list type ${str(p.name)}`;
+      return `Turned ${attribute(p.attributeType)} on ${type(p.objectType)} into the list type ${text(p.name)}`;
     case "addAttributeType":
-      return `Added attribute type ${str(p.name)}`;
+      return `Added attribute type ${text(p.name)}`;
     case "removeAttributeType":
       return `Removed attribute type ${attribute(p.attributeType)}`;
     case "setAttributeTypeFeatures":
       return `Changed the features of ${attribute(p.attributeType)}`;
     case "setAttributeTypeProperty":
-      return `Changed the ${PROPERTY_WORDS[str(p.property)] ?? str(p.property)} of ${attribute(p.attributeType)}`;
+      return `Changed the ${PROPERTY_WORDS[text(p.property)] ?? text(p.property)} of ${attribute(p.attributeType)}`;
     case "setObjectTypeProperty":
-      return `Changed the ${PROPERTY_WORDS[str(p.property)] ?? str(p.property)} of ${type(p.objectType)}`;
+      return `Changed the ${PROPERTY_WORDS[text(p.property)] ?? text(p.property)} of ${type(p.objectType)}`;
     case "setRelationTypeProperty":
       return `Made ${relation(p.relationType)} ${p.value === false ? "not oriented" : "oriented"}`;
     case "setApplicationProperty":
-      return `Set the default view of ${names("application", str(p.applicationKey))} to ${str(p.value)}`;
+      return `Set the default view of ${names("application", text(p.applicationKey))} to ${text(p.value)}`;
     case "setValueType":
-      return `Made ${attribute(p.attributeType)} ${str(p.valueType)}`;
+      return `Made ${attribute(p.attributeType)} ${text(p.valueType)}`;
     case "attachAttribute":
       return `Attached ${attribute(p.attributeType)} to ${type(p.objectType)}${p.required ? ", required" : ""}`;
     case "detachAttribute":
@@ -165,55 +167,55 @@ export function describeOperation(
     case "setContainment": {
       const parent = (p.parent as { objectTypes?: string[] } | null)?.objectTypes?.[0];
       // With an application, a move there (2026-10-19): the step names it.
-      const into = str(p.application) ? ` of ${names("application", str(p.application))}` : "";
-      const there = str(p.application) ? ` in ${names("application", str(p.application))}` : "";
+      const into = text(p.application) ? ` of ${names("application", text(p.application))}` : "";
+      const there = text(p.application) ? ` in ${names("application", text(p.application))}` : "";
       if (parent) return `Moved ${type(p.objectType)} under ${type(parent)}${there}`;
       // Without a parent the move keeps where the type stands, in the other application.
-      if (!("parent" in p)) return `Moved ${type(p.objectType)} to ${names("application", str(p.application))}`;
+      if (!("parent" in p)) return `Moved ${type(p.objectType)} to ${names("application", text(p.application))}`;
       return `Moved ${type(p.objectType)} to the top level${into}`;
     }
     case "addRelationType":
-      return `Added relation type ${str(p.name)}`;
+      return `Added relation type ${text(p.name)}`;
     case "removeRelationType":
       return `Removed relation type ${relation(p.relationType)}`;
     case "allowRelation":
-      return `Allowed ${type(p.from)} → ${type(p.to)} (${relation(p.relationType)}${p.cardinality ? `, ${str(p.cardinality)}` : ""})`;
+      return `Allowed ${type(p.from)} → ${type(p.to)} (${relation(p.relationType)}${p.cardinality ? `, ${text(p.cardinality)}` : ""})`;
     case "disallowRelation":
       return `Stopped allowing ${type(p.from)} → ${type(p.to)} (${relation(p.relationType)})`;
     case "setRelationRule":
       return `Changed the rule of ${type(p.from)} → ${type(p.to)} (${relation(p.relationType)})`;
     case "addNavigationGroup":
-      return `Added navigation group ${str(p.label)}`;
+      return `Added navigation group ${text(p.label)}`;
     case "removeNavigationGroup":
-      return `Removed navigation group ${names("group", str(p.group), str(p.applicationKey))}`;
+      return `Removed navigation group ${names("group", text(p.group), text(p.applicationKey))}`;
     case "setNavigationGroup":
-      return `Changed navigation group ${names("group", str(p.group), str(p.applicationKey))}`;
+      return `Changed navigation group ${names("group", text(p.group), text(p.applicationKey))}`;
     case "placeCollection": {
-      const entry = p.view ? `the matrix ${str(p.view)}` : type(p.collection);
+      const entry = p.view ? `the matrix ${text(p.view)}` : type(p.collection);
       return p.group
-        ? `Placed ${entry} in group ${names("group", str(p.group), str(p.applicationKey))}`
+        ? `Placed ${entry} in group ${names("group", text(p.group), text(p.applicationKey))}`
         : p.view
           ? `Took ${entry} out of its group`
           : `Placed ${entry} at the top of the sidebar`;
     }
     case "setCollectionOpening":
       return p.view
-        ? `Made ${type(p.collection)} open on ${str(p.view)}`
+        ? `Made ${type(p.collection)} open on ${text(p.view)}`
         : `Made ${type(p.collection)} open on the application's default view`;
     case "addView":
-      return `Added view ${str((p.view as { name?: string } | undefined)?.name) || str((p.view as { key?: string } | undefined)?.key)}`;
+      return `Added view ${text((p.view as { name?: string } | undefined)?.name) || text((p.view as { key?: string } | undefined)?.key)}`;
     case "removeView":
-      return `Removed view ${str(p.view)}`;
+      return `Removed view ${text(p.view)}`;
     case "listObjectType":
-      return `Listed ${type(p.objectType)} in ${str(p.applicationKey)}`;
+      return `Listed ${type(p.objectType)} in ${text(p.applicationKey)}`;
     case "unlistObjectType":
-      return `Stopped listing ${type(p.objectType)} in ${str(p.applicationKey)}`;
+      return `Stopped listing ${type(p.objectType)} in ${text(p.applicationKey)}`;
     case "addDetailPage":
       return `Added a detail page for ${type(p.objectType)}`;
     case "removeDetailPage":
       return `Removed the detail page of ${type(p.objectType)}`;
     case "addPanel":
-      return `Added panel ${str(p.title)} to ${type(p.detail)}`;
+      return `Added panel ${text(p.title)} to ${type(p.detail)}`;
     case "insertViewItem":
       return `Added ${itemWords(p.item, names)} to ${listWords(p, names)}`;
     case "moveViewItem":
@@ -267,12 +269,7 @@ export function migrationWords(step: HistoryStep, names: Names): string {
         [item.impact.values, "value", "values"],
         [item.impact.relationships, "relationship", "relationships"],
       ] as const;
-      const parts = held
-        .filter(([amount]) => amount !== 0)
-        .map(
-          ([amount, one, many]) =>
-            `${typeof amount === "number" ? amount.toLocaleString("en-GB") : amount} ${amount === 1 ? one : many}`,
-        );
+      const parts = held.filter(([amount]) => amount !== 0).map(([amount, one, many]) => counted(amount, one, many));
       const holds = parts.length ? parts.join(", ") : "no stored data";
       const name = elementWords(item.element, names);
       found.set(name, `${name}: ${item.keyChange ? "the key changes, " : ""}${holds}`);

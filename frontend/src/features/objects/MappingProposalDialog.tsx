@@ -7,15 +7,15 @@
  */
 
 import { useEffect, useState, type FormEvent } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import { ai } from "@/api/aiClient";
+import { count } from "@/lib/count";
 import { useJobNotifications } from "@/ui/JobNotifications";
-import { isFinal, useJobStream } from "@/state/useJobStream";
+import { isFinal, useFollowedJob } from "@/state/useFollowedJob";
 import { cancellable } from "@/ui/jobText";
 import { sentForMappingTargets } from "@/lib/aiText";
-import { count } from "@/ui/limits";
 import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
-import type { AiSystemInfo, Job, MappingProposalRequest } from "@/types";
+import type { AiSystemInfo, MappingProposalRequest } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -65,7 +65,10 @@ export function MappingProposalDialog({
   const [model, setModel] = useState<string | null | undefined>(offer.model);
   const [into, setInto] = useState<"current" | "new">(changeSet ? "current" : "new");
   const [name, setName] = useState(`AI proposals: ${scope.viewName}`);
-  const [job, setJob] = useState<Job>();
+  const { job, setJob } = useFollowedJob(undefined, {
+    done: isFinal,
+    onFinal: () => setStep("result"),
+  });
   const [problem, setProblem] = useState("");
   const [stopping, setStopping] = useState(false);
 
@@ -106,11 +109,6 @@ export function MappingProposalDialog({
       active = false;
     };
   }, [offer.model]);
-
-  useJobStream(job && !isFinal(job) ? job.id : undefined, (next) => {
-    setJob(next);
-    if (isFinal(next)) setStep("result");
-  });
 
   const newName = name.trim();
   const toNew = !changeSet || into === "new";
@@ -364,7 +362,7 @@ function proposeProblem(cause: unknown): string {
   if (isApiError(cause, "AI_NOT_CONFIGURED")) return "No AI provider is set up on this deployment any more.";
   if (isApiError(cause, "AI_SEND_LEVEL_TOO_LOW"))
     return "This deployment does not let record names leave the server, so targets cannot be proposed.";
-  if (isApiError(cause, "CHANGE_SET_VERSION_CONFLICT"))
+  if (isVersionConflict(cause, ["CHANGE_SET_VERSION_CONFLICT"]))
     return "Someone changed the change set meanwhile. Propose again to use it as it is now.";
   if (isApiError(cause, "CHANGE_SET_NOT_FOUND")) return "The change set no longer exists.";
   return errorMessage(cause);

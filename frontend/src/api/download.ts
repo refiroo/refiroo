@@ -3,7 +3,7 @@
  * I2, D247): a plain link cannot send the header, and a token in a URL is excluded (C-D1).
  */
 
-import { ApiError } from "@/api/errors";
+import { errorFromResponse } from "@/api/errors";
 import { authorizedFetch } from "@/api/session";
 import { saveBlob } from "@/lib/download";
 
@@ -18,17 +18,14 @@ function filenameOf(response: Response, fallback: string): string {
 /** Download `url` and save it, named as the engine names it or `fallback`. */
 export async function downloadFrom(url: string, fallback: string): Promise<void> {
   const response = await authorizedFetch(url);
-  if (!response.ok) {
-    let message = `The download failed with status ${response.status}. Retry or contact support if the problem continues.`;
-    let code = "HTTP_ERROR";
-    try {
-      const parsed = await response.json();
-      message = parsed.error?.message ?? message;
-      code = parsed.error?.code ?? code;
-    } catch {
-      // A body that is not the engine's envelope keeps the general message.
-    }
-    throw new ApiError(response.status, code, message);
-  }
+  // The download's own wording for a body that is not the engine's envelope; it reports neither a
+  // forbidden answer nor a changed release.
+  if (!response.ok)
+    throw errorFromResponse(
+      response.status,
+      await response.text(),
+      `The download failed with status ${response.status}. Retry or contact support if the problem continues.`,
+      { detail: false },
+    );
   saveBlob(filenameOf(response, fallback), await response.blob());
 }

@@ -10,6 +10,7 @@ import { useId, useMemo, useRef, type DragEvent, type KeyboardEvent, type MouseE
 import { CellGrid } from "@/features/model-editor/CellGrid";
 import { columnLetter, columnNumber } from "@/features/model-editor/lists";
 import { usesOf } from "@/features/model-editor/mapping";
+import { count } from "@/lib/count";
 import { columnElements } from "@/model/proposing";
 import { useCells } from "@/features/model-editor/useCells";
 import type { DraftProfileDocument, SourceColumn, SourceSheet } from "@/types/sources";
@@ -222,7 +223,7 @@ export function WorkbookPane({
               title="Drag onto the board to make an object type of its rows"
             >
               {item.name}
-              <small>{item.rows.toLocaleString("en-US")}</small>
+              <small>{count(item.rows)}</small>
             </button>
             {editable && menuForSheet && (
               <ActionMenu label={`Actions for ${item.name}`} items={menuForSheet(item.name)} />
@@ -282,7 +283,7 @@ export function WorkbookPane({
                         : (column.values ?? [])
                             .slice(0, 3)
                             .map((item) => item.value)
-                            .join(" · ") || `${column.distinct.toLocaleString("en-US")} values`}
+                            .join(" · ") || `${count(column.distinct)} values`}
                     </small>
                     {(readings.length > 0 || (asProposed && !allProposed)) && (
                       <span className="canvas-column-marks">

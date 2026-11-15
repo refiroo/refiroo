@@ -8,6 +8,8 @@
 
 import { useId, useState } from "react";
 import { ai } from "@/api/aiClient";
+import { plural } from "@/lib/count";
+import { formatShortDay } from "@/lib/dates";
 import { useHistoryAccountOffer } from "@/state/useWorkspaceAiOffer";
 import { changeReviewFor, routePath } from "@/routing/routes";
 import type { HistoryAccount, HistoryFact, RouteState } from "@/types";
@@ -31,12 +33,9 @@ const PRESETS: { value: Preset; label: string }[] = [
 
 const DAY = 24 * 60 * 60 * 1000;
 
-const shortDay = (iso: string | number) =>
-  new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
-
 /** The period an account is of, as people read it: the last day is the one before `until`, which is not included. */
 export function periodLabel(since: string, until: string) {
-  return `${shortDay(since)} to ${shortDay(new Date(until).getTime() - 1)}`;
+  return `${formatShortDay(since)} to ${formatShortDay(new Date(until).getTime() - 1)}`;
 }
 
 /** A date input's day at the start of the day where the person is. */
@@ -105,7 +104,7 @@ export function WhatChanged({
           className="link-button"
           onClick={() => done && onShow({ fact, since: done.since, until: done.until })}
         >
-          {fact.count === 1 ? "Show it" : "Show them"}
+          {plural(fact.count ?? 0, "Show it", "Show them")}
         </button>
       );
     }

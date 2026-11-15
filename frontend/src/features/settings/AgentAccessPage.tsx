@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { agentAccess } from "@/api/agentAccessClient";
 import { errorMessage } from "@/api/errors";
+import { count, plural } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useAddressTab } from "@/lib/hooks/useAddressTab";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
@@ -39,8 +40,6 @@ import { useToast } from "@/ui/Toast";
 import { NewClientDialog, SecretDialog, type Made } from "@/features/security/ClientsPage";
 import { clientAccessLine } from "@/features/security/securityText";
 import { settingsHead } from "@/ui/settingsNavigation";
-
-const number = (value: number) => value.toLocaleString("en");
 
 /** The outcome of a call in a person's words. */
 export const OUTCOME: Record<AgentCall["outcome"], string> = {
@@ -167,7 +166,7 @@ function ConnectSection({ status, hue }: { status: AgentAccessStatus; hue: Hue }
           }
         />
         <SettingRow fact name="Limit">
-          {`${number(status.ratePerMinute)} calls a minute for each person or client`}
+          {`${count(status.ratePerMinute)} calls a minute for each person or client`}
         </SettingRow>
         <SettingRow
           under
@@ -249,7 +248,7 @@ function ClientRow({ client, onNavigate }: { client: AgentClient; onNavigate: (r
         {client.lastCallAt ? formatServerDayTime(client.lastCallAt) : "Never"}
       </td>
       <td data-label="Calls, 30 days" className="num">
-        {number(client.calls30Days)}
+        {count(client.calls30Days)}
       </td>
     </tr>
   );
@@ -333,7 +332,7 @@ function ApplicationsSection({ hue }: { hue: Hue }) {
                   </th>
                   <td data-label="Returns to">{application.returnsTo.join(", ")}</td>
                   <td data-label="Signed in now">
-                    {number(application.signedIn)} {application.signedIn === 1 ? "person" : "people"}
+                    {count(application.signedIn)} {plural(application.signedIn, "person", "people")}
                   </td>
                   <td
                     data-label="Last used"
@@ -406,8 +405,8 @@ function ApplicationsSection({ hue }: { hue: Hue }) {
           onConfirm={() => void change(blocking, "block")}
         >
           <p>
-            No one can sign in with {blocking.name} any more, and its {number(blocking.signedIn)}{" "}
-            {blocking.signedIn === 1 ? "session ends" : "sessions end"} on the next call. You can restore it later; the
+            No one can sign in with {blocking.name} any more, and its {count(blocking.signedIn)}{" "}
+            {plural(blocking.signedIn, "session ends", "sessions end")} on the next call. You can restore it later; the
             sessions that ended stay ended.
           </p>
         </ConfirmDialog>

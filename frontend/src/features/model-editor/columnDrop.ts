@@ -11,9 +11,6 @@ import type { DraftProfileDocument, ProfileBinding, SourceColumn } from "@/types
 export const bound = (binding: ProfileBinding): string[] =>
   binding.columns?.length ? binding.columns : binding.column ? [binding.column] : [];
 
-export const nameOfType = (outline: ModelDraftOutline, key: string) =>
-  outline.objectTypes.find((type) => type.key === key)?.name ?? key;
-
 /** What a drop on a field needs to know of it: the canvas's field card satisfies it. */
 export interface DropField {
   kind: "name" | "attribute" | "parent" | "relation";

@@ -11,6 +11,8 @@
  * mouse or pen (D46); each choice is one step of the draft's history.
  */
 
+import { counted } from "@/lib/count";
+import { objectTypeFor, typeName } from "@/model/lookup";
 import { useWorkspaceModel } from "@/model/workspaceModels";
 import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -77,6 +79,7 @@ import {
   type LayoutPlace,
   type Region,
 } from "@/features/model-editor/layout";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 /** How the preview sends a layout change: one step, as every editor operation (A2). */
 export type SendLayout = (operations: DraftOperation[]) => Promise<unknown>;
@@ -154,9 +157,8 @@ export function TypePreview({
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .workspaces({ pageSize: 100 })
-      .then((page) => !cancelled && setWorkspaces(page.items))
+    allWorkspaces()
+      .then((items) => !cancelled && setWorkspaces(items))
       .catch(() => undefined);
     return () => {
       cancelled = true;
@@ -191,7 +193,7 @@ export function TypePreview({
     [read],
   );
   const application = model && applicationForType(model.applications, objectTypeKey, applicationKey, holderApplication);
-  const objectType = model?.objectTypes.find((item) => item.key === objectTypeKey);
+  const objectType = model ? objectTypeFor(model, objectTypeKey) : undefined;
 
   // The records shown are read for that application only, so a record of another one is never put into its page.
   const readKey = `${objectTypeKey}|${workspaceKey}|${application?.key ?? ""}`;
@@ -245,8 +247,7 @@ export function TypePreview({
     return frame(
       <div className="preview-invalid">
         <p className="preview-invalid-title">
-          The draft has {read.diagnostics.length} {read.diagnostics.length === 1 ? "issue" : "issues"}, so it cannot be
-          previewed
+          The draft has {counted(read.diagnostics.length, "issue")}, so it cannot be previewed
         </p>
         <p className="muted">
           The preview renders the draft as it would run. Fix the issues, or undo the last step, and it comes back.
@@ -864,10 +865,7 @@ function LayoutCanvas({
       <header className="layout-record-head">
         <span className="muted">{application.name}</span>
         <strong>
-          {object?.name ||
-            (objectId === PREVIEW_EMPTY_ID
-              ? `New ${model.objectTypes.find((t) => t.key === place.objectTypeKey)?.name ?? ""}`
-              : "")}
+          {object?.name || (objectId === PREVIEW_EMPTY_ID ? `New ${typeName(model, place.objectTypeKey)}` : "")}
         </strong>
         <button
           type="button"

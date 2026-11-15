@@ -8,8 +8,9 @@
  */
 
 import { useState, type ReactNode } from "react";
-import { useHoldsGroup } from "@/app/useMe";
-import { count } from "@/ui/limits";
+import { count, counted } from "@/lib/count";
+import { relationTypeFor, typeName } from "@/model/lookup";
+import { useHoldsGroup } from "@/state/useMe";
 import { MoveRowsTable, type MoveRowsFilter } from "@/ui/MoveRowsTable";
 import { modeWords, reasonText } from "@/model/moveRun";
 import { useWorkspaceModel } from "@/model/workspaceModels";
@@ -28,8 +29,6 @@ const made = (counts: MoveCounts) => counts.create + counts.update + counts.upda
 
 /** The row types listed in full before the rest are folded into one row. */
 const LISTED = 3;
-
-const plural = (value: number, one: string, many: string) => `${count(value)} ${value === 1 ? one : many}`;
 
 export function MoveOutcome({
   job,
@@ -63,7 +62,7 @@ export function MoveOutcome({
       : "",
     counts.notMoved ? `${count(counts.notMoved)} ${loaded ? "were" : "would be"} left out by the mapping.` : "",
     loaded && summary.mode === "move" && summary.source
-      ? `${plural(summary.source.deleted, "record was", "records were")} deleted in ${summary.sourceWorkspaceKey}, ${count(summary.source.kept)} kept.`
+      ? `${counted(summary.source.deleted, "record was", "records were")} deleted in ${summary.sourceWorkspaceKey}, ${count(summary.source.kept)} kept.`
       : `Nothing ${loaded ? "changed" : "has changed"} in ${summary.sourceWorkspaceKey}.`,
   ]
     .filter(Boolean)
@@ -172,14 +171,11 @@ interface TypeLine {
 
 function TypeCounts({ summary, source, target }: { summary: MoveSummary; source: EngineModel; target: EngineModel }) {
   const [all, setAll] = useState(false);
-  const name = (model: EngineModel, key?: string) =>
-    (key && model.objectTypes.find((item) => item.key === key)?.name) || key || "";
-  const relation = (model: EngineModel, key?: string) =>
-    (key && model.relationTypes.find((item) => item.key === key)?.name) || key || "";
+  const relation = (model: EngineModel, key?: string) => (key && relationTypeFor(model, key)?.name) || key || "";
   const records: TypeLine[] = summary.types.map((item) => ({
     key: `record:${item.sourceType}`,
-    type: name(source, item.sourceType),
-    becomes: name(target, item.targetType ?? item.sourceType),
+    type: typeName(source, item.sourceType),
+    becomes: typeName(target, item.targetType ?? item.sourceType),
     made: made(item.counts),
     refused: item.counts.refused,
     notMoved: item.counts.notMoved,

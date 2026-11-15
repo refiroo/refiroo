@@ -1,9 +1,7 @@
 /** The mail routes Settings › Mail reads and writes (0.12 M1): the SMTP connection and the outbox. */
 
-import { request } from "@/api/client";
+import { json, request } from "@/api/client";
 import type { MailMessage, MailMessagePage, MailSettings, MailSettingsUpdate, MailStatus } from "@/types";
-
-const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
 export const mail = {
   settings: () => request<MailSettings>("/api/v1/mail-settings"),

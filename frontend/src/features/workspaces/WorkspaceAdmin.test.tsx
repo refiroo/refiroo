@@ -9,6 +9,7 @@ import { resetPermissionsForTests } from "@/state/permissions";
 import { EVERY_GROUP, heldAnywhereFixture, permissionsFixture } from "@/test/permissions";
 import { security } from "@/api/securityClient";
 import { testModel, testWorkspaceModel, testAvailability } from "@/test/fixtures";
+import { forgetWorkspaceModel } from "@/model/workspaceModels";
 import { ToastProvider } from "@/ui/Toast";
 
 vi.mock("@/state/useWorkspaceAiOffer", () => ({ useHistoryAccountOffer: () => undefined }));
@@ -830,6 +831,8 @@ describe("WorkspaceAdmin keeps what it has read", () => {
   }
 
   it("does not reload the page or read a tab again when the tab changes", async () => {
+    // Activity reads the workspace's model through the browser's kept copy: this is its first read of it.
+    forgetWorkspaceModel("retail");
     render(<Stateful start={{ ...LIST, workspaceKey: "retail" }} />);
     await screen.findByRole("heading", { level: 1, name: "Retail" });
     await screen.findByRole("region", { name: "Applications" });

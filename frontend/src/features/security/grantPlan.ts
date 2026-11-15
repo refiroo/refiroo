@@ -4,6 +4,7 @@
  * unticked), and the sentences that say so. One tick is one grant; the API takes one at a time.
  */
 
+import { counted, plural } from "@/lib/count";
 import type { Grant, GrantCreate } from "@/types";
 
 type Principal = GrantCreate["principal"];
@@ -106,7 +107,7 @@ export function recreation(grant: Grant): GrantCreate {
 export const list = (items: readonly string[]) =>
   items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items.at(-1)}` : (items[0] ?? "");
 
-const grants = (count: number) => `${count} grant${count === 1 ? "" : "s"}`;
+const grants = (count: number) => `${counted(count, "grant")}`;
 
 /** "3 grants will be made: Test client reads RDM in default and pilot, and Master data in default." */
 export function consumerPlanSentence(who: string, reads: readonly { api: string; where: readonly string[] }[]): string {
@@ -127,8 +128,9 @@ export function rolePlanSentence(args: {
   if (!args.count && !args.skipped) return "";
   const each = args.roles.length > 1 ? "each " : "";
   const where = args.where === "instance" ? "for the whole instance" : `in ${list(args.where)}`;
+  // "one of them" has no number in it, so it is not `counted`'s shape.
   const skipped = args.skipped
-    ? ` ${args.who} already holds ${args.skipped === 1 ? "one of them" : `${args.skipped} of them`}, so ${args.skipped === 1 ? "it is" : "they are"} skipped.`
+    ? ` ${args.who} already holds ${args.skipped === 1 ? "one of them" : `${args.skipped} of them`}, so ${plural(args.skipped, "it is", "they are")} skipped.`
     : "";
   return `${grants(args.count)} will be made: ${list(args.roles)}, ${each}${where}.${skipped}`;
 }

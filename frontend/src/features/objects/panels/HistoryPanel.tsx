@@ -5,6 +5,7 @@ import { useDataApi } from "@/state/WorkspaceDataContext";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { attributeName } from "@/model/fields";
 import type { Hue } from "@/model/hues";
+import { relationTypeFor } from "@/model/lookup";
 import type { Actor, AuditEventItem, EngineModel, HistoryKind, HistoryValue, RouteState } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { ActorName, actorText } from "@/ui/ActorName";
@@ -286,7 +287,7 @@ function fieldLabel(value: HistoryValue, model?: EngineModel) {
 }
 
 function relationLabel(key: string | null, direction: "outgoing" | "incoming", model?: EngineModel) {
-  const definition = model?.relationTypes.find((relation) => relation.key === key);
+  const definition = model ? relationTypeFor(model, key) : undefined;
   if (!definition) return key ?? "Relationship";
   return direction === "outgoing" ? definition.name : definition.reverseName || definition.name;
 }

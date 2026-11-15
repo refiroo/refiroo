@@ -6,14 +6,12 @@
  */
 
 import { useState } from "react";
+import { count, counted } from "@/lib/count";
 import type { MoveSummary } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { figuresOf } from "@/model/moveRun";
-
-const count = (value: number, one: string, many: string) =>
-  `${value.toLocaleString("en-GB")} ${value === 1 ? one : many}`;
 
 export function StartMoveDialog({
   summary,
@@ -39,7 +37,7 @@ export function StartMoveDialog({
   const cannot = figures.cannot + figures.dropped;
   return (
     <Modal
-      title={`${moving ? "Move" : "Copy"} ${count(records, "record", "records")} into workspace ${targetLabel}`}
+      title={`${moving ? "Move" : "Copy"} ${counted(records, "record")} into workspace ${targetLabel}`}
       onClose={onClose}
       busy={busy}
     >
@@ -52,9 +50,9 @@ export function StartMoveDialog({
       >
         <ul className="move-start-list">
           <li>
-            A new change set of workspace <strong>{targetLabel}</strong>: {count(figures.create, "record", "records")}{" "}
-            created, {figures.update.toLocaleString("en-GB")} updated ({moving ? "moved" : "copied"} before or found),{" "}
-            {count(figures.carried, "relationship", "relationships")}.
+            A new change set of workspace <strong>{targetLabel}</strong>: {counted(figures.create, "record")} created,{" "}
+            {count(figures.update)} updated ({moving ? "moved" : "copied"} before or found),{" "}
+            {counted(figures.carried, "relationship")}.
           </li>
           {moving && (
             <li>
@@ -65,7 +63,7 @@ export function StartMoveDialog({
           )}
           <li>
             {cannot
-              ? `${count(cannot, "item", "items")} cannot be ${moving ? "moved" : "copied"} (listed on this page). `
+              ? `${counted(cannot, "item")} cannot be ${moving ? "moved" : "copied"} (listed on this page). `
               : `Every selected item can be ${moving ? "moved" : "copied"}. `}
             Nothing reaches either workspace or its consumers until a change set is published.
           </li>

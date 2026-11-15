@@ -11,13 +11,14 @@
  * of a date range, each its own pill (0.16 AG4).
  */
 
+import { count, plural } from "@/lib/count";
 import { keyScope } from "@/model/candidates";
 import { useEffect, useState } from "react";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { relationFilterEntries, relationFilterMode, type RelationMode } from "@/features/objects/RelationFilter";
 import type { NamedRecord } from "@/ui/relationFilterNames";
 import { attributeName } from "@/model/fields";
-import { RELATED_FIELD_PREFIX, relatedAncestorTypes, relatedTargetTypes } from "@/model/lookup";
+import { attributeTypeFor, RELATED_FIELD_PREFIX, relatedAncestorTypes, relatedTargetTypes } from "@/model/lookup";
 import type { CollectionFilter, EngineModel, ValueType } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { ControlPopover } from "@/ui/ControlPopover";
@@ -121,7 +122,7 @@ export function filterKind(model: EngineModel, field: string): FilterKind {
   if (field.startsWith("relation:")) return filterKind(model, field.slice("relation:".length));
   if (field.startsWith(RELATED_FIELD_PREFIX)) return "relation";
   if (["createdAt", "updatedAt"].includes(field)) return "date";
-  const type: ValueType | undefined = model.attributeTypes.find((item) => item.key === field)?.valueType;
+  const type: ValueType | undefined = attributeTypeFor(model, field)?.valueType;
   if (type === "boolean") return "boolean";
   if (type === "integer" || type === "decimal") return "number";
   if (type === "date" || type === "dateTime") return "date";
@@ -397,7 +398,7 @@ function FilterEditor({
         return { id: entry.value, name: named?.name ?? "…", objectTypeKey: named?.objectTypeKey ?? "" };
       }),
   );
-  const [count, setCount] = useState<{ of: string; total: number | undefined }>();
+  const [draftCount, setCount] = useState<{ of: string; total: number | undefined }>();
   const draftKey = JSON.stringify([...others, ...draft]);
   useEffect(() => {
     if (!narrow) return;
@@ -412,12 +413,10 @@ function FilterEditor({
       window.clearTimeout(timer);
     };
   }, [narrow, draftKey, countDraft]);
-  const shown = count?.of === draftKey ? count.total : undefined;
+  const shown = draftCount?.of === draftKey ? draftCount.total : undefined;
   const pluralName = noun[1];
   const applyLabel =
-    narrow && shown !== undefined
-      ? `Show ${shown.toLocaleString("en")} ${(shown === 1 ? noun[0] : noun[1]).toLowerCase()}`
-      : "Apply";
+    narrow && shown !== undefined ? `Show ${count(shown)} ${plural(shown, ...noun).toLowerCase()}` : "Apply";
 
   const header = (
     <div className="filter-editor-header">

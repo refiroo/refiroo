@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
+import { count, counted } from "@/lib/count";
 import type { Noun } from "@/ui/BatchOutcome";
 import { targetText } from "@/features/objects/BulkJobDialog";
 import { useDataApi } from "@/state/WorkspaceDataContext";
@@ -28,8 +29,6 @@ import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
-
-const count = (value: number) => value.toLocaleString("en");
 
 interface Refusal {
   relationId?: string | null;
@@ -156,8 +155,8 @@ export function RelationGridChangeDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const counted = preview?.key === key ? preview : undefined;
-  const result = counted?.result;
+  const current = preview?.key === key ? preview : undefined;
+  const result = current?.result;
   const writes = result ? result.change + (link ? result.missing : 0) : 0;
   const blocked = !body || !result || writes === 0 || result.refused.length > 0 || applying;
 
@@ -271,8 +270,8 @@ export function RelationGridChangeDialog({
         <Section title="The preview" description="Nothing is written until you apply.">
           {value === undefined && attribute && <p className="bulk-hint">Enter a value, or choose Clear.</p>}
           {unreadable && <Notice tone="error">That is not a valid value.</Notice>}
-          {counted?.error && <Notice tone="error">{counted.error}</Notice>}
-          {body && !result && !counted?.error && <p className="bulk-hint">Counting…</p>}
+          {current?.error && <Notice tone="error">{current.error}</Notice>}
+          {body && !result && !current?.error && <p className="bulk-hint">Counting…</p>}
           {result && (
             <>
               <DescriptionList
@@ -319,7 +318,7 @@ export function RelationGridChangeDialog({
           </Notice>
         )}
         <p className="bulk-summary" aria-live="polite">
-          {result ? `Saving changes ${count(writes)} ${writes === 1 ? "relationship" : "relationships"}` : ""}
+          {result ? `Saving changes ${counted(writes, "relationship")}` : ""}
         </p>
         <div className="dialog-actions">
           <button type="button" className="secondary" disabled={applying} onClick={onClose}>

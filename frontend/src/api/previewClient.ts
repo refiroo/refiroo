@@ -13,7 +13,7 @@
  */
 
 import { api } from "@/api/client";
-import { RELATED_FIELD_PREFIX, relatedColumn } from "@/model/lookup";
+import { objectTypeFor, RELATED_FIELD_PREFIX, relatedColumn } from "@/model/lookup";
 import type { EngineModel, ObjectItem, ObjectTypeRelationDefinition } from "@/types";
 
 /** The ID of the empty record a new type's preview shows. */
@@ -94,8 +94,8 @@ export function relaxedPickerRelations(active: EngineModel, draft: EngineModel, 
 
 /** The fields of the draft's type that the active model's type does not hold. */
 function unknownFields(active: EngineModel, draft: EngineModel, objectTypeKey: string) {
-  const activeType = active.objectTypes.find((item) => item.key === objectTypeKey);
-  const draftType = draft.objectTypes.find((item) => item.key === objectTypeKey);
+  const activeType = objectTypeFor(active, objectTypeKey);
+  const draftType = objectTypeFor(draft, objectTypeKey);
   const held = new Set(activeType?.attributes.map((item) => item.attributeTypeKey) ?? []);
   return new Set((draftType?.attributes ?? []).map((item) => item.attributeTypeKey).filter((key) => !held.has(key)));
 }

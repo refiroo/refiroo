@@ -9,8 +9,11 @@
 import { useState, type DependencyList } from "react";
 import { api, type PageSelector } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { count, counted } from "@/lib/count";
+import { formatServerDate } from "@/lib/dates";
 import { attributeName } from "@/model/fields";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { relationTypeFor, typeName } from "@/model/lookup";
 import type {
   BindingReportColumn,
   EngineModel,
@@ -30,7 +33,6 @@ import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { StatusPill } from "@/ui/StatusPill";
-import { count } from "@/ui/limits";
 import { keyless } from "@/model/importRequest";
 import { Verdict } from "./Verdict";
 import { fileSize } from "@/ui/jobText";
@@ -65,9 +67,7 @@ export function profileText(profile: ImportParameters["profile"]) {
   if (profile?.key) return <code>{profile.key}</code>;
   const embedded = profile?.embedded;
   if (!embedded) return profile?.definition ? "Given with the request" : "None";
-  const day = embedded.exportedAt
-    ? new Date(embedded.exportedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
-    : undefined;
+  const day = embedded.exportedAt ? formatServerDate(embedded.exportedAt) : undefined;
   return `Read as exported from ${embedded.collection ?? "a collection"}${day ? ` on ${day}` : ""}`;
 }
 
@@ -132,7 +132,7 @@ export function ImportPreviewSection({ job }: { job: Job }) {
     preview.result === "applied"
       ? "Loading would apply every row."
       : preview.result === "partial"
-        ? `Loading would apply the rows that can load and refuse ${count(rows.rejected)} ${rows.rejected === 1 ? "row" : "rows"}.`
+        ? `Loading would apply the rows that can load and refuse ${counted(rows.rejected, "row")}.`
         : atomic
           ? "Loading would write nothing: with Load nothing unless every row loads, one refused row stops the whole file."
           : "Loading would write nothing: every row is refused.";
@@ -354,9 +354,9 @@ function boundTo(model: EngineModel, column: BindingReportColumn): string {
       return attributeName(model, target);
     case "parent":
     case "relatedRecord":
-      return `${BINDING[column.binding]}: ${model.objectTypes.find((type) => type.key === target)?.name ?? target}`;
+      return `${BINDING[column.binding]}: ${typeName(model, target)}`;
     default:
-      return `${BINDING[column.binding]}: ${model.relationTypes.find((type) => type.key === target)?.name ?? target}`;
+      return `${BINDING[column.binding]}: ${relationTypeFor(model, target)?.name ?? target}`;
   }
 }
 
@@ -386,12 +386,10 @@ export function BindingReportSection({ model, job }: { model: EngineModel; job: 
         <div key={`${source.sheet}:${position}`} className="binding-source">
           <h3>
             {sourceName(source.sheet)}
-            {source.objectTypeKey &&
-              ` → ${model.objectTypes.find((type) => type.key === source.objectTypeKey)?.pluralName ?? source.objectTypeKey}`}
+            {source.objectTypeKey && ` → ${typeName(model, source.objectTypeKey, { plural: true })}`}
           </h3>
           <p className="admin-hint">
-            {count(source.rows)} {source.rows === 1 ? "row" : "rows"}, {count(source.rejectedRows)} refused while
-            reading.
+            {counted(source.rows, "row")}, {count(source.rejectedRows)} refused while reading.
           </p>
           <SettingsTable
             label={`Columns of ${sourceName(source.sheet).replace(/^The /, "the ")}`}

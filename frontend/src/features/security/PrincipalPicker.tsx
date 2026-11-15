@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { security } from "@/api/securityClient";
 import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { GrantCreate } from "@/types";
 import { ComboBoxField, type SelectionOption } from "@/ui/Selection";
@@ -63,7 +64,7 @@ export function PrincipalPicker({
               kind: "group" as const,
               id: item.id,
               name: item.name,
-              detail: `${item.members} member${item.members === 1 ? "" : "s"}`,
+              detail: `${counted(item.members, "member")}`,
             })),
           )
         : [],

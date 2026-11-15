@@ -1,15 +1,14 @@
+import { counted, plural } from "@/lib/count";
+import { typeName } from "@/model/lookup";
 import { useNavigationGuard } from "@/routing/navigationGuard";
 import { useCallback, useEffect, useState } from "react";
 import { useDataApi } from "@/state/WorkspaceDataContext";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import type { EngineModel, ObjectDeletionImpact, ObjectItem } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 
 /** The records named in the dialog before "and N more": the impact lists every one, which may be thousands. */
 const NAMED = 8;
-
-const records = (n: number) => `${n} ${n === 1 ? "record" : "records"}`;
-const relationships = (n: number) => `${n} ${n === 1 ? "relationship" : "relationships"}`;
 
 /**
  * Deleting a record is one confirmation (0.17 UX1, PP-D40): the dialog reads what the deletion would take
@@ -67,8 +66,7 @@ export function ObjectDeleteDialog({
     } catch (cause) {
       if (
         isApiError(cause, "DELETION_PREVIEW_CHANGED") ||
-        isApiError(cause, "VERSION_CONFLICT") ||
-        isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")
+        isVersionConflict(cause, ["VERSION_CONFLICT", "CHANGE_SET_VERSION_CONFLICT"])
       ) {
         // The impact shown is out of date. Show the current one once and ask again; never delete what
         // was not shown.
@@ -91,7 +89,7 @@ export function ObjectDeleteDialog({
     }
   }
 
-  const typeName = model.objectTypes.find((type) => type.key === objectTypeKey)?.name ?? "record";
+  const typeLabel = typeName(model, objectTypeKey);
   const title = `Delete ${object.name}?`;
   if (!impact) {
     return (
@@ -119,7 +117,7 @@ export function ObjectDeleteDialog({
   return (
     <ConfirmDialog
       title={title}
-      confirmLabel={others > 0 ? `Delete ${impact.objectCount} records` : `Delete ${typeName}`}
+      confirmLabel={others > 0 ? `Delete ${impact.objectCount} records` : `Delete ${typeLabel}`}
       pending={pending}
       error={error}
       onCancel={onClose}
@@ -127,21 +125,20 @@ export function ObjectDeleteDialog({
     >
       <p>
         {impact.ownRelationshipCount > 0
-          ? `Deletes ${object.name} and its ${relationships(impact.ownRelationshipCount)}.`
+          ? `Deletes ${object.name} and its ${counted(impact.ownRelationshipCount, "relationship")}.`
           : `Deletes ${object.name}.`}{" "}
         {others > 0
-          ? `${records(others)} ${beneath ? "under it" : "that depend on it"} ${others === 1 ? "is" : "are"} deleted too.`
+          ? `${counted(others, "record")} ${beneath ? "under it" : "that depend on it"} ${plural(others, "is", "are")} deleted too.`
           : "Nothing else is deleted."}
         {others > 0 &&
           further > 0 &&
-          ` ${relationships(further)} of those records ${further === 1 ? "is" : "are"} removed too.`}
+          ` ${counted(further, "relationship")} of those records ${plural(further, "is", "are")} removed too.`}
       </p>
       {others > 0 && (
         <ul>
           {named.map((item) => (
             <li key={item.id}>
-              {item.name} (
-              {model.objectTypes.find((type) => type.key === item.objectTypeKey)?.name ?? item.objectTypeKey})
+              {item.name} ({typeName(model, item.objectTypeKey)})
             </li>
           ))}
           {others > named.length && <li>and {others - named.length} more</li>}

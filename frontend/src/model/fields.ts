@@ -9,11 +9,12 @@
 
 import type { EngineModel, ExpandedRelations, ObjectItem, ObjectTypeDefinition } from "@/types";
 import {
+  attributeTypeFor,
   isSingleValuedRelatedColumn,
-  objectTypeFor,
   RELATED_FIELD_PREFIX,
   relatedColumn,
   relatedFieldLabel,
+  typeName,
 } from "@/model/lookup";
 
 /**
@@ -34,7 +35,7 @@ export function attributeName(model: EngineModel, key: string): string {
   }
   if (key.startsWith("ancestor:")) {
     const objectTypeKey = key.slice("ancestor:".length);
-    return objectTypeFor(model, objectTypeKey)?.name ?? objectTypeKey;
+    return typeName(model, objectTypeKey);
   }
   if (key === "name") return "Name";
   if (key === "path") return "Path";
@@ -42,7 +43,7 @@ export function attributeName(model: EngineModel, key: string): string {
   if (key === "id") return "ID";
   if (key === "createdAt") return "Created";
   if (key === "updatedAt") return "Updated";
-  return model.attributeTypes.find((item) => item.key === key)?.name ?? key;
+  return attributeTypeFor(model, key)?.name ?? key;
 }
 
 /** A row's related records in a `related:` column, as the list returned them (`expand`, K5). */
@@ -90,7 +91,7 @@ export function fieldValue(item: ObjectItem, key: string, model: EngineModel): u
   }
   if (key === "name") return item.name;
   if (key === "path") return item.path.map((part) => part.name).join(" / ");
-  if (key === "objectType") return objectTypeFor(model, item.objectTypeKey)?.name ?? item.objectTypeKey;
+  if (key === "objectType") return typeName(model, item.objectTypeKey);
   if (key === "id") return item.id;
   if (key === "createdAt") return item.createdAt;
   if (key === "updatedAt") return item.updatedAt;
@@ -126,7 +127,7 @@ export function isSortableField(
   if (LIVE_ONLY_FIELDS.includes(field)) return live;
   if (field.startsWith("ancestor:")) return objectTypes.length === 1;
   if (!objectTypes.some((type) => type.attributes.some((binding) => binding.attributeTypeKey === field))) return false;
-  return model.attributeTypes.find((item) => item.key === field)?.valueType !== "json";
+  return attributeTypeFor(model, field)?.valueType !== "json";
 }
 
 /**

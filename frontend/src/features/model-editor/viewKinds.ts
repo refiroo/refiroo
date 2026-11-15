@@ -6,7 +6,8 @@
  * changed property by property, as a matrix is (`matrixView.changeMatrix`).
  */
 import { ancestorColumnOptions } from "@/features/model-editor/matrixView";
-import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/model/outline";
+import { stringList, trimmedText } from "@/lib/coerce";
+import { keyFromLabel, objectTypeOf, relationTypeName, typeLabel, typeName } from "@/model/outline";
 import type { DraftOperation, ModelDraftOutline, OutlineApplication, OutlineView } from "@/types";
 
 type Values = Record<string, unknown>;
@@ -20,8 +21,6 @@ export const VIEW_KIND_OPTIONS: Option[] = [
   { value: "relationTable", label: "Relationships table: each relationship in a row, with its own attributes" },
 ];
 
-const list = (value: unknown): string[] => (Array.isArray(value) ? (value as string[]) : []);
-const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 const SCALAR = new Set(["text", "longText", "integer", "decimal", "boolean", "date", "dateTime"]);
 
 const applicationOf = (outline: ModelDraftOutline, key: string): OutlineApplication | undefined =>
@@ -74,12 +73,12 @@ function sharedFields(outline: ModelDraftOutline, types: string[], keep: (valueT
 }
 
 export function treeFieldOptions(outline: ModelDraftOutline, applicationKey: string, values: Values): Option[] {
-  const nodes = treeNodeTypes(outline, applicationKey, list(values.roots));
+  const nodes = treeNodeTypes(outline, applicationKey, stringList(values.roots));
   return [{ value: "name", label: "Name" }, ...sharedFields(outline, nodes, (valueType) => SCALAR.has(valueType))];
 }
 
 export function treeAvailabilityOptions(outline: ModelDraftOutline, applicationKey: string, values: Values): Option[] {
-  const nodes = treeNodeTypes(outline, applicationKey, list(values.roots));
+  const nodes = treeNodeTypes(outline, applicationKey, stringList(values.roots));
   return [NONE, ...sharedFields(outline, nodes, (valueType) => valueType === "boolean")];
 }
 
@@ -88,11 +87,11 @@ export function treeValues(view: Pick<OutlineView, "name" | "config">): Values {
   const childSort = (config.childSort ?? {}) as Record<string, string>;
   return {
     name: view.name,
-    roots: list(config.rootObjectTypeKeys),
-    label: text(config.labelField) || "name",
-    secondary: text(config.secondaryField),
+    roots: stringList(config.rootObjectTypeKeys),
+    label: trimmedText(config.labelField) || "name",
+    secondary: trimmedText(config.secondaryField),
     order: (Object.values(childSort)[0] ?? "name").replace(/^-/, ""),
-    availability: text(config.availabilityField),
+    availability: trimmedText(config.availabilityField),
   };
 }
 
@@ -114,18 +113,18 @@ function treeConfig(
   values: Values,
   before?: Record<string, unknown>,
 ) {
-  const roots = list(values.roots);
+  const roots = stringList(values.roots);
   const nodes = treeNodeTypes(outline, applicationKey, roots);
-  const order = text(values.order) || "name";
-  const availability = text(values.availability);
-  const declared = list(before?.actions);
+  const order = trimmedText(values.order) || "name";
+  const availability = trimmedText(values.availability);
+  const declared = stringList(before?.actions);
   const actions = availability
     ? declared.includes("setAvailability")
       ? declared
       : [...declared, "setAvailability"]
     : declared.filter((action) => action !== "setAvailability");
   const sorted = (before?.childSort ?? {}) as Record<string, string>;
-  const asked = text(values.order) ? order : undefined;
+  const asked = trimmedText(values.order) ? order : undefined;
   const wasShown = (Object.values(sorted)[0] ?? "name").replace(/^-/, "");
   const childSort = Object.fromEntries(
     nodes
@@ -140,8 +139,8 @@ function treeConfig(
   return {
     rootObjectTypeKeys: roots,
     objectTypeKeys: nodes,
-    labelField: text(values.label) || "name",
-    secondaryField: text(values.secondary) || null,
+    labelField: trimmedText(values.label) || "name",
+    secondaryField: trimmedText(values.secondary) || null,
     childSort,
     pageSize: 50,
     actions,
@@ -165,7 +164,7 @@ export function gridBindingOptions(outline: ModelDraftOutline): Option[] {
     )
     .map((item) => ({
       value: binding(item.relationType, item.from, item.to),
-      label: `${typeName(outline, item.from)} → ${typeName(outline, item.to)}, through ${relationTypeOf(outline, item.relationType)?.name ?? item.relationType}`,
+      label: `${typeName(outline, item.from)} → ${typeName(outline, item.to)}, through ${relationTypeName(outline, item.relationType)}`,
     }));
 }
 
@@ -222,11 +221,15 @@ export function gridValues(view: Pick<OutlineView, "name" | "config">): Values {
   const config = (view.config ?? {}) as Record<string, unknown>;
   return {
     name: view.name,
-    binding: binding(text(config.relationTypeKey), text(config.fromObjectTypeKey), text(config.toObjectTypeKey)),
+    binding: binding(
+      trimmedText(config.relationTypeKey),
+      trimmedText(config.fromObjectTypeKey),
+      trimmedText(config.toObjectTypeKey),
+    ),
     rows: config.direction === "incoming" ? "to" : "from",
-    sourceColumns: list(config.sourceColumns),
-    targetColumns: list(config.targetDisplayColumns),
-    search: list(config.candidateSearchFields),
+    sourceColumns: stringList(config.sourceColumns),
+    targetColumns: stringList(config.targetDisplayColumns),
+    search: stringList(config.candidateSearchFields),
   };
 }
 
@@ -243,9 +246,9 @@ function gridConfig(values: Values) {
     fromObjectTypeKey: from,
     toObjectTypeKey: to,
     direction: values.rows === "to" ? "incoming" : "outgoing",
-    sourceColumns: list(values.sourceColumns),
-    targetDisplayColumns: list(values.targetColumns),
-    candidateSearchFields: list(values.search),
+    sourceColumns: stringList(values.sourceColumns),
+    targetDisplayColumns: stringList(values.targetColumns),
+    candidateSearchFields: stringList(values.search),
     pageSize: 20,
   };
 }
@@ -257,7 +260,7 @@ function typesToList(outline: ModelDraftOutline, applicationKey: string, kind: s
   const listed = applicationOf(outline, applicationKey)?.objectTypeKeys ?? [];
   const needed =
     kind === "table"
-      ? [text(values.type)]
+      ? [trimmedText(values.type)]
       : kind === "mappingGrid"
         ? [parseBinding(values.binding).from, parseBinding(values.binding).to]
         : [];
@@ -278,12 +281,12 @@ export function addView(
   kind: string,
   values: Values,
 ): DraftOperation[] {
-  const name = text(values.name);
+  const name = trimmedText(values.name);
   const taken = new Set((applicationOf(outline, applicationKey)?.views ?? []).map((item) => item.key));
   const key = keyFromLabel(name, taken);
   const view =
     kind === "table"
-      ? { key, name, type: "table", objectTypeKey: text(values.type) }
+      ? { key, name, type: "table", objectTypeKey: trimmedText(values.type) }
       : kind === "tree"
         ? { key, name, type: "tree", config: treeConfig(outline, applicationKey, values) }
         : { key, name, type: "mappingGrid", config: gridConfig(values) };
@@ -312,7 +315,7 @@ export function changeView(
   );
   return [
     ...listing(outline, applicationKey, kind, values),
-    ...(text(values.name) !== view.name ? [set("name", text(values.name))] : []),
+    ...(trimmedText(values.name) !== view.name ? [set("name", trimmedText(values.name))] : []),
     ...moved.map(([name, value]) => set(name, value)),
   ];
 }

@@ -1,6 +1,7 @@
 /** The load's end (0.16 AP6a, board 7): into the change set, what it holds, where to go next, and what was not loaded (folded). */
 
 import { useState } from "react";
+import { counted, plural } from "@/lib/count";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import type { AiTask, RouteState } from "@/types";
 import { Notice } from "@/ui/Notice";
@@ -11,7 +12,7 @@ import { TellAssistant } from "./TellAssistant";
 import { WayOnward } from "./WayOnward";
 import type { AssistantOffers } from "./useAssistantOffers";
 import { routePath } from "@/routing/routes";
-import { notLoadedEntries, plural, skippedText } from "./aiTaskText";
+import { notLoadedEntries, skippedText } from "./aiTaskText";
 
 /** What was loaded, in a sentence: the new, changed and removed records the import counted. */
 export function loadedSentence(task: AiTask): { done: string; rest: string } {
@@ -24,21 +25,21 @@ export function loadedSentence(task: AiTask): { done: string; rest: string } {
   const relinked = counts?.relationsUpdated ?? 0;
   const unlinked = counts?.relationsRemoved ?? 0;
   const said = [
-    created > 0 && `${plural(created, "record")} new`,
-    changed > 0 && `${plural(changed, "record")} changed`,
-    removed > 0 && `${plural(removed, "record")} removed`,
-    linked > 0 && `${plural(linked, "relationship")} new`,
-    relinked > 0 && `${plural(relinked, "relationship")} changed`,
-    unlinked > 0 && `${plural(unlinked, "relationship")} removed`,
+    created > 0 && `${counted(created, "record")} new`,
+    changed > 0 && `${counted(changed, "record")} changed`,
+    removed > 0 && `${counted(removed, "record")} removed`,
+    linked > 0 && `${counted(linked, "relationship")} new`,
+    relinked > 0 && `${counted(relinked, "relationship")} changed`,
+    unlinked > 0 && `${counted(unlinked, "relationship")} removed`,
   ].filter((part): part is string => !!part);
   const joined = said.length > 1 ? `${said.slice(0, -1).join(", ")} and ${said[said.length - 1]}` : said[0];
   return {
     done: joined ?? "",
     rest: joined
       ? unchanged > 0
-        ? `The other ${plural(unchanged, "record")} ${unchanged === 1 ? "was" : "were"} already as the file says.`
+        ? `The other ${counted(unchanged, "record")} ${plural(unchanged, "was", "were")} already as the file says.`
         : ""
-      : `Nothing changed: ${unchanged > 0 ? `all ${plural(unchanged, "record")} were` : "the records were"} already as the file says.`,
+      : `Nothing changed: ${unchanged > 0 ? `all ${counted(unchanged, "record")} were` : "the records were"} already as the file says.`,
   };
 }
 

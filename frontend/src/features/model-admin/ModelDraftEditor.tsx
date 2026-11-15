@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import type { ModelCompilation, ModelDraft, ModelValidation } from "@/types";
 import { settingsHead } from "@/ui/settingsNavigation";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
@@ -18,6 +18,7 @@ import { downloadJson } from "@/lib/download";
 import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
 import { ModelDiff } from "@/features/model-admin/ModelDiff";
 import { ModelSummary } from "@/features/model-admin/ModelSummary";
+import { copyText } from "@/lib/copyText";
 
 function pretty(model: Record<string, unknown>) {
   return JSON.stringify(model, null, 2);
@@ -121,7 +122,7 @@ export function ModelDraftEditor({
       setCompilation(undefined);
     } catch (cause) {
       setError(errorMessage(cause));
-      setConflict(isApiError(cause, "VERSION_CONFLICT"));
+      setConflict(isVersionConflict(cause, ["VERSION_CONFLICT"]));
     } finally {
       setPending("");
     }
@@ -190,13 +191,8 @@ export function ModelDraftEditor({
 
   async function copyLocal() {
     setError("");
-    try {
-      if (!navigator.clipboard)
-        throw new Error("Clipboard access is unavailable. Select and copy the editor content manually.");
-      await navigator.clipboard.writeText(text);
-    } catch (cause) {
-      setError(errorMessage(cause));
-    }
+    if (!(await copyText(text)))
+      setError("Clipboard access is unavailable. Select and copy the editor content manually.");
   }
 
   async function reload() {

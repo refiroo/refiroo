@@ -1,22 +1,21 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
+import { cachedRead } from "@/state/cachedRead";
 import { holdsAnywhere, useHeldAnywhere, useWorkspacePermissions } from "@/state/permissions";
+import { staticSystem } from "@/state/useSystem";
 import type { Me, MyPermissions, SystemResponse } from "@/types";
 
 // Who is signed in, read once per page load: it changes only by signing in again (0.12 I2).
-let loading: Promise<Me> | undefined;
+const signedIn = cachedRead(() => api.me());
 
 /** The signed-in person, or `undefined` while it loads or when it cannot be read. */
 export function useMe(): Me | undefined {
   const [me, setMe] = useState<Me>();
   useEffect(() => {
     let active = true;
-    loading ??= Promise.resolve().then(() => api.me());
-    loading.then(
+    signedIn.get().then(
       (loaded) => active && setMe(loaded),
-      () => {
-        loading = undefined;
-      },
+      () => undefined,
     );
     return () => {
       active = false;
@@ -53,23 +52,15 @@ export function roleLine(permissions: MyPermissions): string {
   return `${listed} in ${where}`;
 }
 
-// What the engine offers as its source and licence, read once per page load (0.12 L1, D219).
-let loadingSource: Promise<SystemResponse["engine"]> | undefined;
-
 /** The licence and the source address the engine offers its users (AGPL section 13), or `undefined`
- * while they load or when they cannot be read. */
+ * while they load or when they cannot be read. Read once per page load (0.12 L1, D219). */
 export function useSourceOffer(): Pick<SystemResponse["engine"], "license" | "sourceCode"> | undefined {
   const [offer, setOffer] = useState<SystemResponse["engine"]>();
   useEffect(() => {
     let active = true;
-    loadingSource ??= Promise.resolve()
-      .then(() => api.system())
-      .then((system) => system.engine);
-    loadingSource.then(
-      (loaded) => active && setOffer(loaded),
-      () => {
-        loadingSource = undefined;
-      },
+    staticSystem().then(
+      (loaded) => active && setOffer(loaded.engine),
+      () => undefined,
     );
     return () => {
       active = false;

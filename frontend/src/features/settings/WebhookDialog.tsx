@@ -12,8 +12,8 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
-import { everyPage } from "@/lib/everyPage";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
+import { count } from "@/lib/count";
 import type {
   ConsumerApiDefinition,
   EngineModel,
@@ -32,6 +32,7 @@ import { SearchMenu } from "@/ui/SearchMenu";
 import { TokenField } from "@/ui/TokenField";
 import { sourceName, subscribable } from "./consumerDefinitions";
 import { CONTENT, FORMAT, WORKSPACE_EVENTS, eventDeclaration } from "@/ui/webhookText";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 /** The batch size offered when an operator first chooses to batch. */
 const DEFAULT_BATCH = 100;
@@ -192,10 +193,7 @@ export function WebhookDialog({
   useEffect(() => {
     if (editing) return;
     let active = true;
-    Promise.all([
-      everyPage((cursor) => api.workspaces({ status: "active", cursor, holding: "integration-admin" })),
-      api.workspaceRuntimeState(),
-    ])
+    Promise.all([allWorkspaces({ status: "active", holding: "integration-admin" }), api.workspaceRuntimeState()])
       .then(([all, runtime]) => {
         if (!active) return;
         // Every active workspace (0.9 R-F19), the default first, as a subscription without a
@@ -240,7 +238,7 @@ export function WebhookDialog({
             ),
       );
     } catch (cause) {
-      if (subscription && onConflict && isApiError(cause, "VERSION_CONFLICT")) {
+      if (subscription && onConflict && isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         try {
           await onConflict();
           setConflict(
@@ -498,7 +496,7 @@ export function WebhookDialog({
           {draft.batched && (
             <FormField
               label="Up to (events)"
-              help={`From 2 to ${batchLimit.toLocaleString()}.`}
+              help={`From 2 to ${count(batchLimit)}.`}
               error={fieldError("maxEventsPerBatch")}
             >
               {(control) => (

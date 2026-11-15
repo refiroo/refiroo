@@ -23,7 +23,7 @@ import { ProposeDialog, ownChangeSetText, useOwnChangeSet } from "@/features/wor
 import { holds, recordWrites } from "@/state/permissions";
 import { RETIRED_BAND_TEXT } from "./DataContextBand";
 import { permissionLine } from "@/state/permissionText";
-import { useMe } from "./useMe";
+import { useMe } from "@/state/useMe";
 import { NoWorkspace } from "./NoWorkspace";
 import { HomePage } from "@/features/home/HomePage";
 import { WorkspacePage } from "@/features/workspaces/WorkspacePage";

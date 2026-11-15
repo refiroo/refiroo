@@ -9,8 +9,9 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import { security } from "@/api/securityClient";
+import { counted } from "@/lib/count";
 import { formatServerDayTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { LocalSignIn, RouteState, SettingsRoute, SignInProvider, SignInProviderCreate } from "@/types";
@@ -421,7 +422,7 @@ function ProviderDetail({
       await action();
       return true;
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         setLoadToken((token) => token + 1);
         setActionError("This provider changed while the page was open. It is shown as it is now; try again.");
       } else {
@@ -467,7 +468,7 @@ function ProviderDetail({
                 {provider.enabled ? "Enabled" : "Disabled"}
               </StatusPill>
               <StatusPill tone="neutral" marker={false}>
-                {provider.people === 1 ? "1 person has" : `${provider.people} people have`} signed in with it
+                {counted(provider.people, "person has", "people have")} signed in with it
               </StatusPill>
               {provider.lastSignInAt && (
                 <StatusPill tone="neutral" marker={false}>
@@ -802,7 +803,7 @@ function LocalDetail({
       toast(enabled ? "People sign in with a password again." : "Local sign-in is off.");
     } catch (cause) {
       setError(errorMessage(cause));
-      if (isApiError(cause, "VERSION_CONFLICT")) void security.localSignIn().then(onChanged, () => undefined);
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) void security.localSignIn().then(onChanged, () => undefined);
     } finally {
       setPending(false);
     }
@@ -821,7 +822,7 @@ function LocalDetail({
       );
     } catch (cause) {
       setError(errorMessage(cause));
-      if (isApiError(cause, "VERSION_CONFLICT")) void security.localSignIn().then(onChanged, () => undefined);
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) void security.localSignIn().then(onChanged, () => undefined);
     } finally {
       setPending(false);
     }
@@ -863,7 +864,7 @@ function LocalDetail({
         description={
           local.enabled
             ? "People sign in with an e-mail address and password; each may add an authenticator app on their Account page, and you can require it below. A provider brings the organisation's own multi-factor sign-in."
-            : `Only the ${local.keptPeople === 1 ? "administrator" : `${local.keptPeople} administrators`} made on the server sign in with a password, from the link on the sign-in page. Everyone else signs in with a provider.`
+            : `Only the ${counted(local.keptPeople, "administrator")} made on the server sign in with a password, from the link on the sign-in page. Everyone else signs in with a provider.`
         }
       >
         <SettingsPanel

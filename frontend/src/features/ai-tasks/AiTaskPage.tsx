@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ai } from "@/api/aiClient";
 import { api } from "@/api/client";
+import { workspaceModel } from "@/model/workspaceModels";
 import { errorMessage, isVersionConflict } from "@/api/errors";
 import { useHeldAnywhere, useWorkspacePermissions, holds } from "@/state/permissions";
 import { changeReviewFor, routePath } from "@/routing/routes";
@@ -104,8 +105,7 @@ export function AiTaskPage({
   useEffect(() => {
     if (!workspaceKey) return;
     let current = true;
-    api
-      .model({ workspaceKey })
+    workspaceModel(workspaceKey)
       .then((loaded) => current && setModel(loaded))
       .catch(() => undefined);
     return () => {

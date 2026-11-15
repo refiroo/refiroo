@@ -9,9 +9,10 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
 import { openIn, type Navigate } from "@/state/openWorkspace";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
-import { objectTypeFor } from "@/model/lookup";
+import { typeName } from "@/model/lookup";
 import { loadedWorkspaceModel, workspaceModel } from "@/model/workspaceModels";
 import type { ObjectItem, OwnWorkspace } from "@/types";
 import { SearchField } from "@/ui/SearchField";
@@ -82,7 +83,7 @@ export function HomeSearch({ workspaces, onNavigate }: { workspaces: readonly Ow
   const optionId = (index: number) => `${listId}-${index}`;
   const kind = (item: ObjectItem) => {
     const model = loadedWorkspaceModel(item.workspaceKey ?? "");
-    return model ? (objectTypeFor(model, item.objectTypeKey)?.name ?? "") : "";
+    return model ? typeName(model, item.objectTypeKey) : "";
   };
   const place = (item: ObjectItem) =>
     [
@@ -161,7 +162,7 @@ export function HomeSearch({ workspaces, onNavigate }: { workspaces: readonly Ow
         {!shown || !result || result.error
           ? ""
           : ordered.length
-            ? `${ordered.length} ${ordered.length === 1 ? "record" : "records"} found`
+            ? `${counted(ordered.length, "record")} found`
             : "No record's name matches"}
       </p>
       {shown && result && (

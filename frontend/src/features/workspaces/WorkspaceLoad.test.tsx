@@ -5,9 +5,9 @@ import { forgetWorkspaceLoad, rememberWorkspaceLoad } from "@/features/workspace
 import { WorkspaceLoad } from "@/features/workspaces/WorkspaceLoad";
 import type { Job } from "@/types";
 
-vi.mock("@/state/useJobStream", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/state/useJobStream")>()),
-  useJobStream: () => undefined,
+// No stream is opened: a job's changes are not under test here.
+vi.mock("@/api/eventStream", () => ({
+  openEventStream: (url: string) => ({ url, addEventListener: () => undefined, close: () => undefined }),
 }));
 
 const done = (rejected: number) =>

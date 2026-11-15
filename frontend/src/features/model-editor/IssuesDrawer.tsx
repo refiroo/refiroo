@@ -12,6 +12,7 @@ import { removePanel } from "@/features/model-editor/layout";
 import type { DraftEditing } from "@/features/model-editor/useDraftEditing";
 import type { DraftSource } from "@/features/model-editor/useDraftSource";
 import type { SourceDialogs } from "@/features/model-editor/useSourceDialogs";
+import { counted } from "@/lib/count";
 import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 import type { CursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { DraftProfile, ModelDraftOperationEntry, ModelDraftOutline } from "@/types";
@@ -134,11 +135,9 @@ export function IssuesDrawer({
         <Icon name={open ? "chevron-down" : "chevron-right"} size={14} />
         <span>{name}</span>
         <StatusPill tone={errors ? "error" : issueCount ? "warning" : "success"}>
-          {issueCount ? `${issueCount} ${issueCount === 1 ? "issue" : "issues"}` : "No issues"}
+          {issueCount ? `${counted(issueCount, "issue")}` : "No issues"}
         </StatusPill>
-        <span className="muted">
-          {stepCount ? `${stepCount} ${stepCount === 1 ? "step" : "steps"}` : "No steps yet"}
-        </span>
+        <span className="muted">{stepCount ? `${counted(stepCount, "step")}` : "No steps yet"}</span>
         {hasSource && <span className="muted">Dry run: {dryRunLabel(source.dryRun)}</span>}
       </button>
       <div id="model-editor-issues-history" className="model-editor-bottom-body" hidden={!open}>

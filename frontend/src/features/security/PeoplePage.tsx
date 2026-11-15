@@ -8,9 +8,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, invalidFields, isApiError } from "@/api/errors";
+import { errorMessage, invalidFields, isApiError, isVersionConflict } from "@/api/errors";
 import { mail } from "@/api/mailClient";
 import { security } from "@/api/securityClient";
+import { plural } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -226,7 +227,7 @@ function PeopleList({
         count={
           feed.loading && !shown
             ? undefined
-            : `${count}${total === undefined && feed.hasMore ? "+" : ""} ${count === 1 ? "person" : "people"}`
+            : `${count}${total === undefined && feed.hasMore ? "+" : ""} ${plural(count, "person", "people")}`
         }
       >
         <SearchField
@@ -564,7 +565,7 @@ function PersonDetail({
       await action();
       setConfirming(undefined);
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         setConfirming(undefined);
         const current = await security.user(userId).catch(() => undefined);
         if (current) setUser(current);
@@ -1105,7 +1106,7 @@ function EditPersonDialog({
         }),
       );
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         const current = await security.user(user.id).catch(() => undefined);
         if (current) onConflict(current);
         setConflict(

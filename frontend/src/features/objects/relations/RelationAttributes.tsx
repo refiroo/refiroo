@@ -6,7 +6,8 @@
  */
 
 import { useState } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
+import { attributeTypeFor } from "@/model/lookup";
 import { useDataApi } from "@/state/WorkspaceDataContext";
 import type { AttributeTypeDefinition, EngineModel, RelationRecord } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
@@ -26,7 +27,7 @@ export function relationAttributeTypes(
   binding: { attributeTypeKeys?: string[] } | undefined,
 ): AttributeTypeDefinition[] {
   return (binding?.attributeTypeKeys ?? [])
-    .map((key) => model.attributeTypes.find((item) => item.key === key))
+    .map((key) => attributeTypeFor(model, key))
     .filter((item): item is AttributeTypeDefinition => Boolean(item));
 }
 
@@ -139,7 +140,7 @@ export function useRelationValues(relation: Pick<RelationRecord, "id" | "version
       return saved;
     } catch (cause) {
       setError(errorMessage(cause));
-      if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT", "CHANGE_SET_VERSION_CONFLICT"])) {
         try {
           const fresh = await api.relation(relation.id, workspaceKey);
           setVersion(fresh.version);

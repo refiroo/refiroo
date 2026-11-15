@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
 import { formatServerDate } from "@/lib/dates";
 import { ModelSummary } from "@/features/model-admin/ModelSummary";
 import {
@@ -11,6 +12,7 @@ import {
   type StructureObjectType,
 } from "@/features/model-admin/structureParse";
 import { applicationHue, objectTypeHue } from "@/model/hues";
+import { newestFirst } from "@/model/newestFirst";
 import type { ModelReleaseSummary } from "@/types";
 import type { EngineModel } from "@/types";
 import { ControlPopover } from "@/ui/ControlPopover";
@@ -37,8 +39,6 @@ type Loaded =
   | { id: string; state: "loading" }
   | { id: string; state: "error"; message: string }
   | { id: string; state: "ready"; model: Record<string, unknown> };
-
-const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
 /** The hue helpers read `objectTypes[].key` and `applications[].key`; the structure has both. */
 function hueModel(structure: Structure, model: Record<string, unknown>) {
@@ -148,7 +148,7 @@ function TypeRow({ type, hues }: { type: StructureObjectType; hues: EngineModel 
           {type.name} <code>{type.key}</code>
         </span>
         <span className="structure-count">
-          {plural(type.attributes.length, "attribute")} · {plural(type.relations.length, "relation")}
+          {counted(type.attributes.length, "attribute")} · {counted(type.relations.length, "relation")}
         </span>
         <Icon name={open ? "chevron-down" : "chevron-right"} size={16} />
       </button>
@@ -181,7 +181,7 @@ function ApplicationRow({
           <strong>{application.name}</strong>
           <span>
             {" "}
-            · {plural(application.objectTypes.length, "object type")} · {plural(application.viewCount, "view")}
+            · {counted(application.objectTypes.length, "object type")} · {counted(application.viewCount, "view")}
           </span>
         </span>
       </button>
@@ -198,10 +198,7 @@ function ApplicationRow({
 
 /** The Structure tab: one release's applications, object types, attributes and relations, read only. */
 export function ModelStructure({ releases }: { releases: ModelReleaseSummary[] }) {
-  const ordered = useMemo(
-    () => [...releases].sort((a, b) => (a.installedAt < b.installedAt ? 1 : a.installedAt > b.installedAt ? -1 : 0)),
-    [releases],
-  );
+  const ordered = useMemo(() => newestFirst(releases, "installedAt"), [releases]);
   const latestId = ordered[0]?.id;
   const [picked, setPicked] = useState<string>();
   const releaseId = picked && ordered.some((item) => item.id === picked) ? picked : latestId;

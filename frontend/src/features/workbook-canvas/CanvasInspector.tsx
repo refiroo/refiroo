@@ -15,7 +15,7 @@ import { ListPanel } from "@/features/model-editor/ListPanel";
 import { dropOperations, listHeader, listStatus, sourceOfList } from "@/features/model-editor/lists";
 import { OperationsMenu } from "@/features/model-editor/OperationsMenu";
 import { operationById, operationsFor, valueTypeLabel, type OperationTarget } from "@/features/model-editor/operations";
-import { typeName, applicationsOf } from "@/model/outline";
+import { applicationsOf, objectTypeOf, typeName } from "@/model/outline";
 import type { DraftEditing } from "@/features/model-editor/useDraftEditing";
 import type { DraftSource } from "@/features/model-editor/useDraftSource";
 import type { SourceDialogs } from "@/features/model-editor/useSourceDialogs";
@@ -330,7 +330,7 @@ function NavigationTab({
                 {group.entries.map((entry) => {
                   const key = entry.collection ?? entry.view ?? "";
                   const name = entry.collection
-                    ? (outline.objectTypes.find((type) => type.key === entry.collection)?.pluralName ?? key)
+                    ? (objectTypeOf(outline, entry.collection)?.pluralName ?? key)
                     : (application.views.find((view) => view.key === entry.view)?.name ?? key);
                   return (
                     <li key={`${entry.collection ? "c" : "v"}:${key}`}>
@@ -358,7 +358,7 @@ function NavigationTab({
             <ul>
               {application.navigation.ungrouped.map((key) => (
                 <li key={key}>
-                  <span>{outline.objectTypes.find((type) => type.key === key)?.pluralName ?? key}</span>
+                  <span>{objectTypeOf(outline, key)?.pluralName ?? key}</span>
                 </li>
               ))}
             </ul>

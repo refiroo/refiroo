@@ -12,6 +12,8 @@ import { api } from "@/api/client";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
 import { activationRefusal } from "@/features/model-editor/InstallDialog";
+import { counted } from "@/lib/count";
+import { newestFirst } from "@/model/newestFirst";
 import { workspaceModelLabel } from "@/ui/WorkspaceSelector";
 import { ImpactSummary } from "@/ui/ImpactSummary";
 import { LeftBehindChangeSets, MigrationReasons, openChangeSets } from "@/ui/ActivationParts";
@@ -72,9 +74,10 @@ export function ActivateDialog({
     const choices = candidatesFor(current);
     // The newest other release of the workspace's own model, as the mock-up proposes it; for
     // another model nothing is chosen for the user (M6).
-    const own = choices
-      .filter((item) => item.key === current?.model.releaseKey)
-      .sort((a, b) => b.installedAt.localeCompare(a.installedAt))[0];
+    const own = newestFirst(
+      choices.filter((item) => item.key === current?.model.releaseKey),
+      "installedAt",
+    )[0];
     return own?.id ?? "";
   });
   const release = releases.find((item) => item.id === releaseId);
@@ -230,9 +233,7 @@ export function ActivateDialog({
                           This workspace's model
                         </StatusPill>
                       )}
-                      <span className="activate-release-count">
-                        {model.releases.length} {model.releases.length === 1 ? "release" : "releases"}
-                      </span>
+                      <span className="activate-release-count">{counted(model.releases.length, "release")}</span>
                     </button>
                   </legend>
                   {open &&

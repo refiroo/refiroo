@@ -1,8 +1,14 @@
 import { useState } from "react";
 
-export function readLocalPreference<T>(key: string, fallback: T, validate: (value: unknown) => value is T): T {
+/**
+ * What the browser keeps for the person: in `localStorage` (this browser, for good) or, for the
+ * `Session` variants, in `sessionStorage` (this tab, until it closes). A value is JSON; one that is
+ * missing, unreadable or not what `validate` accepts reads as `fallback`, and a write the browser
+ * refuses is dropped: a preference is optional and the interaction stays usable without it.
+ */
+function read<T>(area: () => Storage, key: string, fallback: T, validate: (value: unknown) => value is T): T {
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = area().getItem(key);
     if (!raw) return fallback;
     const value: unknown = JSON.parse(raw);
     return validate(value) ? value : fallback;
@@ -11,13 +17,23 @@ export function readLocalPreference<T>(key: string, fallback: T, validate: (valu
   }
 }
 
-export function writeLocalPreference(key: string, value: unknown) {
+function write(area: () => Storage, key: string, value: unknown) {
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    area().setItem(key, JSON.stringify(value));
   } catch {
     // Preferences are optional; the interaction remains usable when storage is blocked.
   }
 }
+
+export const readLocalPreference = <T>(key: string, fallback: T, validate: (value: unknown) => value is T): T =>
+  read(() => window.localStorage, key, fallback, validate);
+
+export const writeLocalPreference = (key: string, value: unknown) => write(() => window.localStorage, key, value);
+
+export const readSessionPreference = <T>(key: string, fallback: T, validate: (value: unknown) => value is T): T =>
+  read(() => window.sessionStorage, key, fallback, validate);
+
+export const writeSessionPreference = (key: string, value: unknown) => write(() => window.sessionStorage, key, value);
 
 export function removeLocalPreference(key: string) {
   try {

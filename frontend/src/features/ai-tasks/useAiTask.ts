@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ai } from "@/api/aiClient";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useJobStream } from "@/state/useJobStream";
+import { useFollowedJob } from "@/state/useFollowedJob";
 import type { AiTask } from "@/types";
 import { running } from "./aiTaskText";
 
@@ -130,15 +130,13 @@ export function useAiTask(taskId: string): FollowedTask {
       own.rechecks.forEach((again, follower) => follower !== me && again());
     };
   }, [taskId, waiting, looked, me]);
-  useJobStream(
-    leading && waiting && task.state !== "loading" ? (task.jobId ?? undefined) : undefined,
-    () => void reload(),
-  );
-  useEffect(() => {
-    if (!waiting || !leading) return;
-    const timer = setInterval(() => void reload(), 2000);
-    return () => clearInterval(timer);
-  }, [waiting, leading, reload]);
+  // Only the leader follows: the stream opens once the task has its job, and the timer runs while
+  // the task waits, so a change that has not committed yet is read now and then.
+  useFollowedJob(leading && waiting && task.state !== "loading" ? (task.jobId ?? undefined) : undefined, {
+    keep: false,
+    onChange: () => void reload(),
+    poll: { every: 2000, enabled: Boolean(waiting && leading), run: () => void reload() },
+  });
 
   const set = useCallback(
     (next: AiTask) => {

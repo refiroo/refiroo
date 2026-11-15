@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { DraftProfile, DryRun, SourceColumn, SourceFile, SourceSheet } from "@/types";
-import { isFinal, useJobStream } from "@/state/useJobStream";
+import { useFollowedJob } from "@/state/useFollowedJob";
 
 export interface DraftSource {
   /** The draft's profile and its file; undefined until first read. */
@@ -103,11 +103,13 @@ export function useDraftSource(draftId: string, version: number | undefined): Dr
       cancelled = true;
     };
   }, [fileId, profiled]);
-  useJobStream(file && !profiled ? (file.profile.jobId ?? undefined) : undefined, (job) => {
-    if (!isFinal(job)) return;
-    void readProfile();
-    // The first upload runs the dry run after profiling (D79).
-    void readDryRun();
+  useFollowedJob(file && !profiled ? (file.profile.jobId ?? undefined) : undefined, {
+    keep: false,
+    onFinal: () => {
+      void readProfile();
+      // The first upload runs the dry run after profiling (D79).
+      void readDryRun();
+    },
   });
 
   // The sheets, once the file is profiled.
@@ -143,10 +145,12 @@ export function useDraftSource(draftId: string, version: number | undefined): Dr
     [fileId, columns],
   );
 
-  useJobStream(followDryRun, (job) => {
-    if (!isFinal(job)) return;
-    setFollowDryRun(undefined);
-    void readDryRun();
+  useFollowedJob(followDryRun, {
+    keep: false,
+    onFinal: () => {
+      setFollowDryRun(undefined);
+      void readDryRun();
+    },
   });
 
   const dryRunQueued = useCallback((jobId: string) => {

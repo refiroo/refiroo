@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { errorMessage } from "@/api/errors";
 import { useDataApi } from "@/state/WorkspaceDataContext";
-import { objectTypeFor } from "@/model/lookup";
+import { typeName } from "@/model/lookup";
 import type { CollectionQueryState, EngineModel } from "@/types";
 
 /** The parent a collection is narrowed to, with the way back to all of `pluralName`. */
@@ -108,7 +108,7 @@ function LoadedCollectionScope({
     };
   }, [api, parentObjectId, parentObjectTypeKey, workspaceKey]);
 
-  const type = objectTypeFor(model, parentObjectTypeKey)?.name ?? parentObjectTypeKey;
+  const type = typeName(model, parentObjectTypeKey);
   return (
     <p className="context-line" title={error || undefined}>
       Within {type}: {name || (error ? parentObjectId : "Loading context…")}

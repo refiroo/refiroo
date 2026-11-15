@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { count, plural } from "@/lib/count";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
@@ -82,8 +83,7 @@ export function RefusedDialog({
           {(read ?? []).map((item) => (
             <li key={`${item.source}:${item.code}`} className="canvas-refused-reason">
               <p>
-                <strong>{item.rows.toLocaleString("en-US")}</strong> {item.rows === 1 ? "row" : "rows"} ·{" "}
-                {item.message ?? item.code}
+                <strong>{count(item.rows)}</strong> {plural(item.rows, "row")} · {item.message ?? item.code}
               </p>
               {item.wrong.map((found) => (
                 <p key={found.column} className="canvas-refused-wrong">

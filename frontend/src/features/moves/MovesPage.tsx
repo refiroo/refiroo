@@ -24,7 +24,7 @@ import { STATE } from "@/ui/jobText";
 import { settingsHead } from "@/ui/settingsNavigation";
 import { useCapabilities } from "@/state/useSystem";
 import { DeleteAction } from "@/ui/DeleteAction";
-import { useHoldsGroup } from "@/app/useMe";
+import { useHoldsGroup } from "@/state/useMe";
 import { NewMoveDialog } from "@/ui/NewMoveDialog";
 import { moveAbility } from "@/lib/moveAbility";
 

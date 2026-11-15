@@ -7,17 +7,15 @@
  * change sets to review), and a failed load.
  */
 
+import { count, counted, plural } from "@/lib/count";
 import type { Job, MoveSummary } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { figuresOf, modeWords, movesAnything } from "@/model/moveRun";
 
-const n = (value: number) => value.toLocaleString("en-GB");
-const records = (value: number) => `${n(value)} ${value === 1 ? "record" : "records"}`;
-
 /** How far a job is, when it says: "1,200 of 2,000 items". */
 function progressText(job: Job, verb: string): string {
   const { total, processed } = job.progress;
-  return total ? ` ${n(processed)} of ${n(total)} items ${verb}.` : "";
+  return total ? ` ${count(processed)} of ${count(total)} items ${verb}.` : "";
 }
 
 export function MoveStatus({
@@ -66,7 +64,7 @@ export function MoveStatus({
     return (
       <Notice
         tone="info"
-        title={`${w.ing} ${loading ? records(loading.create + loading.update) : "the records"} into ${named} of workspace ${targetLabel}…`}
+        title={`${w.ing} ${loading ? counted(loading.create + loading.update, "record") : "the records"} into ${named} of workspace ${targetLabel}…`}
       >
         The records go into a change set for review; nothing is published, and the live data of both workspaces stays as
         it is.{moving ? ` Then a change set of workspace ${sourceLabel} deleting them is opened.` : ""}
@@ -77,14 +75,14 @@ export function MoveStatus({
 
   if (job?.confirmedAt && job.state === "completed" && summary) {
     const done = figuresOf(summary);
-    const count = records(done.create + done.update);
+    const moved = counted(done.create + done.update, "record");
     return (
       <Notice
         tone="success"
         title={
           moving
-            ? `Move complete: ${count} moved into ${named} of workspace ${targetLabel}, their deletions into a change set of workspace ${sourceLabel}`
-            : `Copy complete: ${count} copied into ${named} of workspace ${targetLabel}`
+            ? `Move complete: ${moved} moved into ${named} of workspace ${targetLabel}, their deletions into a change set of workspace ${sourceLabel}`
+            : `Copy complete: ${moved} copied into ${named} of workspace ${targetLabel}`
         }
         focusOnMount
         actions={
@@ -105,7 +103,7 @@ export function MoveStatus({
         Nothing is live yet: review the change set and publish it in workspace {targetLabel} to make the records live
         there.
         {summary.sourceChangeSetId
-          ? ` The deletions in workspace ${sourceLabel} (${n(summary.source?.deleted ?? 0)} deleted, ${n(summary.source?.kept ?? 0)} kept with their reason) can be published only after the copy.`
+          ? ` The deletions in workspace ${sourceLabel} (${count(summary.source?.deleted ?? 0)} deleted, ${count(summary.source?.kept ?? 0)} kept with their reason) can be published only after the copy.`
           : moving
             ? ` Nothing was deleted in ${sourceLabel}: every record copied stays there, each with its reason.`
             : ""}
@@ -133,7 +131,7 @@ export function MoveStatus({
     return (
       <Notice
         tone="info"
-        title={`Dry run ready: ${records(ready.create + ready.update)} to ${w.verb} into workspace ${targetLabel}`}
+        title={`Dry run ready: ${counted(ready.create + ready.update, "record")} to ${w.verb} into workspace ${targetLabel}`}
         actions={
           cannot ? (
             <button type="button" className="secondary" onClick={onReport}>
@@ -143,7 +141,7 @@ export function MoveStatus({
         }
       >
         {cannot
-          ? `${n(cannot)} ${cannot === 1 ? "item" : "items"} cannot be ${w.past}, each with its reason. `
+          ? `${count(cannot)} ${plural(cannot, "item")} cannot be ${w.past}, each with its reason. `
           : `Every selected record and relationship can be ${w.past}. `}
         {w.Verb} with Start the {w.verb}…: the records go into a new change set of workspace {targetLabel} for review
         {moving

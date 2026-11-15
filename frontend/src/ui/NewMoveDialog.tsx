@@ -9,13 +9,14 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { isFinal, useJobStream } from "@/state/useJobStream";
+import { useFollowedJob } from "@/state/useFollowedJob";
 import { everyPage } from "@/lib/everyPage";
 import { WorkspaceField } from "@/ui/WorkspaceField";
 import type { ModelMappingSummary, Workspace } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 const NEW = "";
 
@@ -54,10 +55,7 @@ export function NewMoveDialog({
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      everyPage((cursor) => api.workspaces({ cursor })),
-      everyPage((cursor) => api.modelMappings({ cursor })),
-    ])
+    Promise.all([allWorkspaces(), everyPage((cursor) => api.modelMappings({ cursor }))])
       .then(([items, saved]) => {
         if (!active) return;
         setWorkspaces(items);
@@ -91,16 +89,19 @@ export function NewMoveDialog({
     }
   }
 
-  useJobStream(inference?.jobId, (job) => {
-    if (!inference || !isFinal(job)) return;
-    const key = inference.key;
-    setInference(undefined);
-    if (job.state === "completed") void applied(key);
-    else {
-      // The mapping is saved; it opens unproposed, to be completed by hand.
-      setError(job.error?.message ?? "The engine could not propose the mapping.");
-      setBusy(undefined);
-    }
+  useFollowedJob(inference?.jobId, {
+    keep: false,
+    onFinal: (job) => {
+      if (!inference) return;
+      const key = inference.key;
+      setInference(undefined);
+      if (job.state === "completed") void applied(key);
+      else {
+        // The mapping is saved; it opens unproposed, to be completed by hand.
+        setError(job.error?.message ?? "The engine could not propose the mapping.");
+        setBusy(undefined);
+      }
+    },
   });
 
   async function open() {

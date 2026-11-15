@@ -6,11 +6,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { everyPage } from "@/lib/everyPage";
 import type { Workspace } from "@/types";
 import { FormField } from "@/ui/FormField";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 export function WorkspaceField({
   value,
@@ -51,7 +50,7 @@ export function WorkspaceField({
   });
   useEffect(() => {
     let cancelled = false;
-    everyPage((cursor) => api.workspaces({ cursor, holding }))
+    allWorkspaces({ holding })
       .then((items) => {
         if (!cancelled) setWorkspaces(items);
       })

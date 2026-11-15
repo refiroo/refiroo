@@ -2,7 +2,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fixedWindow } from "@/lib/hooks/useCursorWindow";
-import { outerScroller, ScrollWindow } from "@/ui/ScrollWindow";
+import { scrollingAncestor } from "@/lib/scrollAncestor";
+import { ScrollWindow } from "@/ui/ScrollWindow";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -10,13 +11,15 @@ describe("where a list carries the wheel at its ends (found 2026-10-19)", () => 
   it("stops at the dialog it stands in, not the page behind", () => {
     document.body.innerHTML = '<div class="dialog"><div><div class="scroll-window"></div></div></div>';
     const list = document.querySelector<HTMLElement>(".scroll-window")!;
-    expect(outerScroller(list)).toBe(document.querySelector(".dialog"));
+    expect(scrollingAncestor(list, { dialog: true, tolerance: 1 })).toBe(document.querySelector(".dialog"));
   });
 
   it("reaches the page for a list on the page", () => {
     document.body.innerHTML = '<main><div class="scroll-window"></div></main>';
     const list = document.querySelector<HTMLElement>(".scroll-window")!;
-    expect(outerScroller(list)).toBe(document.scrollingElement ?? document.documentElement);
+    expect(scrollingAncestor(list, { dialog: true, tolerance: 1 })).toBe(
+      document.scrollingElement ?? document.documentElement,
+    );
   });
 });
 

@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
+import { counted, plural } from "@/lib/count";
 import { LeftBehindChangeSets, MigrationReasons, openChangeSets } from "@/ui/ActivationParts";
 import { ImpactSummary } from "@/ui/ImpactSummary";
 import {
@@ -34,6 +35,7 @@ import type { ChangeSet, ModelCompilation, ModelDraftOutline, ModelRelease, Work
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 export function ApplyDialog({
   draftId,
@@ -88,16 +90,9 @@ export function ApplyDialog({
 
   useEffect(() => {
     let active = true;
-    const otherWorkspaces = async () => {
-      const found: Workspace[] = [];
-      let cursor: string | undefined;
-      do {
-        const page = await api.workspaces({ status: "active", pageSize: 100, cursor });
-        found.push(...page.items.filter((item) => item.key !== workspaceKey));
-        cursor = page.nextCursor ?? undefined;
-      } while (cursor);
-      return found;
-    };
+    // Every other active workspace, in list order: the "Not changed" line names them all.
+    const otherWorkspaces = async () =>
+      (await allWorkspaces({ status: "active" })).filter((item) => item.key !== workspaceKey);
     Promise.all([api.workspace(workspaceKey), otherWorkspaces(), openChangeSets(workspaceKey)])
       .then(([own, rest, open]) => {
         if (!active) return;
@@ -204,10 +199,10 @@ export function ApplyDialog({
           <>
             {!compilation.valid && (
               <Notice tone="error" title="Not valid">
-                {errors.length} {errors.length === 1 ? "issue stops" : "issues stop"} this step.{" "}
+                {counted(errors.length, "issue stops", "issues stop")} this step.{" "}
                 {onShowIssues ? (
                   <button type="button" className="link-button" onClick={onShowIssues}>
-                    Show {errors.length === 1 ? "it" : "each"} in the Issues list
+                    Show {plural(errors.length, "it", "each")} in the Issues list
                   </button>
                 ) : (
                   "Each is in the Issues list."

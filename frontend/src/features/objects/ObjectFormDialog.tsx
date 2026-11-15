@@ -1,8 +1,9 @@
+import { relationTypeFor, typeName } from "@/model/lookup";
 import { useNavigationGuard } from "@/routing/navigationGuard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useDataApi } from "@/state/WorkspaceDataContext";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import type {
   AttributeTypeDefinition,
   EngineModel,
@@ -205,7 +206,7 @@ export function ObjectFormDialog({
     if (!object)
       for (const group of requiredRelationGroups)
         if (!requiredRelationObjects[group.relationTypeKey]) {
-          const label = model.relationTypes.find((relation) => relation.key === group.relationTypeKey)?.reverseName;
+          const label = relationTypeFor(model, group.relationTypeKey)?.reverseName;
           found[`relation:${group.relationTypeKey}`] = `Choose a record for ${label ?? group.relationTypeKey}.`;
         }
     if (!String(new FormData(form).get("name") ?? "").trim()) found.name = "Enter a name.";
@@ -305,13 +306,13 @@ export function ObjectFormDialog({
         onSaved(saved);
       }
     } catch (cause) {
-      if (object && (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT"))) {
+      if (object && isVersionConflict(cause, ["VERSION_CONFLICT", "CHANGE_SET_VERSION_CONFLICT"])) {
         try {
           const fresh = await api.object(objectType.key, object.id, activeWorkspaceKey);
           setBaselineObject(fresh);
           setObjectVersion(fresh.version);
           setError(
-            isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")
+            isVersionConflict(cause, ["CHANGE_SET_VERSION_CONFLICT"])
               ? "The change set changed. Current content is loaded; your edits are preserved. Review and save again."
               : "The record changed. Its latest version has been loaded; your edits are preserved. Review and save again.",
           );
@@ -428,7 +429,7 @@ export function ObjectFormDialog({
               >
                 {parentTypeKeys.map((key) => (
                   <option key={key} value={key}>
-                    {model.objectTypes.find((item) => item.key === key)?.name ?? key}
+                    {typeName(model, key)}
                   </option>
                 ))}
               </select>
@@ -455,7 +456,7 @@ export function ObjectFormDialog({
         )}
         {!object &&
           requiredRelationGroups.map((group) => {
-            const definition = model.relationTypes.find((relation) => relation.key === group.relationTypeKey);
+            const definition = relationTypeFor(model, group.relationTypeKey);
             const selectedType = requiredRelationTypes[group.relationTypeKey] ?? group.relations[0]?.fromObjectTypeKey;
             const selectedBinding = group.relations.find((relation) => relation.fromObjectTypeKey === selectedType);
             const locked = lockedInitialRelationKeys.includes(group.relationTypeKey);
@@ -496,8 +497,7 @@ export function ObjectFormDialog({
                         >
                           {group.relations.map((relation) => (
                             <option key={relation.fromObjectTypeKey} value={relation.fromObjectTypeKey}>
-                              {model.objectTypes.find((item) => item.key === relation.fromObjectTypeKey)?.name ??
-                                relation.fromObjectTypeKey}
+                              {typeName(model, relation.fromObjectTypeKey)}
                             </option>
                           ))}
                         </select>

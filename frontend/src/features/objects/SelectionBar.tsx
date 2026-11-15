@@ -6,12 +6,11 @@
  */
 
 import type { ReactNode } from "react";
+import { count } from "@/lib/count";
 import type { RecordSelection } from "@/lib/recordSelection";
 import type { CapabilitiesResponse } from "@/types";
 import { Icon } from "@/ui/Icon";
 import { Notice } from "@/ui/Notice";
-
-const count = (value: number) => value.toLocaleString("en");
 
 /**
  * Whether a collection lets records be selected (D105): only where its data can be written and the

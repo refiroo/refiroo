@@ -4,7 +4,16 @@ import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/Workspace
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";
-import { holdsOne, holdsOneHere, isManagedRelation, relatedObjectTypes, relationChoices } from "@/model/lookup";
+import {
+  holdsOne,
+  holdsOneHere,
+  isManagedRelation,
+  objectTypeFor,
+  relatedObjectTypes,
+  relationChoices,
+  relationTypeFor,
+  typeName,
+} from "@/model/lookup";
 import type { RelationChoice } from "@/model/lookup";
 import { useRemovals } from "@/features/objects/useRemovals";
 import { RelationFormDialog } from "./RelationFormDialog";
@@ -253,7 +262,7 @@ export function RelationsPanel({
             key: "relationship",
             label: "Relationship",
             cell: (item: RelationItem) => {
-              const definition = model.relationTypes.find((relation) => relation.key === item.relation.relationTypeKey);
+              const definition = relationTypeFor(model, item.relation.relationTypeKey);
               return item.direction === "outgoing" ? definition?.name : definition?.reverseName;
             },
           },
@@ -298,7 +307,7 @@ export function RelationsPanel({
     const allowed = allowedFor(item);
     const required = allowed?.required === true;
     const hasAttributes = Boolean(allowed?.attributeTypeKeys?.length);
-    const definition = model.relationTypes.find((relation) => relation.key === item.relation.relationTypeKey);
+    const definition = relationTypeFor(model, item.relation.relationTypeKey);
     const kind = `${(item.direction === "outgoing" ? definition?.name : definition?.reverseName) ?? item.relation.relationTypeKey}: ${item.object.name}`;
     const locked = managed(item) ? "Managed through Parent" : required ? "Required relationship" : undefined;
     // A relationship to a record of a type the person may not write, from a record they may not
@@ -428,8 +437,7 @@ export function RelationsPanel({
                 className="secondary"
                 onClick={() => setCreatingDependent(creation)}
               >
-                <Icon name="plus" /> Add{" "}
-                {model.objectTypes.find((item) => item.key === creation.objectTypeKey)?.name ?? creation.objectTypeKey}
+                <Icon name="plus" /> Add {typeName(model, creation.objectTypeKey)}
               </button>
             ))}
         {!readOnly && settable.length > 0 && (
@@ -508,7 +516,7 @@ export function RelationsPanel({
           model={model}
           applicationKey={creatingDependent.applicationKey}
           workspaceKey={object.workspaceKey}
-          objectType={model.objectTypes.find((item) => item.key === creatingDependent.objectTypeKey)!}
+          objectType={objectTypeFor(model, creatingDependent.objectTypeKey)!}
           initialRelationObjects={{ [creatingDependent.relationTypeKey]: object }}
           lockedInitialRelationKeys={[creatingDependent.relationTypeKey]}
           onClose={() => setCreatingDependent(undefined)}

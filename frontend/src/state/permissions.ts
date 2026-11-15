@@ -13,8 +13,11 @@ import { api } from "@/api/client";
 import { onForbidden } from "@/api/forbidden";
 import type { HeldAnywhere, MyPermissions } from "@/types";
 
-/** One read: its last answer, whether it failed, and whether it was asked since last forgotten. */
-type Entry<T> = { value?: T; failed?: boolean; requested?: boolean };
+/**
+ * One read: its last answer, whether it failed, whether it was asked since last forgotten, and the
+ * read itself (`pending`), which `fetchPermissions` and `fetchHeldAnywhere` await.
+ */
+type Entry<T> = { value?: T; failed?: boolean; requested?: boolean; pending?: Promise<T> };
 
 const byWorkspace = new Map<string, Entry<MyPermissions>>();
 let anywhere: Entry<HeldAnywhere[]> = {};
@@ -31,22 +34,23 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-function ensure<T>(entry: Entry<T>, read: () => Promise<T>) {
-  if (entry.requested) return;
+function ensure<T>(entry: Entry<T>, read: () => Promise<T>): Promise<T> {
+  if (entry.requested && entry.pending) return entry.pending;
   entry.requested = true;
-  Promise.resolve()
-    .then(read)
-    .then(
-      (value) => {
-        entry.value = value;
-        entry.failed = false;
-        changed();
-      },
-      () => {
-        entry.failed = true;
-        changed();
-      },
-    );
+  const pending = Promise.resolve().then(read);
+  entry.pending = pending;
+  pending.then(
+    (value) => {
+      entry.value = value;
+      entry.failed = false;
+      changed();
+    },
+    () => {
+      entry.failed = true;
+      changed();
+    },
+  );
+  return pending;
 }
 
 /** Read every permission again on its next use; what is shown stays until the new answer. */
@@ -78,8 +82,24 @@ function entryFor(key: string) {
 export function useWorkspacePermissions(workspaceKey?: string): MyPermissions | undefined {
   const version = useSyncExternalStore(subscribe, () => generation);
   const key = workspaceKey ?? "";
-  useEffect(() => ensure(entryFor(key), () => api.myPermissions(workspaceKey)), [key, workspaceKey, version]);
+  useEffect(() => {
+    void ensure(entryFor(key), () => api.myPermissions(workspaceKey)).catch(() => undefined);
+  }, [key, workspaceKey, version]);
   return byWorkspace.get(key)?.value;
+}
+
+/**
+ * The person's permissions in `workspaceKey` (the default workspace without one), awaited: the
+ * same kept answer the hooks read (one request per page load, again after a `403 FORBIDDEN`), for
+ * code that decides before it renders, such as the router. Rejects when they cannot be read.
+ */
+export function fetchPermissions(workspaceKey?: string): Promise<MyPermissions> {
+  return ensure(entryFor(workspaceKey ?? ""), () => api.myPermissions(workspaceKey));
+}
+
+/** Every group the person holds anywhere, awaited as `fetchPermissions` is; rejects when unreadable. */
+export function fetchHeldAnywhere(): Promise<HeldAnywhere[]> {
+  return ensure(anywhere, () => api.myActionGroups().then((list) => list.items));
 }
 
 /** Whether the person's permissions in `workspaceKey` could not be read. */
@@ -91,7 +111,9 @@ export function usePermissionsFailed(workspaceKey?: string): boolean {
 /** Every group the person holds anywhere; `undefined` while it loads, `[]` when it cannot be read. */
 export function useHeldAnywhere(): HeldAnywhere[] | undefined {
   const version = useSyncExternalStore(subscribe, () => generation);
-  useEffect(() => ensure(anywhere, () => api.myActionGroups().then((list) => list.items)), [version]);
+  useEffect(() => {
+    void fetchHeldAnywhere().catch(() => undefined);
+  }, [version]);
   return anywhere.failed && !anywhere.value ? [] : anywhere.value;
 }
 

@@ -9,7 +9,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
+import { count } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
@@ -41,7 +42,6 @@ import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
 import { Trail } from "@/ui/Trail";
-import { count } from "@/ui/limits";
 import { settingsHead } from "@/ui/settingsNavigation";
 import { useCapabilities } from "@/state/useSystem";
 import { useHeldAnywhere } from "@/state/permissions";
@@ -426,7 +426,7 @@ function SubscriptionDetail({
     try {
       await action();
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         setDeleting(false);
         setResuming(false);
         setRotating(false);
@@ -904,7 +904,7 @@ function ResumeDialog({
     try {
       onResumed(await api.resumeSubscription(subscription.id, subscription.version, reset), reset);
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         await onConflict();
         return;
       }

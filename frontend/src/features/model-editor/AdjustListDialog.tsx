@@ -9,6 +9,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
 import type { DraftOperation, ProfileSource, SourceBlock, SourceRectangle } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { InlineError } from "@/ui/InlineError";
@@ -214,7 +215,7 @@ export function AdjustListDialog({
             <span>{wrong}</span>
           ) : mode === "adjust" ? (
             <span>
-              {rows} {rows === 1 ? "row" : "rows"} below the header (now {before})
+              {counted(rows, "row")} below the header (now {before})
               {firstColumn !== start.block.firstColumn || lastLetter !== start.block.lastColumn
                 ? "; a column added is not mapped until you map it"
                 : ""}
@@ -227,7 +228,7 @@ export function AdjustListDialog({
             </span>
           ) : (
             <span>
-              {rows} {rows === 1 ? "row" : "rows"} below the header {newHeader || "(empty)"}
+              {counted(rows, "row")} below the header {newHeader || "(empty)"}
               {noteRow ? ", the note row skipped" : ""}. A list type keyed by name, yours since you asked for it.
             </span>
           )}

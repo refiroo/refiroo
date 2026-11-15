@@ -3,6 +3,7 @@
  * why a thread fails, why a process cannot serve a release, and the four summary figures.
  */
 
+import { count, plural } from "@/lib/count";
 import type {
   DatabaseReason,
   EngineProcess,
@@ -50,8 +51,6 @@ export function unavailableReason(reason: UnavailableReason | "noRelease", schem
       return "the workspace runs no release";
   }
 }
-
-const count = (value: number) => value.toLocaleString("en-GB");
 
 export interface SummaryFigure {
   label: string;
@@ -119,6 +118,6 @@ export function sinceBackup(item: RehearsalWorkspace) {
   const difference = item.liveRecords - item.records;
   if (difference === 0) return "Same record count";
   return difference > 0
-    ? `${count(difference)} more ${difference === 1 ? "record" : "records"} since`
+    ? `${count(difference)} more ${plural(difference, "record")} since`
     : `${count(-difference)} fewer ${difference === -1 ? "record" : "records"} since`;
 }

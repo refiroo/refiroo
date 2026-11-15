@@ -701,12 +701,23 @@ altering the application model or feature contracts. The module layout, as it wa
 
 | Layer | Holds | Imports |
 |---|---|---|
-| `app` | the shell, the router, the top bar, `useMe` | everything below |
+| `app` | the shell, the router, the top bar | everything below |
 | `features` | one folder per feature (pages, dialogs, the feature's own hooks and text) | `state`, `ui`, `lib`, `model`, `api`, `types`, `routing`, `app`, itself, and its deliberate edges |
-| `state` | app-wide state and hooks that know no single feature: the workspace data context, permissions, system capabilities, the job stream, the inbox, the workspace AI offer, opening a workspace | `api`, `lib`, `model`, `types`, `routing`, `state` |
+| `state` | app-wide state and hooks that know no single feature: the workspace data context, permissions, system capabilities, the signed-in person (`useMe`), the followed job, the inbox, the workspace AI offer, opening a workspace | `api`, `lib`, `model`, `types`, `routing`, `state` |
 | `ui` | the RDM-owned components, and the parts several features show (the job outcomes, the workspace field, the change title) | `state`, `lib`, `model`, `api`, `types`, `routing` |
 | `lib`, `model` | browser helpers; pure functions over the model and the contracts | `api`, `types` (`model` also `lib`, and `ui` for icon names only) |
 | `api`, `types`, `routing` | the HTTP client, the contracts, the route table | each other as the contracts need |
+
+**One version of each helper and loader (0.17 SR4).** Following a job is `state/useFollowedJob` (a seeded
+job, streamed-only callbacks, filters, "done" as a parameter, polls as options); every list of pages is
+`lib/everyPage` (optional `signal` and stop predicate) and every workspace list `api/allWorkspaces`; a cached
+read is `state/cachedRead` (the signed-in person, the system's static parts); permissions are read through
+`state/permissions` (`fetchPermissions`, `holds`); a stale write is recognised by `api/errors`
+`isVersionConflict`, and an error answer is parsed by `errorFromResponse`. Numbers and plurals are `lib/count`
+(`count`, `plural`, `counted`, the browser's locale), dates `lib/dates`, names of types, relations and fields
+`model/lookup` (`typeName` falls back to the key) and `model/outline` for a draft, clipboard `lib/copyText`,
+stored preferences `lib/localPreference`, value coercion `lib/coerce`, the nearest scrolling ancestor
+`lib/scrollAncestor`, newest release first `model/newestFirst`. A second copy of any of these is a defect.
 
 A part used by several features lives in the lowest layer its own imports allow; a part that is one
 feature's own and shown by another stays where it is, as a **deliberate edge**. The deliberate edges

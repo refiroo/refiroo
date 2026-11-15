@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
 
@@ -217,7 +218,7 @@ function Account<F extends AccountFact>({
             ))}
           </ul>
           <p className="muted impact-note">
-            {removed > 0 && `${removed} ${removed === 1 ? "statement" : "statements"} removed: no source. `}
+            {removed > 0 && `${counted(removed, "statement")} removed: no source. `}
             Written by AI from the facts below, by {provider}. It can be wrong: each number leads to the fact it rests
             on.
           </p>

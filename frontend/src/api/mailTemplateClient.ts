@@ -1,9 +1,7 @@
 /** The e-mail template routes Settings › E-mail template reads and writes. */
 
-import { request } from "@/api/client";
+import { json, request } from "@/api/client";
 import type { MailTemplate, MailTemplatePreview } from "@/types";
-
-const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
 export const mailTemplate = {
   get: () => request<MailTemplate>("/api/v1/mail-template"),

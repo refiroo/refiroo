@@ -168,7 +168,7 @@ import type {
 } from "@/types";
 
 import { API_URL } from "@/api/address";
-import { ApiError } from "@/api/errors";
+import { ApiError, errorFromResponse } from "@/api/errors";
 import { authorizedFetch } from "@/api/session";
 import { everyPage } from "@/lib/everyPage";
 import { expectedReleaseHeader, reportModelReleaseChanged } from "@/api/expectedRelease";
@@ -188,6 +188,9 @@ export const jobEventsUrl = (jobId: string) => `${API_URL}/api/v1/jobs/${encodeU
 
 /** The signed-in person's inbox stream (0.12 A2): the unread count and each new notice. */
 export const notificationEventsUrl = () => `${API_URL}/api/v1/me/notifications/events`;
+
+/** A request init that sends `body` as JSON with `method`: what each client's writes are built from. */
+export const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
 export async function request<T>(
   path: string,
@@ -245,19 +248,12 @@ async function send(
 ): Promise<{ response: Response; body: string | undefined }> {
   const response = await authorizedFetch(url, init);
   if (!response.ok) {
-    const body = await response.text();
-    let message = failedResponseMessage(path, response.status);
-    let code = "HTTP_ERROR";
-    let details: unknown;
-    try {
-      const parsed = JSON.parse(body);
-      message = parsed.error?.message ?? parsed.detail ?? message;
-      code = parsed.error?.code ?? code;
-      details = parsed.error?.details;
-    } catch {
-      // Non-JSON response evidence belongs in controlled server diagnostics, not the rendered UI.
-    }
-    const failure = new ApiError(response.status, code, message, details);
+    const failure = errorFromResponse(
+      response.status,
+      await response.text(),
+      failedResponseMessage(path, response.status),
+    );
+    const code = failure.code;
     const read = !init.method || init.method.toUpperCase() === "GET";
     if (code === "MODEL_RELEASE_CHANGED" && (read || expectedReleaseHeader(path, init.method)))
       reportModelReleaseChanged(failure, read);

@@ -11,6 +11,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { counted, plural } from "@/lib/count";
+import { newestFirst } from "@/model/newestFirst";
 import type {
   HeldAnywhere,
   CapabilitiesResponse,
@@ -43,6 +45,9 @@ import { SettingsPanel, SettingsTile, SettingsTools } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
 import { Notice } from "@/ui/Notice";
+import { allWorkspaces } from "@/api/allWorkspaces";
+import { everyPage } from "@/lib/everyPage";
+import { fetchHeldAnywhere } from "@/state/permissions";
 
 type ModelsRoute = Extract<SettingsRoute, { page: "model" }>;
 
@@ -57,28 +62,10 @@ function appendUnique<T extends { id: string }>(current: T[], incoming: T[]) {
  * Every installed release, oldest first (releases are few: one line per model's versions); with
  * `usable`, those that may be chosen (0.12 MR1).
  */
-async function allReleases(usable = false) {
-  const items: ModelReleaseSummary[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await api.modelReleases({ cursor, pageSize: 500, usable });
-    items.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return items;
-}
+const allReleases = (usable = false) => everyPage((cursor) => api.modelReleases({ cursor, pageSize: 500, usable }));
 
 /** Every draft, newest first; a draft is shown under the model it was started from (M6). */
-async function allDrafts() {
-  const items: ModelDraft[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await api.modelDrafts({ cursor });
-    items.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return items;
-}
+const allDrafts = () => everyPage((cursor) => api.modelDrafts({ cursor }));
 
 export function ModelWorkbench({
   route,
@@ -146,16 +133,14 @@ export function ModelWorkbench({
   async function load() {
     setError("");
     try {
-      const [groups, caps, installed, usable, workspacePage, state] = await Promise.all([
-        api.myActionGroups().then(
-          (list) => list.items,
-          () => [],
-        ),
+      const [groups, caps, installed, usable, activeWorkspaces, state] = await Promise.all([
+        // The person's groups, as the page keeps them: a failed read offers nothing.
+        fetchHeldAnywhere().catch(() => []),
         api.capabilities(),
         allReleases(),
         allReleases(true),
         // Workspaces are few (ADR-042); retired ones keep their release and take no activation.
-        api.workspaces({ status: "active", pageSize: 100 }),
+        allWorkspaces({ status: "active" }),
         api.workspaceRuntimeState(),
       ]);
       // The drafts first, so the page never shows a model's count before its drafts arrived.
@@ -166,10 +151,9 @@ export function ModelWorkbench({
       setCapabilities(caps);
       setReleases(installed);
       setUsableIds(new Set(usable.map((release) => release.id)));
-      setWorkspaces(workspacePage.items);
+      setWorkspaces(activeWorkspaces);
       setDefaultWorkspaceKey(state.defaultWorkspaceKey);
-      const defaultRelease = workspacePage.items.find((item) => item.key === state.defaultWorkspaceKey)?.model
-        .releaseId;
+      const defaultRelease = activeWorkspaces.find((item) => item.key === state.defaultWorkspaceKey)?.model.releaseId;
       setCreateReleaseId((current) => current || defaultRelease || "");
     } catch (cause) {
       setError(errorMessage(cause));
@@ -206,7 +190,7 @@ export function ModelWorkbench({
     void Promise.all([load(), onActiveModelChange?.(workspace.key)]).then(() => {
       toast(
         `${workspace.label} now runs ${result.releaseName} ${result.releaseVersion}.` +
-          (left ? ` ${left} open change ${left === 1 ? "set stays" : "sets stay"} on the release it ran before.` : ""),
+          (left ? ` ${left} open change ${plural(left, "set stays", "sets stay")} on the release it ran before.` : ""),
       );
     });
   }
@@ -247,7 +231,7 @@ export function ModelWorkbench({
   const draftSchema = (draft: ModelDraft) =>
     typeof draft.model.schemaVersion === "string" ? draft.model.schemaVersion : "—";
   const newestDraft = (items: ModelDraft[]) =>
-    items.length ? String([...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0].version) : "—";
+    items.length ? String(newestFirst(items, "updatedAt")[0].version) : "—";
   const listFacts = (releases: string, latest: string, draft: string, schema: string) => [
     { label: "Releases", value: releases },
     { label: "Latest", value: latest, mono: true },
@@ -273,9 +257,7 @@ export function ModelWorkbench({
       pill: isDefault ? (
         <StatusPill tone="success">Runs the default workspace</StatusPill>
       ) : running ? (
-        <StatusPill tone="neutral">
-          {running} {running === 1 ? "workspace" : "workspaces"}
-        </StatusPill>
+        <StatusPill tone="neutral">{counted(running, "workspace")}</StatusPill>
       ) : model.releases.every((release) => release.status === "retired") ? (
         <StatusPill tone="warning">Retired</StatusPill>
       ) : undefined,
@@ -557,9 +539,10 @@ export function ModelWorkbench({
       {capabilities && (
         <>
           <SettingsTools
-            count={`${listGroups.reduce((total, group) => total + group.rows.length, 0)} ${
-              listGroups.reduce((total, group) => total + group.rows.length, 0) === 1 ? "model" : "models"
-            }`}
+            count={counted(
+              listGroups.reduce((total, group) => total + group.rows.length, 0),
+              "model",
+            )}
           >
             <SearchField
               type="search"

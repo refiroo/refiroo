@@ -8,8 +8,8 @@
  * it removed leave a hand selection (D125).
  */
 
+import { count, counted, plural } from "@/lib/count";
 import type { TypeName } from "@/ui/BatchOutcome";
-import { count } from "@/ui/limits";
 import type { SelectableRow } from "@/lib/recordSelection";
 import type { BatchDeleteItem, DeletionTotals, Job, JobItemOutcome } from "@/types";
 import { refFor } from "./bulkChange";
@@ -23,8 +23,6 @@ export function deleteItems(rows: readonly SelectableRow[]): BatchDeleteItem[] {
     cascade: true,
   }));
 }
-
-const records = (value: number) => `${count(value)} ${value === 1 ? "record" : "records"}`;
 
 export interface DeletionWords {
   /** Everything the delete removes: the selected records and those going with them (D126). */
@@ -58,24 +56,24 @@ export function deletionWords(job: Job, selectedType: string, typeName: TypeName
     total: totals.objectCount,
     selected: `Deletes ${typeName(selectedType, counts.deleted)}`,
     withThem: inside
-      ? `and ${records(inside)} inside or owned by them: ${others.map(([key, value]) => typeName(key, value)).join(", ")}`
+      ? `and ${counted(inside, "record")} inside or owned by them: ${others.map(([key, value]) => typeName(key, value)).join(", ")}`
       : undefined,
     relationships: totals.relationshipCount
-      ? `Removes ${count(totals.relationshipCount)} ${totals.relationshipCount === 1 ? "relationship" : "relationships"}${
+      ? `Removes ${counted(totals.relationshipCount, "relationship")}${
           linked
-            ? `; ${count(linked)} of them ${linked === 1 ? "links" : "link"} to records that stay, which are kept`
+            ? `; ${count(linked)} of them ${plural(linked, "links", "link")} to records that stay, which are kept`
             : ""
         }.`
       : "Removes no relationships.",
     together: counts.unchanged
-      ? `${records(counts.unchanged)} selected ${counts.unchanged === 1 ? "goes" : "go"} with another selected record.`
+      ? `${counted(counts.unchanged, "record")} selected ${plural(counts.unchanged, "goes", "go")} with another selected record.`
       : undefined,
   };
 }
 
 /** The Apply button's words: the whole of what is deleted (D126). */
 export function deleteLabel(total: number): string {
-  return `Delete ${records(total)}`;
+  return `Delete ${counted(total, "record")}`;
 }
 
 /** The records a delete removed among the outcomes: deleted, or gone with another item (D125). */

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { counted } from "@/lib/count";
 
 /** The newest entries a timeline shows first, and how many more each press shows (0.12 RH1, D393). */
 export const TIMELINE_FIRST = 10;
@@ -51,9 +52,7 @@ export function TimelinePaging({
   if (!loaded) return null;
   return (
     <div className="history-paging">
-      <span className="history-count">
-        Showing {shown} {shown === 1 ? noun[0] : noun[1]}
-      </span>
+      <span className="history-count">Showing {counted(shown, ...noun)}</span>
       {limit > TIMELINE_FIRST && shown > TIMELINE_FIRST && (
         <button type="button" className="ghost" onClick={onFewer}>
           Show fewer

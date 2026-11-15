@@ -6,8 +6,9 @@
  */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import { mail } from "@/api/mailClient";
+import { count } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useAddressTab } from "@/lib/hooks/useAddressTab";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
@@ -266,7 +267,7 @@ function ServerSection({
       toast("Mail settings saved. Send a test message to try them.");
     } catch (cause) {
       setError(errorMessage(cause));
-      if (isApiError(cause, "VERSION_CONFLICT")) onChanged();
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) onChanged();
     } finally {
       setPending(false);
     }
@@ -916,9 +917,9 @@ function MessagesSection({
       <LogTotals
         label="Outbox"
         totals={[
-          { key: "pending", value: counts.pending.toLocaleString(), name: "waiting", hue: 3 },
-          { key: "sent", value: counts.sent.toLocaleString(), name: "sent", hue: 5 },
-          { key: "failed", value: counts.failed.toLocaleString(), name: "failed", bad: true },
+          { key: "pending", value: count(counts.pending), name: "waiting", hue: 3 },
+          { key: "sent", value: count(counts.sent), name: "sent", hue: 5 },
+          { key: "failed", value: count(counts.failed), name: "failed", bad: true },
         ]}
       />
       <SettingsGroup
@@ -976,7 +977,7 @@ function MessagesSection({
                         )}
                       </td>
                       <td data-label="Tries" className="num">
-                        {message.attempts.toLocaleString()}
+                        {count(message.attempts)}
                       </td>
                       <td data-label="Last problem">{message.lastError ?? "—"}</td>
                       <td data-label="Actions">

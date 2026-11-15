@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { count, counted } from "@/lib/count";
 import { formatDuration } from "@/lib/duration";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
@@ -37,7 +38,6 @@ import { FilterChip, LogFoot, SettingsEmpty, SettingsGroup, SettingsPanel } from
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
-import { count } from "@/ui/limits";
 
 type WebhooksRoute = Extract<SettingsRoute, { page: "webhooks" }>;
 
@@ -369,7 +369,7 @@ function DeliveryDialog({
           ...(detail.resendOf ? [{ term: "Resend of", value: <code>{detail.resendOf}</code> }] : []),
           {
             term: "Request",
-            value: `${count(detail.events.length)} ${detail.events.length === 1 ? "event" : "events"}${detail.requestBytes ? `, ${count(detail.requestBytes)} bytes` : ""}`,
+            value: `${counted(detail.events.length, "event")}${detail.requestBytes ? `, ${count(detail.requestBytes)} bytes` : ""}`,
           },
         ]
       : [];

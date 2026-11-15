@@ -6,6 +6,7 @@
  */
 
 import { api } from "@/api/client";
+import { count } from "@/lib/count";
 import type { DryRun, DryRunSource, JobRow, ModelDraftOutline } from "@/types";
 import { formatServerTime } from "@/lib/dates";
 import { EmptyState } from "@/ui/EmptyState";
@@ -101,7 +102,7 @@ export function DryRunPanel({
         )}
         <span className="muted">
           {summary
-            ? `Draft version ${dryRun.draftVersion} · ${summary.rows.total.toLocaleString()} rows of its sources, all checked · nothing written · ${formatServerTime(summary.ranAt)}`
+            ? `Draft version ${dryRun.draftVersion} · ${count(summary.rows.total)} rows of its sources, all checked · nothing written · ${formatServerTime(summary.ranAt)}`
             : `Draft version ${dryRun.draftVersion}`}
         </span>
       </p>
@@ -135,9 +136,9 @@ export function DryRunPanel({
                     disabled={!figure.rows}
                     onClick={() => figure.rows && onRows({ ...figure.rows, title })}
                   >
-                    <strong>{figure.now.toLocaleString()}</strong>
+                    <strong>{count(figure.now)}</strong>
                     <span>{figure.label}</span>
-                    {before !== undefined && <span className="muted">was {before.toLocaleString()}</span>}
+                    {before !== undefined && <span className="muted">was {count(before)}</span>}
                   </button>
                 );
               })}

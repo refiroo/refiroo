@@ -19,6 +19,7 @@ import {
 } from "@/routing/routes";
 import { historyState, navigationEntry, restoreOrigin, routeWithOrigin } from "@/routing/navigationHistory";
 import { allowNavigation } from "@/routing/navigationGuard";
+import { fetchPermissions, holds } from "@/state/permissions";
 import type { ApplicationRoute, EngineModel, RouteState } from "@/types";
 
 type ListRoute = Extract<RouteState, { kind: "list" }>;
@@ -98,10 +99,8 @@ export interface Router {
  * read of the permissions keeps the default, whose own read then says what failed.
  */
 export async function openingWorkspace(defaultWorkspaceKey: string): Promise<string | undefined> {
-  const permissions = await Promise.resolve()
-    .then(() => api.myPermissions(defaultWorkspaceKey))
-    .catch(() => undefined);
-  if (!permissions || permissions.actionGroups.some((group) => group.key === "browse")) return defaultWorkspaceKey;
+  const permissions = await fetchPermissions(defaultWorkspaceKey).catch(() => undefined);
+  if (!permissions || holds(permissions, "browse")) return defaultWorkspaceKey;
   const page = await api.workspaces({ holding: "browse", status: "all", pageSize: 1 });
   return page.items[0]?.key;
 }

@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
+import { count, counted, plural } from "@/lib/count";
 import type { CheckDrift, CheckMissingRecord, CheckNewValue, CheckSource, DryRunSource, ProfileCheck } from "@/types";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
@@ -15,7 +16,6 @@ import { Modal } from "@/ui/Modal";
 import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { StatusPill } from "@/ui/StatusPill";
 import { JobRowsTable } from "@/ui/ImportOutcome";
-import { count } from "@/ui/limits";
 
 export type CheckList = "new-values" | "drift" | "missing-records";
 
@@ -341,8 +341,7 @@ function SourceValues({
         <li key={`${item.column}-${String(item.value)}`}>
           <span>
             <StatusPill tone="neutral">New</StatusPill> {prefix}
-            {item.column} <strong>{String(item.value)}</strong> · {count(item.cells)}{" "}
-            {item.cells === 1 ? "row" : "rows"}
+            {item.column} <strong>{String(item.value)}</strong> · {count(item.cells)} {plural(item.cells, "row")}
           </span>
           <span className="muted">{item.created ? "created by the load" : "refused: no such record"}</span>
         </li>
@@ -366,7 +365,7 @@ function SourceValues({
         <span>
           {source.drift > 0 && <StatusPill tone="warning">Drift</StatusPill>} {prefix}
           {source.drift
-            ? `${count(source.drift)} ${source.drift === 1 ? "record has" : "records have"} another name than the live record`
+            ? `${counted(source.drift, "record has", "records have")} another name than the live record`
             : "Every record found keeps its name"}
         </span>
         {source.drift > 0 && (

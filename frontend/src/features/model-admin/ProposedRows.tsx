@@ -6,12 +6,13 @@
  * conversion and a relation type's new key follow as lines.
  */
 
+import { count } from "@/lib/count";
+import { attributeName } from "@/model/fields";
+import { typeName } from "@/model/lookup";
 import { ProposedPill } from "@/ui/ProposedBecause";
 import type { DraftMigration, DraftMigrationRow, EngineModel } from "@/types";
 
 const NOT_KEPT = "";
-
-const count = (value: number | string) => (typeof value === "number" ? value.toLocaleString("en-GB") : value);
 
 const PARENT_WORDS: Record<DraftMigrationRow["parent"], string> = {
   unchanged: "Unchanged",
@@ -35,16 +36,14 @@ export function ProposedRows({
   onChoose: (typeKey: string, becomes: string) => void;
 }) {
   const applicationName = (key: string) => target.applications.find((item) => item.key === key)?.name ?? key;
-  const typeName = (key: string) => target.objectTypes.find((item) => item.key === key)?.name ?? key;
-  const attributeName = (key: string) => target.attributeTypes.find((item) => item.key === key)?.name ?? key;
   const lines = [
     ...proposal.splits.map(
       (item) =>
-        `Split: ${typeName(item.fromObjectTypeKey)} gets a ${typeName(item.toObjectTypeKey)} record for each value of ${item.attributes.map(attributeName).join(", ")}`,
+        `Split: ${typeName(target, item.fromObjectTypeKey)} gets a ${typeName(target, item.toObjectTypeKey)} record for each value of ${item.attributes.map((key) => attributeName(target, key)).join(", ")}`,
     ),
     ...proposal.listConversions.map(
       (item) =>
-        `List: the values of ${attributeName(item.attributeTypeKey)} become ${typeName(item.toObjectTypeKey)} records`,
+        `List: the values of ${attributeName(target, item.attributeTypeKey)} become ${typeName(target, item.toObjectTypeKey)} records`,
     ),
     ...proposal.relationTypeMappings.map(
       (item) => `Relationships ${item.fromRelationTypeKey} → ${item.toRelationTypeKey}`,

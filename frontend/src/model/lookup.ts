@@ -3,6 +3,7 @@
  * panel, or a bulk change of a selection, may offer for an object type.
  */
 
+import { count } from "@/lib/count";
 import { ancestorObjectTypeKeys } from "@/model/placements";
 import type {
   EngineModel,
@@ -11,8 +12,38 @@ import type {
   RelationsPanelDefinition,
 } from "@/types";
 
-export function objectTypeFor(model: EngineModel, key: string) {
+export function objectTypeFor(model: EngineModel, key: string | null | undefined) {
   return model.objectTypes.find((item) => item.key === key);
+}
+
+export function relationTypeFor(model: EngineModel, key: string | null | undefined) {
+  return model.relationTypes.find((item) => item.key === key);
+}
+
+export function attributeTypeFor(model: EngineModel, key: string | null | undefined) {
+  return model.attributeTypes.find((item) => item.key === key);
+}
+
+/**
+ * What the model calls a type: its name, or its plural name with `plural`, in lower case with `lower`
+ * (the key is shown as it is). A key the model does not name, or an empty one, reads as the key (SR-D2).
+ * Callers that must drop an unknown type use `objectTypeFor` instead.
+ */
+export function typeName(
+  model: EngineModel,
+  key: string | null | undefined,
+  options: { plural?: boolean; lower?: boolean } = {},
+): string {
+  if (!key) return "";
+  const type = objectTypeFor(model, key);
+  const name = options.plural ? type?.pluralName : type?.name;
+  if (!name) return key;
+  return options.lower ? name.toLowerCase() : name;
+}
+
+/** A number of a type's records as the model names them: "1 master value", "12 master values" (lower case). */
+export function countedType(model: EngineModel, key: string, records: number): string {
+  return `${count(records)} ${typeName(model, key, { plural: records !== 1, lower: true })}`;
 }
 
 /** The application that lists a type: the given one when it does, else the first that does. */

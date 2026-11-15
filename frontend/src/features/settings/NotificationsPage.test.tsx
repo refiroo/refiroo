@@ -167,7 +167,9 @@ describe("Settings › Notifications (0.12 M2 and its follow-up)", () => {
     vi.mocked(api.unfollowWorkspace).mockResolvedValue(undefined);
     render(<NotificationsPage />);
     expect(await screen.findByText("Master data")).toBeInTheDocument();
-    expect(screen.getAllByText("Following since 2 November")).toHaveLength(2);
+    // The day is read in the browser's locale (SR-D1), so the expectation is too.
+    const day = new Date("2026-11-02T10:00:00Z").toLocaleDateString(undefined, { day: "numeric", month: "long" });
+    expect(screen.getAllByText(`Following since ${day}`)).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Stop following Master data" }));
     await waitFor(() => expect(api.unfollowWorkspace).toHaveBeenCalledWith("default"));
     await waitFor(() => expect(screen.queryByText("Master data")).not.toBeInTheDocument());

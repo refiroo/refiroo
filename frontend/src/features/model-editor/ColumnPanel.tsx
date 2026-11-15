@@ -12,7 +12,7 @@ import { StatusPill } from "@/ui/StatusPill";
 import { ProposedPill } from "@/ui/ProposedBecause";
 import { ColumnReadings, ReadingMarks } from "@/features/model-editor/ReadingEntries";
 import { sourceOfColumn } from "@/features/model-editor/readings";
-import { typeName, attributeTypeOf } from "@/model/outline";
+import { attributeTypeName, attributeTypeOf, typeName } from "@/model/outline";
 import {
   columnState,
   delimiterLabel,
@@ -369,9 +369,7 @@ export function ColumnPanel({
                       <li key={index}>
                         {item.objectTypeKey
                           ? `${typeName(outline, item.objectTypeKey)} ${
-                              item.attributeTypeKey
-                                ? (attributeTypeOf(outline, item.attributeTypeKey)?.name ?? item.attributeTypeKey)
-                                : "names"
+                              item.attributeTypeKey ? attributeTypeName(outline, item.attributeTypeKey) : "names"
                             } in ${item.workspaceKey}`
                           : `Column ${item.header ?? item.column} of ${item.sheet}`}{" "}
                         <span className="muted">

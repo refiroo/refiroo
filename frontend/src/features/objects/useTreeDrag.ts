@@ -23,7 +23,8 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
-import { EDGE, TOUCH_EDGE, scrollAtEdge, scrollerOf } from "@/lib/edgeScroll";
+import { EDGE, TOUCH_EDGE, scrollAtEdge } from "@/lib/edgeScroll";
+import { scrollingAncestor } from "@/lib/scrollAncestor";
 import { chooseGapBranch, gapBranches, type RowPlace } from "@/model/treeDrop";
 import type { ObjectItem } from "@/types";
 
@@ -261,7 +262,8 @@ export function useTreeDrag({
     const under = document.elementFromPoint?.(current.at.x, current.at.y);
     const inside = Boolean(under && root.contains(under));
     // Off the tree, only a point over the sticky bar that covers its scroller's top scrolls (U1).
-    if (!inside && !overCover(root, current.viewport ?? scrollerOf(root), current.at)) return;
+    if (!inside && !overCover(root, current.viewport ?? scrollingAncestor(root, { pastBody: true }), current.at))
+      return;
     const viewports: HTMLElement[] = [];
     let viewport = inside ? (under?.closest<HTMLElement>(".scroll-window-viewport") ?? null) : null;
     while (viewport && root.contains(viewport)) {
@@ -270,7 +272,7 @@ export function useTreeDrag({
     }
     if (!viewports.length && current.viewport) viewports.push(current.viewport);
     // Flat scrolling (UA9, U-D21): no window of its own, so the tree's nearest scroller moves.
-    if (!viewports.length) viewports.push(scrollerOf(root));
+    if (!viewports.length) viewports.push(scrollingAncestor(root, { pastBody: true }));
     for (const viewport of viewports) {
       if (!scrollAtEdge(viewport, current.at.y, current.touch ? TOUCH_EDGE : EDGE)) continue;
       current.viewport = viewport;

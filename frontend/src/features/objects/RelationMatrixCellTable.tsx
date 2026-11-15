@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { attributeTypeFor } from "@/model/lookup";
 import { StatusPill } from "@/ui/StatusPill";
 import { EditableField } from "@/features/objects/EditableField";
 import { RelationValueCell } from "@/features/objects/relations/RelationValueCell";
@@ -45,7 +46,7 @@ function recordItem(
     name: record.name,
     path: [],
     attributes: Object.entries(record.fields).flatMap(([key, value]) => {
-      const definition = model.attributeTypes.find((item) => item.key === key);
+      const definition = attributeTypeFor(model, key);
       // The read gives every cell field, null where the record holds no value for it.
       return definition && value !== null && value !== undefined
         ? [{ id: "", attributeTypeKey: key, name: definition.name, valueType: definition.valueType, value }]

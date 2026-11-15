@@ -12,6 +12,7 @@ import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { ShellFrame } from "@/app/ShellFrame";
 import { TopBar } from "@/app/TopBar";
+import { counted } from "@/lib/count";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
@@ -193,7 +194,7 @@ export function NotificationsPage({
             <p>
               {unreadCount} unread
               {total !== null && !narrowed && ` · ${total} in the last 90 days`}
-              {total !== null && narrowed && ` · ${total} ${total === 1 ? "matches" : "match"}`}
+              {total !== null && narrowed && ` · ${counted(total, "matches", "match")}`}
             </p>
           </div>
           <RouteLink href={routePath(MAIL_SETTINGS)} onNavigate={() => onNavigate(MAIL_SETTINGS)}>

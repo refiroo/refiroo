@@ -25,7 +25,10 @@ vi.mock("@/api/client", async (importOriginal) => ({
   api: { workspace: vi.fn(), job: vi.fn(), model: vi.fn() },
 }));
 vi.mock("./useAssistantOffers", () => ({ useAssistantOffers: () => ({ changeModel: true, askRecords: true }) }));
-vi.mock("@/state/useJobStream", () => ({ useJobStream: vi.fn() }));
+// No stream is opened: a job's changes are not under test here.
+vi.mock("@/api/eventStream", () => ({
+  openEventStream: (url: string) => ({ url, addEventListener: () => undefined, close: () => undefined }),
+}));
 const groups = vi.hoisted(() => ({ held: ["change-sets", "model-release"] as string[] }));
 vi.mock("@/state/permissions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/state/permissions")>()),

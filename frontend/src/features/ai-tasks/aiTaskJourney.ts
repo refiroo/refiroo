@@ -4,9 +4,10 @@
  * alone, so every page of the journey (the task, the model editor, the change set) shows the same.
  */
 
+import { counted } from "@/lib/count";
 import type { AiTask } from "@/types";
 import { changesModel, proposalRefusal } from "./aiTaskDesign";
-import { plural, waitingText } from "./aiTaskText";
+import { waitingText } from "./aiTaskText";
 
 export type StepStatus = "done" | "current" | "todo" | "failed";
 
@@ -174,8 +175,8 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean; ca
   if (checked && unanswered > 0)
     return {
       ...base,
-      sentence: `Answer ${plural(unanswered, "question")}, then the assistant designs again.`,
-      primary: { label: `Answer ${plural(unanswered, "question")}`, action: "questions" },
+      sentence: `Answer ${counted(unanswered, "question")}, then the assistant designs again.`,
+      primary: { label: `Answer ${counted(unanswered, "question")}`, action: "questions" },
     };
   if (reviewModel)
     return {
@@ -188,7 +189,7 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean; ca
       ...base,
       sentence:
         refused > 0
-          ? `Every row is checked; ${plural(refused, "row")} will be refused and not loaded. Load the rest into a change set. Nothing is live until it is published.`
+          ? `Every row is checked; ${counted(refused, "row")} will be refused and not loaded. Load the rest into a change set. Nothing is live until it is published.`
           : "Every row is checked. Load it into a change set. Nothing is live until it is published.",
       primary: { label: "Load into a change set", action: "load" },
     };

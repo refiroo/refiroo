@@ -10,6 +10,7 @@
  * step is marked as needing a migration, which installing the draft states (0.13 MG).
  */
 
+import { counted } from "@/lib/count";
 import type {
   ConsumerDefinition,
   DraftOperation,
@@ -98,22 +99,24 @@ import {
 } from "@/features/model-editor/viewKinds";
 import {
   applicationsOf,
+  attributeTypeName,
   attributeTypeOf,
   collectionsOf,
+  consumerApiOf,
   entryName,
   entryRefId,
   groupEntries,
   groupOfEntry,
   isReleased,
-  consumerApiOf,
   keyFromLabel,
   keysOf,
-  viewsOf,
   objectTypeOf,
+  relationTypeName,
   relationTypeOf,
   sameName,
   typeLabel,
   typeName,
+  viewsOf,
 } from "@/model/outline";
 
 /** What an operation acts on, named as operations name elements. */
@@ -328,7 +331,7 @@ function relationTypeHint(outline: ModelDraftOutline, values: FieldValues) {
       ...new Set(
         outline.relations.filter((item) => item.to === to && !item.containment).map((item) => item.relationType),
       ),
-    ].map((key) => relationTypeOf(outline, key)?.name ?? key);
+    ].map((key) => relationTypeName(outline, key));
     return towards.length
       ? `A new relation type stands apart from those already reaching ${typeName(outline, to)} (${firstTwo([...new Set(towards)])}): records and views of one do not include the other.`
       : undefined;
@@ -624,7 +627,7 @@ function parentRelationOptions(outline: ModelDraftOutline, typeKey: string): Cho
     .filter((item) => item.to === typeKey && !seen.has(item.relationType) && seen.add(item.relationType))
     .map((item) => ({
       value: item.relationType,
-      label: `${relationTypeOf(outline, item.relationType)?.name ?? item.relationType}, from ${typeName(outline, item.from)}`,
+      label: `${relationTypeName(outline, item.relationType)}, from ${typeName(outline, item.from)}`,
     }));
 }
 
@@ -1362,7 +1365,7 @@ export const OPERATIONS: OperationSpec[] = [
     id: "attribute-rename",
     on: "attribute",
     label: "Rename…",
-    title: (t, o) => `Rename ${attributeTypeOf(o, t.attributeType)?.name ?? t.attributeType}`,
+    title: (t, o) => `Rename ${attributeTypeName(o, t.attributeType)}`,
     fields: (t, o) => [
       {
         name: "name",
@@ -1445,7 +1448,7 @@ export const OPERATIONS: OperationSpec[] = [
     id: "attribute-value-type",
     on: "attribute",
     label: "Value type…",
-    title: (t, o) => `Value type of ${attributeTypeOf(o, t.attributeType)?.name ?? t.attributeType}`,
+    title: (t, o) => `Value type of ${attributeTypeName(o, t.attributeType)}`,
     draftOnly: (t, o) => isReleased(attributeTypeOf(o, t.attributeType)?.mark),
     fields: () => [{ name: "valueType", label: "Value type", type: "select", options: VALUE_TYPES, required: true }],
     initial: (t, o) => ({ valueType: attributeTypeOf(o, t.attributeType)?.valueType ?? "text" }),
@@ -1457,7 +1460,7 @@ export const OPERATIONS: OperationSpec[] = [
     id: "attribute-list",
     on: "attribute",
     label: "Turn into a list type…",
-    title: (t, o) => `Turn ${attributeTypeOf(o, t.attributeType)?.name ?? t.attributeType} into a list type`,
+    title: (t, o) => `Turn ${attributeTypeName(o, t.attributeType)} into a list type`,
     draftOnly: bindingReleased,
     fields: (t, o) => [
       { name: "name", label: "List type's name", type: "text", required: true },
@@ -1555,7 +1558,7 @@ export const OPERATIONS: OperationSpec[] = [
     label: (t, o) => `Detach from ${typeName(o, t.objectType)}`,
     draftOnly: bindingReleased,
     confirm: (t, o) =>
-      `Detach ${attributeTypeOf(o, t.attributeType)?.name ?? t.attributeType} from ${typeName(o, t.objectType)}? It leaves the type's views and panels too.`,
+      `Detach ${attributeTypeName(o, t.attributeType)} from ${typeName(o, t.objectType)}? It leaves the type's views and panels too.`,
     build: (_, t) => [{ kind: "detachAttribute", objectType: t.objectType, attributeType: t.attributeType }],
   }),
 
@@ -1619,7 +1622,7 @@ export const OPERATIONS: OperationSpec[] = [
     id: "attribute-type-attach",
     on: "attributeType",
     label: "Attach to a type…",
-    title: (t, o) => `Attach ${attributeTypeOf(o, t.attributeType)?.name ?? t.attributeType} to a type`,
+    title: (t, o) => `Attach ${attributeTypeName(o, t.attributeType)} to a type`,
     available: (t, o) => o.objectTypes.some((type) => !attributeTypeOf(o, t.attributeType)?.boundBy.includes(type.key)),
     fields: (t, o) => [
       {
@@ -1648,7 +1651,7 @@ export const OPERATIONS: OperationSpec[] = [
     label: "Remove attribute type",
     draftOnly: true,
     available: (t, o) => (attributeTypeOf(o, t.attributeType)?.boundBy.length ?? 0) === 0,
-    confirm: (t, o) => `Remove ${attributeTypeOf(o, t.attributeType)?.name ?? t.attributeType}? No type uses it.`,
+    confirm: (t, o) => `Remove ${attributeTypeName(o, t.attributeType)}? No type uses it.`,
     build: (_, t) => [{ kind: "removeAttributeType", attributeType: t.attributeType }],
   }),
 
@@ -1694,7 +1697,7 @@ export const OPERATIONS: OperationSpec[] = [
     id: "relation-type-allow",
     on: "relationType",
     label: "Allow between two types…",
-    title: (t, o) => `Allow ${relationTypeOf(o, t.relationType)?.name ?? t.relationType} between two types`,
+    title: (t, o) => `Allow ${relationTypeName(o, t.relationType)} between two types`,
     available: (t, o) => !relationTypeOf(o, t.relationType)?.containment && o.objectTypes.length > 0,
     fields: (_, o) => [
       {
@@ -1735,7 +1738,7 @@ export const OPERATIONS: OperationSpec[] = [
     draftOnly: true,
     // In use, it goes with the pairs that allow it, in one step (the user, after A4a).
     confirm: (t, o) => {
-      const name = relationTypeOf(o, t.relationType)?.name ?? t.relationType;
+      const name = relationTypeName(o, t.relationType);
       const pairs = o.relations
         .filter((r) => r.relationType === t.relationType)
         .map((r) => `${typeName(o, r.from)} → ${typeName(o, r.to)}`);
@@ -1880,7 +1883,7 @@ export const OPERATIONS: OperationSpec[] = [
     id: "attribute-type-limits",
     on: "attributeType",
     label: "Minimum and maximum…",
-    title: (t, o) => `Smallest and largest ${attributeTypeOf(o, t.attributeType)?.name ?? t.attributeType} accepted`,
+    title: (t, o) => `Smallest and largest ${attributeTypeName(o, t.attributeType)} accepted`,
     available: (t, o) => ["integer", "decimal"].includes(attributeTypeOf(o, t.attributeType)?.valueType ?? ""),
     fields: () => [
       { name: "minimum", label: "Minimum", type: "text", hint: "Leave empty for no minimum." },
@@ -1911,7 +1914,7 @@ export const OPERATIONS: OperationSpec[] = [
     on: "relation",
     label: "Attributes of the relationship…",
     title: (t, o) =>
-      `Attributes carried by ${relationTypeOf(o, t.relationType)?.name ?? t.relationType}: ${typeName(o, t.from)} → ${typeName(o, t.to)}`,
+      `Attributes carried by ${relationTypeName(o, t.relationType)}: ${typeName(o, t.from)} → ${typeName(o, t.to)}`,
     draftOnly: (t, o) => isReleased(relationOf(t, o)?.mark),
     available: (t, o) => !relationOf(t, o)?.containment && o.attributeTypes.length > 0,
     fields: (_, o) => [
@@ -1940,8 +1943,7 @@ export const OPERATIONS: OperationSpec[] = [
     id: "relation-rule",
     on: "relation",
     label: "Cardinality and required…",
-    title: (t, o) =>
-      `${relationTypeOf(o, t.relationType)?.name ?? t.relationType}: ${typeName(o, t.from)} → ${typeName(o, t.to)}`,
+    title: (t, o) => `${relationTypeName(o, t.relationType)}: ${typeName(o, t.from)} → ${typeName(o, t.to)}`,
     draftOnly: (t, o) => isReleased(relationOf(t, o)?.mark),
     fields: () => [
       { name: "cardinality", label: "Cardinality", type: "select", options: CARDINALITIES, required: true },
@@ -1983,7 +1985,7 @@ export const OPERATIONS: OperationSpec[] = [
     id: "relation-candidates",
     on: "relation",
     label: "Which records may be chosen…",
-    title: (t, o) => `Which records ${relationTypeOf(o, t.relationType)?.name ?? t.relationType} may choose`,
+    title: (t, o) => `Which records ${relationTypeName(o, t.relationType)} may choose`,
     fields: (t, o) => [
       {
         name: "candidates",
@@ -2014,7 +2016,7 @@ export const OPERATIONS: OperationSpec[] = [
     // A parent link too (the user, after A4a): the child type then stands only where its other
     // parents or the top level allow, and the draft says so until it is placed again.
     confirm: (t, o) => {
-      const name = relationTypeOf(o, t.relationType)?.name ?? t.relationType;
+      const name = relationTypeName(o, t.relationType);
       if (!relationOf(t, o)?.containment)
         return `Stop allowing ${name} from ${typeName(o, t.from)} to ${typeName(o, t.to)}?`;
       const child = objectTypeOf(o, t.to);
@@ -3264,7 +3266,7 @@ const MOVES = new Set(["view-group", "type-group", "entry-move"]);
 
 /** "Add 3 items" (what the Add to group… forms count). */
 export function addedItems(count: number) {
-  return `Add ${count} ${count === 1 ? "item" : "items"}`;
+  return `Add ${counted(count, "item")}`;
 }
 
 /**

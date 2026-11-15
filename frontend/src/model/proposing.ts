@@ -7,6 +7,7 @@
  * it. A reload before the workbook is profiled loses it, and ⋯ › Propose again… asks for it anew.
  */
 
+import { attributeTypeOf, objectTypeOf, relationTypeOf } from "@/model/outline";
 import type { DraftProfileDocument, EditorSelection, InferenceRequest, ModelDraftOutline } from "@/types";
 
 const waiting = new Map<string, InferenceRequest>();
@@ -41,11 +42,11 @@ export function isReleasedElement(outline: ModelDraftOutline | undefined, elemen
   const [kind, rest = ""] = element.split(/:(.*)/s);
   const mark =
     kind === "objectType"
-      ? outline.objectTypes.find((item) => item.key === rest)?.mark
+      ? objectTypeOf(outline, rest)?.mark
       : kind === "attributeType"
-        ? outline.attributeTypes.find((item) => item.key === rest)?.mark
+        ? attributeTypeOf(outline, rest)?.mark
         : kind === "relationType"
-          ? outline.relationTypes.find((item) => item.key === rest)?.mark
+          ? relationTypeOf(outline, rest)?.mark
           : undefined;
   return mark === "released";
 }

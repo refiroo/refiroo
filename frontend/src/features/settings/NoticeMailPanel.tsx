@@ -37,7 +37,10 @@ export function browserTimeZone(): string {
   }
 }
 
-/** "Tuesday 3 November, 07:00" in the given zone. */
+/**
+ * "Tuesday 3 November, 07:00" in the given zone. Not `lib/dates` (SR4): this is the subscription's own zone and
+ * the 24-hour time the digest mail itself carries, not the viewer's locale.
+ */
 export function digestTime(at: string, timeZone: string): string {
   const moment = new Date(at);
   try {

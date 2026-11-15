@@ -13,11 +13,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { security } from "@/api/securityClient";
-import { useHoldsGroup } from "@/app/useMe";
+import { counted, plural } from "@/lib/count";
+import { useHoldsGroup } from "@/state/useMe";
 import { holds, useWorkspacePermissions } from "@/state/permissions";
 import { GrantsSection } from "@/features/security/GrantsSection";
 import { useEditModel } from "@/features/workspaces/useEditModel";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { UnavailableWorkspace, unavailability } from "@/features/workspaces/UnavailableWorkspace";
 import { WorkspaceActivity } from "@/features/workspaces/WorkspaceActivity";
@@ -425,7 +426,7 @@ function WorkspaceDetail({
         setWorkspace(restored);
       };
     } catch (cause) {
-      if (!isApiError(cause, "VERSION_CONFLICT")) throw cause;
+      if (!isVersionConflict(cause, ["VERSION_CONFLICT"])) throw cause;
       const current = await reloadWorkspace();
       throw new Error(
         `Someone changed this workspace while you were editing. It is now named “${current.label}”. Change it again to replace that name with yours.`,
@@ -447,7 +448,7 @@ function WorkspaceDetail({
         status === "retired" ? "Workspace retired. Its data and history remain readable." : "Workspace reactivated.",
       );
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         setRetiring(false);
         const current = await reloadWorkspace().catch(() => workspace);
         setConflict(
@@ -476,7 +477,7 @@ function WorkspaceDetail({
       // The default cannot be deleted; reread why rather than deciding it here.
       await reloadWorkspace().catch(() => undefined);
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         const state = await reloadRuntime().catch(() => runtime);
         setConflict(
           `The default workspace changed to “${state.defaultWorkspaceKey}” while the page was open. Review it and choose again.`,
@@ -500,7 +501,7 @@ function WorkspaceDetail({
       setDeleting(false);
       onDeleted(workspace);
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         setDeleting(false);
         const current = await reloadWorkspace().catch(() => workspace);
         setConflict(
@@ -910,7 +911,7 @@ function WorkspaceApplications({
                   <span className="workspace-app-text">
                     <strong>{application.name}</strong>
                     <small>
-                      {views} declared {views === 1 ? "view" : "views"}
+                      {views} declared {plural(views, "view")}
                     </small>
                   </span>
                   <Icon name="chevron-right" />
@@ -927,7 +928,7 @@ function WorkspaceApplications({
 function approverLine(count: number): string {
   if (count === 0)
     return "Nobody can approve yet. Give someone the Data owner role (Approve publications) for this workspace.";
-  const who = count === 1 ? "1 person or client can" : `${count} people or clients can`;
+  const who = counted(count, "person or client can", "people or clients can");
   return `${who} approve (Data owners hold Approve publications).`;
 }
 
@@ -983,9 +984,11 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
       setSecondPerson(updated.secondPerson);
       setSaved("Approval policy saved.");
     } catch (cause) {
-      setConflict(isApiError(cause, "VERSION_CONFLICT"));
+      setConflict(isVersionConflict(cause, ["VERSION_CONFLICT"]));
       setError(
-        isApiError(cause, "VERSION_CONFLICT") ? "The policy changed meanwhile. Reload to see it." : errorMessage(cause),
+        isVersionConflict(cause, ["VERSION_CONFLICT"])
+          ? "The policy changed meanwhile. Reload to see it."
+          : errorMessage(cause),
       );
     } finally {
       setPending(false);

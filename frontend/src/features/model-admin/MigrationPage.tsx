@@ -14,6 +14,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
+import { counted } from "@/lib/count";
+import { attributeName } from "@/model/fields";
 import type {
   DraftMigration,
   EngineModel,
@@ -24,7 +26,7 @@ import type {
   ModelReleaseSummary,
   Workspace,
 } from "@/types";
-import { isResting, useJobStream } from "@/state/useJobStream";
+import { isResting, useFollowedJob } from "@/state/useFollowedJob";
 import { routePath } from "@/routing/routes";
 import { Trail, TrailLink, crumbs } from "@/ui/Trail";
 import { Modal } from "@/ui/Modal";
@@ -39,10 +41,6 @@ import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "@/ui/Mig
 import { ProposedRows } from "./ProposedRows";
 
 const NOT_KEPT = "";
-
-const count = (value: number) => value.toLocaleString("en-GB");
-
-const counted = (value: number, one: string, many: string) => `${count(value)} ${value === 1 ? one : many}`;
 
 function lossText(counts: MigrationCounts): string {
   return counted(counts.loss, "item", "items");
@@ -110,8 +108,6 @@ function missingElements(
 ): Missing[] {
   const targetTypes = new Map(target.objectTypes.map((type) => [type.key, type]));
   const currentTypes = new Set(current.objectTypes.map((type) => type.key));
-  const attributeName = (model: EngineModel, key: string) =>
-    model.attributeTypes.find((item) => item.key === key)?.name ?? key;
   const added = target.objectTypes.filter((type) => !currentTypes.has(type.key));
   const found: Missing[] = [];
   for (const type of current.objectTypes) {
@@ -190,12 +186,26 @@ export function MigrationPage({
    */
   openApplication?: { applicationKey: string; onOpen: () => void };
 }) {
-  const [job, setJob] = useState<Job>();
+  // After a confirm the answer is set again and the stream reopens until the migration ends. Only a
+  // streamed change reports the move: opening a finished migration does not run `onMigrated` again.
+  const {
+    job,
+    setJob,
+    error: readError,
+  } = useFollowedJob(jobId, {
+    onChange: (next) => {
+      // The workspace runs the target now: the shell forgets the model it held for it (D49). A change
+      // set's move leaves the workspace's release as it was.
+      if (next.state === "completed" && next.confirmedAt && next.parameters.moves !== "changeSet")
+        void onMigrated(next.workspaceKey);
+    },
+  });
   const [models, setModels] = useState<{ current: EngineModel; target: EngineModel }>();
   const [outcome, setOutcome] = useState<MigrationOutcome>("conversion");
   const [accepted, setAccepted] = useState(false);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const [actionError, setError] = useState("");
+  const error = actionError || readError;
   const [staleRefused, setStaleRefused] = useState(false);
   const [staleClosed, setStaleClosed] = useState(false);
   // The change set the migration publishes (V2), read once: it is gone once published.
@@ -210,25 +220,8 @@ export function MigrationPage({
   // The migration the model draft states, when the preview was started from it (0.13 MG).
   const [proposal, setProposal] = useState<DraftMigration>();
 
-  useEffect(() => {
-    let active = true;
-    api
-      .job(jobId)
-      .then((loaded) => active && setJob(loaded))
-      .catch((cause) => active && setError(errorMessage(cause)));
-    return () => {
-      active = false;
-    };
-  }, [jobId]);
   // The migration's notices are read while its page is open (0.12 NT1).
   useSubjectSeen(job?.id);
-  useJobStream(job && !isResting(job) ? job.id : undefined, (next) => {
-    setJob(next);
-    // The workspace runs the target now: the shell forgets the model it held for it (D49). A change
-    // set's move leaves the workspace's release as it was.
-    if (next.state === "completed" && next.confirmedAt && next.parameters.moves !== "changeSet")
-      void onMigrated(next.workspaceKey);
-  });
 
   const targetReleaseId = job?.parameters.targetReleaseId as string | undefined;
   const changeSetId = job?.parameters.changeSetId as string | undefined;
@@ -703,9 +696,7 @@ export function MigrationPage({
           <div className="migration-bar-text">
             {blocked && (
               <span className="migration-blocked">
-                <strong>
-                  {count(counts.refused)} {counts.refused === 1 ? "item must" : "items must"} be fixed first.
-                </strong>{" "}
+                <strong>{counted(counts.refused, "item must", "items must")} be fixed first.</strong>{" "}
                 {changeSetId
                   ? `Fix them in ${changeSetName} or in ${label}, then preview again.`
                   : `Fix the records in ${label}, then preview again.`}

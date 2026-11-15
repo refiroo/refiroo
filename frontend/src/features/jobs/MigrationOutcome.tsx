@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
-import { count } from "@/ui/limits";
+import { count } from "@/lib/count";
 import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "@/ui/MigrationRows";
 import type { EngineModel, Job, MigrationOutcome as Outcome, MigrationSummary } from "@/types";
 import { Choice } from "@/ui/Choice";

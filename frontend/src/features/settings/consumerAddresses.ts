@@ -6,6 +6,7 @@
 
 import { API_URL, api } from "@/api/client";
 import type { ConsumerApiIndexEntry } from "@/types";
+import { everyPage } from "@/lib/everyPage";
 
 export const openapiUrl = (entry: ConsumerApiIndexEntry) => new URL(entry.openapi, API_URL).href;
 
@@ -24,13 +25,6 @@ export const operationUrl = (slug: string, method: string, path: string, workspa
 export const consumerSlug = (entry: ConsumerApiIndexEntry) => `consumer-${entry.consumerApi}-v${entry.contractVersion}`;
 
 /** Every entry of the API index, page after page, of the default workspace or of `workspaceKey`. */
-export async function allConsumerApis(workspaceKey?: string) {
-  const entries: ConsumerApiIndexEntry[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await api.consumerApis(cursor, workspaceKey);
-    entries.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return entries;
+export function allConsumerApis(workspaceKey?: string): Promise<ConsumerApiIndexEntry[]> {
+  return everyPage((cursor) => api.consumerApis(cursor, workspaceKey));
 }

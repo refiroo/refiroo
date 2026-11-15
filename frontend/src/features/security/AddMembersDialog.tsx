@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { security } from "@/api/securityClient";
 import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { Group, GroupMember, GroupMemberOutcome, GroupMembersResult } from "@/types";
 import { Modal } from "@/ui/Modal";
@@ -86,9 +87,7 @@ export function AddMembersDialog({
           ]}
         />
         <div className="add-members-picked" aria-live="polite">
-          <p className="admin-hint">
-            {count ? `${count} ${count === 1 ? "person" : "people"} to add` : "Nobody ticked yet"}
-          </p>
+          <p className="admin-hint">{count ? `${counted(count, "person", "people")} to add` : "Nobody ticked yet"}</p>
           {count > 0 && (
             <ul className="add-members-chips" aria-label="People to add">
               {[...picked.values()].map((member) => (
@@ -117,7 +116,7 @@ export function AddMembersDialog({
             Cancel
           </button>
           <button type="button" className="primary" disabled={pending || !count} onClick={() => void add()}>
-            {pending ? "Adding…" : count ? `Add ${count} ${count === 1 ? "member" : "members"}` : "Add members"}
+            {pending ? "Adding…" : count ? `Add ${counted(count, "member")}` : "Add members"}
           </button>
         </div>
       </div>
@@ -178,7 +177,7 @@ function SearchPeople({
         <span className="admin-hint">
           {found === undefined
             ? "Searching…"
-            : `${items.length} ${items.length === 1 ? "person" : "people"}${found.for ? " match" : ""}${
+            : `${counted(items.length, "person", "people")}${found.for ? " match" : ""}${
                 items.length === 20 ? " · the first 20; search to narrow" : ""
               }`}
         </span>
@@ -267,11 +266,7 @@ function PastePeople({ group, onFound }: { group: Group; onFound: (members: Grou
       </p>
       <div>
         <button type="button" className="secondary" disabled={pending || !lines.length} onClick={() => void check()}>
-          {pending
-            ? "Checking…"
-            : lines.length
-              ? `Check ${lines.length} ${lines.length === 1 ? "line" : "lines"}`
-              : "Check the list"}
+          {pending ? "Checking…" : lines.length ? `Check ${counted(lines.length, "line")}` : "Check the list"}
         </button>
       </div>
       {error && (

@@ -11,7 +11,7 @@ import { Card } from "@/ui/Card";
 import { useEffect, useId, useState, type ReactNode, type Ref } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { useMe } from "@/app/useMe";
+import { useMe } from "@/state/useMe";
 import { holds } from "@/state/permissions";
 import { principalName } from "@/ui/ActorName";
 import { formatServerAgo } from "@/lib/dates";
@@ -21,7 +21,7 @@ import { useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName } from "@/model/fields";
 import { objectTypeHue } from "@/model/hues";
-import { objectTypeFor } from "@/model/lookup";
+import { objectTypeFor, relationTypeFor, typeName } from "@/model/lookup";
 import type {
   ChangeKind,
   EngineModel,
@@ -642,7 +642,7 @@ function ObjectChanges({
         const type =
           item.before && item.after && item.changedFields.includes("objectType")
             ? `${endType(model, item.before.objectTypeKey)} → ${endType(model, item.after.objectTypeKey)}`
-            : (objectTypeFor(model, ownType)?.name ?? ownType);
+            : typeName(model, ownType);
         const where = location(item.path);
         return (
           <ChangeRow
@@ -745,7 +745,7 @@ function RelationChanges({
       onAnchorChange={onAnchorChange}
       empty={<EmptyState filtered={filtered} what="relationship" parentLinksHidden={!containment} />}
       renderRow={(item, index, measure) => {
-        const type = model.relationTypes.find((relation) => relation.key === item.relationTypeKey);
+        const type = relationTypeFor(model, item.relationTypeKey);
         const from = item.fromObject.name ?? item.fromObject.objectId;
         const to = item.toObject.name ?? item.toObject.objectId;
         const name = `${from} → ${to}`;
@@ -811,5 +811,5 @@ function RelationChanges({
 }
 
 function endType(model: EngineModel, objectTypeKey: string | null) {
-  return objectTypeKey ? (objectTypeFor(model, objectTypeKey)?.name ?? objectTypeKey) : "Unknown type";
+  return objectTypeKey ? typeName(model, objectTypeKey) : "Unknown type";
 }

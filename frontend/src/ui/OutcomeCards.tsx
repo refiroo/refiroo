@@ -1,3 +1,4 @@
+import { count } from "@/lib/count";
 /**
  * A preview's outcomes as cards (0.11 V1's migration page, X4's report of what cannot move): each
  * a count, a label and a hint, pressed when its items are the ones listed below; a card with items
@@ -30,7 +31,7 @@ export function OutcomeCards({
         const className = `migration-outcome${item.tone ? ` is-${item.tone}` : ""}${item.count ? " has-items" : ""}`;
         const body = (
           <>
-            <span className="migration-outcome-count">{item.count.toLocaleString("en-GB")}</span>
+            <span className="migration-outcome-count">{count(item.count)}</span>
             <span className="migration-outcome-label">{item.label}</span>
             {item.hint && <small>{item.hint}</small>}
           </>

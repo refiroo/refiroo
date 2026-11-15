@@ -7,7 +7,7 @@
  */
 
 import type { ModelDraftOutline } from "@/types";
-import { attributeTypeOf, objectTypeOf } from "@/model/outline";
+import { ancestorTypeKeys, attributeTypeName, objectTypeOf, typeName } from "@/model/outline";
 
 export type Criterion = { field: string; op: string; value: string | number | boolean };
 export type Candidates = { from?: Criterion[]; to?: Criterion[] };
@@ -43,19 +43,6 @@ export function operatorsFor(field: CandidateField | undefined) {
   ];
 }
 
-/** The types a record of `typeKey` can sit under, at any depth (from the outline's parents). */
-function ancestorsOf(outline: ModelDraftOutline, typeKey: string): string[] {
-  const found: string[] = [];
-  const pending = [...(objectTypeOf(outline, typeKey)?.parents ?? [])];
-  while (pending.length) {
-    const next = pending.shift()!;
-    if (found.includes(next)) continue;
-    found.push(next);
-    pending.push(...(objectTypeOf(outline, next)?.parents ?? []));
-  }
-  return found;
-}
-
 function attributeFields(
   outline: ModelDraftOutline,
   typeKey: string,
@@ -66,7 +53,7 @@ function attributeFields(
     .filter((binding) => binding.valueType !== "json")
     .map((binding) => ({
       value: `${prefix}${binding.attributeType}`,
-      label: `${labelPrefix}${attributeTypeOf(outline, binding.attributeType)?.name ?? binding.attributeType}`,
+      label: `${labelPrefix}${attributeTypeName(outline, binding.attributeType)}`,
       valueType: binding.valueType ?? "text",
       attribute: true,
     }));
@@ -79,8 +66,8 @@ export function fieldsFor(outline: ModelDraftOutline, typeKey: string | undefine
   return [
     name,
     ...attributeFields(outline, typeKey, "", ""),
-    ...ancestorsOf(outline, typeKey).flatMap((ancestor) => {
-      const label = objectTypeOf(outline, ancestor)?.name ?? ancestor;
+    ...ancestorTypeKeys(outline, typeKey, { startInCycle: true }).flatMap((ancestor) => {
+      const label = typeName(outline, ancestor);
       return [
         { value: `ancestor:${ancestor}.name`, label: `${label} (above) › Name`, valueType: "text", attribute: false },
         ...attributeFields(outline, ancestor, `ancestor:${ancestor}.`, `${label} (above) › `),

@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { count } from "@/lib/count";
 import type { ObjectItem } from "@/types";
 import { ChipList } from "@/ui/ChipList";
 import { ObjectLookup } from "@/ui/ObjectLookup";
@@ -43,7 +44,7 @@ export function RecordListField({
         onRemove={(keys) => onChange(values.filter((value) => !keys.has(value.id)))}
       />
       <p id={`${id}-count`} className="visually-hidden" aria-live="polite">
-        {values.length === 1 ? "1 chosen" : `${values.length} chosen`}
+        {count(values.length)} chosen
       </p>
       <input
         className="visually-hidden"

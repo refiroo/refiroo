@@ -10,15 +10,6 @@ export const MAX_STEP = 16;
 /** The band for a finger, which covers more than a mouse pointer does (0.11 U1, D211). */
 export const TOUCH_EDGE = 56;
 
-/** The nearest ancestor of `root` that scrolls vertically, else the document's scroller. */
-export function scrollerOf(root: HTMLElement): HTMLElement {
-  for (let element = root.parentElement; element; element = element.parentElement) {
-    const overflow = getComputedStyle(element).overflowY;
-    if ((overflow === "auto" || overflow === "scroll") && element.scrollHeight > element.clientHeight) return element;
-  }
-  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
-}
-
 /**
  * Scrolls `viewport` one step when `y` is within its edge band and it can move that way. The band
  * starts below what covers the scroller's top, which a sticky bar declares as `scroll-padding-top`

@@ -14,7 +14,7 @@ import { Icon, type IconName } from "@/ui/Icon";
 import { RouteLink } from "@/ui/RouteLink";
 import { initials } from "@/ui/SettingsParts";
 import { useThemePreference, type ThemePreference } from "@/lib/theme";
-import { useMe, useRoleLine, useSourceOffer } from "./useMe";
+import { useMe, useRoleLine, useSourceOffer } from "@/state/useMe";
 
 export const THEMES: { value: ThemePreference; label: string; icon: IconName }[] = [
   { value: "system", label: "System", icon: "monitor" },

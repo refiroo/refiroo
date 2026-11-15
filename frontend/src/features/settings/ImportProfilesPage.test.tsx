@@ -9,7 +9,7 @@ vi.mock("@/api/client", async (load) => {
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
 });
 const holds = vi.hoisted(() => ({ bulk: true }));
-vi.mock("@/app/useMe", () => ({ useHoldsGroup: () => holds.bulk }));
+vi.mock("@/state/useMe", () => ({ useHoldsGroup: () => holds.bulk }));
 vi.mock("@/state/useSystem", () => ({
   useCapabilities: () => ({ capabilities: { integrationJobs: { createJobs: true, setting: "JOBS" } } }),
 }));

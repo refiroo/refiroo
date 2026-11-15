@@ -23,6 +23,7 @@ import { proposeWhenProfiled } from "@/model/proposing";
 import { nameOfFile, proposeRequest, ProposeFields, type ProposeChoice } from "@/ui/ProposeFields";
 import { WorkspaceField } from "@/ui/WorkspaceField";
 import { emptyDraftModel } from "@/model/emptyDraftModel";
+import { schemaLanguages } from "@/state/useSystem";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -67,7 +68,7 @@ export function CreateDraftDialog({
     try {
       let model: Record<string, unknown> = {};
       let baseReleaseId: string | undefined;
-      if (source === "empty") model = emptyDraftModel(createName.trim(), (await api.system()).schemaLanguages);
+      if (source === "empty") model = emptyDraftModel(createName.trim(), await schemaLanguages());
       if (source === "release") {
         const release = await api.modelRelease(createReleaseId, true);
         model = release.model ?? {};

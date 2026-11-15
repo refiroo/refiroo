@@ -10,6 +10,7 @@ import { MarkPill } from "@/features/model-editor/MarkPill";
 import { OperationButton } from "@/features/model-editor/ElementPanel";
 import { OperationsMenu, type OnOperation } from "@/features/model-editor/OperationsMenu";
 import type { OperationTarget } from "@/features/model-editor/operations";
+import { count } from "@/lib/count";
 import type { ModelDraftOutline } from "@/types/modelAdmin";
 import type { ActionMenuItem } from "@/ui/ActionMenu";
 import { Icon } from "@/ui/Icon";
@@ -487,14 +488,14 @@ function BoardCardView({
               <span className="canvas-count">Checking…</span>
             ) : countable ? (
               <>
-                <span className="canvas-count canvas-count-loads">{(loads ?? 0).toLocaleString("en-US")} load</span>
+                <span className="canvas-count canvas-count-loads">{count(loads ?? 0)} load</span>
                 {(refused ?? 0) > 0 && (
                   <button
                     type="button"
                     className="canvas-count canvas-count-refused"
                     onClick={() => h.refused(card.typeKey)}
                   >
-                    {(refused ?? 0).toLocaleString("en-US")} refused
+                    {count(refused ?? 0)} refused
                   </button>
                 )}
               </>

@@ -3,8 +3,8 @@
  * how long it has been working. No percentage or time left: it explores, so nothing can say them.
  */
 
+import { count } from "@/lib/count";
 import { StatusPill } from "@/ui/StatusPill";
-import { count } from "@/ui/limits";
 import type { AiTaskDesign } from "@/types";
 
 export function SessionProgress({ progress }: { progress: NonNullable<AiTaskDesign["progress"]> }) {

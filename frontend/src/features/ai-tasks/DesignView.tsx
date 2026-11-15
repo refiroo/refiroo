@@ -5,6 +5,7 @@
  * written until the person confirms in the check below.
  */
 
+import { counted } from "@/lib/count";
 import type { AiTask, EngineModel } from "@/types";
 import { AssistantText } from "@/ui/AssistantText";
 import { Card } from "@/ui/Card";
@@ -15,7 +16,6 @@ import { DesignQuestions } from "./DesignQuestions";
 import { DesignSheets } from "./DesignSheets";
 import { TaskNotes } from "./TaskNotes";
 import { modelNames } from "./aiTaskDesign";
-import { plural } from "./aiTaskText";
 
 const problems = (list: unknown[] | undefined): string[] =>
   (list ?? []).map((item) => {
@@ -59,7 +59,7 @@ export function DesignView({
         <AssistantText text={design.summary} />
         <p className="task-reason">
           {task.words && <>You said: “{task.words}”. </>}
-          {design.questions.length > 0 && <>{plural(design.questions.length, "question")} below. </>}
+          {design.questions.length > 0 && <>{counted(design.questions.length, "question")} below. </>}
           Nothing is written until you confirm.
         </p>
       </Card>

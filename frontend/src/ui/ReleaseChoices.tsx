@@ -6,15 +6,16 @@
  */
 
 import { useState } from "react";
+import { newestFirst } from "@/model/newestFirst";
 import type { ModelReleaseSummary } from "@/types";
 
 /** The releases to list, newest of each model first; the older ones only when `older` is on. */
 export function releaseChoices(releases: readonly ModelReleaseSummary[], older: boolean) {
-  const newestFirst = [...releases].sort((a, b) => b.installedAt.localeCompare(a.installedAt));
+  const ordered = newestFirst(releases, "installedAt");
   const seen = new Set<string>();
   const newest: ModelReleaseSummary[] = [];
   const rest: ModelReleaseSummary[] = [];
-  for (const release of newestFirst) {
+  for (const release of ordered) {
     (seen.has(release.key) ? rest : newest).push(release);
     seen.add(release.key);
   }

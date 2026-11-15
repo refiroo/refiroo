@@ -19,6 +19,7 @@ import { LoadWorkbookDialog } from "./LoadWorkbookDialog";
 import { taskApplicationKey, taskJourney, type JourneyAction } from "./aiTaskJourney";
 import { wordsTaskName } from "./aiTaskText";
 import { useAiTask } from "./useAiTask";
+import { readLocalPreference, removeLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 
 /** Where the bar is: the journey's home (the task), the model editor or the change set. */
 export type JourneyPlace = "task" | "editor" | "changeSet";
@@ -26,29 +27,19 @@ export type JourneyPlace = "task" | "editor" | "changeSet";
 const reviewedKey = (taskId: string) => `rdm:journey:model-reviewed:${taskId}`;
 
 /** Whether the person has opened the model change in the editor (kept in this browser). */
+// The mark is the number 1, which is `"1"` as stored: what this browser already holds stays valid.
 function modelReviewed(taskId: string): boolean {
-  try {
-    return window.localStorage.getItem(reviewedKey(taskId)) === "1";
-  } catch {
-    return false;
-  }
+  return readLocalPreference<number>(reviewedKey(taskId), 0, (value): value is number => value === 1) === 1;
 }
 
+/** Without storage the model step stays current: the person can still load from the task's page. */
 export function rememberModelReviewed(taskId: string) {
-  try {
-    window.localStorage.setItem(reviewedKey(taskId), "1");
-  } catch {
-    // Without storage the model step stays current: the person can still load from the task's page.
-  }
+  writeLocalPreference(reviewedKey(taskId), 1);
 }
 
 /** Drops the mark once the task can no longer be at the model step: it is kept per task and would stay for good. */
 function forgetModelReviewed(taskId: string) {
-  try {
-    window.localStorage.removeItem(reviewedKey(taskId));
-  } catch {
-    // Without storage there is nothing to drop.
-  }
+  removeLocalPreference(reviewedKey(taskId));
 }
 
 /** Scrolls to a part of the task's page and puts the focus in it (its button when it has one). */

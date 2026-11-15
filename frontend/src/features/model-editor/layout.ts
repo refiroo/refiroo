@@ -7,15 +7,18 @@
  * its neighbours when a panel moves (D35), so a move is a position in the page's declared list.
  */
 
+import { stringList, text } from "@/lib/coerce";
 import { containedTypes, heldRelations, relationsPanelConfig, relationshipTitle } from "@/model/defaults";
 import type { HeldRelation } from "@/model/defaults";
 import { attributeName } from "@/model/fields";
 import {
+  attributeTypeFor,
   objectTypeFor,
   RELATED_FIELD_PREFIX,
   relatedAncestorTypes,
   relatedColumn,
   relatedTargetTypes,
+  relationTypeFor,
 } from "@/model/lookup";
 import { ancestorObjectTypeKeys } from "@/model/placements";
 import type { DetailViewDefinition, DraftOperation, EngineModel, PanelDefinition, TableViewDefinition } from "@/types";
@@ -185,7 +188,7 @@ function panelTypes(model: EngineModel, place: LayoutPlace, panel: PanelDefiniti
 /** The fields a panel's columns may show: the name and the attributes of the types it lists. */
 export function columnChoices(model: EngineModel, place: LayoutPlace, panel: PanelDefinition): string[] {
   const keys = panelTypes(model, place, panel).flatMap(
-    (key) => model.objectTypes.find((item) => item.key === key)?.attributes.map((item) => item.attributeTypeKey) ?? [],
+    (key) => objectTypeFor(model, key)?.attributes.map((item) => item.attributeTypeKey) ?? [],
   );
   return ["name", ...new Set(keys)];
 }
@@ -210,7 +213,7 @@ export function panelColumns(panel: PanelDefinition): string[] | undefined {
 /** The type's attributes that no attributes panel of the page shows. */
 export function fieldsNotOnPage(model: EngineModel, detail: DetailViewDefinition): string[] {
   const shown = new Set(detail.panels.flatMap((panel) => (panel.type === "attributes" ? panel.config.fields : [])));
-  const type = model.objectTypes.find((item) => item.key === detail.objectTypeKey);
+  const type = objectTypeFor(model, detail.objectTypeKey);
   return (type?.attributes ?? [])
     .slice()
     .sort((a, b) => a.order - b.order)
@@ -242,9 +245,6 @@ function spec(
     ...(follow ? { follow } : {}),
   };
 }
-
-const list = (value: unknown) => (Array.isArray(value) ? (value as string[]) : []);
-const text = (value: unknown) => (typeof value === "string" ? value : "");
 
 export function renamePanelSpec(place: LayoutPlace, panel: PanelDefinition): OperationSpec {
   return spec(
@@ -309,7 +309,7 @@ export function newFieldGroupSpec(model: EngineModel, place: LayoutPlace, detail
       },
     ],
     { title: "", fields: [] },
-    (values) => fieldGroupOperations(place, detail, text(values.title), list(values.fields), "main"),
+    (values) => fieldGroupOperations(place, detail, text(values.title), stringList(values.fields), "main"),
   );
 }
 
@@ -359,7 +359,7 @@ export function addPanelSpec(model: EngineModel, place: LayoutPlace, detail: Det
       return choice ? relationshipTitle(model, choice) : "";
     }
     if (values.kind === "children") {
-      const first = contained.find((type) => list(values.objectTypes).includes(type.key)) ?? contained[0];
+      const first = contained.find((type) => stringList(values.objectTypes).includes(type.key)) ?? contained[0];
       return first?.pluralName ?? "";
     }
     return "";
@@ -426,10 +426,11 @@ export function addPanelSpec(model: EngineModel, place: LayoutPlace, detail: Det
     (values) => {
       const region = values.region === "side" ? "side" : "main";
       const title = text(values.title);
-      if (values.kind === "fields") return fieldGroupOperations(place, detail, title, list(values.fields), region);
+      if (values.kind === "fields")
+        return fieldGroupOperations(place, detail, title, stringList(values.fields), region);
       const show =
         values.kind === "children"
-          ? { children: { objectTypeKeys: list(values.objectTypes) } }
+          ? { children: { objectTypeKeys: stringList(values.objectTypes) } }
           : (() => {
               const choice = heldOf(values.relation);
               return { relations: { relation: choice?.relationTypeKey, direction: choice?.direction } };
@@ -467,7 +468,7 @@ export function addFieldSpec(
     ],
     { fields: [] },
     (values) =>
-      list(values.fields).map((field) => ({
+      stringList(values.fields).map((field) => ({
         kind: "insertViewItem",
         ...page(place),
         panel: panel.key,
@@ -501,7 +502,7 @@ export function panelColumnsSpec(model: EngineModel, place: LayoutPlace, panel: 
       },
     ],
     { columns: current },
-    (values) => chooseList({ ...page(place), panel: panel.key }, "columns", current, list(values.columns)),
+    (values) => chooseList({ ...page(place), panel: panel.key }, "columns", current, stringList(values.columns)),
   );
 }
 
@@ -543,7 +544,7 @@ const viewTarget = (place: LayoutPlace, view: TableViewDefinition) => ({
 function relatedChoices(model: EngineModel, objectTypeKey: string): string[] {
   const parents = objectTypeFor(model, objectTypeKey)?.behavior?.parentRelationTypeKeys ?? [];
   const fields = model.objectTypeRelations.flatMap((binding) => {
-    const type = model.relationTypes.find((item) => item.key === binding.relationTypeKey);
+    const type = relationTypeFor(model, binding.relationTypeKey);
     if (!type) return [];
     return [
       ...(binding.fromObjectTypeKey === objectTypeKey ? [{ key: type.key, parent: false }] : []),
@@ -558,7 +559,7 @@ function relatedChoices(model: EngineModel, objectTypeKey: string): string[] {
 
 /** The fields a table view may list: the name, the type's attributes and relationships, with what it lists now. */
 function viewChoices(model: EngineModel, view: TableViewDefinition, current: readonly string[]) {
-  const type = model.objectTypes.find((item) => item.key === view.objectTypeKey);
+  const type = objectTypeFor(model, view.objectTypeKey);
   return [
     ...new Set([
       ...current,
@@ -575,8 +576,7 @@ function viewChoices(model: EngineModel, view: TableViewDefinition, current: rea
  * attributes (`related:<key>.ancestor:<type>.<field>`). A JSON attribute cannot be one.
  */
 export function relatedFieldChoices(model: EngineModel, objectTypeKey: string, field: string): ChoiceOption[] {
-  const readable = (attributeKey: string) =>
-    model.attributeTypes.find((item) => item.key === attributeKey)?.valueType !== "json";
+  const readable = (attributeKey: string) => attributeTypeFor(model, attributeKey)?.valueType !== "json";
   const attributesOf = (types: { attributes: { attributeTypeKey: string; order: number }[] }[]) => [
     ...new Set(
       types.flatMap((type) =>
@@ -641,7 +641,7 @@ export function tableColumnsSpec(model: EngineModel, place: LayoutPlace, view: T
       },
     ],
     { columns: current },
-    (values) => chooseList(viewTarget(place, view), "columns", current, list(values.columns)),
+    (values) => chooseList(viewTarget(place, view), "columns", current, stringList(values.columns)),
   );
 }
 
@@ -659,7 +659,7 @@ export function tableFiltersSpec(model: EngineModel, place: LayoutPlace, view: T
       },
     ],
     { filters: current },
-    (values) => chooseList(viewTarget(place, view), "filterFields", current, list(values.filters)),
+    (values) => chooseList(viewTarget(place, view), "filterFields", current, stringList(values.filters)),
   );
 }
 
@@ -672,9 +672,9 @@ export function tableAvailabilitySpec(
   place: LayoutPlace,
   view: TableViewDefinition,
 ): OperationSpec {
-  const booleans = (model.objectTypes.find((item) => item.key === view.objectTypeKey)?.attributes ?? [])
+  const booleans = (objectTypeFor(model, view.objectTypeKey)?.attributes ?? [])
     .map((item) => item.attributeTypeKey)
-    .filter((key) => model.attributeTypes.find((item) => item.key === key)?.valueType === "boolean");
+    .filter((key) => attributeTypeFor(model, key)?.valueType === "boolean");
   const current = view.config.availabilityField ?? "";
   return spec(
     "layout-table-availability",
@@ -728,7 +728,7 @@ export function tableSortSpec(model: EngineModel, place: LayoutPlace, view: Tabl
 const sortableFields = (model: EngineModel, typeKeys: readonly string[], keep: readonly string[]) => {
   const sortable = new Set(model.attributeTypes.filter((item) => item.features?.sortable).map((item) => item.key));
   const attributes = typeKeys.flatMap(
-    (key) => model.objectTypes.find((item) => item.key === key)?.attributes.map((item) => item.attributeTypeKey) ?? [],
+    (key) => objectTypeFor(model, key)?.attributes.map((item) => item.attributeTypeKey) ?? [],
   );
   return [...new Set(["name", ...keep, ...attributes.filter((key) => sortable.has(key))])];
 };
@@ -757,9 +757,7 @@ const changed = (
 export function pageHeaderSpec(model: EngineModel, place: LayoutPlace, detail: DetailViewDefinition): OperationSpec {
   const fields = options(model, [
     "name",
-    ...(model.objectTypes.find((item) => item.key === place.objectTypeKey)?.attributes ?? []).map(
-      (item) => item.attributeTypeKey,
-    ),
+    ...(objectTypeFor(model, place.objectTypeKey)?.attributes ?? []).map((item) => item.attributeTypeKey),
   ]);
   const { header, breadcrumbs } = detail;
   // `breadcrumbs.showApplication` stays in the model but draws nothing since 0.17 SH1, so it is not offered here.
@@ -820,7 +818,7 @@ export function tableMenuSpec(model: EngineModel, place: LayoutPlace, view: Tabl
     ],
     { sortFields: current, pageSize: String(view.config.pageSize) },
     (values) => {
-      const chosen = list(values.sortFields);
+      const chosen = stringList(values.sortFields);
       const defaultField = view.config.defaultSort.replace(/^-/, "");
       const target = viewTarget(place, view);
       const keeps = chosen.includes(defaultField);
@@ -871,7 +869,7 @@ export function panelSettingsSpec(
           type: "checkboxes",
           options: held.map((key) => ({
             value: key,
-            label: model.relationTypes.find((item) => item.key === key)?.name ?? key,
+            label: relationTypeFor(model, key)?.name ?? key,
           })),
         },
         {
@@ -901,7 +899,7 @@ export function panelSettingsSpec(
         sortFields: config.sortFields ?? [],
       },
       (values) => {
-        const chosen = list(values.sortFields);
+        const chosen = stringList(values.sortFields);
         const defaultField = config.defaultSort?.replace(/^-/, "");
         return [
           ...(config.defaultSort && !chosen.includes(defaultField ?? "")
@@ -915,7 +913,7 @@ export function panelSettingsSpec(
               ]
             : []),
           ...changed(target, [
-            { property: "relationTypeKeys", now: config.relationTypeKeys, next: list(values.relations) },
+            { property: "relationTypeKeys", now: config.relationTypeKeys, next: stringList(values.relations) },
             { property: "direction", now: config.direction, next: text(values.direction) },
             {
               property: "showRelationshipColumn",

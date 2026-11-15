@@ -1,11 +1,11 @@
 /** "Where each sheet goes" (0.16 AP6, board 8): the design's profile sources, with every column's target folded. */
 
+import { count, counted } from "@/lib/count";
 import type { AiTaskDesign } from "@/types";
 import { Card } from "@/ui/Card";
 import { Disclosure } from "@/ui/Disclosure";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { columnTargets, sourceKey, type ModelNames } from "./aiTaskDesign";
-import { plural } from "./aiTaskText";
 
 export function DesignSheets({ design, names }: { design: AiTaskDesign; names: ModelNames }) {
   const sources = design.profile?.sources ?? [];
@@ -24,7 +24,7 @@ export function DesignSheets({ design, names }: { design: AiTaskDesign; names: M
                 : names.typePlural(source.objectTypeKey)}
             </td>
             <td data-label="Key">{sourceKey(source, names)}</td>
-            <td data-label="Columns">{source.columns.length.toLocaleString("en-GB")}</td>
+            <td data-label="Columns">{count(source.columns.length)}</td>
           </tr>
         ))}
       </SettingsTable>
@@ -32,7 +32,7 @@ export function DesignSheets({ design, names }: { design: AiTaskDesign; names: M
         {sources.map((source, index) => (
           <div key={`${source.sheet}-${index}`}>
             <strong>
-              Sheet “{source.sheet ?? "the file"}”: {plural(source.columns.length, "column")}
+              Sheet “{source.sheet ?? "the file"}”: {counted(source.columns.length, "column")}
             </strong>
             <ul className="task-sheet-list">
               {columnTargets(source, names).map((item, at) => (

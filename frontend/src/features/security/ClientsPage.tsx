@@ -8,8 +8,9 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import { security } from "@/api/securityClient";
+import { plural } from "@/lib/count";
 import { formatServerDate, formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -153,7 +154,7 @@ function ClientList({
         count={
           feed.loading && !shown
             ? undefined
-            : `${count}${total === undefined && feed.hasMore ? "+" : ""} ${count === 1 ? "client" : "clients"}`
+            : `${count}${total === undefined && feed.hasMore ? "+" : ""} ${plural(count, "client")}`
         }
       >
         <SearchField label="Search clients" placeholder="Name" value={search} onChange={setSearch} clearOnEscape />
@@ -375,7 +376,7 @@ function ClientDetail({
         stored(await security.updateClient(updated.id, { expectedVersion: updated.version, name: client.name }));
       };
     } catch (cause) {
-      if (!isApiError(cause, "VERSION_CONFLICT")) throw cause;
+      if (!isVersionConflict(cause, ["VERSION_CONFLICT"])) throw cause;
       const current = await security.client(client.id).catch(() => undefined);
       if (current) stored(current);
       throw new Error(
@@ -396,7 +397,7 @@ function ClientDetail({
       await action();
       setDialog(undefined);
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         setDialog(undefined);
         const current = await security.client(clientId).catch(() => undefined);
         if (current) stored(current);

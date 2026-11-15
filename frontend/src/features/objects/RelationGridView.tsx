@@ -25,7 +25,7 @@ import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
 import { attributeName } from "@/model/fields";
 import { endFilterView } from "@/model/relationGrid";
 import { objectTypeHue, objectTypeTile } from "@/model/hues";
-import { isManagedRelation, listingApplication, objectTypeFor } from "@/model/lookup";
+import { isManagedRelation, listingApplication, objectTypeFor, relationTypeFor } from "@/model/lookup";
 import type { RelationGridColumn, RelationGridRow, RelationTableViewDefinition } from "@/types";
 import { Card } from "@/ui/Card";
 import { HueTile } from "@/ui/HueTile";
@@ -328,7 +328,7 @@ export function RelationGridView({
     );
   }
 
-  const relationType = model.relationTypes.find((item) => item.key === config.relationTypeKey);
+  const relationType = relationTypeFor(model, config.relationTypeKey);
   const rowsFilter = endFilterView(model, application.key, view.key, config, "from");
   const toFilter = endFilterView(model, application.key, view.key, config, "to");
   // The rows' bar speaks the collection's plain field names; the grid's address prefixes them.

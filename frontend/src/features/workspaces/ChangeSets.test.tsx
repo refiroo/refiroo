@@ -8,7 +8,7 @@ import * as workspaceContext from "@/state/WorkspaceDataContext";
 import { ChangeSetActions, ChangeSetDiagnostics, ChangeSets } from "@/features/workspaces/ChangeSets";
 
 // The real hook keeps the person for the page load, so a test would see the first one read.
-vi.mock("@/app/useMe", () => ({ useMe: () => ({ id: "u-ana", kind: "user", name: "Ana Varga" }) }));
+vi.mock("@/state/useMe", () => ({ useMe: () => ({ id: "u-ana", kind: "user", name: "Ana Varga" }) }));
 
 const activeRelease: ModelReleaseSummary = {
   id: "release-active",

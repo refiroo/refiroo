@@ -1,8 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, api } from "@/api/client";
+import { ApiError, api, jobEventsUrl } from "@/api/client";
 import { outlineFixture } from "@/test/draftOutline";
-import { useJobStream } from "@/state/useJobStream";
 import { ModelEditor } from "@/features/model-editor/ModelEditor";
 import { proposeWhenProfiled, takeWaitingProposal } from "@/model/proposing";
 import { ToastProvider } from "@/ui/Toast";
@@ -12,10 +11,15 @@ vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
 });
-// The job's event stream is not under test; the run stays where the test leaves it.
-vi.mock("@/state/useJobStream", async (load) => ({
-  ...(await load<typeof import("@/state/useJobStream")>()),
-  useJobStream: vi.fn(),
+// The job's event stream is held by the test: the run stays where it leaves it, and an event is sent by hand.
+const streams = vi.hoisted(() => new Map<string, ((event: { data: string }) => void)[]>());
+vi.mock("@/api/eventStream", () => ({
+  openEventStream: (url: string) => ({
+    url,
+    addEventListener: (_type: string, listener: (event: { data: string }) => void) =>
+      streams.set(url, [...(streams.get(url) ?? []), listener]),
+    close: () => streams.delete(url),
+  }),
 }));
 
 const activeModel = {
@@ -223,12 +227,9 @@ describe("the editor while the engine proposes (the user, 2026-10-28)", () => {
       state: "completed",
       counts: { open: 2, applied: 0, held: 0, rejected: 0 },
     });
-    const follow = vi
-      .mocked(useJobStream)
-      .mock.calls.filter((call) => call[0] === "j1")
-      .at(-1);
+    const follow = streams.get(jobEventsUrl("j1"))?.at(-1);
     expect(follow).toBeTruthy();
-    await act(async () => follow![1]({ id: "j1", state: "completed" } as never));
+    await act(async () => follow!({ data: JSON.stringify({ id: "j1", state: "completed" }) }));
     await waitFor(() => expect(api.applyProposals).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.queryByText(/Editing is paused/)).toBeNull());
   });

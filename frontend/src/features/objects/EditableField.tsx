@@ -20,12 +20,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { attributeName, fieldValue } from "@/model/fields";
-import { objectTypeFor } from "@/model/lookup";
+import { attributeTypeFor, objectTypeFor } from "@/model/lookup";
 import { formatValue } from "@/ui/formatValue";
 import { EditInPlaceCell, EditInPlaceValue, focusValue } from "@/ui/EditInPlace";
 import { FlagCell } from "@/ui/FlagCell";
 import { FloatingCellEditor } from "@/ui/FloatingCellEditor";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import { Notice } from "@/ui/Notice";
 import { useOptionalToast } from "@/ui/Toast";
 import { UNDO_REFUSED } from "@/features/objects/undoText";
@@ -80,7 +80,7 @@ export function fieldEditing(
   const binding = objectTypeFor(model, object.objectTypeKey)?.attributes.find(
     (item) => item.attributeTypeKey === field,
   );
-  const attribute = model.attributeTypes.find((item) => item.key === field);
+  const attribute = attributeTypeFor(model, field);
   if (!binding || !attribute || binding.readOnly) return undefined;
   const attributeValue = object.attributes.find((item) => item.attributeTypeKey === field);
   return { binding, attribute, stored: attributeValue, attributeValue, isName: false };
@@ -332,7 +332,7 @@ function RecordFlagCell({
     } catch (cause) {
       const described = describeError?.(cause);
       setFailure({ message: described?.message ?? errorMessage(cause), action: described?.action });
-      if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT"))
+      if (isVersionConflict(cause, ["VERSION_CONFLICT", "CHANGE_SET_VERSION_CONFLICT"]))
         await onConflict().catch(() => undefined);
     } finally {
       setSaving(false);

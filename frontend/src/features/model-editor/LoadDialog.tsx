@@ -18,11 +18,11 @@ import {
   versionTakenText,
   type FreeVersion,
 } from "@/features/model-editor/ReleaseVersionConflict";
-import type { DraftProfile, DryRun, Job, ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
+import type { DraftProfile, DryRun, ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
-import { isFinal, useJobStream } from "@/state/useJobStream";
+import { isFinal, useFollowedJob } from "@/state/useFollowedJob";
 import {
   ChangeSetFields,
   changeSetName,
@@ -76,7 +76,11 @@ export function LoadDialog({
   const [freeKey, setFreeKey] = useState<string>();
   // The release version is taken by another release of the model: the one the engine found free.
   const [freeVersion, setFreeVersion] = useState<FreeVersion>();
-  const [job, setJob] = useState<Job>();
+  // The load is followed to its end; the answer of the request that starts it is set with `setJob`.
+  const { job, setJob } = useFollowedJob(undefined, {
+    done: isFinal,
+    onFinal: (next) => setStage(next.state === "completed" ? "done" : "stopped"),
+  });
   const [changeSetId, setChangeSetId] = useState<string>();
 
   useEffect(() => {
@@ -107,11 +111,6 @@ export function LoadDialog({
       cancelled = true;
     };
   }, [workspace]);
-
-  useJobStream(job && !isFinal(job) ? job.id : undefined, (next) => {
-    setJob(next);
-    if (isFinal(next)) setStage(next.state === "completed" ? "done" : "stopped");
-  });
 
   // The model changed against its base release, or its release is not the active one: install and
   // activate first. Otherwise installing finds the same release and only saves the profile.

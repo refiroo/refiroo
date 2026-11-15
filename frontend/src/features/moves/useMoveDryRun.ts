@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { Job, MappingProblem, MoveRequest } from "@/types";
-import { isFinal, isResting, useJobStream } from "@/state/useJobStream";
+import { isFinal, isResting, useFollowedJob } from "@/state/useFollowedJob";
 import { figuresOf, jobRunKey, runKey, type Figures } from "@/model/moveRun";
 import { useSubjectSeen } from "@/state/useInbox";
 
@@ -38,7 +38,12 @@ export function useMoveDryRun(
   /** A confirmed run finished loading (or failed to). */
   onLoaded?: (job: Job) => void,
 ): MoveDryRun {
-  const [job, setJob] = useState<Job>();
+  // One run is shown, as it changes: a streamed change of another run is ignored. The answer of a
+  // start, or a run read once after a reload, is set through `finish`.
+  const { job, setJob } = useFollowedJob(undefined, {
+    filter: (next) => !current.current || next.id === current.current.id,
+    onChange: (next) => finish(next),
+  });
   const [finished, setFinished] = useState<{ now?: Figures; before?: Figures }>({});
   const [error, setError] = useState("");
   const [problems, setProblems] = useState<MappingProblem[]>([]);
@@ -58,20 +63,23 @@ export function useMoveDryRun(
   const addressed = useRef(addressedJobId);
   const handled = useRef(0);
 
-  const finish = useCallback((next: Job) => {
-    const before = current.current;
-    current.current = next;
-    setJob(next);
-    if (next.confirmedAt && isFinal(next) && !(before?.id === next.id && isFinal(before))) loaded.current?.(next);
-    if (next.move && (next.state === "awaiting_confirmation" || next.state === "completed")) {
-      const figures = figuresOf(next.move);
-      setFinished((shown) =>
-        shown.now && JSON.stringify(shown.now) === JSON.stringify(figures)
-          ? shown
-          : { now: figures, before: shown.now },
-      );
-    }
-  }, []);
+  const finish = useCallback(
+    (next: Job) => {
+      const before = current.current;
+      current.current = next;
+      setJob(next);
+      if (next.confirmedAt && isFinal(next) && !(before?.id === next.id && isFinal(before))) loaded.current?.(next);
+      if (next.move && (next.state === "awaiting_confirmation" || next.state === "completed")) {
+        const figures = figuresOf(next.move);
+        setFinished((shown) =>
+          shown.now && JSON.stringify(shown.now) === JSON.stringify(figures)
+            ? shown
+            : { now: figures, before: shown.now },
+        );
+      }
+    },
+    [setJob],
+  );
 
   useEffect(() => {
     const body = asked.current;
@@ -122,14 +130,10 @@ export function useMoveDryRun(
     return () => {
       active = false;
     };
-  }, [key, attempt, finish]);
+  }, [key, attempt, finish, setJob]);
 
   // The move shown here: its notices are read, and one made while it is shown (0.12 NT1).
   useSubjectSeen(job?.id);
-  useJobStream(job && !isResting(job) ? job.id : undefined, (next) => {
-    if (current.current && next.id !== current.current.id) return;
-    finish(next);
-  });
 
   const checking = Boolean(job && !isResting(job) && !job.confirmedAt);
   return {

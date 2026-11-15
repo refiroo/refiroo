@@ -4,6 +4,7 @@
  * cards of what cannot move (D143).
  */
 
+import { count } from "@/lib/count";
 import { criteriaFromFilters } from "@/model/exportRequest";
 import type {
   EngineModel,
@@ -102,7 +103,7 @@ export function figuresOf(summary: MoveSummary): Figures {
 export function difference(now: number, before: number | undefined): string {
   if (before === undefined || now === before) return "";
   const change = now - before;
-  return `${change > 0 ? "+" : "−"}${Math.abs(change).toLocaleString("en-GB")} since the last step`;
+  return `${change > 0 ? "+" : "−"}${count(Math.abs(change))} since the last step`;
 }
 
 /** Whether a dry run's load would change anything: a row created or updated (D131). */

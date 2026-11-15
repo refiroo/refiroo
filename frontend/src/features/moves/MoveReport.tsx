@@ -5,17 +5,15 @@
  * listed per type and field with their counts, as the summary holds them.
  */
 
+import { count } from "@/lib/count";
+import { attributeName } from "@/model/fields";
+import { typeName } from "@/model/lookup";
 import type { EngineModel, MoveSummary } from "@/types";
 import { EmptyState } from "@/ui/EmptyState";
 import { OutcomeCards } from "@/ui/OutcomeCards";
 import { modeWords, reasonCards, rowForAction, VALUES_NOT_CARRIED } from "@/model/moveRun";
 import { rowId } from "./MappingPane";
 import { MoveRowsTable } from "@/ui/MoveRowsTable";
-
-const typeName = (model: EngineModel, key?: string) =>
-  (key && model.objectTypes.find((type) => type.key === key)?.name) || key || "";
-const attributeName = (model: EngineModel, key: string) =>
-  model.attributeTypes.find((item) => item.key === key)?.name ?? key;
 
 export function MoveReport({
   jobId,
@@ -60,7 +58,7 @@ export function MoveReport({
       />
       <section aria-labelledby="move-report-items" className="migration-section">
         <h2 id="move-report-items" className="install-heading">
-          {chosen.label} <span className="muted">· {chosen.count.toLocaleString("en-GB")}, every item listed</span>
+          {chosen.label} <span className="muted">· {count(chosen.count)}, every item listed</span>
         </h2>
         {chosen.code === VALUES_NOT_CARRIED ? (
           <ValuesNotCarried summary={summary} source={source} />
@@ -136,7 +134,7 @@ function ValuesNotCarried({ summary, source }: { summary: MoveSummary; source: E
             <tr key={`${item.sourceType}/${item.attributeTypeKey}/${item.code}`}>
               <td>{typeName(source, item.sourceType)}</td>
               <td>{attributeName(source, item.attributeTypeKey)}</td>
-              <td>{item.count.toLocaleString("en-GB")}</td>
+              <td>{count(item.count)}</td>
               <td>
                 <span className="mono">{item.code}</span>
               </td>

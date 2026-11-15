@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, isApiError, refusalMessage } from "@/api/errors";
+import { errorMessage, refusalMessage, isVersionConflict } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import type { ActionGroup, Role } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
@@ -26,6 +26,7 @@ import { settingsHead } from "@/ui/settingsNavigation";
 // A role's fields by the names its form shows them under.
 const ROLE_FIELDS = { name: "Name", description: "Description", actionGroups: "Action groups" };
 
+// "once" has no number in it, so it is not `counted`'s shape.
 const held = (count: number) =>
   count === 0 ? "not granted to anyone" : `granted ${count === 1 ? "once" : `${count} times`}`;
 
@@ -82,7 +83,7 @@ export function RolesPage() {
       setEditing(undefined);
       toast(`${saved.name} saved. Its holders have the change from their next request.`);
     } catch (cause) {
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         const page = await security.roles().catch(() => undefined);
         const current = page?.items.find((item) => item.key === editing.role.key);
         if (page) setRoles(page.items);

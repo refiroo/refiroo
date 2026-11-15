@@ -8,7 +8,9 @@
 
 import type { ReactNode } from "react";
 import { api } from "@/api/client";
+import { count } from "@/lib/count";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { relationTypeFor, typeName } from "@/model/lookup";
 import type { EngineModel, MoveOutcome, MoveReason, MoveRow } from "@/types";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 
@@ -19,10 +21,7 @@ export interface MoveRowsFilter {
   reason?: string;
 }
 
-const typeName = (model: EngineModel, key?: string) =>
-  (key && model.objectTypes.find((type) => type.key === key)?.name) || key || "";
-const relationName = (model: EngineModel, key?: string) =>
-  (key && model.relationTypes.find((item) => item.key === key)?.name) || key || "";
+const relationName = (model: EngineModel, key?: string) => (key && relationTypeFor(model, key)?.name) || key || "";
 
 /** The reason a row is listed under: the filter's, else its first. */
 export const reasonOf = (row: MoveRow, code?: string): MoveReason | undefined =>
@@ -65,7 +64,7 @@ export function MoveRowsTable({
   );
   const name = (row: MoveRow, end: "record" | "from" | "to", text: string) => record?.(row, end, text) ?? text;
   const columns: DataColumn<MoveRow>[] = [
-    { key: "item", label: "Item", cell: (row) => row.index.toLocaleString("en-GB") },
+    { key: "item", label: "Item", cell: (row) => count(row.index) },
     {
       key: "what",
       label: "What",

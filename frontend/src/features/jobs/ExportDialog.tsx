@@ -17,7 +17,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import type { EngineModel, ExportFormat, ExportLayout, ExportRelations, ExportRequest, Job } from "@/types";
 import { useRelationFilterNames } from "@/ui/relationFilterNames";
 import { attributeName } from "@/model/fields";
-import { RELATED_FIELD_PREFIX } from "@/model/lookup";
+import { objectTypeFor, RELATED_FIELD_PREFIX, typeName } from "@/model/lookup";
 import { Choice } from "@/ui/Choice";
 import { FormField } from "@/ui/FormField";
 import { WorkspaceField } from "@/ui/WorkspaceField";
@@ -80,7 +80,6 @@ export function ExportDialog({
 }) {
   const types = useMemo(() => exportableTypes(model, start.objectTypeKeys), [model, start.objectTypeKeys]);
   const viewStart = start.view;
-  const typeName = (key: string) => model.objectTypes.find((item) => item.key === key)?.pluralName ?? key;
   const application = model.applications.find((item) => item.key === viewStart?.applicationKey);
   const [workspaceKey, setWorkspaceKey] = useState(start.workspaceKey ?? "");
   const [what, setWhat] = useState<What>("view");
@@ -245,7 +244,7 @@ export function ExportDialog({
   const whatOptions: readonly (readonly [What, string])[] = viewStart
     ? [
         ["view", `This view: ${viewStart.name}`],
-        ["type", `The type: ${typeName(viewStart.typeKey)}`],
+        ["type", `The type: ${typeName(model, viewStart.typeKey, { plural: true })}`],
         ["application", `The application: ${application?.name ?? viewStart.applicationKey}`],
         ["workspace", "The whole workspace"],
       ]
@@ -332,7 +331,7 @@ export function ExportDialog({
           {ofView && viewStart?.notCarried && <Notice tone="info">{viewStart.notCarried}</Notice>}
           {ofView && viewStart && viewStart.filters.length + viewStart.toFilters.length > 0 && (
             <p className="admin-hint">
-              {typeName(viewStart.typeKey)} are exported with this page's{" "}
+              {typeName(model, viewStart.typeKey, { plural: true })} are exported with this page's{" "}
               {viewStart.filters.length + viewStart.toFilters.length === 1
                 ? "filter"
                 : `${viewStart.filters.length + viewStart.toFilters.length} filters`}
@@ -341,8 +340,9 @@ export function ExportDialog({
           )}
           {filtered && filtered.filters.length > 0 && (
             <p className="admin-hint">
-              {model.objectTypes.find((type) => type.key === filtered.objectTypeKey)?.pluralName} are exported with this
-              page's {filtered.filters.length === 1 ? "filter" : `${filtered.filters.length} filters`}.
+              {typeName(model, filtered.objectTypeKey, { plural: true })} are exported with this page's{" "}
+              {/* One filter is "filter", without its number: not `counted`'s shape. */}
+              {filtered.filters.length === 1 ? "filter" : `${filtered.filters.length} filters`}.
             </p>
           )}
           {!viewStart && start.search && (
@@ -359,9 +359,8 @@ export function ExportDialog({
                     checked={belowParent}
                     onChange={(event) => setBelowParent(event.target.checked)}
                   />
-                  Only the{" "}
-                  {model.objectTypes.find((type) => type.key === filtered.objectTypeKey)?.pluralName.toLowerCase()} this
-                  page is narrowed to
+                  Only the {typeName(model, filtered.objectTypeKey, { plural: true, lower: true })} this page is
+                  narrowed to
                 </label>
               )}
             </FormField>
@@ -672,7 +671,7 @@ function PeopleAdvanced({
 
 /** The fields an owned type's columns per parent hold by default: its writable attributes. */
 function defaultOwned(model: EngineModel, ownedKey: string): OwnedChoice {
-  const owned = model.objectTypes.find((item) => item.key === ownedKey);
+  const owned = objectTypeFor(model, ownedKey);
   const writable = (owned?.attributes ?? []).filter((item) => !item.readOnly).map((item) => item.attributeTypeKey);
   return { columns: false, parents: {}, fields: writable.length ? writable : ["name"] };
 }
@@ -701,7 +700,7 @@ function OwnedLayoutField({
   choice: OwnedChoice;
   onChange: (choice: OwnedChoice) => void;
 }) {
-  const ownedType = model.objectTypes.find((item) => item.key === ownedKey);
+  const ownedType = objectTypeFor(model, ownedKey);
   const parentTypes = [
     ...new Set(
       model.applications
@@ -734,7 +733,7 @@ function OwnedLayoutField({
           {parentTypes.map((parentKey) => (
             <RecordListField
               key={parentKey}
-              label={`More columns for these ${model.objectTypes.find((item) => item.key === parentKey)?.pluralName ?? parentKey}`}
+              label={`More columns for these ${typeName(model, parentKey, { plural: true })}`}
               objectTypeKey={parentKey}
               workspaceKey={workspaceKey}
               values={choice.parents[parentKey] ?? []}

@@ -6,8 +6,9 @@
  * (`aiProposal`) show their tally.
  */
 
-import { useHoldsGroup } from "@/app/useMe";
-import { count } from "@/ui/limits";
+import { presentText } from "@/lib/coerce";
+import { count } from "@/lib/count";
+import { useHoldsGroup } from "@/state/useMe";
 import { routePath } from "@/routing/routes";
 import type { Job, RouteState } from "@/types";
 import { RouteLink } from "@/ui/RouteLink";
@@ -23,12 +24,10 @@ interface Produced {
   requires: string[];
 }
 
-const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
-
 /** What a job leads to, from the parameters it was started with. */
 export function producedBy(job: Job): Produced | undefined {
   const { parameters } = job;
-  const taskId = text(parameters.taskId);
+  const taskId = presentText(parameters.taskId);
   if ((job.kind === "aiTask" || job.kind === "dryRun") && taskId)
     return {
       title: "The load",
@@ -37,7 +36,7 @@ export function producedBy(job: Job): Produced | undefined {
       route: { kind: "settings", page: "ai-tasks", taskId },
       requires: [],
     };
-  const draftId = text(parameters.draftId);
+  const draftId = presentText(parameters.draftId);
   if ((job.kind === "inference" || job.kind === "dryRun") && draftId)
     return {
       title: "The model draft",
@@ -49,9 +48,9 @@ export function producedBy(job: Job): Produced | undefined {
       route: { kind: "settings", page: "model", draftId },
       requires: ["model-authoring", "model-release"],
     };
-  const mappingKey = text(parameters.mappingKey);
-  const from = text(parameters.sourceWorkspaceKey);
-  const to = text(parameters.targetWorkspaceKey);
+  const mappingKey = presentText(parameters.mappingKey);
+  const from = presentText(parameters.sourceWorkspaceKey);
+  const to = presentText(parameters.targetWorkspaceKey);
   if (job.kind === "mappingInference" && mappingKey && from && to)
     return {
       title: "The mapping",
@@ -60,7 +59,7 @@ export function producedBy(job: Job): Produced | undefined {
       route: { kind: "settings", page: "moves", move: { mappingKey, from, to } },
       requires: ["copy-move"],
     };
-  const profileKey = text(parameters.profileKey);
+  const profileKey = presentText(parameters.profileKey);
   if (job.kind === "profileCheck" && profileKey)
     return {
       title: "The import profile",

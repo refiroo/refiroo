@@ -10,7 +10,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { API_URL, api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { formatServerDayTime, formatServerTime } from "@/lib/dates";
+import { count, counted } from "@/lib/count";
+import { formatClock, formatServerDayTime, formatServerTime } from "@/lib/dates";
 import type { BackupRehearsal, EngineProcess, SystemSummary, WorkspaceReadiness } from "@/types";
 import { CopyValue } from "@/ui/CopyValue";
 import { InlineError } from "@/ui/InlineError";
@@ -125,7 +126,7 @@ export function OperationsPage() {
         <div className="operations-refresh">
           {data && (
             <span className="settings-note" aria-live="polite">
-              As of {data.asOf.toLocaleTimeString("en-GB")} · refreshed every {REFRESH_SECONDS} seconds
+              As of {formatClock(data.asOf)} · refreshed every {REFRESH_SECONDS} seconds
             </span>
           )}
           <button type="button" className="secondary" onClick={refresh} disabled={loading}>
@@ -136,7 +137,7 @@ export function OperationsPage() {
     >
       {error && data && (
         <Notice tone="warning" title="Could not refresh">
-          {error} The figures below are from {data.asOf.toLocaleTimeString("en-GB")}.
+          {error} The figures below are from {formatClock(data.asOf)}.
         </Notice>
       )}
       {error && !data ? (
@@ -290,14 +291,13 @@ function ProcessFacts({ process }: { process: EngineProcess }) {
           {process.pool.inUse} in use of {process.pool.size} + {process.pool.maxOverflow} overflow
           <span className="settings-note">
             {total
-              ? `Without a connection ${total} ${total === 1 ? "time" : "times"}: ${missing.map(([reason, times]) => `${reason} ${times}`).join(", ")}`
+              ? `Without a connection ${counted(total, "time")}: ${missing.map(([reason, times]) => `${reason} ${times}`).join(", ")}`
               : "Never without a connection"}
           </span>
         </span>
       </SettingRow>
       <SettingRow fact name="Requests since start">
-        {process.counters.requests.toLocaleString()} answered, {process.counters.serverErrors.toLocaleString()} with a
-        server error
+        {count(process.counters.requests)} answered, {count(process.counters.serverErrors)} with a server error
       </SettingRow>
       <SettingRow fact name="Releases it cannot serve">
         {process.unavailableReleases.length
@@ -424,16 +424,16 @@ function Rehearsals({
                       </StatusPill>
                     </td>
                     <td data-label="Records" className="num">
-                      {item.records.toLocaleString()}
+                      {count(item.records)}
                     </td>
                     <td data-label="Relationships" className="num">
-                      {item.relations.toLocaleString()}
+                      {count(item.relations)}
                     </td>
                     <td data-label="Open change sets" className="num">
-                      {item.openChangeSets.toLocaleString()}
+                      {count(item.openChangeSets)}
                     </td>
                     <td data-label="Publications" className="num">
-                      {item.publications.toLocaleString()}
+                      {count(item.publications)}
                     </td>
                     <td data-label="Live now">{sinceBackup(item)}</td>
                   </tr>
@@ -466,7 +466,7 @@ function Rehearsals({
                         {item.backup && " · "}
                         {item.failure
                           ? failureTitle(item.failure.code)
-                          : `${item.workspaces.length} ${item.workspaces.length === 1 ? "workspace" : "workspaces"} served`}
+                          : `${counted(item.workspaces.length, "workspace")} served`}
                       </>
                     }
                   >

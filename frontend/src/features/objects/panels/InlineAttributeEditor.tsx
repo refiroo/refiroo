@@ -15,7 +15,7 @@ import { useNavigationGuard } from "@/routing/navigationGuard";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useDataApi } from "@/state/WorkspaceDataContext";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import type { AttributeTypeDefinition, ObjectAttributeValue, ObjectItem, ObjectTypeAttributeDefinition } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
@@ -187,7 +187,7 @@ export function InlineAttributeEditor({
       }
       setError(message);
       setErrorAction(described?.action);
-      if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT", "CHANGE_SET_VERSION_CONFLICT"])) {
         await reload();
       }
       setDirty(true);

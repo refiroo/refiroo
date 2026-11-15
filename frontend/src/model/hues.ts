@@ -5,6 +5,7 @@
  * model's order does.
  */
 
+import { objectTypeFor } from "@/model/lookup";
 import type { EngineModel } from "@/types";
 
 export const HUE_SLOTS = 8;
@@ -28,6 +29,6 @@ export function applicationHue(model: EngineModel, applicationKey: string): Hue 
 export function objectTypeTile(model: EngineModel, objectTypeKey: string): { hue?: Hue; icon?: string } {
   return {
     hue: objectTypeHue(model, objectTypeKey),
-    icon: model.objectTypes.find((item) => item.key === objectTypeKey)?.icon,
+    icon: objectTypeFor(model, objectTypeKey)?.icon,
   };
 }

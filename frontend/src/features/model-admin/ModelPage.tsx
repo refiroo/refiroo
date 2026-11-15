@@ -7,6 +7,7 @@
  */
 
 import type { ReactNode } from "react";
+import { counted } from "@/lib/count";
 import { formatServerDate } from "@/lib/dates";
 import { settingsHead } from "@/ui/settingsNavigation";
 import { routePath } from "@/routing/routes";
@@ -113,10 +114,7 @@ export function ModelDetail({
             </SettingRow>
           </SettingsPanel>
         </SettingsGroup>
-        <SettingsGroup
-          title="Running in"
-          description={`${running.length} ${running.length === 1 ? "workspace" : "workspaces"} run this model.`}
-        >
+        <SettingsGroup title="Running in" description={`${counted(running.length, "workspace")} run this model.`}>
           <SettingsPanel>
             {running.length ? (
               <ul className="model-rows" aria-label={`Workspaces running ${model.name}`}>
@@ -211,7 +209,7 @@ export function ModelDetail({
                   <span className="model-row-marks">
                     {index > 0 && (
                       <StatusPill tone="warning" marker={false}>
-                        {index} {index === 1 ? "release" : "releases"} behind
+                        {counted(index, "release")} behind
                       </StatusPill>
                     )}
                   </span>

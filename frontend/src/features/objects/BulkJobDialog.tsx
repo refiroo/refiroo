@@ -16,7 +16,8 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
+import { count, counted } from "@/lib/count";
 import {
   BatchItemsSection,
   BatchPreviewSection,
@@ -26,8 +27,8 @@ import {
 } from "@/ui/BatchOutcome";
 import { useJobNotifications } from "@/ui/JobNotifications";
 import { newIdempotencyKey } from "@/model/importRequest";
-import { isFinal, useJobStream } from "@/state/useJobStream";
-import { bytes, count } from "@/ui/limits";
+import { isFinal, useFollowedJob } from "@/state/useFollowedJob";
+import { bytes } from "@/ui/limits";
 import { useCapabilities } from "@/state/useSystem";
 import { useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { ReadStopped } from "@/lib/readMatching";
@@ -135,7 +136,18 @@ export function BulkJobDialog({
   const [rows, setRows] = useState<SelectableRow[]>([]);
   const [rowOf, setRowOf] = useState<readonly number[]>();
   const [itemsFor, setItemsFor] = useState<ItemsFor>();
-  const [job, setJob] = useState<Job>();
+  // The job's changes arrive over its stream until it waits for confirmation or ends; confirming a
+  // preview sets the answer again, which opens the stream again.
+  const { job, setJob } = useFollowedJob(undefined, {
+    onChange: (next) => {
+      if (next.state === "awaiting_confirmation") setStep("preview");
+      else if (isFinal(next)) {
+        setStep("result");
+        void learnVersions(next);
+        void finished(next);
+      }
+    },
+  });
   const [problem, setProblem] = useState<Problem>();
   // What the latest preview acted on: the selection moves on once records are deleted (D125).
   const [actedOn, setActedOn] = useState(target);
@@ -198,16 +210,6 @@ export function BulkJobDialog({
 
   // A job watched here to its end or its preview adds nothing to the inbox's count (0.12 NT1).
   useSubjectSeen(job?.id);
-  // The job's changes arrive over its stream until it waits for confirmation or ends.
-  useJobStream(job && !isFinal(job) && job.state !== "awaiting_confirmation" ? job.id : undefined, (next) => {
-    setJob(next);
-    if (next.state === "awaiting_confirmation") setStep("preview");
-    else if (isFinal(next)) {
-      setStep("result");
-      void learnVersions(next);
-      void finished(next);
-    }
-  });
 
   async function preview(event?: FormEvent) {
     event?.preventDefault();
@@ -298,7 +300,7 @@ export function BulkJobDialog({
         title: "The model changed",
         message: "Another model release is active now. Reload the page and make the change again.",
       };
-    if (isApiError(cause, "CHANGE_SET_VERSION_CONFLICT"))
+    if (isVersionConflict(cause, ["CHANGE_SET_VERSION_CONFLICT"]))
       return {
         title: "The change set changed",
         message: "Someone changed the change set meanwhile. Preview again to decide the change over it as it is now.",
@@ -317,7 +319,7 @@ export function BulkJobDialog({
       setStep("preview");
       const known = sendProblem(cause, rows.length);
       setProblem(
-        isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")
+        isVersionConflict(cause, ["CHANGE_SET_VERSION_CONFLICT"])
           ? {
               title: "The change set changed since the preview",
               message:
@@ -595,7 +597,7 @@ export function BulkJobDialog({
 
 /** What the action applies to: "12 master values", "All 2,345 matching master values except 3". */
 export function targetText(selection: RecordSelection, selected: number, [one, many]: Noun): string {
-  if (selection.mode === "ids") return `${count(selected)} ${selected === 1 ? one : many}`;
+  if (selection.mode === "ids") return counted(selected, one, many);
   const except = selection.except.size ? ` except ${count(selection.except.size)}` : "";
   return `All ${count(selection.total)} matching ${many}${except}`;
 }

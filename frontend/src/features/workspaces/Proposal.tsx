@@ -8,6 +8,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
+import { newestFirst } from "@/model/newestFirst";
 import type { ChangeSet } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -33,7 +35,7 @@ export function useOwnChangeSet(
     Promise.resolve()
       .then(() => api.changeSets(workspaceKey, undefined, personId))
       .then(async (page) => {
-        const newest = [...page.items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+        const newest = newestFirst(page.items, "updatedAt")[0];
         const changes = newest
           ? await Promise.all([
               api.objectChanges(newest.id, { pageSize: 1, includeTotal: true }),
@@ -58,7 +60,7 @@ export function ownChangeSetText(own: OwnChangeSet): string | undefined {
   if (!own.changeSet) return undefined;
   const name = own.changeSet.name || "Untitled change set";
   if (own.changes === undefined) return `Your change set: ${name}`;
-  return `Your change set: ${name} · ${own.changes} ${own.changes === 1 ? "change" : "changes"}`;
+  return `Your change set: ${name} · ${counted(own.changes, "change")}`;
 }
 
 /** The first proposal: name the person's change set, create it, then go on editing in it. */

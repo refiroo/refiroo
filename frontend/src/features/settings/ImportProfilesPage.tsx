@@ -12,9 +12,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
+import { count, counted } from "@/lib/count";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import { objectTypeFor } from "@/model/lookup";
+import { typeName } from "@/model/lookup";
 import type {
   EngineModel,
   ImportProfile,
@@ -35,16 +36,15 @@ import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Trail } from "@/ui/Trail";
 import { routePath } from "@/routing/routes";
-import { isFinal, useJobStream } from "@/state/useJobStream";
+import { useFollowedJob } from "@/state/useFollowedJob";
 import { AddWorkbookDialog } from "@/ui/AddWorkbookDialog";
 import { CheckRowsDialog, differences, loadable, ProfileCheckReport, type CheckRows } from "./ProfileCheckReport";
 import { ProfileLoadDialog } from "./ProfileLoadDialog";
 import { ignoreColumn, renameColumn, setMissing } from "./profileEdits";
-import { count } from "@/ui/limits";
 import { useCapabilities } from "@/state/useSystem";
 import { DeleteDialog } from "@/ui/DeleteAction";
 import { settingsHead } from "@/ui/settingsNavigation";
-import { useHoldsGroup } from "@/app/useMe";
+import { useHoldsGroup } from "@/state/useMe";
 
 const IMPORTS: Extract<SettingsRoute, { page: "import-profiles" }> = { kind: "settings", page: "import-profiles" };
 
@@ -59,7 +59,7 @@ export function ImportProfilesPage({
   defaultWorkspace: string;
   onNavigate: (route: RouteState) => void;
 }) {
-  const typeName = (key: string) => objectTypeFor(model, key)?.name ?? key;
+  const nameOf = (key: string) => typeName(model, key);
   const feed = useCursorFeed((cursor) => api.importProfiles(cursor), []);
   const selected = route.profileKey;
   const empty = !feed.loading && !feed.error && feed.items.length === 0;
@@ -70,7 +70,7 @@ export function ImportProfilesPage({
       <ProfileDetail
         key={selected}
         profileKey={selected}
-        typeName={typeName}
+        typeName={nameOf}
         defaultWorkspace={defaultWorkspace}
         trail={
           <Trail back={{ label: "Import profiles", onClick: () => onNavigate(IMPORTS), href: routePath(IMPORTS) }} />
@@ -129,7 +129,7 @@ export function ImportProfilesPage({
                     ? `Loaded ${formatServerTime(profile.lastLoad.createdAt)} · ${loadOutcome(profile.lastLoad)}`
                     : "Not loaded yet",
                   lead: <SettingsTile icon="document" hue={head.hue} />,
-                  facts: [{ label: "Loads", value: loads(profile, typeName), width: 30 }],
+                  facts: [{ label: "Loads", value: loads(profile, nameOf), width: 30 }],
                   pill: (
                     <StatusPill tone={profile.valid ? "success" : "error"}>
                       {profile.valid ? "Valid" : "Needs a fix"}
@@ -276,15 +276,17 @@ function ProfileDetail({
 
   // The profiling job, then the check's: when one ends, read the file and the check again (the check
   // follows the profiling).
-  useJobStream(following, (job) => {
-    if (!isFinal(job)) return;
-    api
-      .latestProfileFile(profileKey)
-      .then(async (latest) => {
-        setFile(latest ?? null);
-        await readCheck(latest?.workspaceKey ?? defaultWorkspace);
-      })
-      .catch((cause) => setError(errorMessage(cause)));
+  useFollowedJob(following, {
+    keep: false,
+    onFinal: () => {
+      api
+        .latestProfileFile(profileKey)
+        .then(async (latest) => {
+          setFile(latest ?? null);
+          await readCheck(latest?.workspaceKey ?? defaultWorkspace);
+        })
+        .catch((cause) => setError(errorMessage(cause)));
+    },
   });
 
   async function save(sources: ImportProfileSource[]) {
@@ -498,7 +500,7 @@ function ProfileDetail({
           <Notice tone={found ? "warning" : "success"}>
             {file.name} checked:{" "}
             {found
-              ? `${found} ${found === 1 ? "difference needs" : "differences need"} a look before loading.`
+              ? `${counted(found, "difference needs", "differences need")} a look before loading.`
               : "it loads as the profile reads it."}{" "}
             Nothing has been written.
             {!loadable(checked) && " Accept or fix the columns and the profile's problems to load it."}

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { plural } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { actorText } from "@/ui/ActorName";
 import { api } from "@/api/client";
@@ -16,6 +17,8 @@ import { ItemHeader, SettingRow, SettingsGroup, SettingsPanel, SettingsTile } fr
 import { Skeleton } from "@/ui/Skeleton";
 import { Notice } from "@/ui/Notice";
 import { StatusPill } from "@/ui/StatusPill";
+import { copyText } from "@/lib/copyText";
+import { everyPage } from "@/lib/everyPage";
 
 /** Where the Before release of a release-history comparison came from. */
 type Baseline = {
@@ -40,16 +43,7 @@ function releaseLabel(release: Pick<ModelReleaseSummary, "key" | "version">) {
   return `${release.key} ${release.version}`;
 }
 
-async function allReleases() {
-  const items: ModelReleaseSummary[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await api.modelReleases({ cursor, pageSize: 500 });
-    items.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return items;
-}
+const allReleases = () => everyPage((cursor) => api.modelReleases({ cursor, pageSize: 500 }));
 
 /**
  * The default Before release: the release that was active when this one was first activated, when
@@ -204,15 +198,11 @@ export function ModelReleaseDetail({
   }, [release, assignments]);
 
   async function copy(label: string, value: string) {
-    try {
-      if (!navigator.clipboard) throw new Error("Clipboard access is unavailable");
-      await navigator.clipboard.writeText(value);
-      setCopyMessage(`${label} copied.`);
-    } catch {
-      setCopyMessage(
-        `Could not copy the ${label.replace(/^\w/, (first) => first.toLowerCase())}. Select the value and copy it manually.`,
-      );
-    }
+    setCopyMessage(
+      (await copyText(value))
+        ? `${label} copied.`
+        : `Could not copy the ${label.replace(/^\w/, (first) => first.toLowerCase())}. Select the value and copy it manually.`,
+    );
   }
 
   async function changeLifecycle(action: "retire" | "restore" | "delete") {
@@ -402,7 +392,7 @@ export function ModelReleaseDetail({
           <p>
             It will no longer be offered for new workspaces, change sets or activations.
             {runBy.length
-              ? ` ${runBy.map((item) => item.label).join(", ")} keep${runBy.length === 1 ? "s" : ""} running it.`
+              ? ` ${runBy.map((item) => item.label).join(", ")} keep${plural(runBy.length, "s", "")} running it.`
               : ""}{" "}
             You can bring it back at any time.
           </p>

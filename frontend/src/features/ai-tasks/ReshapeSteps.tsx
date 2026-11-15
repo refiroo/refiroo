@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { count } from "@/ui/limits";
+import { count, counted } from "@/lib/count";
 import type { AiTask, ChangeSet, Job, ModelReleaseDiff, RouteState, WorkspaceModel } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
@@ -208,7 +208,7 @@ export function ReshapeSteps({
     : previewed?.state === "failed"
       ? (previewed.error?.message ?? "The migration did not finish.")
       : previewed && previewed.migration && previewed.migration.counts.refused > 0
-        ? `${count(previewed.migration.counts.refused)} ${previewed.migration.counts.refused === 1 ? "record" : "records"} would be refused, so the migration cannot be confirmed.`
+        ? `${counted(previewed.migration.counts.refused, "record")} would be refused, so the migration cannot be confirmed.`
         : "";
   const tell = task.canTell && onTell && (
     <TellAssistant
@@ -281,7 +281,7 @@ export function ReshapeSteps({
           <ul className="task-next" aria-label="What becomes what">
             {moves.map((move) => (
               <li key={move.from}>
-                {move.fromName} {moveWords(move)} ({count(move.records)} {move.records === 1 ? "record" : "records"})
+                {move.fromName} {moveWords(move)} ({counted(move.records, "record")})
               </li>
             ))}
           </ul>

@@ -9,7 +9,7 @@
 
 import { useState, type ReactNode } from "react";
 import { api } from "@/api/client";
-import { count } from "@/ui/limits";
+import { count, counted, plural } from "@/lib/count";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import type { Job, JobItemOutcome } from "@/types";
 import { Choice } from "@/ui/Choice";
@@ -25,8 +25,6 @@ const ITEMS_PAGE = 50;
 /** How the items are called: singular and plural, in lower case. */
 export type Noun = readonly [string, string];
 export const ITEMS: Noun = ["item", "items"];
-
-const counted = (value: number, [one, many]: Noun) => `${count(value)} ${value === 1 ? one : many}`;
 
 /** The preview's outcomes are the job's until it is confirmed; then the execution's replace them. */
 export const previewing = (job: Job) => !job.confirmedAt;
@@ -68,11 +66,11 @@ export function BatchPreviewSection({
   const left = deletes ? `, and ${count(unchanged)} go with them` : ` and leave ${count(unchanged)} as they are`;
   const outcome =
     preview.result === "applied"
-      ? `Applying would ${verb} ${counted(changed, noun)}${unchanged ? left : ""}.`
+      ? `Applying would ${verb} ${counted(changed, ...noun)}${unchanged ? left : ""}.`
       : preview.result === "partial"
-        ? `Applying would ${verb} ${counted(changed, noun)} and refuse ${count(rejected)}.`
+        ? `Applying would ${verb} ${counted(changed, ...noun)} and refuse ${count(rejected)}.`
         : atomic
-          ? `Applying would ${verb} nothing: with all or nothing, ${counted(rejected, noun)} refused stop${rejected === 1 ? "s" : ""} the whole ${deletes ? "delete" : "change"}.`
+          ? `Applying would ${verb} nothing: with all or nothing, ${counted(rejected, ...noun)} refused stop${plural(rejected, "s", "")} the whole ${deletes ? "delete" : "change"}.`
           : `Applying would ${verb} nothing: every one is refused.`;
   const items: DescriptionItem[] = deletes
     ? [
@@ -191,7 +189,7 @@ export function BatchResultSection({ job, noun = ITEMS }: { job: Job; noun?: Nou
                 : "Nothing applied"
           }
         >
-          {`${counted(changed, noun)} ${done}${unchanged ? `, ${count(unchanged)} ${same}` : ""}${rejected ? `, ${count(rejected)} refused` : ""}${unprocessed ? `, ${count(unprocessed)} not reached` : ""}.`}
+          {`${counted(changed, ...noun)} ${done}${unchanged ? `, ${count(unchanged)} ${same}` : ""}${rejected ? `, ${count(rejected)} refused` : ""}${unprocessed ? `, ${count(unprocessed)} not reached` : ""}.`}
         </Verdict>
       )}
       <DescriptionList
@@ -283,8 +281,8 @@ function detail(outcome: JobItemOutcome, preview: boolean): string {
 function withIt(records: number, relationships: number): string {
   if (!records && !relationships) return "alone";
   const parts = [
-    ...(records ? [`${count(records)} more ${records === 1 ? "record" : "records"}`] : []),
-    ...(relationships ? [`${count(relationships)} ${relationships === 1 ? "relationship" : "relationships"}`] : []),
+    ...(records ? [`${count(records)} more ${plural(records, "record")}`] : []),
+    ...(relationships ? [`${counted(relationships, "relationship")}`] : []),
   ];
   return `with ${parts.join(" and ")}`;
 }

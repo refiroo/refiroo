@@ -33,7 +33,7 @@ import { StatusPill } from "@/ui/StatusPill";
 import { Candidate } from "@/ui/Candidate";
 import { objectTypeTile } from "@/model/hues";
 import { useState } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isVersionConflict } from "@/api/errors";
 import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { newIdempotencyKey } from "@/model/importRequest";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
@@ -179,7 +179,7 @@ export function TreeMoveDialog({
       onMoved(moved);
     } catch (cause) {
       setError(errorMessage(cause));
-      if (isApiError(cause, "VERSION_CONFLICT")) {
+      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
         // Someone changed the record: claim its new version so a repeated move is judged afresh.
         const current = await api.object(item.objectTypeKey, item.id, workspaceKey).catch(() => undefined);
         if (current) setItem(current);

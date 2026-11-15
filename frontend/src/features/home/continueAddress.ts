@@ -5,7 +5,7 @@
  * workspace is among the person's cards.
  */
 
-import { applicationFor } from "@/model/lookup";
+import { applicationFor, typeName } from "@/model/lookup";
 import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 import { routePath } from "@/routing/routes";
 import type { ApplicationRoute, EngineModel } from "@/types";
@@ -60,7 +60,7 @@ export function continueAddressFor(
     route.kind === "list"
       ? (application?.views.find((view) => view.key === route.viewKey)?.name ?? application?.name ?? "")
       : route.kind === "detail"
-        ? (model.objectTypes.find((type) => type.key === route.objectTypeKey)?.name ?? "Record")
+        ? typeName(model, route.objectTypeKey)
         : route.kind === "changeSets"
           ? "Change sets"
           : route.kind === "changeSetChanges"

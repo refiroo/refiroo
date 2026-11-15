@@ -48,18 +48,21 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { count, counted } from "@/lib/count";
+import { scrollingAncestor } from "@/lib/scrollAncestor";
 import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { collectionGroups, rootObjectTypeKeys } from "@/model/collections";
 import { objectTypeHue } from "@/model/hues";
 import { childObjectTypeKeys } from "@/model/placements";
 import { fieldValue } from "@/model/fields";
-import { objectTypeFor } from "@/model/lookup";
+import { objectTypeFor, typeName } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { useTreeDrag, type TreeDragConfiguration, type TreeDragState } from "./useTreeDrag";
+import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 
 /** Rows a tree group reads per request; its window holds at most five pages (D2). */
 export const TREE_PAGE_SIZE = 50;
@@ -70,8 +73,6 @@ export const TREE_PAGE_SIZE = 50;
  * (`aria-expanded="true"`, Left to the record above, Right into its rows).
  */
 const FOLDING_GROUPS = true;
-
-const numberFormat = new Intl.NumberFormat();
 
 type GroupStatus = "loading" | "empty" | "shown" | "failed";
 
@@ -256,11 +257,8 @@ export function RecordTree({
   }
   useEffect(() => {
     if (!branchState.changed) return;
-    try {
-      window.localStorage.setItem(branchState.key, JSON.stringify(Object.fromEntries(branchState.choices)));
-    } catch {
-      // Storage may be unavailable; keep this session's navigation usable.
-    }
+    // Storage may be unavailable; the session's navigation stays usable.
+    writeLocalPreference(branchState.key, Object.fromEntries(branchState.choices));
   }, [branchState]);
   // The selection (UA9): the records by ID, kept for one search in one workspace and application.
   const selectionKey = JSON.stringify([workspaceKey, application.key, search]);
@@ -457,10 +455,7 @@ export function RecordTree({
   const select = useCallback(
     (items: Map<string, ObjectItem>, say = true) => {
       setSelectionState({ key: selectionKey, items });
-      if (say)
-        setAnnouncement(
-          items.size === 0 ? "Selection cleared" : `${items.size} ${items.size === 1 ? "record" : "records"} selected`,
-        );
+      if (say) setAnnouncement(items.size === 0 ? "Selection cleared" : `${counted(items.size, "record")} selected`);
     },
     [selectionKey],
   );
@@ -852,9 +847,7 @@ export function RecordTree({
                 ) : (
                   <>
                     <span className="tree-name">{config.labelOf?.(drag.item) ?? drag.item.name}</span>
-                    <span className="tree-drag-type">
-                      {objectTypeFor(model, drag.item.objectTypeKey)?.name ?? drag.item.objectTypeKey}
-                    </span>
+                    <span className="tree-drag-type">{typeName(model, drag.item.objectTypeKey)}</span>
                   </>
                 )}
               </span>
@@ -1077,7 +1070,7 @@ function TreeGroup({
         aria-setsize={siblings}
         aria-posinset={position}
         aria-expanded={groupOpen}
-        aria-label={`${label}, ${numberFormat.format(total)}`}
+        aria-label={`${label}, ${count(total)}`}
         tabIndex={tree.focusKey === headingKey ? 0 : -1}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
@@ -1183,7 +1176,7 @@ function FlatRows<T>({ list, label, children }: { list: CursorWindow<T>; label: 
       const [index, before] = start > previous.start ? [previous.end, previous.last] : [previous.start, previous.first];
       const after = offset(index);
       if (before !== undefined && after !== undefined && Math.abs(after - before) >= 1 && rows.current)
-        scrollerOf(rows.current).scrollTop += after - before;
+        scrollingAncestor(rows.current).scrollTop += after - before;
     }
     kept.current = { token: landing?.token, start, end, first: offset(start), last: offset(end) };
   });
@@ -1417,7 +1410,7 @@ function focusItem(item: HTMLElement) {
  */
 function showRow(item: HTMLElement) {
   const row = item.querySelector<HTMLElement>(".tree-row") ?? item;
-  const scroller = scrollerOf(row);
+  const scroller = scrollingAncestor(row);
   if (scroller === document.scrollingElement || scroller === document.documentElement) {
     row.scrollIntoView?.({ block: "nearest" });
     return;
@@ -1426,15 +1419,6 @@ function showRow(item: HTMLElement) {
   const box = row.getBoundingClientRect();
   if (box.top < view.top) scroller.scrollTop -= view.top - box.top;
   else if (box.bottom > view.bottom) scroller.scrollTop += Math.min(box.bottom - view.bottom, box.top - view.top);
-}
-
-/** The element that scrolls `element`: the nearest scrolling ancestor, else the page. */
-function scrollerOf(element: HTMLElement): HTMLElement {
-  for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
-    const { overflowY } = getComputedStyle(node);
-    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) return node;
-  }
-  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
 /** Whether the browser keeps a scrolled view in place when content above it changes. */
@@ -1452,16 +1436,14 @@ function seekValue(value: unknown): string | undefined {
   return String(value);
 }
 
+const isChoices = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+/** The folded and open branches stored under `key`: an object of booleans; anything else is none. */
 function readChoices(key: string): Map<string, boolean> {
-  try {
-    const value: unknown = JSON.parse(window.localStorage.getItem(key) ?? "{}");
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      return new Map(
-        Object.entries(value).filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),
-      );
-    }
-  } catch {
-    // Invalid or unavailable storage falls back to the default branch state.
-  }
-  return new Map();
+  return new Map(
+    Object.entries(readLocalPreference<Record<string, unknown>>(key, {}, isChoices)).filter(
+      (entry): entry is [string, boolean] => typeof entry[1] === "boolean",
+    ),
+  );
 }

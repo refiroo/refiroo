@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { count } from "@/lib/count";
 import type { JoinCandidate } from "@/types/sources";
 import { Frame } from "@/features/model-editor/ReadingAsks";
 
@@ -99,7 +100,7 @@ export function TiePopover({
               <button type="button" className="canvas-chooser-choice" onClick={() => onChoose(item.letter)}>
                 <span>{item.header}</span>
                 <small>
-                  column {item.letter} · {item.matchedRows.toLocaleString("en-US")} rows match
+                  column {item.letter} · {count(item.matchedRows)} rows match
                 </small>
               </button>
             </li>

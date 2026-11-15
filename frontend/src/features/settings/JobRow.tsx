@@ -1,10 +1,10 @@
+import { count } from "@/lib/count";
 import type { Job } from "@/types";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { principalName } from "@/ui/ActorName";
 import { RouteLink } from "@/ui/RouteLink";
 import { StatusPill } from "@/ui/StatusPill";
 import { RESULT, STATE, kindOf } from "@/ui/jobText";
-import { count } from "@/ui/limits";
 
 /** A job's row in the Jobs table: the flat list, and a group's jobs, which leave out the workspace. */
 export function JobRow({

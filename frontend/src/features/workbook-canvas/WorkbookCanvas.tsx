@@ -13,7 +13,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage } from "@/api/errors";
+import { count, counted } from "@/lib/count";
+import { objectTypeOf, typeName } from "@/model/outline";
 import { openWorkspace } from "@/state/openWorkspace";
 import { DraftEditingDialogs, DraftEditingNotices } from "@/features/model-editor/DraftEditingDialogs";
 import { DraftPreview } from "@/features/model-editor/DraftPreview";
@@ -28,7 +30,7 @@ import { useDraftEditing } from "@/features/model-editor/useDraftEditing";
 import { useDraftHistory } from "@/features/model-editor/useDraftHistory";
 import { useDraftSource } from "@/features/model-editor/useDraftSource";
 import { useEditorWorkspace } from "@/features/model-editor/useEditorWorkspace";
-import { useInference } from "@/features/model-editor/useInference";
+import { useProposing } from "@/features/model-editor/useProposing";
 import { useSourceDialogs } from "@/features/model-editor/useSourceDialogs";
 import { ValueMapDialog } from "@/features/model-editor/ValueMapDialog";
 import { AddMenu } from "@/features/model-editor/AddMenu";
@@ -88,7 +90,7 @@ import {
   type Position,
   type WrongValues,
 } from "./canvasModel";
-import { columnDropOperations, nameOfType, type ColumnDrop } from "@/features/model-editor/columnDrop";
+import { columnDropOperations, type ColumnDrop } from "@/features/model-editor/columnDrop";
 import {
   addedColumns,
   fillDownOperations,
@@ -115,6 +117,7 @@ import {
   isAddedKind,
   type FindHit,
 } from "./canvasView";
+import { everyPage } from "@/lib/everyPage";
 
 /** Up to this many lists a card's menu names one by one; more go behind one chooser with a search. */
 const INLINE_LISTS = 4;
@@ -300,33 +303,21 @@ export function WorkbookCanvas({
   );
 
   // An inference that completed: its proposals become steps, as in the editor, and stay marked Proposed.
-  const settle = useRef<() => void>(() => undefined);
-  const inference = useInference(draftId, outline?.version, (done) => {
-    if (!done.counts.open) {
-      settle.current();
-      setNotice({ tone: "info", text: "Nothing new to propose: the draft holds what the workbook shows." });
-      return;
-    }
-    void (async () => {
+  const inference = useProposing(draftId, outline?.version, {
+    step,
+    say: setNotice,
+    nothingNew: () =>
+      setNotice({ tone: "info", text: "Nothing new to propose: the draft holds what the workbook shows." }),
+    staleText: "The draft changed while the workbook was read. Choose Propose again.",
+    refusal: (cause) => refusalText(cause, outline),
+    around: async (work) => {
       setBusy(true);
       try {
-        await step((at) => api.applyProposals(draftId, at), true);
-        toast(`${done.counts.open} ${done.counts.open === 1 ? "proposal" : "proposals"} applied, one step each.`);
-      } catch (cause) {
-        setNotice({
-          tone: "error",
-          text: isApiError(cause, "INFERENCE_STALE")
-            ? "The draft changed while the workbook was read. Choose Propose again."
-            : refusalText(cause, outline),
-        });
+        await work();
       } finally {
         setBusy(false);
-        settle.current();
       }
-    })();
-  });
-  useEffect(() => {
-    settle.current = inference.settled;
+    },
   });
   const proposing = inference.running;
   const { setPaused } = editing;
@@ -724,7 +715,7 @@ export function WorkbookCanvas({
       openAsk((close) => (
         <ChooserPopover
           anchor={anchor}
-          title={`Filter ${nameOfType(outline!, typeKey)} by`}
+          title={`Filter ${typeName(outline!, typeKey)} by`}
           searchLabel="Search columns"
           choices={choices}
           onClose={close}
@@ -736,7 +727,7 @@ export function WorkbookCanvas({
       ));
       return;
     }
-    void act(`${nameOfType(outline!, typeKey)} filters by ${column.header}`, async () => {
+    void act(`${typeName(outline!, typeKey)} filters by ${column.header}`, async () => {
       const result = filterOperations(
         { sheet: column.sheet, header: column.header, typeKey },
         profile,
@@ -754,7 +745,7 @@ export function WorkbookCanvas({
       if (result.problem === "already") {
         setNotice({
           tone: "info",
-          text: `${nameOfType(outline!, typeKey)} already filters by ${column.header}.`,
+          text: `${typeName(outline!, typeKey)} already filters by ${column.header}.`,
         });
         return null;
       }
@@ -791,18 +782,12 @@ export function WorkbookCanvas({
       if (reading && (profile?.sources ?? []).filter((item) => item.sheet === name).length >= table.blocks.length) {
         setNotice({
           tone: "info",
-          text: `${nameOfType(outline, reading.objectTypeKey)} already reads ${name}: its card is on the board.`,
+          text: `${typeName(outline, reading.objectTypeKey)} already reads ${name}: its card is on the board.`,
         });
         return null;
       }
       // Every column of the sheet, read to the end: the list takes them all as fields.
-      const all: SourceColumn[] = [];
-      let cursor: string | undefined;
-      do {
-        const page = await api.sourceColumns(fileId, name, cursor);
-        all.push(...page.items);
-        cursor = page.nextCursor ?? undefined;
-      } while (cursor);
+      const all: SourceColumn[] = await everyPage((cursor) => api.sourceColumns(fileId, name, cursor));
       return sheetAsListOperations(table, all, profile, outline);
     }).then((applied) => {
       if (!applied) placeNext.current = undefined;
@@ -818,8 +803,8 @@ export function WorkbookCanvas({
    */
   function link(kind: "parent" | "relation", from: string, to: string) {
     if (!outline) return;
-    const fromName = nameOfType(outline, from);
-    const toName = nameOfType(outline, to);
+    const fromName = typeName(outline, from);
+    const toName = typeName(outline, to);
     const plan = kind === "parent" ? undefined : relatePlan(from, to, outline);
     const base = kind === "parent" ? containOperations(from, to, outline) : plan!.operations;
     let noColumn = false;
@@ -891,7 +876,7 @@ export function WorkbookCanvas({
 
   function connect(from: string, target: ConnectTarget, relate: boolean) {
     if (!outline) return;
-    const fromName = nameOfType(outline, from);
+    const fromName = typeName(outline, from);
     if (target.group) {
       const { applicationKey, key, fresh } = target.group;
       void act(
@@ -944,7 +929,7 @@ export function WorkbookCanvas({
 
   function removeLine(line: CanvasLine) {
     if (line.kind === "contains")
-      void act(`${nameOfType(outline!, line.to)} moved to the top level`, releaseOperations(line.to));
+      void act(`${typeName(outline!, line.to)} moved to the top level`, releaseOperations(line.to));
     else if (line.relationType)
       void act(
         "Relationship removed",
@@ -998,7 +983,7 @@ export function WorkbookCanvas({
 
   function menuFor(card: CanvasCard): ActionMenuItem[] {
     const others = cards.filter((item) => item.typeKey !== card.typeKey);
-    const type = outline!.objectTypes.find((item) => item.key === card.typeKey);
+    const type = objectTypeOf(outline!, card.typeKey);
     const application = outline!.applications.find((item) => item.key === card.applicationKey);
     const anchor = () => cardAnchor(card.typeKey);
     return [
@@ -1169,7 +1154,7 @@ export function WorkbookCanvas({
 
   /** Rows holding only one column are headings: what to call the new column, and which list is the parent. */
   function headingAsk(header: string, sheetOf: string, rowType: string, anchor: HTMLElement) {
-    const type = outline!.objectTypes.find((item) => item.key === rowType);
+    const type = objectTypeOf(outline!, rowType);
     const parents = cards
       .filter((card) => card.typeKey !== rowType)
       .map((card) => ({ key: card.typeKey, name: card.name }));
@@ -1389,12 +1374,8 @@ export function WorkbookCanvas({
             </div>
           </div>
           <div className="canvas-strip-group canvas-strip-summary">
-            <span className="canvas-pill">
-              {outline.applications.length} {outline.applications.length === 1 ? "application" : "applications"}
-            </span>
-            <span className="canvas-pill">
-              {outline.objectTypes.length} {outline.objectTypes.length === 1 ? "object type" : "object types"}
-            </span>
+            <span className="canvas-pill">{counted(outline.applications.length, "application")}</span>
+            <span className="canvas-pill">{counted(outline.objectTypes.length, "object type")}</span>
             {changed > 0 && <span className="canvas-pill canvas-pill-loads">{changed} changed</span>}
           </div>
           {hasFile && (
@@ -1404,10 +1385,10 @@ export function WorkbookCanvas({
               {figures.state === "failed" && <span>The check could not finish. The next step runs it again.</span>}
               {figures.state === "checked" && (
                 <>
-                  <span>Workbook check: {figures.total.toLocaleString("en-US")} rows, every one</span>
-                  <span className="canvas-pill canvas-pill-loads">{figures.loads.toLocaleString("en-US")} load</span>
+                  <span>Workbook check: {count(figures.total)} rows, every one</span>
+                  <span className="canvas-pill canvas-pill-loads">{count(figures.loads)} load</span>
                   <span className={`canvas-pill${figures.refused ? " canvas-pill-refused" : ""}`}>
-                    {figures.refused.toLocaleString("en-US")} refused
+                    {count(figures.refused)} refused
                   </span>
                 </>
               )}
@@ -1562,7 +1543,7 @@ export function WorkbookCanvas({
       {dialog?.kind === "refused" && (
         <RefusedDialog
           draftId={draftId}
-          list={nameOfType(outline, dialog.typeKey)}
+          list={typeName(outline, dialog.typeKey)}
           reasons={dialog.reasons}
           onClose={() => setDialog(undefined)}
           onSeeRows={(reason) => {
@@ -1571,7 +1552,7 @@ export function WorkbookCanvas({
               source: reason.source,
               status: "rejected",
               code: reason.code,
-              title: `${nameOfType(outline, dialog.typeKey)}: ${reason.rows} rows refused`,
+              title: `${typeName(outline, dialog.typeKey)}: ${reason.rows} rows refused`,
             });
           }}
           onCorrect={(reason, found) => correctValues(reason, found)}

@@ -6,8 +6,8 @@
  * activates the model change first when the design changes the model, which needs `model-release`.
  */
 
+import { count, counted } from "@/lib/count";
 import type { AiTask, AiTaskDesignCheck } from "@/types";
-import { count } from "@/ui/limits";
 import { Card } from "@/ui/Card";
 import { Disclosure } from "@/ui/Disclosure";
 import { Notice } from "@/ui/Notice";
@@ -18,7 +18,7 @@ import { LoadFoot, type LoadChoice } from "./LoadFoot";
 import { TableChanges } from "./TableChanges";
 import { TellAssistant } from "./TellAssistant";
 import { changesModel } from "./aiTaskDesign";
-import { plural, refusalText, taskTitle } from "./aiTaskText";
+import { refusalText, taskTitle } from "./aiTaskText";
 
 /** The sheets of the check with the structure sheets gathered into one row. */
 export function checkRows(check: AiTaskDesignCheck) {
@@ -84,10 +84,10 @@ export function DesignCheckView({
         <Card as="section" className="task-summary" aria-label="What the check found">
           <p>
             <strong>
-              {plural(rows, "row")} checked: {count(summary.created)} created, {count(summary.updated)} changed,{" "}
+              {counted(rows, "row")} checked: {count(summary.created)} created, {count(summary.updated)} changed,{" "}
               {count(summary.unchanged)} unchanged, {count(summary.refused)} refused
               {summary.skipped ? `, ${count(summary.skipped)} skipped` : ""}
-              {relationships > 0 ? `, ${plural(relationships, "relationship")}` : ""}.
+              {relationships > 0 ? `, ${counted(relationships, "relationship")}` : ""}.
             </strong>
           </p>
         </Card>
@@ -117,7 +117,7 @@ export function DesignCheckView({
               <Disclosure
                 key={sheet.source}
                 variant="button"
-                label={`Show the ${plural(sheet.updated, "changed record")} of ${label}`}
+                label={`Show the ${counted(sheet.updated, "changed record")} of ${label}`}
                 openLabel={`Hide the changed records of ${label}`}
               >
                 <TableChanges taskId={task.id} table={sheet.source as number} sheet={label} checkedAt={check.ranAt} />
@@ -137,7 +137,7 @@ export function DesignCheckView({
             >
               <p>
                 <strong>
-                  {plural(group.rows, "row")}: {refusalText(group.code)}
+                  {counted(group.rows, "row")}: {refusalText(group.code)}
                 </strong>{" "}
                 <span className="task-reason">in {group.sheet ?? group.objectTypeKey ?? "the file"}</span>
               </p>

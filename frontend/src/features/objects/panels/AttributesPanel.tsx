@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useWorkspaceData } from "@/state/WorkspaceDataContext";
 import type { AttributesPanelDefinition, EngineModel, ObjectItem } from "@/types";
 import { attributeName } from "@/model/fields";
-import { objectTypeFor } from "@/model/lookup";
+import { attributeTypeFor, objectTypeFor } from "@/model/lookup";
 import { useRemovals } from "@/features/objects/useRemovals";
 import { IconButton } from "@/ui/IconButton";
 import { EditableField, fieldEditing } from "@/features/objects/EditableField";
@@ -36,7 +36,7 @@ export function AttributesPanel({
       <dl className="attribute-grid" data-edit-hint={readEditHint()}>
         {panel.config.fields.map((field) => {
           const binding = bindingMap.get(field);
-          const attribute = model.attributeTypes.find((item) => item.key === field);
+          const attribute = attributeTypeFor(model, field);
           if (binding?.ui?.hidden === true || attribute?.ui?.hidden === true) return null;
           const editable = fieldEditing(model, object, field, readOnly);
           const stored = editable?.attributeValue;

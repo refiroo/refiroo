@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
+import { count, plural } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
 import { useAddressTab } from "@/lib/hooks/useAddressTab";
@@ -33,8 +34,6 @@ import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { failureSentence, PURPOSE, sendLevelText } from "@/lib/aiText";
 import { settingsHead } from "@/ui/settingsNavigation";
-
-const number = (value: number) => value.toLocaleString("en");
 
 /** One hue per kind of call, kept by the kind so a kind keeps its colour. */
 const KIND_HUE: Record<AiCall["purpose"], Hue> = {
@@ -252,10 +251,10 @@ function CallsSection({ status, refresh }: { status: AiStatus; refresh: number }
         <LogTotals
           label={`Totals of the last ${totals.days} days`}
           totals={[
-            { key: "calls", value: number(totals.calls), name: totals.calls === 1 ? "call" : "calls", hue: 6 },
-            { key: "failed", value: number(totals.failed), name: "failed", bad: true },
-            { key: "in", value: number(totals.tokensIn), name: "tokens in", hue: 2 },
-            { key: "out", value: number(totals.tokensOut), name: "tokens out", hue: 1 },
+            { key: "calls", value: count(totals.calls), name: plural(totals.calls, "call"), hue: 6 },
+            { key: "failed", value: count(totals.failed), name: "failed", bad: true },
+            { key: "in", value: count(totals.tokensIn), name: "tokens in", hue: 2 },
+            { key: "out", value: count(totals.tokensOut), name: "tokens out", hue: 1 },
             {
               key: "cost",
               value: totals.costUsd > 0 ? `$${totals.costUsd.toFixed(2)}` : "—",
@@ -339,10 +338,10 @@ function CallRow({ call }: { call: AiCall }) {
         )}
       </td>
       <td data-label="Tokens in" className="num">
-        {call.tokensIn === null ? "—" : number(call.tokensIn)}
+        {call.tokensIn === null ? "—" : count(call.tokensIn)}
       </td>
       <td data-label="Out" className="num">
-        {call.tokensOut === null ? "—" : number(call.tokensOut)}
+        {call.tokensOut === null ? "—" : count(call.tokensOut)}
       </td>
       <td data-label="Cost" className="num">
         {call.costUsd == null ? "—" : `$${call.costUsd.toFixed(2)}`}

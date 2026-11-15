@@ -9,10 +9,10 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { count, counted, plural } from "@/lib/count";
+import { attributeTypeName, typeName } from "@/model/outline";
 import type { DraftMigration, DraftMigrationRow, MigrationProposal, ModelDraftOutline } from "@/types";
 import { Notice } from "@/ui/Notice";
-
-const count = (value: number | string) => (typeof value === "number" ? value.toLocaleString("en-GB") : value);
 
 /** The migration the draft states, read for `workspaceKey` while `enabled`; again when `version` moves. */
 export function useDraftMigration(
@@ -68,13 +68,13 @@ function applicationName(outline: ModelDraftOutline, key: string): string {
 function rowWords(row: DraftMigrationRow, outline: ModelDraftOutline): string {
   const parts: string[] = [];
   if (row.toObjectTypeKey !== row.fromObjectTypeKey) parts.push(`becomes ${row.toName}`);
-  if (row.attributes.length) parts.push(`${row.attributes.length === 1 ? "a field is" : "fields are"} renamed`);
+  if (row.attributes.length) parts.push(`${plural(row.attributes.length, "a field is", "fields are")} renamed`);
   if (row.toApplicationKey) parts.push(`moves to ${applicationName(outline, row.toApplicationKey)}`);
   if (row.parent === "topLevel") parts.push("its records become top-level records");
   if (row.parent === "changed")
     parts.push("it stands under other types; records the new parents do not hold are refused");
   const held = row.records.records;
-  const records = held === 0 ? "no records" : `${count(held)} ${held === 1 ? "record" : "records"}`;
+  const records = held === 0 ? "no records" : counted(held, "record");
   return `${row.fromName}: ${parts.join(", ")} (${records})`;
 }
 
@@ -103,11 +103,11 @@ export function DraftMigrationNotice({
     ...migration.rows.map((row) => rowWords(row, outline)),
     ...migration.splits.map(
       (item) =>
-        `Split: ${typeLabel(outline, item.fromObjectTypeKey)} gets a related ${typeLabel(outline, item.toObjectTypeKey)} record for each value`,
+        `Split: ${typeName(outline, item.fromObjectTypeKey)} gets a related ${typeName(outline, item.toObjectTypeKey)} record for each value`,
     ),
     ...migration.listConversions.map(
       (item) =>
-        `List: the values of ${attributeLabel(outline, item.attributeTypeKey)} become ${typeLabel(outline, item.toObjectTypeKey)} records`,
+        `List: the values of ${attributeTypeName(outline, item.attributeTypeKey)} become ${typeName(outline, item.toObjectTypeKey)} records`,
     ),
     ...migration.relationTypeMappings.map(
       (item) => `Relationships of ${item.fromRelationTypeKey} carry on as ${item.toRelationTypeKey}`,
@@ -117,7 +117,7 @@ export function DraftMigrationNotice({
     <div className="draft-migration">
       <Notice tone="warning" title="Activation needs a migration">
         {steps > 0
-          ? `${steps === 1 ? "One step" : `${steps} steps`} of this draft change${steps === 1 ? "s" : ""} stored data. The migration below comes from ${steps === 1 ? "it" : "them"}; review it before activating.`
+          ? `${steps === 1 ? "One step" : counted(steps, "step")} of this draft ${plural(steps, "changes", "change")} stored data. The migration below comes from ${plural(steps, "it", "them")}; review it before activating.`
           : "The draft's data does not fit as it is."}
         {lines.length > 0 && (
           <ul className="draft-migration-lines">
@@ -169,12 +169,4 @@ export function DraftMigrationNotice({
       ))}
     </div>
   );
-}
-
-function typeLabel(outline: ModelDraftOutline, key: string): string {
-  return outline.objectTypes.find((item) => item.key === key)?.name ?? key;
-}
-
-function attributeLabel(outline: ModelDraftOutline, key: string): string {
-  return outline.attributeTypes.find((item) => item.key === key)?.name ?? key;
 }

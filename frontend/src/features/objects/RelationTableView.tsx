@@ -11,6 +11,7 @@
 
 import { useState, type FormEvent } from "react";
 import { errorMessage, isApiError, isVersionConflictCode } from "@/api/errors";
+import { counted } from "@/lib/count";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { RELATION_ATTRIBUTES_LABEL, relationAttributeTypes } from "@/features/objects/relations/RelationAttributes";
 import { RelationValueCell } from "@/features/objects/relations/RelationValueCell";
@@ -18,7 +19,13 @@ import { relationAttributeColumn } from "@/features/objects/relations/relationAt
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName } from "@/model/fields";
 import { objectTypeHue, objectTypeTile } from "@/model/hues";
-import { isManagedRelation, listingApplication, objectTypeFor } from "@/model/lookup";
+import {
+  attributeTypeFor,
+  isManagedRelation,
+  listingApplication,
+  objectTypeFor,
+  relationTypeFor,
+} from "@/model/lookup";
 import type {
   AttributeTypeDefinition,
   CollectionFilter,
@@ -289,7 +296,7 @@ export function RelationTableView({
       </div>
     );
   }
-  const relationType = model.relationTypes.find((item) => item.key === config.relationTypeKey);
+  const relationType = relationTypeFor(model, config.relationTypeKey);
   const noun: [string, string] = ["relationship", "relationships"];
 
   const selectionColumn = editable
@@ -359,7 +366,7 @@ export function RelationTableView({
             onSubmit={applyBulk}
             aria-label="Change the ticked relationships"
           >
-            <strong>{chosen.size === 1 ? "1 relationship ticked" : `${chosen.size} relationships ticked`}</strong>
+            <strong>{counted(chosen.size, "relationship")} ticked</strong>
             <label>
               <span className="visually-hidden">Attribute to set</span>
               <select
@@ -502,7 +509,7 @@ function RelationTableFilters({
       {fields.map((field) => {
         const current = filters.find((item) => item.field === field)?.value ?? "";
         const key = field.slice(field.indexOf(":") + 1);
-        const attribute = model.attributeTypes.find((item) => item.key === key);
+        const attribute = attributeTypeFor(model, key);
         return attribute?.valueType === "boolean" ? (
           <label key={field} className="toolbar-field">
             {label(field)}
@@ -594,9 +601,7 @@ function GroupBand({
           {formatValue(record.fields[column])}
         </span>
       ))}
-      {count !== undefined && (
-        <span className="relation-group-count">{count === 1 ? "1 relationship" : `${count} relationships`}</span>
-      )}
+      {count !== undefined && <span className="relation-group-count">{counted(count, "relationship")}</span>}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { cachedRead } from "@/state/cachedRead";
 import type { CapabilitiesResponse, SystemConfiguration, SystemResponse } from "@/types";
 
 /** One read a settings page shows (`load` must be stable, such as an `api` call), with its error and a retry. */
@@ -27,6 +28,18 @@ export function useSettingsRead<T>(load: () => Promise<T>) {
     },
   };
 }
+
+/**
+ * The parts of `GET /system` that only a new release of the engine changes (its licence and source
+ * address, the schema languages a draft may be written in), read once per page load and shared. The
+ * parts that can change while the page is open (the active release, the product) are not taken from
+ * here: About, the API reference, the AI offers and Consumer APIs read the system fresh.
+ */
+const staticRead = cachedRead(() => api.system().then(({ engine, schemaLanguages }) => ({ engine, schemaLanguages })));
+export const staticSystem = () => staticRead.get();
+
+/** The schema languages a model draft may be written in, from the system's kept static parts. */
+export const schemaLanguages = () => staticSystem().then((system) => system.schemaLanguages);
 
 /** `GET /system`, with its error and a retry. */
 export function useSystem() {

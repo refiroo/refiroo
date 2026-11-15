@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { filterFields, FilterBar } from "@/features/objects/filters/FilterBar";
+import { objectTypeFor } from "@/model/lookup";
 import type { CollectionFilter, EngineModel, MoveChoice, ObjectItem } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
@@ -18,7 +19,7 @@ const NO_NAMES = new Map();
 
 /** The fields a type's records are filtered by here: the name and each field the type holds. */
 function fieldsOf(model: EngineModel, objectTypeKey: string) {
-  const type = model.objectTypes.find((item) => item.key === objectTypeKey);
+  const type = objectTypeFor(model, objectTypeKey);
   return filterFields(model, ["name", ...(type?.attributes.map((binding) => binding.attributeTypeKey) ?? [])]);
 }
 

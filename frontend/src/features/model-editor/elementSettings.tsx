@@ -13,9 +13,8 @@ import type {
 } from "@/types";
 import { YES_NO } from "@/features/model-editor/EditableCell";
 import type { Setting } from "@/features/model-editor/SettingsTable";
-import { attributeTypeOf, relationTypeOf } from "@/model/outline";
+import { attributeTypeName, relationTypeName } from "@/model/outline";
 
-const attributeName = (outline: ModelDraftOutline, key: string) => attributeTypeOf(outline, key)?.name ?? key;
 const names = (values: string[], name: (key: string) => string) =>
   values.length ? values.map(name).join(", ") : "None";
 
@@ -27,7 +26,7 @@ export function typeSettings(outline: ModelDraftOutline, type: OutlineObjectType
       key: "display",
       label: "Display attribute",
       hint: "names a record in lists and links",
-      value: type.displayAttribute ? attributeName(outline, type.displayAttribute) : "None: the record's name",
+      value: type.displayAttribute ? attributeTypeName(outline, type.displayAttribute) : "None: the record's name",
       operation: { id: "type-display-attribute", target },
     },
     {
@@ -35,7 +34,7 @@ export function typeSettings(outline: ModelDraftOutline, type: OutlineObjectType
       label: "Effective period",
       hint: "when a record is in force",
       value: period
-        ? `${attributeName(outline, period.startAttributeTypeKey)} to ${attributeName(outline, period.endAttributeTypeKey)}`
+        ? `${attributeTypeName(outline, period.startAttributeTypeKey)} to ${attributeTypeName(outline, period.endAttributeTypeKey)}`
         : "None",
       operation: { id: "type-effective-period", target },
     },
@@ -43,14 +42,14 @@ export function typeSettings(outline: ModelDraftOutline, type: OutlineObjectType
       key: "atLeastOne",
       label: "At least one of",
       hint: "attributes of which a record needs one filled",
-      value: names(type.atLeastOneOf ?? [], (key) => attributeName(outline, key)),
+      value: names(type.atLeastOneOf ?? [], (key) => attributeTypeName(outline, key)),
       operation: { id: "type-at-least-one", target },
     },
     {
       key: "parents",
       label: "Parent relationships",
       hint: "place a record under a parent",
-      value: names(type.parentRelationTypeKeys ?? [], (key) => relationTypeOf(outline, key)?.name ?? key),
+      value: names(type.parentRelationTypeKeys ?? [], (key) => relationTypeName(outline, key)),
       operation: { id: "type-parent-relations", target },
     },
   ];

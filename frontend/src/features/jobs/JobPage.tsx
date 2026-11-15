@@ -15,8 +15,10 @@
  * belongs to and links to it where the caller can open it (`JobProduced`).
  */
 
+import { count } from "@/lib/count";
+import { countedType, relationTypeFor, typeName } from "@/model/lookup";
 import { useWorkspaceModel } from "@/model/workspaceModels";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, jobOutputUrl } from "@/api/client";
 import { downloadFrom } from "@/api/download";
 import { DownloadLink } from "@/ui/DownloadLink";
@@ -37,7 +39,6 @@ import { Skeleton } from "@/ui/Skeleton";
 import { principalName } from "@/ui/ActorName";
 import { StatusPill } from "@/ui/StatusPill";
 import { useWorkspaceLabels } from "@/features/security/GrantsSection";
-import { count } from "@/ui/limits";
 import { jobTitle, useJobNotifications } from "@/ui/JobNotifications";
 import {
   BindingReportSection,
@@ -48,18 +49,12 @@ import {
   ImportResultSection,
   ImportRowsSection,
 } from "@/ui/ImportOutcome";
-import {
-  BatchDeletionSection,
-  BatchItemsSection,
-  BatchPreviewSection,
-  BatchResultSection,
-  type TypeName,
-} from "@/ui/BatchOutcome";
+import { BatchDeletionSection, BatchItemsSection, BatchPreviewSection, BatchResultSection } from "@/ui/BatchOutcome";
 import { JobProduced } from "./JobProduced";
 import { MigrationOutcome } from "./MigrationOutcome";
 import { MoveOutcome } from "./MoveOutcome";
 import { ORIGIN, RESULT, STATE, cancellable, fileSize } from "@/ui/jobText";
-import { isResting, useJobStream } from "@/state/useJobStream";
+import { isResting, useFollowedJob } from "@/state/useFollowedJob";
 import { useSubjectSeen } from "@/state/useInbox";
 
 const FORMAT_NAMES = { jsonl: "JSON Lines", csv: "CSV", xlsx: "Excel (XLSX)" } as const;
@@ -83,11 +78,9 @@ export function JobPage({
   /** Opens a record a batch's outcome names. */
   onNavigate?: (route: RouteState) => void;
 }) {
-  const [job, setJob] = useState<Job>();
+  const { job, setJob, error, reload } = useFollowedJob(jobId);
   // A job is named and read under its own workspace's model (0.11 D49).
   const model = useWorkspaceModel(job?.workspaceKey, shownModel);
-  const [error, setError] = useState("");
-  const [attempt, setAttempt] = useState(0);
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
   const [cancelError, setCancelError] = useState("");
@@ -95,18 +88,7 @@ export function JobPage({
   const notifications = useJobNotifications();
   const labels = useWorkspaceLabels();
 
-  useEffect(() => {
-    let current = true;
-    api
-      .job(jobId)
-      .then((loaded) => current && setJob(loaded))
-      .catch((cause) => current && setError(errorMessage(cause)));
-    return () => {
-      current = false;
-    };
-  }, [jobId, attempt]);
   // While the job runs, its changes arrive over its stream; a waiting preview is not followed.
-  useJobStream(job && !isResting(job) ? jobId : undefined, setJob);
   // The person is looking at the job: its notices are read, and one made while here (0.12 NT1).
   useSubjectSeen(jobId);
 
@@ -171,13 +153,7 @@ export function JobPage({
   if (error) {
     return (
       <SettingsLayout trail={back("Job")} title="Job">
-        <InlineError
-          message={error}
-          onRetry={() => {
-            setError("");
-            setAttempt((value) => value + 1);
-          }}
-        />
+        <InlineError message={error} onRetry={reload} />
       </SettingsLayout>
     );
   }
@@ -282,7 +258,9 @@ export function JobPage({
       {batch && (
         <>
           {job.preview && !job.confirmedAt ? <BatchPreviewSection job={job} /> : <BatchResultSection job={job} />}
-          {job.preview && !job.confirmedAt && <BatchDeletionSection job={job} typeName={typeName(model)} />}
+          {job.preview && !job.confirmedAt && (
+            <BatchDeletionSection job={job} typeName={(key, records) => countedType(model, key, records)} />
+          )}
           {isResting(job) && (
             <BatchItemsSection
               key={job.state}
@@ -291,7 +269,9 @@ export function JobPage({
             />
           )}
           {job.confirmedAt && <BatchPreviewSection job={job} />}
-          {job.confirmedAt && <BatchDeletionSection job={job} typeName={typeName(model)} />}
+          {job.confirmedAt && (
+            <BatchDeletionSection job={job} typeName={(key, records) => countedType(model, key, records)} />
+          )}
         </>
       )}
       {output && (
@@ -327,13 +307,13 @@ export function JobPage({
             {[
               ...Object.entries(output.counts.records).map(([key, value]) => (
                 <tr key={`record:${key}`}>
-                  <th scope="row">{model.objectTypes.find((type) => type.key === key)?.pluralName ?? key}</th>
+                  <th scope="row">{typeName(model, key, { plural: true })}</th>
                   <td data-label="Count">{count(value)}</td>
                 </tr>
               )),
               ...Object.entries(output.counts.relations).map(([key, value]) => (
                 <tr key={`relation:${key}`}>
-                  <th scope="row">{model.relationTypes.find((type) => type.key === key)?.name ?? key}</th>
+                  <th scope="row">{relationTypeFor(model, key)?.name ?? key}</th>
                   <td data-label="Count">{count(value)}</td>
                 </tr>
               )),
@@ -365,14 +345,6 @@ export function JobPage({
       )}
     </SettingsLayout>
   );
-}
-
-/** A type's records by their number, named as the model names the type. */
-function typeName(model: EngineModel): TypeName {
-  return (key, records) => {
-    const type = model.objectTypes.find((item) => item.key === key);
-    return `${count(records)} ${type ? (records === 1 ? type.name : type.pluralName).toLowerCase() : key}`;
-  };
 }
 
 /**

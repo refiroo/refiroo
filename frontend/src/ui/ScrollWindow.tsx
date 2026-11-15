@@ -32,11 +32,10 @@
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { count as format, counted } from "@/lib/count";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
+import { scrollingAncestor } from "@/lib/scrollAncestor";
 import { Icon } from "@/ui/Icon";
-
-const numberFormat = new Intl.NumberFormat();
-const format = (value: number) => numberFormat.format(value);
 
 /** A row's height before any row of the list was measured. */
 const FIRST_ESTIMATE = 41;
@@ -53,18 +52,6 @@ const WHEEL_GAP_MS = 200;
  */
 function stuckHeader(viewport: HTMLElement) {
   return viewport.querySelector("thead")?.getBoundingClientRect().height ?? 0;
-}
-
-/** The nearest element that scrolls `element`'s box, or the page. */
-export function outerScroller(element: HTMLElement): HTMLElement {
-  for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
-    // A dialog is as far as a list in it carries the wheel: the page behind it stays (found
-    // 2026-10-19, the table behind a relationship dialog scrolling with the dialog's list).
-    if (node.matches(".dialog")) return node;
-    const { overflowY } = getComputedStyle(node);
-    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight + 1) return node;
-  }
-  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
 /** The part of `scroller` the reader sees: below the page's sticky top bar and band, for the page. */
@@ -398,7 +385,8 @@ export function ScrollWindow<T>({
     const onWheel = (event: WheelEvent) => {
       onGesture();
       if (event.ctrlKey || event.defaultPrevented || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-      if (!around || event.timeStamp - around.at > WHEEL_GAP_MS) around = { scroller: outerScroller(box), at: 0 };
+      if (!around || event.timeStamp - around.at > WHEEL_GAP_MS)
+        around = { scroller: scrollingAncestor(box, { dialog: true, tolerance: 1 }), at: 0 };
       around.at = event.timeStamp;
       const scroller = around.scroller;
       const area = visibleArea(scroller);
@@ -676,13 +664,7 @@ export function ScrollWindow<T>({
           {!empty && long && <Edge done="Start of list" />}
           {children(drawn)}
           {!empty && showEnd && (
-            <Edge
-              done={
-                total === null && list.hasNext
-                  ? ""
-                  : `End · ${format(total ?? held)} ${(total ?? held) === 1 ? singular : plural}`
-              }
-            />
+            <Edge done={total === null && list.hasNext ? "" : `End · ${counted(total ?? held, singular, plural)}`} />
           )}
         </div>
       </div>
@@ -702,11 +684,9 @@ export function ScrollWindow<T>({
             ) : empty ? (
               ""
             ) : total !== null ? (
-              `${format(firstVisible + 1)}–${format(lastVisible + 1)} of ${format(total)} ${
-                total === 1 ? singular : plural
-              }`
+              `${format(firstVisible + 1)}–${format(lastVisible + 1)} of ${counted(total, singular, plural)}`
             ) : (
-              `${format(list.items.length)} ${list.items.length === 1 ? singular : plural}`
+              counted(list.items.length, singular, plural)
             )}
           </span>
           <div className="scroll-window-jumps">

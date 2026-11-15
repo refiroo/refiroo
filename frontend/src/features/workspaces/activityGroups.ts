@@ -5,6 +5,7 @@
  * continues it.
  */
 
+import { plural } from "@/lib/count";
 import type { ChangeEntry } from "@/types";
 import type { StatusTone } from "@/ui/StatusPill";
 
@@ -93,6 +94,6 @@ export function groupSummary(entries: readonly ChangeEntry[], typeName: (entry: 
     .filter((outcome) => counts[outcome])
     .map((outcome) => `${counts[outcome]} ${outcome}`);
   const byType = [...types].sort((a, b) => b[1] - a[1]).map(([name, count]) => `${name} ×${count}`);
-  if (links) byType.push(`${links === 1 ? "link" : "links"} ×${links}`);
+  if (links) byType.push(`${plural(links, "link")} ×${links}`);
   return [...parts, byType.join(", ")].filter(Boolean).join(" · ");
 }

@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { scrollingAncestor } from "@/lib/scrollAncestor";
 import type { EditorSelection, ModelDraftOutline, OutlineApplication, OutlineMark, OutlineTypeNode } from "@/types";
 import { viewGlyph } from "@/model/collections";
 import { HueTile } from "@/ui/HueTile";
@@ -25,7 +26,7 @@ import { Icon, type IconName } from "@/ui/Icon";
 import { MarkPill } from "@/features/model-editor/MarkPill";
 import { ProposedPill } from "@/ui/ProposedBecause";
 import { borrowedWords, draftTypeHue, objectTypeOf } from "@/model/outline";
-import { scrollAtEdge, scrollerOf } from "@/lib/edgeScroll";
+import { scrollAtEdge } from "@/lib/edgeScroll";
 import { DRAG_COLUMN } from "@/features/model-editor/SourcePane";
 
 /** The data a drag carries: a type, or an attribute of a type. */
@@ -423,7 +424,7 @@ export function EditorTree({
       aria-label={label}
       ref={tree}
       onDragOver={(event) => {
-        if (tree.current) scrollAtEdge(scrollerOf(tree.current), event.clientY);
+        if (tree.current) scrollAtEdge(scrollingAncestor(tree.current, { pastBody: true }), event.clientY);
       }}
     >
       {rows.map((row, index) => {

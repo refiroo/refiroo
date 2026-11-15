@@ -5,6 +5,7 @@
  * model's names are data; nothing here names an application or record type.
  */
 
+import { objectTypeFor } from "@/model/lookup";
 import type { EngineModel } from "@/types";
 import type { RecordWrites } from "./permissions";
 
@@ -28,7 +29,7 @@ export function listedNames(names: string[]): string {
 /** The records a narrowing names, by the model's names: "Specimen and Determination records". */
 export function narrowedRecords(model: EngineModel, narrowing: { applications: string[]; recordTypes: string[] }) {
   const types = narrowing.recordTypes
-    .map((key) => model.objectTypes.find((type) => type.key === key)?.name)
+    .map((key) => objectTypeFor(model, key)?.name)
     .filter((name): name is string => Boolean(name));
   const applications = narrowing.applications
     .map((key) => model.applications.find((application) => application.key === key)?.name)

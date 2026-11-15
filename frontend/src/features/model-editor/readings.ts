@@ -6,14 +6,8 @@
  * column and list panels and the workbook canvas send what these return.
  */
 
-import {
-  bound,
-  columnDropOperations,
-  nameOfType,
-  valueTypeOf,
-  type ColumnDrop,
-} from "@/features/model-editor/columnDrop";
-import { keyFromLabel, keysOf } from "@/model/outline";
+import { bound, columnDropOperations, valueTypeOf, type ColumnDrop } from "@/features/model-editor/columnDrop";
+import { keyFromLabel, keysOf, objectTypeOf, typeName } from "@/model/outline";
 import { newSourceId, sourceFor, usesOf } from "@/features/model-editor/mapping";
 import type { DraftOperation, ModelDraftOutline } from "@/types/modelAdmin";
 import type { DraftProfileDocument, ProfileSource, SourceColumn } from "@/types/sources";
@@ -204,12 +198,12 @@ export function headingOperations(
   operations.push({ kind: "setHeadingRows", source: id, column: plan.column, into: plan.into });
   let parentKey: string;
   if ("newName" in plan.parent) {
-    const type = outline.objectTypes.find((item) => item.key === plan.rowType);
+    const type = objectTypeOf(outline, plan.rowType);
     const application = outline.applications.find((item) => item.key === (type?.home ?? undefined))?.key;
     parentKey = keyFromLabel(plan.parent.newName, keysOf(outline));
     operations.push({ kind: "addObjectType", applicationKey: application, name: plan.parent.newName, parent: null });
   } else parentKey = plan.parent.typeKey;
-  const type = outline.objectTypes.find((item) => item.key === plan.rowType);
+  const type = objectTypeOf(outline, plan.rowType);
   if (!type?.parents.includes(parentKey))
     operations.push({
       kind: "setContainment",
@@ -217,8 +211,8 @@ export function headingOperations(
       parent: {
         objectTypes: [parentKey],
         relationType: {
-          name: `Contains ${nameOfType(outline, plan.rowType)}`,
-          reverseName: `In ${plan.parent && "newName" in plan.parent ? plan.parent.newName : nameOfType(outline, parentKey)}`,
+          name: `Contains ${typeName(outline, plan.rowType)}`,
+          reverseName: `In ${plan.parent && "newName" in plan.parent ? plan.parent.newName : typeName(outline, parentKey)}`,
         },
       },
     });

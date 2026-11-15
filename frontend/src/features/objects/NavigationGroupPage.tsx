@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { counted } from "@/lib/count";
 import { VIEW_KINDS } from "@/model/outline";
 import { navigationEntryKey, navigationSections, viewGlyph } from "@/model/collections";
 import { objectTypeHue } from "@/model/hues";
@@ -55,10 +56,7 @@ export function NavigationGroupPage({
   });
   const views = section.entries.filter((entry) => entry.kind === "view").length;
   const collections = entries.length - views;
-  const counted = [
-    `${collections} ${collections === 1 ? "collection" : "collections"}`,
-    ...(views ? [`${views} ${views === 1 ? "view" : "views"}`] : []),
-  ].join(" and ");
+  const summary = [counted(collections, "collection"), ...(views ? [counted(views, "view")] : [])].join(" and ");
   const term = search.trim().toLocaleLowerCase();
   const shown = term ? entries.filter((entry) => entry.name.toLocaleLowerCase().includes(term)) : entries;
 
@@ -68,7 +66,7 @@ export function NavigationGroupPage({
         titleId="navigation-group-title"
         eyebrow={application.name}
         title={section.group.label}
-        description={counted}
+        description={summary}
       />
       <Card flush className="panel">
         {entries.length > 0 && (

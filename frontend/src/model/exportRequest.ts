@@ -4,7 +4,17 @@
  * the field (D19); the search is not carried, since the query has no full-text search (D60).
  */
 
-import { holdsOne, RELATED_FIELD_PREFIX, relatedColumn, relatedTargetTypes } from "@/model/lookup";
+import { counted } from "@/lib/count";
+import { attributeName } from "@/model/fields";
+import {
+  attributeTypeFor,
+  holdsOne,
+  objectTypeFor,
+  RELATED_FIELD_PREFIX,
+  relatedColumn,
+  relatedTargetTypes,
+  relationTypeFor,
+} from "@/model/lookup";
 import type {
   ApplicationDefinition,
   CollectionFilter,
@@ -53,8 +63,7 @@ export function criteriaFromFilters(
     ...filters
       .filter((filter) => !filter.field.startsWith(RELATED_FIELD_PREFIX))
       .map((filter) => {
-        const valueType =
-          BUILT_IN[filter.field] ?? model.attributeTypes.find((item) => item.key === filter.field)?.valueType;
+        const valueType = BUILT_IN[filter.field] ?? attributeTypeFor(model, filter.field)?.valueType;
         return {
           field: filter.field,
           op: filter.operator,
@@ -123,11 +132,10 @@ export function exportableTypes(model: EngineModel, objectTypeKeys: readonly str
  * field). Labelled as the type's relation columns are.
  */
 export function sheetRelationships(model: EngineModel, objectTypeKey: string): { key: string; label: string }[] {
-  const parentRelations = (typeKey: string) =>
-    model.objectTypes.find((item) => item.key === typeKey)?.behavior?.parentRelationTypeKeys ?? [];
+  const parentRelations = (typeKey: string) => objectTypeFor(model, typeKey)?.behavior?.parentRelationTypeKeys ?? [];
   const keys: string[] = [];
   for (const binding of model.objectTypeRelations) {
-    const relation = model.relationTypes.find((item) => item.key === binding.relationTypeKey);
+    const relation = relationTypeFor(model, binding.relationTypeKey);
     if (!relation) continue;
     const containment = [binding.fromObjectTypeKey, binding.toObjectTypeKey].some((end) =>
       parentRelations(end).includes(binding.relationTypeKey),
@@ -169,7 +177,7 @@ export function needsSheet(model: EngineModel, objectTypeKey: string, column: st
 export function relationKeyOf(model: EngineModel, column: string): string | undefined {
   const related = relatedColumn(model, column);
   if (!related) return undefined;
-  const relation = model.relationTypes.find((item) => item.key === related.relationTypeKey);
+  const relation = relationTypeFor(model, related.relationTypeKey);
   if (!relation) return undefined;
   return related.direction === "outgoing" ? relation.key : relation.reverseKey;
 }
@@ -189,7 +197,7 @@ export function relationFields(
   const far = relatedTargetTypes(model, objectTypeKey, column);
   if (far.length !== 1) return [];
   const attributes = far[0].attributes
-    .map((binding) => model.attributeTypes.find((item) => item.key === binding.attributeTypeKey))
+    .map((binding) => attributeTypeFor(model, binding.attributeTypeKey))
     .filter((item) => item !== undefined && item.valueType !== "json");
   const unique = (item: (typeof attributes)[number]) => (item?.features?.unique ? 0 : 1);
   return [...attributes].sort((a, b) => unique(a) - unique(b)).map((item) => ({ key: item!.key, label: item!.name }));
@@ -200,7 +208,7 @@ export function relationFields(
  * from the type, required, to another type. Its sheet may be laid out as columns per parent.
  */
 export function ownedType(model: EngineModel, objectTypeKey: string, key: string): string | undefined {
-  const relation = model.relationTypes.find((item) => item.key === key);
+  const relation = relationTypeFor(model, key);
   if (!relation) return undefined;
   const bindings = model.objectTypeRelations.filter(
     (binding) => binding.relationTypeKey === relation.key && binding.fromObjectTypeKey === objectTypeKey,
@@ -415,15 +423,14 @@ export function viewCountLine(
   size: { rows?: number; columns?: number; records?: number } | undefined,
   source: string,
 ): string | undefined {
-  const plural = (count: number, one: string) => `${count.toLocaleString("en")} ${count === 1 ? one : `${one}s`}`;
   const parts =
     size?.records !== undefined
-      ? [plural(size.records, "record")]
+      ? [counted(size.records, "record")]
       : size?.rows !== undefined
         ? [
             size.columns !== undefined
-              ? `${plural(size.rows, "row")} × ${plural(size.columns, "column")}`
-              : plural(size.rows, "row"),
+              ? `${counted(size.rows, "row")} × ${counted(size.columns, "column")}`
+              : counted(size.rows, "row"),
           ]
         : [];
   return parts.length ? `${parts[0]}, from ${source}` : undefined;
@@ -435,20 +442,20 @@ export function viewCountLine(
  * model and refuses any other field.
  */
 export function identifyingFields(model: EngineModel, typeKey: string): { key: string; label: string }[] {
-  const type = model.objectTypes.find((item) => item.key === typeKey);
+  const type = objectTypeFor(model, typeKey);
   if (!type) return [];
   const bound = type.attributes.map((item) => item.attributeTypeKey);
   const found = ["name"];
   const display = type.displayAttributeTypeKey;
   if (display && display !== "name" && bound.includes(display)) found.push(display);
   for (const key of bound) {
-    const attribute = model.attributeTypes.find((item) => item.key === key);
+    const attribute = attributeTypeFor(model, key);
     if (!found.includes(key) && (attribute?.valueType === "text" || attribute?.valueType === "longText"))
       found.push(key);
   }
   return found.map((key) => ({
     key,
-    label: key === "name" ? "Name" : (model.attributeTypes.find((item) => item.key === key)?.name ?? key),
+    label: key === "name" ? "Name" : attributeName(model, key),
   }));
 }
 

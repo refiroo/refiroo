@@ -11,7 +11,8 @@ import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { TopBar } from "@/app/TopBar";
 import { ShellFrame } from "@/app/ShellFrame";
-import { useMe } from "@/app/useMe";
+import { counted } from "@/lib/count";
+import { useMe } from "@/state/useMe";
 import { ChangeTitle } from "@/ui/ChangeTitle";
 import { changeWhere, draftStepsTitle, groupDraftSteps, type ChangeItem } from "@/ui/changeText";
 import { useHeldAnywhere } from "@/state/permissions";
@@ -112,9 +113,7 @@ export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate
             <section className="home-section" aria-labelledby="home-workspaces">
               <div className="home-section-head">
                 <h2 id="home-workspaces">Your workspaces</h2>
-                <span className="account-muted">
-                  {workspaces.length} {workspaces.length === 1 ? "workspace" : "workspaces"}
-                </span>
+                <span className="account-muted">{counted(workspaces.length, "workspace")}</span>
                 <NewFromWorkbookAction
                   variant="primary"
                   onNavigate={onNavigate}
@@ -518,9 +517,7 @@ function OwnChangeSets({ workspaces, onNavigate }: { workspaces: OwnWorkspace[];
                   <span className="account-row-title">{name}</span>
                   <span className="account-muted">{where}</span>
                 </span>
-                <span className="account-pill warning">
-                  {item.changeCount} {item.changeCount === 1 ? "change" : "changes"}
-                </span>
+                <span className="account-pill warning">{counted(item.changeCount, "change")}</span>
                 <span className="account-muted home-change-set-when">{formatServerAgo(item.updatedAt)}</span>
               </>
             );
@@ -529,7 +526,7 @@ function OwnChangeSets({ workspaces, onNavigate }: { workspaces: OwnWorkspace[];
                 {application ? (
                   <RouteLink
                     className="home-change-set-link"
-                    href={`/apps/${encodeURIComponent(application)}/change-sets/${encodeURIComponent(item.id)}/changes?workspaceKey=${encodeURIComponent(item.workspaceKey)}`}
+                    href={routePath(changeReviewFor(application, item.workspaceKey, item.id))}
                     onNavigate={() => onNavigate(changeReviewFor(application, item.workspaceKey, item.id))}
                   >
                     {body}

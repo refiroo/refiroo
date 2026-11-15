@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { api } from "@/api/client";
+import { plural } from "@/lib/count";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { UnavailableBadge, unavailability } from "@/features/workspaces/UnavailableWorkspace";
@@ -98,9 +99,7 @@ export function WorkspaceList({ defaultKey, onOpen }: { defaultKey?: string; onO
 
   return (
     <>
-      <SettingsTools
-        count={settled ? `${shown}${more ? "+" : ""} ${shown === 1 ? "workspace" : "workspaces"}` : undefined}
-      >
+      <SettingsTools count={settled ? `${shown}${more ? "+" : ""} ${plural(shown, "workspace")}` : undefined}>
         <SearchField
           type="search"
           label="Search workspaces"

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Dialog, DialogTrigger, Heading, Popover } from "react-aria-components";
+import { scrollingAncestorOrNull } from "@/lib/scrollAncestor";
 import { Icon, type IconName } from "@/ui/Icon";
 
 /** The height the sticky top bar and data band cover at the top of the window. */
@@ -106,13 +107,7 @@ export function ControlPopover({
         return;
       }
       if (popover.scrollHeight <= popover.clientHeight) return;
-      let scroller: Element | null = trigger.parentElement;
-      while (scroller && scroller !== document.body) {
-        const overflow = getComputedStyle(scroller).overflowY;
-        if ((overflow === "auto" || overflow === "scroll") && scroller.scrollHeight > scroller.clientHeight) break;
-        scroller = scroller.parentElement;
-      }
-      const target = scroller && scroller !== document.body ? scroller : null;
+      const target = scrollingAncestorOrNull(trigger);
       const rect = trigger.getBoundingClientRect();
       const topEdge = Math.max(coveredAtTop(), target ? target.getBoundingClientRect().top : 0);
       const bottomEdge = target ? target.getBoundingClientRect().bottom : window.innerHeight;

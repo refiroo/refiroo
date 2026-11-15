@@ -19,7 +19,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName } from "@/model/fields";
-import { holdsOne, listingApplication, objectTypeFor } from "@/model/lookup";
+import { holdsOne, listingApplication, objectTypeFor, relationTypeFor } from "@/model/lookup";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ScopeBanner } from "@/ui/CollectionScope";
 import { MappingProposalDialog } from "@/features/objects/MappingProposalDialog";
@@ -76,7 +76,7 @@ export function MappingGridView({
   const targetTypeKey = config.direction === "outgoing" ? config.toObjectTypeKey : config.fromObjectTypeKey;
   const sourceType = objectTypeFor(model, sourceTypeKey);
   const targetType = objectTypeFor(model, targetTypeKey);
-  const relationType = model.relationTypes.find((rt) => rt.key === config.relationTypeKey);
+  const relationType = relationTypeFor(model, config.relationTypeKey);
   // Several targets are ambiguous only where a source holds at most one; elsewhere they are mapped.
   const binding = model.objectTypeRelations.find(
     (b) =>

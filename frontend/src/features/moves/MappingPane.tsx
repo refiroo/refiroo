@@ -7,6 +7,7 @@
  */
 
 import { memo, useState } from "react";
+import { attributeTypeFor } from "@/model/lookup";
 import type { EngineModel, MappingOperation, ObjectTypeDefinition } from "@/types";
 import { ProposedPill } from "@/ui/ProposedBecause";
 import { AttributeField } from "@/ui/AttributeField";
@@ -192,7 +193,7 @@ function DefaultValue({
   readOnly: boolean;
   onStep: (operations: MappingOperation[]) => void;
 }) {
-  const attribute = target.attributeTypes.find((item) => item.key === row.attributeTypeKey);
+  const attribute = attributeTypeFor(target, row.attributeTypeKey);
   const [editing, setEditing] = useState(false);
   if (!attribute) return null;
   if (!editing)

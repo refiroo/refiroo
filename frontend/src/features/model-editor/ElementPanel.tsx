@@ -6,6 +6,7 @@
  */
 
 import type { ReactNode } from "react";
+import { counted } from "@/lib/count";
 import type {
   EditorSelection,
   ModelDraftOutline,
@@ -53,6 +54,7 @@ import {
 } from "@/features/model-editor/operations";
 import {
   applicationOf,
+  attributeTypeName,
   attributeTypeOf,
   collectionViews,
   draftTypeHue,
@@ -65,11 +67,12 @@ import {
   objectTypeOf,
   openingView,
   placeOf,
-  relationTypeOf,
   relationsOf,
+  relationTypeName,
+  relationTypeOf,
+  type NavigationEntryRef,
   typeName,
   VIEW_KINDS,
-  type NavigationEntryRef,
 } from "@/model/outline";
 
 export function Header({
@@ -248,7 +251,7 @@ export function ElementPanel({
         };
         const choose = operationById("relation-attributes");
         const summary = relation.attributeTypeKeys?.length
-          ? relation.attributeTypeKeys.map((key) => attributeTypeOf(outline, key)?.name ?? key).join(", ")
+          ? relation.attributeTypeKeys.map((key) => attributeTypeName(outline, key)).join(", ")
           : "Nothing";
         return choose && operationsFor(target, outline).includes(choose) ? (
           <EditInPlaceValue
@@ -521,7 +524,7 @@ export function ElementPanel({
                     rowKey={(relation) => `${relation.relationType}:${relation.from}:${relation.to}`}
                     menu={(relation) => (
                       <OperationsMenu
-                        label={`Operations for ${relationTypeOf(outline, relation.relationType)?.name ?? relation.relationType} from ${typeName(outline, relation.from)}`}
+                        label={`Operations for ${relationTypeName(outline, relation.relationType)} from ${typeName(outline, relation.from)}`}
                         target={{
                           on: "relation",
                           relationType: relation.relationType,
@@ -985,7 +988,7 @@ export function ElementPanel({
                 },
                 { icon: "type", label: <code>{group.key}</code>, title: "Key" },
                 { icon: "toggle", label: group.collapsed ? "Starts folded" : "Starts open" },
-                { icon: "list", label: `${entries.length} ${entries.length === 1 ? "entry" : "entries"}` },
+                { icon: "list", label: `${counted(entries.length, "entry", "entries")}` },
               ]}
             />
           }

@@ -4,6 +4,7 @@
  * Nothing is loaded before the model is accepted.
  */
 
+import { count } from "@/lib/count";
 import type { AiTask, EngineModel } from "@/types";
 import { AssistantText } from "@/ui/AssistantText";
 import { Card } from "@/ui/Card";
@@ -20,7 +21,6 @@ import { TaskNotes } from "./TaskNotes";
 import { TellAssistant } from "./TellAssistant";
 import { changesModel, modelNames, proposalRefusal } from "./aiTaskDesign";
 import { notLoadedEntries } from "./aiTaskText";
-import { count } from "@/ui/limits";
 
 export function ModelProposal({
   task,

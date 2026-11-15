@@ -16,14 +16,15 @@
  * applying, it links to the change set's review, which lists every record the operation touched.
  */
 
+import { counted } from "@/lib/count";
 import { StatusPill } from "@/ui/StatusPill";
 import { useEffect, useId, useMemo, useRef, useState, type Ref } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import { useDataApi } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { attributeName } from "@/model/fields";
-import { objectTypeFor } from "@/model/lookup";
+import { attributeTypeFor, objectTypeFor, relationTypeFor, typeName } from "@/model/lookup";
 import type {
   EngineModel,
   ObjectItem,
@@ -272,7 +273,7 @@ export function RestructuringDialog({
       onApplied(result);
     } catch (cause) {
       if (
-        isApiError(cause, "CHANGE_SET_VERSION_CONFLICT") ||
+        isVersionConflict(cause, ["CHANGE_SET_VERSION_CONFLICT"]) ||
         isApiError(cause, "RESTRUCTURING_PLAN_CHANGED") ||
         isApiError(cause, "RESTRUCTURING_NOT_READY")
       ) {
@@ -314,7 +315,6 @@ export function RestructuringDialog({
       </Modal>
     );
 
-  const typeName = (key: string | null | undefined) => (key ? (objectTypeFor(model, key)?.name ?? key) : "");
   const setInput = (objectId: string, change: (input: RecordInput) => RecordInput) =>
     setInputs((current) => ({
       ...current,
@@ -385,7 +385,7 @@ export function RestructuringDialog({
                       <legend>
                         {pluralOf(model, question.objectTypeKey)}{" "}
                         {question.parentObjectTypeKey
-                          ? `under a ${typeName(question.parentObjectTypeKey).toLowerCase()}`
+                          ? `under a ${typeName(model, question.parentObjectTypeKey).toLowerCase()}`
                           : "at the top level"}{" "}
                         ({question.recordCount}) become
                       </legend>
@@ -398,7 +398,7 @@ export function RestructuringDialog({
                             checked={(typeChoices[key] ?? question.chosen) === option}
                             onChange={() => setTypeChoices((current) => ({ ...current, [key]: option }))}
                           />
-                          <span>{typeName(option)}</span>
+                          <span>{typeName(model, option)}</span>
                         </label>
                       ))}
                     </fieldset>
@@ -564,26 +564,22 @@ export function RestructuringDialog({
 }
 
 function pluralOf(model: EngineModel, key: string) {
-  return objectTypeFor(model, key)?.pluralName ?? key;
-}
-
-function count(value: number, one: string, many = `${one}s`) {
-  return `${value} ${value === 1 ? one : many}`;
+  return typeName(model, key, { plural: true });
 }
 
 /** The plan's counts as a list of what happens, leaving out what is zero. */
 export function summaryText(summary: RestructuringSummary) {
   const parts = [
-    summary.typeChangeCount && count(summary.typeChangeCount, "type change"),
-    summary.moveCount && count(summary.moveCount, "move"),
-    summary.createdCount && `${count(summary.createdCount, "record")} created`,
-    summary.removedCount && `${count(summary.removedCount, "record")} removed`,
+    summary.typeChangeCount && counted(summary.typeChangeCount, "type change"),
+    summary.moveCount && counted(summary.moveCount, "move"),
+    summary.createdCount && `${counted(summary.createdCount, "record")} created`,
+    summary.removedCount && `${counted(summary.removedCount, "record")} removed`,
     summary.valuesWithoutPlaceCount &&
-      `${count(summary.valuesWithoutPlaceCount, "value")} without a place, kept in history`,
+      `${counted(summary.valuesWithoutPlaceCount, "value")} without a place, kept in history`,
     summary.relationshipsWithoutPlaceCount &&
-      `${count(summary.relationshipsWithoutPlaceCount, "relationship")} removed, kept in history`,
+      `${counted(summary.relationshipsWithoutPlaceCount, "relationship")} removed, kept in history`,
     summary.restoredCount &&
-      `${count(summary.restoredCount, "value or relationship", "values or relationships")} restored from an earlier type change`,
+      `${counted(summary.restoredCount, "value or relationship", "values or relationships")} restored from an earlier type change`,
   ].filter(Boolean);
   return parts.length ? parts.join(", ") : "Nothing changes";
 }
@@ -608,8 +604,7 @@ function Setup({
   onType: (key: string) => void;
   onName: (name: string) => void;
 }) {
-  const typeName = (key: string) => objectTypeFor(model, key)?.name ?? key;
-  const now = objectTypeFor(model, setup.item.objectTypeKey)?.name ?? setup.item.objectTypeKey;
+  const now = typeName(model, setup.item.objectTypeKey);
   const where = setup.item.path
     .slice(0, -1)
     .map((part) => part.name)
@@ -621,7 +616,7 @@ function Setup({
         <select value={typeKey} disabled={disabled} onChange={(event) => onType(event.target.value)}>
           {options.map((option) => (
             <option key={option} value={option}>
-              {typeName(option)}
+              {typeName(model, option)}
             </option>
           ))}
         </select>
@@ -629,7 +624,7 @@ function Setup({
     ) : (
       <p className="form-fact">
         <span>{text}</span>
-        <strong>{typeName(options[0] ?? "")}</strong>
+        <strong>{typeName(model, options[0] ?? "")}</strong>
       </p>
     );
   switch (setup.kind) {
@@ -676,8 +671,8 @@ function Setup({
       return (
         <>
           <p>
-            Every {typeName(setup.fromObjectTypeKey).toLowerCase()} below {label}, at any depth, changes type in its
-            place. {label} itself does not change.
+            Every {typeName(model, setup.fromObjectTypeKey).toLowerCase()} below {label}, at any depth, changes type in
+            its place. {label} itself does not change.
           </p>
           {typeSelect("New type", setup.options)}
         </>
@@ -698,7 +693,7 @@ function PlanStatus({ preview }: { preview: RestructuringPreview }) {
     const asks = [
       preview.typeQuestions.some((question) => !question.chosen) && "choose the types asked for below",
       preview.summary.inputsNeededCount &&
-        `give the ${count(preview.summary.inputsNeededCount, "value")} the records need (Show: Needing input)`,
+        `give the ${counted(preview.summary.inputsNeededCount, "value")} the records need (Show: Needing input)`,
     ]
       .filter(Boolean)
       .join(", and ");
@@ -717,7 +712,7 @@ function PlanStatus({ preview }: { preview: RestructuringPreview }) {
       </ul>
       {preview.refusalsTruncated && <p>{preview.refusalCount - preview.refusals.length} more not shown.</p>}
       {preview.refusals.length === 0 && (
-        <p>{count(preview.summary.refusalCount, "record")} refused; see Show: Refused.</p>
+        <p>{counted(preview.summary.refusalCount, "record")} refused; see Show: Refused.</p>
       )}
     </Notice>
   );
@@ -765,21 +760,20 @@ function PlanPair({
   onRestore: (restore: boolean) => void;
 }) {
   const heading = useId();
-  const typeName = (key: string) => objectTypeFor(model, key)?.name ?? key;
   return (
     <section className="restructuring-pair" aria-labelledby={heading}>
       <h3 id={heading}>
-        {typeName(pair.fromObjectTypeKey)} → {typeName(pair.toObjectTypeKey)}{" "}
-        <span className="muted">· {count(pair.recordCount, "record")}</span>
+        {typeName(model, pair.fromObjectTypeKey)} → {typeName(model, pair.toObjectTypeKey)}{" "}
+        <span className="muted">· {counted(pair.recordCount, "record")}</span>
       </h3>
       {pair.attributes.length > 0 && (
         <table className="change-diff restructuring-mapping">
           <caption className="visually-hidden">
-            Where each {typeName(pair.toObjectTypeKey).toLowerCase()} field takes its value from
+            Where each {typeName(model, pair.toObjectTypeKey).toLowerCase()} field takes its value from
           </caption>
           <thead>
             <tr>
-              <th scope="col">{typeName(pair.toObjectTypeKey)} field</th>
+              <th scope="col">{typeName(model, pair.toObjectTypeKey)} field</th>
               <th scope="col">Value from</th>
               <th scope="col">Result</th>
             </tr>
@@ -860,7 +854,7 @@ function PlanPair({
 }
 
 function relationLabel(model: EngineModel, key: string, direction: "outgoing" | "incoming") {
-  const relation = model.relationTypes.find((item) => item.key === key);
+  const relation = relationTypeFor(model, key);
   if (!relation) return key;
   return direction === "outgoing" ? relation.name : (relation.reverseName ?? relation.name);
 }
@@ -896,7 +890,6 @@ function PlanRecord({
   onAttribute: (key: string, value: unknown) => void;
   onRelation: (key: string, other: ObjectItem | undefined) => void;
 }) {
-  const typeName = (key: string | null | undefined) => (key ? (objectTypeFor(model, key)?.name ?? key) : "");
   const before = record.before?.objectTypeKey;
   const after = record.after?.objectTypeKey;
   const newType = after ? objectTypeFor(model, after) : undefined;
@@ -929,12 +922,12 @@ function PlanRecord({
         <strong>{record.name}</strong>
         <span className="change-row-type">
           {record.outcomes.includes("created")
-            ? `New ${typeName(after).toLowerCase()}`
+            ? `New ${typeName(model, after).toLowerCase()}`
             : record.outcomes.includes("removed")
-              ? `${typeName(before)}, removed`
+              ? `${typeName(model, before)}, removed`
               : before !== after && after
-                ? `${typeName(before)} → ${typeName(after)}`
-                : typeName(before)}
+                ? `${typeName(model, before)} → ${typeName(model, after)}`
+                : typeName(model, before)}
         </span>
         {status && (
           <StatusPill tone={record.refusals.length ? "error" : "neutral"} marker={false}>
@@ -994,7 +987,7 @@ function PlanRecord({
           <legend className="visually-hidden">Values {record.name} needs</legend>
           {fields.map((needed) => {
             if (needed.kind === "attribute") {
-              const attribute = model.attributeTypes.find((item) => item.key === needed.key);
+              const attribute = attributeTypeFor(model, needed.key);
               if (!attribute) return null;
               const binding = newType.attributes.find((item) => item.attributeTypeKey === needed.key);
               const current =
@@ -1100,7 +1093,7 @@ function RelationInput({
           >
             {sources.map((source) => (
               <option key={source} value={source}>
-                {objectTypeFor(model, source)?.name ?? source}
+                {typeName(model, source)}
               </option>
             ))}
           </select>
@@ -1162,7 +1155,7 @@ function SiblingPicker({
       : null,
     [type, item.applicationKey, item.parentObjectId, workspaceKey, debounced],
   );
-  const pluralOfType = (key: string) => objectTypeFor(model, key)?.pluralName ?? key;
+  const pluralOfType = (key: string) => typeName(model, key, { plural: true });
   const toggle = (sibling: ObjectItem, on: boolean) => {
     const next = new Map(chosen);
     if (on) next.set(sibling.id, sibling.name);

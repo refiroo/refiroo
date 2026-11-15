@@ -3,6 +3,7 @@ import { ActionMenu } from "@/ui/ActionMenu";
 import { useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { routePath } from "@/routing/routes";
 import type { ObjectItem } from "@/types";
+import { copyText } from "@/lib/copyText";
 
 /** Row and detail actions share canonical links and the same coherent editing/deletion paths. */
 export function RecordActionMenu({
@@ -37,20 +38,18 @@ export function RecordActionMenu({
       changeSetId: changeSet?.id,
       publicationId: publication?.id,
     });
-    try {
-      await navigator.clipboard.writeText(new URL(path, window.location.origin).href);
-      setMessage("Record link copied.");
-    } catch {
-      setMessage("Could not copy the link. Open the record and copy its address from the browser.");
-    }
+    setMessage(
+      (await copyText(new URL(path, window.location.origin).href))
+        ? "Record link copied."
+        : "Could not copy the link. Open the record and copy its address from the browser.",
+    );
   }
   async function copyId() {
-    try {
-      await navigator.clipboard.writeText(object.id);
-      setMessage("Record ID copied.");
-    } catch {
-      setMessage("Could not copy the ID. Open Details on the record and select it.");
-    }
+    setMessage(
+      (await copyText(object.id))
+        ? "Record ID copied."
+        : "Could not copy the ID. Open Details on the record and select it.",
+    );
   }
   return (
     <div className="record-action-menu">

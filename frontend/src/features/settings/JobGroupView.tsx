@@ -9,6 +9,7 @@ import { api } from "@/api/client";
 import { OriginName } from "@/features/jobs/OriginName";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { JobGroup, JobGroupRow, JobState, RouteState } from "@/types";
@@ -180,7 +181,7 @@ export function JobGroupView({
               <span>{kindLabel}</span>
               <span>{workspace}</span>
               <span title={formatServerTime(group.latestAt)}>
-                {group.jobs} {group.jobs === 1 ? "job" : "jobs"}, the latest {formatServerDayTime(group.latestAt)}
+                {counted(group.jobs, "job")}, the latest {formatServerDayTime(group.latestAt)}
               </span>
             </>
           }

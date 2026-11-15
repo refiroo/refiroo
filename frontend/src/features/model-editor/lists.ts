@@ -5,6 +5,7 @@
  * decides what is shown.
  */
 
+import { counted } from "@/lib/count";
 import type {
   DraftOperation,
   DraftProfileDocument,
@@ -114,7 +115,7 @@ export function rowsOf(block: SourceBlock, rectangle: SourceRectangle): number {
 /** The list's rows in words, as its source loads them (D125) or as the profile read them, and its note. */
 export function listWords(block: SourceBlock, rectangle?: SourceRectangle): string {
   const count = rectangle ? rowsOf(block, rectangle) : block.rows;
-  const rows = `${count} ${count === 1 ? "row" : "rows"}`;
+  const rows = `${counted(count, "row")}`;
   return block.note ? `${rows} · ${noteLabel(block.note)}: ${block.note.text}` : rows;
 }
 

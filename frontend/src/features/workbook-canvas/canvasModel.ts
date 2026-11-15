@@ -5,9 +5,9 @@
  * model editor sends, in one request and one undo step (PP-D4).
  */
 
-import { bound, nameOfType, niceName, valueTypeOf } from "@/features/model-editor/columnDrop";
+import { bound, niceName, valueTypeOf } from "@/features/model-editor/columnDrop";
 import { valueTypeLabel } from "@/features/model-editor/operations";
-import { keyFromLabel, keysOf } from "@/model/outline";
+import { attributeTypeOf, keyFromLabel, keysOf, objectTypeOf, relationTypeOf, typeName } from "@/model/outline";
 import { NEW_ATTRIBUTE, mapOperations, newSourceId, usesOf } from "@/features/model-editor/mapping";
 import { applicationForType } from "@/features/model-editor/typeApplication";
 import type { JobRow } from "@/types/integration";
@@ -176,7 +176,7 @@ function fieldsOf(
   for (const parent of type.parents)
     fields.push({
       id: `parent:${parent}`,
-      label: `In ${nameOfType(outline, parent)}`,
+      label: `In ${typeName(outline, parent)}`,
       kind: "parent",
       farType: parent,
       columns: filledBy((binding) => binding.parent?.objectTypeKey === parent),
@@ -189,7 +189,7 @@ function fieldsOf(
     if (relation.containment || (relation.from !== type.key && relation.to !== type.key)) continue;
     // A relationship is drawn on the list it starts from; one to itself once.
     if (relation.from !== type.key) continue;
-    const relationType = outline.relationTypes.find((item) => item.key === relation.relationType);
+    const relationType = relationTypeOf(outline, relation.relationType);
     fields.push({
       id: `relation:${relation.relationType}:${relation.to}`,
       label: relationType?.name ?? relation.relationType,
@@ -285,11 +285,11 @@ export function tableViewOf(
 /** A filter field named as a person reads it: an attribute's name, or the relationship a `related:` field reads. */
 function filterLabel(outline: ModelDraftOutline, key: string): string {
   if (key === "name") return "Name";
-  const attribute = outline.attributeTypes.find((item) => item.key === key);
+  const attribute = attributeTypeOf(outline, key);
   if (attribute) return attribute.name;
   const relationKey = key.startsWith("related:") ? key.slice("related:".length).split(".")[0] : key;
   // A relationship is filtered by under its own key or its reverse side's: each side has its name.
-  const forward = outline.relationTypes.find((item) => item.key === relationKey);
+  const forward = relationTypeOf(outline, relationKey);
   if (forward) return forward.name;
   const reverse = outline.relationTypes.find((item) => item.reverseKey === relationKey);
   return reverse ? (reverse.reverseName ?? reverse.name) : relationKey;
@@ -314,7 +314,7 @@ export function linesOf(outline: ModelDraftOutline, cards: readonly CanvasCard[]
   const on = new Set(cards.map((card) => card.typeKey));
   const lines: CanvasLine[] = [];
   for (const card of cards) {
-    const type = outline.objectTypes.find((item) => item.key === card.typeKey);
+    const type = objectTypeOf(outline, card.typeKey);
     for (const parent of type?.parents ?? [])
       // A list that contains itself has no line to draw: it would run from the card to itself.
       if (on.has(parent) && parent !== card.typeKey)
@@ -323,19 +323,19 @@ export function linesOf(outline: ModelDraftOutline, cards: readonly CanvasCard[]
           kind: "contains",
           from: parent,
           to: card.typeKey,
-          label: `${nameOfType(outline, parent)} contains ${card.name}`,
+          label: `${typeName(outline, parent)} contains ${card.name}`,
         });
   }
   for (const relation of outline.relations) {
     if (relation.containment || relation.from === relation.to || !on.has(relation.from) || !on.has(relation.to))
       continue;
-    const relationType = outline.relationTypes.find((item) => item.key === relation.relationType);
+    const relationType = relationTypeOf(outline, relation.relationType);
     lines.push({
       id: `relates:${relation.relationType}:${relation.from}:${relation.to}`,
       kind: "relates",
       from: relation.from,
       to: relation.to,
-      label: `${nameOfType(outline, relation.from)} ${relationType?.name ?? relation.relationType} ${nameOfType(outline, relation.to)}`,
+      label: `${typeName(outline, relation.from)} ${relationType?.name ?? relation.relationType} ${typeName(outline, relation.to)}`,
       relationType: relation.relationType,
       fromField: `relation:${relation.relationType}:${relation.to}`,
     });
@@ -645,8 +645,8 @@ export function containOperations(child: string, parent: string, outline: ModelD
       parent: {
         objectTypes: [parent],
         relationType: {
-          name: `Contains ${nameOfType(outline, child)}`,
-          reverseName: `In ${nameOfType(outline, parent)}`,
+          name: `Contains ${typeName(outline, child)}`,
+          reverseName: `In ${typeName(outline, parent)}`,
         },
       },
     },
@@ -670,11 +670,11 @@ export function relatePlan(
   outline: ModelDraftOutline,
 ): { operations: DraftOperation[]; relationType: string } {
   const taken = keysOf(outline);
-  const name = `Has ${nameOfType(outline, to)}`;
-  const reverseName = `Of ${nameOfType(outline, from)}`;
-  const relationType = keyFromLabel(`${nameOfType(outline, from)} ${nameOfType(outline, to)}`, taken);
+  const name = `Has ${typeName(outline, to)}`;
+  const reverseName = `Of ${typeName(outline, from)}`;
+  const relationType = keyFromLabel(`${typeName(outline, from)} ${typeName(outline, to)}`, taken);
   const reverseKey = keyFromLabel(
-    `${nameOfType(outline, to)} of ${nameOfType(outline, from)}`,
+    `${typeName(outline, to)} of ${typeName(outline, from)}`,
     new Set([...taken, relationType]),
   );
   return {
@@ -847,7 +847,7 @@ export function filterOperations(
   model: EngineModel | undefined,
   column?: SourceColumn,
 ): { operations: DraftOperation[]; problem?: "noView" | "already" } {
-  const home = outline.objectTypes.find((item) => item.key === where.typeKey)?.home ?? undefined;
+  const home = objectTypeOf(outline, where.typeKey)?.home ?? undefined;
   const target = tableViewOf(model, where.typeKey, home);
   if (!target) return { operations: [], problem: "noView" };
   const operations: DraftOperation[] = [];
@@ -875,7 +875,7 @@ export function filterOperations(
     );
     return { operations: fresh };
   } else if (attribute !== "name") {
-    const type = outline.attributeTypes.find((item) => item.key === attribute);
+    const type = attributeTypeOf(outline, attribute);
     if (type && type.features.filterable !== true)
       operations.push({
         kind: "setAttributeTypeFeatures",
@@ -1136,7 +1136,7 @@ export function columnAsListOperations(
     { kind: "mapColumn", source: id, column: header, binding: { field: "name" } },
   ];
   if (!start) return [newList, ...ownSource];
-  const owner = nameOfType(outline, start.objectTypeKey);
+  const owner = typeName(outline, start.objectTypeKey);
   const relationType = keyFromLabel(`${owner} ${listName}`, taken);
   const reverseKey = keyFromLabel(`${listName} of ${owner}`, new Set([...taken, relationType]));
   const used = start.columns.find((binding) => !binding.ignore && bound(binding).includes(header));

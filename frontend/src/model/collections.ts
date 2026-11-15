@@ -1,5 +1,5 @@
 import type { IconName } from "@/ui/Icon";
-import { objectTypeFor } from "@/model/lookup";
+import { objectTypeFor, typeName } from "@/model/lookup";
 import { childObjectTypeKeys } from "@/model/placements";
 import type { ApplicationDefinition, EngineModel, NavigationGroupDefinition, ViewDefinition } from "@/types";
 
@@ -94,7 +94,7 @@ export function navigationSections(application: ApplicationDefinition): {
 /** What the sidebar calls an entry: a collection's plural name, a view's own name. */
 export function entryLabel(model: EngineModel, entry: NavigationEntry): string {
   return entry.kind === "collection"
-    ? (objectTypeFor(model, entry.collection.objectTypeKey)?.pluralName ?? entry.collection.objectTypeKey)
+    ? typeName(model, entry.collection.objectTypeKey, { plural: true })
     : entry.view.name;
 }
 
@@ -154,9 +154,7 @@ export function navigationGroupFor(application: ApplicationDefinition | undefine
 
 /** Object types of the application whose records may stand without a parent (`rootCreatable`). */
 export function rootObjectTypeKeys(model: EngineModel, application: ApplicationDefinition): string[] {
-  return application.objectTypeKeys.filter(
-    (key) => model.objectTypes.find((item) => item.key === key)?.features.rootCreatable === true,
-  );
+  return application.objectTypeKeys.filter((key) => objectTypeFor(model, key)?.features.rootCreatable === true);
 }
 
 export function childCollectionGroups(

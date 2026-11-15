@@ -5,7 +5,10 @@ import { useAiTask } from "./useAiTask";
 import { designTask } from "./designFixture";
 
 vi.mock("@/api/aiClient", () => ({ ai: { task: vi.fn() } }));
-vi.mock("@/state/useJobStream", () => ({ useJobStream: vi.fn() }));
+// No stream is opened: a job's changes are not under test here.
+vi.mock("@/api/eventStream", () => ({
+  openEventStream: (url: string) => ({ url, addEventListener: () => undefined, close: () => undefined }),
+}));
 
 describe("useAiTask", () => {
   it("gives the page and the journey bar one copy: a write's answer reaches both", async () => {

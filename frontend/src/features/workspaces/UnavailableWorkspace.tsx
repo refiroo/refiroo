@@ -20,6 +20,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { PageHeader } from "@/ui/PageHeader";
 import { StatusPill } from "@/ui/StatusPill";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 type Unavailable = Extract<WorkspaceAvailability, { state: "unavailable" }>;
 
@@ -317,12 +318,9 @@ function ContinueElsewhere({
   const [others, setOthers] = useState<Workspace[]>();
   useEffect(() => {
     let active = true;
-    Promise.all([
-      api.workspaces({ status: "active", pageSize: 100 }),
-      api.workspaceRuntimeState().catch(() => undefined),
-    ]).then(
-      ([page, runtime]) => {
-        const open = page.items.filter((item) => item.key !== excludeKey && item.availability?.state !== "unavailable");
+    Promise.all([allWorkspaces({ status: "active" }), api.workspaceRuntimeState().catch(() => undefined)]).then(
+      ([items, runtime]) => {
+        const open = items.filter((item) => item.key !== excludeKey && item.availability?.state !== "unavailable");
         const first = open.findIndex((item) => item.key === runtime?.defaultWorkspaceKey);
         if (active) setOthers(first > 0 ? [open[first], ...open.slice(0, first), ...open.slice(first + 1)] : open);
       },

@@ -7,15 +7,12 @@
  * them out here.
  */
 
+import { list, record, text } from "@/lib/coerce";
 import type { ConsumerDefinition, DraftOperation, ModelDraftOutline } from "@/types";
-import { relationTypeOf, typeName } from "@/model/outline";
+import { attributeTypeOf, objectTypeOf, relationTypeOf, typeName } from "@/model/outline";
 
 type Json = Record<string, unknown>;
 
-const record = (value: unknown): Json =>
-  value && typeof value === "object" && !Array.isArray(value) ? (value as Json) : {};
-const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
-const str = (value: unknown) => (typeof value === "string" ? value : "");
 const strings = (value: unknown): string[] =>
   typeof value === "string" ? [value] : list(value).filter((item): item is string => typeof item === "string");
 
@@ -82,13 +79,13 @@ export function sourceOptions(outline: ModelDraftOutline, exposes: string[], cur
   add("name", "Name", "Built in");
   const typed = (valueType: string | null | undefined) => (valueType ? ` · ${valueType}` : "");
   for (const key of exposes) {
-    const type = outline.objectTypes.find((item) => item.key === key);
+    const type = objectTypeOf(outline, key);
     for (const attribute of type?.attributes ?? [])
       add(attribute.attributeType, `${attribute.name}${typed(attribute.valueType)}`, "Attributes of the exposed types");
   }
   const ancestors: string[] = [];
   const climb = (key: string) => {
-    for (const parent of outline.objectTypes.find((item) => item.key === key)?.parents ?? [])
+    for (const parent of objectTypeOf(outline, key)?.parents ?? [])
       if (!ancestors.includes(parent)) {
         ancestors.push(parent);
         climb(parent);
@@ -96,7 +93,7 @@ export function sourceOptions(outline: ModelDraftOutline, exposes: string[], cur
   };
   exposes.forEach(climb);
   for (const key of ancestors) {
-    const type = outline.objectTypes.find((item) => item.key === key);
+    const type = objectTypeOf(outline, key);
     const name = type?.name ?? key;
     add(`ancestor:${key}.name`, `${name} › Name`, "From a type above");
     for (const attribute of type?.attributes ?? [])
@@ -269,7 +266,7 @@ export function parentSpecOf(definition: ConsumerDefinition): ParentRow | undefi
         return { output, sources: row.sources, value };
       });
   return {
-    output: Array.isArray(parent) ? "parent" : str(spec.output) || "parent",
+    output: Array.isArray(parent) ? "parent" : text(spec.output) || "parent",
     fields,
     short: Array.isArray(parent),
   };
@@ -309,8 +306,7 @@ export function ensureParentObject(api: string, definition: ConsumerDefinition):
 export function parentTypesOf(outline: ModelDraftOutline, exposes: string[]): string[] {
   const found: string[] = [];
   for (const key of exposes)
-    for (const parent of outline.objectTypes.find((item) => item.key === key)?.parents ?? [])
-      if (!found.includes(parent)) found.push(parent);
+    for (const parent of objectTypeOf(outline, key)?.parents ?? []) if (!found.includes(parent)) found.push(parent);
   return found;
 }
 
@@ -329,7 +325,7 @@ export function parentFieldOptions(
 ): SourceOption[] {
   const options = new Map<string, SourceOption>(PARENT_BUILT_IN_FIELDS.map((item) => [item.value, item]));
   for (const key of parentTypesOf(outline, exposes))
-    for (const attribute of outline.objectTypes.find((item) => item.key === key)?.attributes ?? [])
+    for (const attribute of objectTypeOf(outline, key)?.attributes ?? [])
       if (!options.has(attribute.attributeType))
         options.set(attribute.attributeType, {
           value: attribute.attributeType,
@@ -658,9 +654,9 @@ export function matchOptions(
     // A rule weighs a field on every exposed type that binds it alike, so a field is listed once,
     // as the sources are (it was listed under the first type binding it, as if the others had none).
     for (const key of reads.types) {
-      const type = outline.objectTypes.find((item) => item.key === key);
+      const type = objectTypeOf(outline, key);
       for (const attribute of type?.attributes ?? []) {
-        const features = outline.attributeTypes.find((item) => item.key === attribute.attributeType)?.features ?? {};
+        const features = attributeTypeOf(outline, attribute.attributeType)?.features ?? {};
         if (attribute.unique || features.searchable === true)
           add(attribute.attributeType, attribute.name, "Attributes of the exposed types");
       }
@@ -691,7 +687,7 @@ export function matchOptions(
 export function relatedTypesOf(outline: ModelDraftOutline, via: string, exposes: string[]): string[] {
   const found: string[] = [];
   for (const relation of outline.relations) {
-    const type = outline.relationTypes.find((item) => item.key === relation.relationType);
+    const type = relationTypeOf(outline, relation.relationType);
     if (!type) continue;
     if (type.key === via && exposes.includes(relation.from)) found.push(relation.to);
     if (type.reverseKey === via && exposes.includes(relation.to)) found.push(relation.from);
@@ -705,7 +701,7 @@ export function relatedTypesOf(outline: ModelDraftOutline, via: string, exposes:
 export function relationAttributeOptions(outline: ModelDraftOutline, via: string, exposes: string[]): SourceOption[] {
   const keys: string[] = [];
   for (const relation of outline.relations) {
-    const type = outline.relationTypes.find((item) => item.key === relation.relationType);
+    const type = relationTypeOf(outline, relation.relationType);
     if (!type) continue;
     const reached =
       (type.key === via && exposes.includes(relation.from)) ||
@@ -713,7 +709,7 @@ export function relationAttributeOptions(outline: ModelDraftOutline, via: string
     if (reached) for (const key of relation.attributeTypeKeys ?? []) if (!keys.includes(key)) keys.push(key);
   }
   return keys.map((key) => {
-    const attribute = outline.attributeTypes.find((item) => item.key === key);
+    const attribute = attributeTypeOf(outline, key);
     return {
       value: `relation:${key}`,
       label: `${attribute?.name ?? key}${attribute?.valueType ? ` · ${attribute.valueType}` : ""}`,
@@ -741,7 +737,7 @@ export function relatedFieldOptions(
     .filter((value) => value.startsWith("relation:") && !relationship.some((item) => item.value === value))
     .map((value) => ({
       value,
-      label: outline.attributeTypes.find((item) => item.key === value.slice(9))?.name ?? value,
+      label: attributeTypeOf(outline, value.slice(9))?.name ?? value,
       group: "Written by hand",
     }));
   return [
@@ -755,7 +751,7 @@ export function relatedFieldOptions(
 
 /** The attributes a list of a type may be sorted by: scalar ones it binds (C3); none is by name. */
 export function sortOptions(outline: ModelDraftOutline, typeKey: string, current?: string): SourceOption[] {
-  const type = outline.objectTypes.find((item) => item.key === typeKey);
+  const type = objectTypeOf(outline, typeKey);
   const options: SourceOption[] = [{ value: "", label: "Name (the default)", group: "" }];
   for (const attribute of type?.attributes ?? [])
     if (attribute.valueType !== "json")
@@ -882,8 +878,8 @@ export function earlierVersionsOf(definition: ConsumerDefinition): EarlierVersio
           {
             index,
             version,
-            deprecated: str(value.deprecated) || undefined,
-            sunset: str(value.sunset) || undefined,
+            deprecated: text(value.deprecated) || undefined,
+            sunset: text(value.sunset) || undefined,
             value,
           },
         ]
@@ -897,12 +893,12 @@ export function describeConsumerOperation(
   p: Record<string, unknown>,
   apiName: (key: string) => string,
 ): string | undefined {
-  const api = apiName(str(p.consumerApi));
-  const path = str(p.pointer);
+  const api = apiName(text(p.consumerApi));
+  const path = text(p.pointer);
   switch (kind) {
     case "addConsumerApi": {
       const definition = record(p.definition);
-      return `Added consumer API ${str(p.name) || str(definition.name) || str(definition.key)}`;
+      return `Added consumer API ${text(p.name) || text(definition.name) || text(definition.key)}`;
     }
     case "removeConsumerApi":
       return `Removed consumer API ${api}`;
@@ -914,12 +910,12 @@ export function describeConsumerOperation(
       return `Stopped serving version ${String(p.version)} of ${api}`;
     case "setConsumerApiSunset":
       return p.sunset
-        ? `Set the sunset of version ${String(p.version)} of ${api} to ${str(p.sunset)}`
+        ? `Set the sunset of version ${String(p.version)} of ${api} to ${text(p.sunset)}`
         : `Took back the sunset of version ${String(p.version)} of ${api}`;
     case "setConsumerApiPart":
       if (!path) return `Edited ${api} as JSON`;
       if (path === "/contractVersion") return `Set ${api} to contract version ${String(p.value)}`;
-      if (path === "/name") return `Renamed consumer API ${api} to ${str(p.value)}`;
+      if (path === "/name") return `Renamed consumer API ${api} to ${text(p.value)}`;
       if (path === "/operations/events")
         return p.value === null
           ? `Stopped offering events in ${api}`
@@ -928,8 +924,8 @@ export function describeConsumerOperation(
         return `${p.value === null ? "Stopped offering" : "Offered"} ${partWords(path)} in ${api}`;
       return p.value === null ? `Took ${partWords(path)} out of ${api}` : `Changed ${partWords(path)} of ${api}`;
     case "insertConsumerApiPart": {
-      const named = p.key !== undefined ? `${path}${pointer(str(p.key))}` : `${path}/0`;
-      return path === "/exposes" ? `Exposed ${str(p.value)} in ${api}` : `Added ${partWords(named)} to ${api}`;
+      const named = p.key !== undefined ? `${path}${pointer(text(p.key))}` : `${path}/0`;
+      return path === "/exposes" ? `Exposed ${text(p.value)} in ${api}` : `Added ${partWords(named)} to ${api}`;
     }
     case "moveConsumerApiPart":
       return `Moved ${partWords(path)} to place ${Number(p.position) + 1} in ${api}`;

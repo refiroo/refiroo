@@ -9,7 +9,7 @@
  */
 
 import { childObjectTypeKeys } from "@/model/placements";
-import { objectTypeFor } from "@/model/lookup";
+import { typeName } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 
 export type MoveRefusal = "self" | "descendant" | "currentParent" | "application" | "type" | "notRoot";
@@ -51,7 +51,7 @@ export function moveRefusalText(model: EngineModel, reason: MoveRefusal, record:
   if (reason === "application") return "In another application";
   if (reason === "notRoot") return "Not shown at the top of this tree";
   if (reason === "type") {
-    const plural = objectTypeFor(model, record.objectTypeKey)?.pluralName ?? record.objectTypeKey;
+    const plural = typeName(model, record.objectTypeKey, { plural: true });
     return `Can't contain ${plural.toLowerCase()}`;
   }
   return MOVE_REFUSAL_TEXT[reason];

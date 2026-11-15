@@ -12,7 +12,7 @@ import { permissionsFixture } from "@/test/permissions";
 import type { ChangeSet, EngineModel, ObjectChange, RelationChange, RouteState } from "@/types";
 
 const signedIn = vi.hoisted(() => ({ id: "u-boss" }));
-vi.mock("@/app/useMe", () => ({ useMe: () => ({ id: signedIn.id, kind: "user", name: "Someone" }) }));
+vi.mock("@/state/useMe", () => ({ useMe: () => ({ id: signedIn.id, kind: "user", name: "Someone" }) }));
 
 type ReviewRoute = Extract<RouteState, { kind: "changeSetChanges" }>;
 

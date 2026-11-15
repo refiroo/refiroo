@@ -4,6 +4,8 @@
  * declaration from the model.
  */
 
+import { count } from "@/lib/count";
+import { typeName } from "@/model/lookup";
 import type { ConsumerEventDeclaration, DeliveryError, EngineModel, Subscription, SuspensionReason } from "@/types";
 import type { StatusTone } from "@/ui/StatusPill";
 
@@ -14,9 +16,9 @@ export function subscriptionState(subscription: Subscription): { label: string; 
   return { label: "Active", tone: "success" };
 }
 
-/** How many events a request carries: one, or up to the subscription's batch size. */
+/** How many events a request carries: one, or up to the subscription's batch size. Not `counted`'s shape: "One" has no number. */
 export const requestsLabel = (maxEventsPerBatch: number) =>
-  maxEventsPerBatch === 1 ? "One event per request" : `Batched, up to ${maxEventsPerBatch.toLocaleString()} events`;
+  maxEventsPerBatch === 1 ? "One event per request" : `Batched, up to ${count(maxEventsPerBatch)} events`;
 
 /** The events a workspace delivers itself, whatever its model (API.md, `source: "workspace"`; A2). */
 export const WORKSPACE_EVENTS: readonly { key: string; description: string }[] = [
@@ -83,9 +85,7 @@ const CHANGE: Record<ConsumerEventDeclaration["changes"][number], string> = {
 
 /** An event's declaration in words: the types, the changes, and what an update watches. */
 export function eventDeclaration(model: EngineModel, event: ConsumerEventDeclaration) {
-  const types = event.objectTypes
-    .map((key) => model.objectTypes.find((type) => type.key === key)?.pluralName ?? key)
-    .join(", ");
+  const types = event.objectTypes.map((key) => typeName(model, key, { plural: true })).join(", ");
   const changes = event.changes.map((change) => CHANGE[change]).join(", ");
   const watched = [...(event.watch?.fields ?? []), ...(event.watch?.related ?? [])];
   return `${types}: ${changes}. ${watched.length ? `An update counts when ${watched.join(", ")} change.` : "Any change to the output counts."}`;

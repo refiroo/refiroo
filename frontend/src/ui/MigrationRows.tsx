@@ -5,6 +5,7 @@
 
 import { api } from "@/api/client";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { attributeTypeFor, objectTypeFor, relationTypeFor } from "@/model/lookup";
 import type { EngineModel, MigrationCounts, MigrationOutcome, MigrationRow } from "@/types";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 
@@ -107,29 +108,11 @@ export function MigrationRows({
     [jobId, outcome],
   );
   const typeName = (key?: string) =>
-    (key &&
-      (
-        models.current.objectTypes.find((type) => type.key === key) ??
-        models.target.objectTypes.find((type) => type.key === key)
-      )?.name) ||
-    key ||
-    "";
+    (key && (objectTypeFor(models.current, key) ?? objectTypeFor(models.target, key))?.name) || key || "";
   const attributeName = (key?: string) =>
-    (key &&
-      (
-        models.current.attributeTypes.find((item) => item.key === key) ??
-        models.target.attributeTypes.find((item) => item.key === key)
-      )?.name) ||
-    key ||
-    "";
+    (key && (attributeTypeFor(models.current, key) ?? attributeTypeFor(models.target, key))?.name) || key || "";
   const relationName = (key?: string) =>
-    (key &&
-      (
-        models.current.relationTypes.find((item) => item.key === key) ??
-        models.target.relationTypes.find((item) => item.key === key)
-      )?.name) ||
-    key ||
-    "";
+    (key && (relationTypeFor(models.current, key) ?? relationTypeFor(models.target, key))?.name) || key || "";
   const columns: DataColumn<MigrationRow>[] = [
     { key: "record", label: "Record", cell: (row) => row.objectName ?? row.objectId },
     {

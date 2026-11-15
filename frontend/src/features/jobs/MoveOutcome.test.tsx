@@ -12,7 +12,7 @@ vi.mock("@/api/client", async (importOriginal) => ({
 // Each workspace is read under the model shown; a person who authors models.
 vi.mock("@/model/workspaceModels", () => ({ useWorkspaceModel: (_: unknown, fallback: unknown) => fallback }));
 const holds = vi.hoisted(() => ({ model: true }));
-vi.mock("@/app/useMe", () => ({ useHoldsGroup: (key: string) => holds.model && key === "model-authoring" }));
+vi.mock("@/state/useMe", () => ({ useHoldsGroup: (key: string) => holds.model && key === "model-authoring" }));
 
 const counts = (part: Partial<MoveCounts>): MoveCounts => ({
   create: 0,

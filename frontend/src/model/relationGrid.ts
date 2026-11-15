@@ -8,6 +8,7 @@
  */
 
 import { collectionGroups } from "@/model/collections";
+import { attributeTypeFor } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel, RelationTableViewDefinition, TableViewDefinition } from "@/types";
 
 type Config = RelationTableViewDefinition["config"];
@@ -48,7 +49,7 @@ export function endFilterView(
     ),
     ...(end === "from"
       ? config.attributeColumns
-          .filter((key) => model.attributeTypes.find((item) => item.key === key)?.valueType !== "json")
+          .filter((key) => attributeTypeFor(model, key)?.valueType !== "json")
           .map((key) => `relation:${key}`)
       : []),
   ];

@@ -1,3 +1,4 @@
+import { typeName } from "@/model/lookup";
 import { useNavigationGuard } from "@/routing/navigationGuard";
 /**
  * Creates a relationship to another object, edits the attributes carried by an existing one, or
@@ -139,8 +140,7 @@ export function RelationFormDialog({
 
   if (!choice) return null;
   const failure = error || edit.error;
-  const typeName = (key: string) => model.objectTypes.find((item) => item.key === key)?.name ?? key;
-  const otherName = typeName(choice.otherObjectTypeKey);
+  const otherName = typeName(model, choice.otherObjectTypeKey);
   const adding = !existing && !replacing && !setting;
   // Opened from a relationship panel there is one relationship to add: it is said as a sentence, and the
   // choice stays only where the panel offers more than one (0.17 PL2).
@@ -187,7 +187,7 @@ export function RelationFormDialog({
                       key={`${item.direction}:${item.relation.relationTypeKey}:${item.otherObjectTypeKey}`}
                       value={index}
                     >
-                      {adding ? `${typeName(item.otherObjectTypeKey)} (${item.label})` : item.label}
+                      {adding ? `${typeName(model, item.otherObjectTypeKey)} (${item.label})` : item.label}
                     </option>
                   ))}
                 </select>

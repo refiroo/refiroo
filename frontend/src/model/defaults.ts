@@ -3,6 +3,7 @@
  * is usable before anyone authors a detail view for it.
  */
 
+import { objectTypeFor, relationTypeFor } from "@/model/lookup";
 import type { DetailViewDefinition, ObjectTypeDefinition, ObjectSort, EngineModel, PanelDefinition } from "@/types";
 
 export const DEFAULT_WORKSPACE = "default";
@@ -23,11 +24,11 @@ const attributesOf = (type: ObjectTypeDefinition) =>
     .map((binding) => binding.attributeTypeKey);
 
 const isContainment = (model: EngineModel, relationKey: string) =>
-  Boolean(model.relationTypes.find((relation) => relation.key === relationKey)?.features?.parentOf);
+  Boolean(relationTypeFor(model, relationKey)?.features?.parentOf);
 
 /** The types that directly contain `typeKey` (not itself, as a hierarchy of one type does). */
 function parentTypeKeys(model: EngineModel, typeKey: string): string[] {
-  const parents = model.objectTypes.find((type) => type.key === typeKey)?.behavior?.parentRelationTypeKeys ?? [];
+  const parents = objectTypeFor(model, typeKey)?.behavior?.parentRelationTypeKeys ?? [];
   return [
     ...new Set(
       model.objectTypeRelations
@@ -59,7 +60,7 @@ export function heldRelations(model: EngineModel, typeKey: string): HeldRelation
       held.push({ relationTypeKey, direction });
   };
   for (const binding of model.objectTypeRelations) {
-    const relation = model.relationTypes.find((item) => item.key === binding.relationTypeKey);
+    const relation = relationTypeFor(model, binding.relationTypeKey);
     if (!relation || isContainment(model, relation.key)) continue;
     if (binding.fromObjectTypeKey === typeKey) add(relation.key, "outgoing");
     if (binding.toObjectTypeKey === typeKey && relation.reverseKey) add(relation.key, "incoming");
@@ -85,7 +86,7 @@ function relatedTypeKeys(model: EngineModel, typeKey: string, held: HeldRelation
 
 /** What a relationship is called read from the type: `name` outgoing, `reverseName` incoming. */
 export function relationshipTitle(model: EngineModel, held: HeldRelation): string {
-  const relation = model.relationTypes.find((item) => item.key === held.relationTypeKey);
+  const relation = relationTypeFor(model, held.relationTypeKey);
   if (!relation) return held.relationTypeKey;
   return held.direction === "outgoing" ? relation.name : relation.reverseName || relation.name;
 }
@@ -102,7 +103,7 @@ export function relationsPanelConfig(model: EngineModel, typeKey: string, held: 
   const ancestor = only && !only.includes("|") ? `ancestor:${only}` : undefined;
   const attributes: string[] = [];
   for (const key of related) {
-    const type = model.objectTypes.find((item) => item.key === key);
+    const type = objectTypeFor(model, key);
     for (const attribute of type ? attributesOf(type) : [])
       if (!attributes.includes(attribute)) attributes.push(attribute);
   }
@@ -130,7 +131,7 @@ export function relationsPanel(
   title?: string,
   region: "main" | "side" = "main",
 ): PanelDefinition {
-  const relation = model.relationTypes.find((item) => item.key === held.relationTypeKey);
+  const relation = relationTypeFor(model, held.relationTypeKey);
   const named = held.direction === "outgoing" ? held.relationTypeKey : relation?.reverseKey || held.relationTypeKey;
   const taken = new Set(panels.map((panel) => panel.key));
   let key = named;

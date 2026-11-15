@@ -1,6 +1,4 @@
-function list(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
+import { list } from "@/lib/coerce";
 
 export function ModelSummary({ model }: { model: Record<string, unknown> }) {
   const applications = list(model.applications);

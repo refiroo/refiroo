@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { TopBar } from "@/app/TopBar";
 import { ShellFrame } from "@/app/ShellFrame";
-import { useMe } from "@/app/useMe";
+import { useMe } from "@/state/useMe";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { emptyModel } from "@/model/emptyModel";
 import type { Hue } from "@/model/hues";

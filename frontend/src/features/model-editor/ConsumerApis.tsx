@@ -75,6 +75,7 @@ import { OperationsMenu, type OnOperation } from "@/features/model-editor/Operat
 import { operationById, operationsFor, type OperationTarget } from "@/features/model-editor/operations";
 import { EditInPlaceValue } from "@/ui/EditInPlace";
 import { consumerApiOf, isReleased, typeName } from "@/model/outline";
+import { copyText } from "@/lib/copyText";
 
 const SECTIONS: { tab: ConsumerApiTab; label: string; count?: keyof OutlineConsumerApi["counts"] }[] = [
   { tab: "types", label: "Types and related", count: "related" },
@@ -1321,10 +1322,9 @@ function ConsumerDocument({
           className="secondary"
           disabled={!text}
           onClick={() =>
-            void navigator.clipboard
-              .writeText(text?.body ?? "")
-              .then(() => toast(`${about.title} copied.`))
-              .catch(() => toast("Copying is not available here; select the text instead."))
+            void copyText(text?.body ?? "").then((copied) =>
+              toast(copied ? `${about.title} copied.` : "Copying is not available here; select the text instead."),
+            )
           }
         >
           <Icon name="copy" /> Copy

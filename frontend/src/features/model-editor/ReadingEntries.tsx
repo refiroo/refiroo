@@ -8,6 +8,7 @@
  */
 
 import { useState, type ReactNode } from "react";
+import { objectTypeOf } from "@/model/outline";
 import type { DraftOperation, ModelDraftOutline, ProfileSource, SourceColumn } from "@/types";
 import type { DraftProfileDocument } from "@/types/sources";
 import { StatusPill } from "@/ui/StatusPill";
@@ -147,7 +148,7 @@ export function ColumnReadings({
   const wide = owner.unpivot?.columns.includes(header) ?? false;
 
   function headingAsk(anchor: HTMLElement) {
-    const type = outline.objectTypes.find((item) => item.key === owner.objectTypeKey);
+    const type = objectTypeOf(outline, owner.objectTypeKey);
     const parents = outline.objectTypes
       .filter((item) => item.key !== owner.objectTypeKey)
       .map((item) => ({ key: item.key, name: item.name }));

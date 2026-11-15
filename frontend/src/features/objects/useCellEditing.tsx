@@ -19,7 +19,7 @@ import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/Workspace
 import { holds, recordWrites } from "@/state/permissions";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { relatedRecords } from "@/model/fields";
-import { RELATED_FIELD_PREFIX, relatedCellEdit, type RelatedCellEdit } from "@/model/lookup";
+import { RELATED_FIELD_PREFIX, relatedCellEdit, relationTypeFor, type RelatedCellEdit } from "@/model/lookup";
 import type { EngineModel, ObjectItem, RelationItem, RelationPage } from "@/types";
 import { EditInPlaceCell } from "@/ui/EditInPlace";
 import { useToast } from "@/ui/Toast";
@@ -27,6 +27,7 @@ import { EditableField, fieldEditing } from "./EditableField";
 import { RelatedRecordsDialog } from "./RelatedRecordsDialog";
 import { useRemovals } from "./useRemovals";
 import { RelationFormDialog } from "./panels/RelationFormDialog";
+import { everyPage } from "@/lib/everyPage";
 
 /** What a table cell shows, given the row, the column and the value as the list renders it. */
 export type CellRenderer = (item: ObjectItem, column: string, shown: ReactNode) => ReactNode;
@@ -199,7 +200,7 @@ export function useCellEditing({
 
 /** A relationship's name as read from the row's end. */
 function relationName(model: EngineModel, held: RelationItem): string {
-  const definition = model.relationTypes.find((relation) => relation.key === held.relation.relationTypeKey);
+  const definition = relationTypeFor(model, held.relation.relationTypeKey);
   return (held.direction === "outgoing" ? definition?.name : definition?.reverseName) ?? held.relation.relationTypeKey;
 }
 
@@ -212,18 +213,18 @@ export async function heldRelation(
   edit: RelatedCellEdit,
 ): Promise<RelationItem | undefined> {
   const types = edit.choices.map((choice) => choice.otherObjectTypeKey);
-  let cursor: string | undefined;
-  do {
-    const page = await read(item.id, {
-      workspaceKey: item.workspaceKey,
-      direction: edit.direction,
-      relationTypeKey: edit.relationTypeKey,
-      pageSize: 100,
-      cursor,
-    });
-    const held = page.items.find((found) => types.includes(found.object.objectTypeKey));
-    if (held) return held;
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return undefined;
+  const ofColumn = (found: RelationItem) => types.includes(found.object.objectTypeKey);
+  // Stops at the first page that holds it: later pages are not read.
+  const items = await everyPage(
+    (cursor) =>
+      read(item.id, {
+        workspaceKey: item.workspaceKey,
+        direction: edit.direction,
+        relationTypeKey: edit.relationTypeKey,
+        pageSize: 100,
+        cursor,
+      }),
+    { stop: (page) => page.items.some(ofColumn) },
+  );
+  return items.find(ofColumn);
 }

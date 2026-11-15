@@ -13,6 +13,7 @@ import {
   operationsFor,
   type OperationTarget,
 } from "@/features/model-editor/operations";
+import { attributeTypeName } from "@/model/outline";
 import type { DraftOperation, ModelDraftOutline } from "@/types/modelAdmin";
 import { Icon } from "@/ui/Icon";
 
@@ -60,9 +61,7 @@ export function LinePopover({
     return () => document.removeEventListener("keydown", onKey);
   }, [menuOpen, onClose]);
   const carried = relation?.attributeTypeKeys?.length
-    ? relation.attributeTypeKeys
-        .map((key) => outline.attributeTypes.find((item) => item.key === key)?.name ?? key)
-        .join(", ")
+    ? relation.attributeTypeKeys.map((key) => attributeTypeName(outline, key)).join(", ")
     : "Nothing";
   const rule = operationById("relation-rule");
   return (

@@ -13,6 +13,7 @@ import {
   type OperationTarget,
 } from "@/features/model-editor/operations";
 import { renameTypeOperations } from "@/features/model-editor/lists";
+import { attributeTypeName, objectTypeOf, relationTypeName, typeName } from "@/model/outline";
 import type { CanvasSelection, EditorSelection } from "@/types";
 import type { DraftOperation, ModelDraftOutline } from "@/types/modelAdmin";
 import { type CanvasCard, type CanvasField, type CanvasLine, type Position } from "./canvasModel";
@@ -82,7 +83,7 @@ export function findIn(outline: ModelDraftOutline, query: string): FindHit[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
   const applicationOf = (typeKey: string) => {
-    const type = outline.objectTypes.find((item) => item.key === typeKey);
+    const type = objectTypeOf(outline, typeKey);
     const key = type?.home ?? outline.applications.find((item) => item.objectTypeKeys.includes(typeKey))?.key;
     return outline.applications.find((item) => item.key === key)?.name ?? "";
   };
@@ -103,13 +104,12 @@ export function findIn(outline: ModelDraftOutline, query: string): FindHit[] {
   }
   for (const relation of outline.relations) {
     if (relation.containment) continue;
-    const name =
-      outline.relationTypes.find((item) => item.key === relation.relationType)?.name ?? relation.relationType;
+    const name = relationTypeName(outline, relation.relationType);
     consider({
       typeKey: relation.from,
       fieldId: `relation:${relation.relationType}:${relation.to}`,
       label: name,
-      hint: outline.objectTypes.find((item) => item.key === relation.from)?.name ?? relation.from,
+      hint: typeName(outline, relation.from),
     });
   }
   return hits
@@ -162,7 +162,7 @@ export function reorderAttributeOperations(
   besideAttributeType: string,
   after: boolean,
 ): DraftOperation[] {
-  const attributes = outline.objectTypes.find((item) => item.key === typeKey)?.attributes ?? [];
+  const attributes = objectTypeOf(outline, typeKey)?.attributes ?? [];
   const from = attributes.findIndex((item) => item.attributeType === attributeType);
   const to = attributes.findIndex((item) => item.attributeType === besideAttributeType);
   if (from < 0 || to < 0 || from === to) return [];
@@ -297,8 +297,8 @@ export function addedKeys(id: AddedKind, outline: ModelDraftOutline): Set<string
 }
 
 export function addedName(id: AddedKind, made: string, outline: ModelDraftOutline): string {
-  if (id === "add-attribute-type") return outline.attributeTypes.find((item) => item.key === made)?.name ?? made;
-  if (id === "add-relation-type") return outline.relationTypes.find((item) => item.key === made)?.name ?? made;
+  if (id === "add-attribute-type") return attributeTypeName(outline, made);
+  if (id === "add-relation-type") return relationTypeName(outline, made);
   const [application, key] = made.split("\u0000");
   return (
     outline.applications.find((item) => item.key === application)?.navigation.groups.find((group) => group.key === key)

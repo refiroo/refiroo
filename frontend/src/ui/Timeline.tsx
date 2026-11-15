@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { byDay, formatServerTime } from "@/lib/dates";
+import { byDay, formatServerAgo, formatServerTime, timeOfDay } from "@/lib/dates";
 import type { Hue } from "@/model/hues";
 
 export interface TimelineEntry {
@@ -54,7 +54,7 @@ export function Timeline({
               {entry.summary && <p>{entry.summary}</p>}
               <small>
                 <time dateTime={entry.at} title={formatServerTime(entry.at)}>
-                  {relativeTime(entry.at)}
+                  {formatServerAgo(entry.at)}
                 </time>
                 {entry.after}
               </small>
@@ -128,27 +128,4 @@ export function Timeline({
       ))}
     </div>
   );
-}
-
-const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ["day", 86_400_000],
-  ["hour", 3_600_000],
-  ["minute", 60_000],
-];
-
-function relativeTime(iso: string) {
-  const elapsed = new Date(iso).getTime() - Date.now();
-  if (Number.isNaN(elapsed) || Math.abs(elapsed) > 7 * 86_400_000) return formatServerTime(iso);
-  for (const [unit, size] of UNITS) {
-    if (Math.abs(elapsed) >= size) return relative.format(Math.round(elapsed / size), unit);
-  }
-  return "just now";
-}
-
-function timeOfDay(iso: string) {
-  const date = new Date(iso);
-  return Number.isNaN(date.valueOf())
-    ? iso
-    : date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }

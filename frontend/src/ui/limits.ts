@@ -3,10 +3,9 @@
  * feed's retention, on Deployment and on Consumer APIs, whose consumers follow the feed.
  */
 
+import { count } from "@/lib/count";
 import type { CapabilitiesResponse } from "@/types";
 import type { DescriptionItem } from "@/ui/DescriptionList";
-
-export const count = (value: number) => value.toLocaleString("en");
 
 export const bytes = (value: number) =>
   value >= 1024 * 1024 && value % (1024 * 1024) === 0 ? `${count(value / (1024 * 1024))} MB` : `${count(value)} bytes`;

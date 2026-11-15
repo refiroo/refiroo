@@ -12,7 +12,7 @@ import { listedNames } from "@/state/permissionText";
 import { BrandMascot } from "@/ui/ProductMark";
 import { ShellFrame } from "./ShellFrame";
 import { TopBar } from "./TopBar";
-import { useHoldsGroup } from "./useMe";
+import { useHoldsGroup } from "@/state/useMe";
 
 /** The roles a person holds, from their grants (a consumer API grant holds none). */
 function useRoleNames(): string[] | undefined {

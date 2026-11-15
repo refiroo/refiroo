@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { formatLongDay } from "@/lib/dates";
 import type { Hue } from "@/model/hues";
 import type { FollowedWorkspace } from "@/types";
 import { InlineError } from "@/ui/InlineError";
@@ -14,8 +15,7 @@ import { Notice } from "@/ui/Notice";
 import { SettingRow, SettingsEmpty, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
 
-const since = (at: string) =>
-  `Following since ${new Date(at).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`;
+const since = (at: string) => `Following since ${formatLongDay(at)}`;
 
 export function FollowedWorkspaces({ hue }: { hue?: Hue }) {
   const [items, setItems] = useState<FollowedWorkspace[]>();

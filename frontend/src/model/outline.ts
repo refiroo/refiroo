@@ -93,6 +93,25 @@ export function typeName(outline: ModelDraftOutline, key: string): string {
   return objectTypeOf(outline, key)?.name ?? key;
 }
 
+/** An attribute type's name, or its key when the outline does not hold it. */
+export function attributeTypeName(outline: ModelDraftOutline, key: string): string {
+  return attributeTypeOf(outline, key)?.name ?? key;
+}
+
+/**
+ * A relation type's name, or its key when the outline does not hold it. `reverse` reads it from the far end
+ * (the reverse name, else the name); `contains` marks a containment relation ("contains · Made of").
+ */
+export function relationTypeName(
+  outline: ModelDraftOutline,
+  key: string,
+  options: { reverse?: boolean; contains?: boolean } = {},
+): string {
+  const type = relationTypeOf(outline, key);
+  const name = (options.reverse ? (type?.reverseName ?? type?.name) : type?.name) ?? key;
+  return options.contains ? `contains · ${name}` : name;
+}
+
 export const sameName = (outline: ModelDraftOutline, key: string) => {
   const name = objectTypeOf(outline, key)?.name.toLowerCase();
   return outline.objectTypes.filter((item) => item.name.toLowerCase() === name);
@@ -116,6 +135,40 @@ export function typeLabel(outline: ModelDraftOutline, key: string) {
 export function draftTypeHue(outline: ModelDraftOutline, key: string): Hue | undefined {
   const index = outline.objectTypes.findIndex((item) => item.key === key);
   return index < 0 ? undefined : (((index % HUE_SLOTS) + 1) as Hue);
+}
+
+/**
+ * The types a type sits under, at any depth, from the outline's parents. Two callers read it differently, so
+ * both differences are options: the order (breadth first by default, the nearest parents first; `depthFirst`
+ * follows one parent's line up before the next parent) and whether the type itself is listed when a cycle
+ * leads back to it (`startInCycle`: listed, as the criteria candidates have it; by default it is not).
+ */
+export function ancestorTypeKeys(
+  outline: ModelDraftOutline,
+  key: string,
+  options: { depthFirst?: boolean; startInCycle?: boolean } = {},
+): string[] {
+  const found: string[] = [];
+  const skip = (parent: string) => found.includes(parent) || (!options.startInCycle && parent === key);
+  if (options.depthFirst) {
+    const walk = (type: string) => {
+      for (const parent of objectTypeOf(outline, type)?.parents ?? [])
+        if (!skip(parent)) {
+          found.push(parent);
+          walk(parent);
+        }
+    };
+    walk(key);
+    return found;
+  }
+  const pending = [...(objectTypeOf(outline, key)?.parents ?? [])];
+  while (pending.length) {
+    const next = pending.shift()!;
+    if (found.includes(next)) continue;
+    found.push(next);
+    pending.push(...(objectTypeOf(outline, next)?.parents ?? []));
+  }
+  return found;
 }
 
 /** The applications listing a type. */
@@ -147,9 +200,9 @@ export function nameOf(outline: ModelDraftOutline) {
       case "objectType":
         return typeName(outline, key);
       case "attributeType":
-        return attributeTypeOf(outline, key)?.name ?? key;
+        return attributeTypeName(outline, key);
       case "relationType":
-        return relationTypeOf(outline, key)?.name ?? key;
+        return relationTypeName(outline, key);
       case "application":
         return applicationOf(outline, key)?.name ?? key;
       case "group":
@@ -172,12 +225,12 @@ export function elementLabel(outline: ModelDraftOutline, element: OutlineElement
   if (element.consumerApi)
     return `Consumer API ${consumerApiOf(outline, element.consumerApi)?.name ?? element.consumerApi}`;
   if (element.objectType && element.attributeType)
-    return `${typeName(outline, element.objectType)} › ${attributeTypeOf(outline, element.attributeType)?.name ?? element.attributeType}`;
+    return `${typeName(outline, element.objectType)} › ${attributeTypeName(outline, element.attributeType)}`;
   if (element.objectType) return typeName(outline, element.objectType);
   if (element.relationType && element.from)
     return `${typeName(outline, element.from)} → ${typeName(outline, element.to)}`;
-  if (element.relationType) return relationTypeOf(outline, element.relationType)?.name ?? element.relationType;
-  if (element.attributeType) return attributeTypeOf(outline, element.attributeType)?.name ?? element.attributeType;
+  if (element.relationType) return relationTypeName(outline, element.relationType);
+  if (element.attributeType) return attributeTypeName(outline, element.attributeType);
   if (element.applicationKey) {
     const name = applicationOf(outline, element.applicationKey)?.name ?? element.applicationKey;
     if (element.group) return `${name} › group ${element.group}`;

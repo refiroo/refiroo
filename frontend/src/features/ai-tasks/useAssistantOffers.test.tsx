@@ -10,7 +10,7 @@ const state = vi.hoisted(() => ({
   jobs: true,
 }));
 
-vi.mock("@/app/useMe", () => ({ useHoldsGroup: () => state.authors }));
+vi.mock("@/state/useMe", () => ({ useHoldsGroup: () => state.authors }));
 vi.mock("@/state/permissions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/state/permissions")>()),
   useWorkspacePermissions: () => ({ actionGroups: state.held.map((key) => ({ key })) }) as unknown as MyPermissions,

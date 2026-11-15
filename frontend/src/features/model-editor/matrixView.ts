@@ -2,7 +2,16 @@
  * A relation matrix as the editor's dialog builds it: each choice narrows the next, and only what
  * the model's validation would accept is offered (application_rules._check_relation_matrix_view).
  */
-import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/model/outline";
+import { stringList } from "@/lib/coerce";
+import {
+  ancestorTypeKeys,
+  attributeTypeOf,
+  keyFromLabel,
+  objectTypeOf,
+  relationTypeOf,
+  typeLabel,
+  typeName,
+} from "@/model/outline";
 import type { DraftOperation, ModelDraftOutline, OutlineApplication, OutlineRelation } from "@/types";
 
 type Values = Record<string, unknown>;
@@ -12,22 +21,6 @@ const AT_MOST_IN_A_CELL = 3;
 
 const applicationOf = (outline: ModelDraftOutline, key: string): OutlineApplication | undefined =>
   outline.applications.find((item) => item.key === key);
-
-const list = (value: unknown): string[] => (Array.isArray(value) ? (value as string[]) : []);
-
-/** The types a type sits under, at any depth. */
-function ancestorsOf(outline: ModelDraftOutline, key: string): string[] {
-  const found: string[] = [];
-  const walk = (type: string) => {
-    for (const parent of objectTypeOf(outline, type)?.parents ?? [])
-      if (parent !== key && !found.includes(parent)) {
-        found.push(parent);
-        walk(parent);
-      }
-  };
-  walk(key);
-  return found;
-}
 
 const cellValue = (relationType: string, direction: string, cell: string) => `${relationType}|${direction}|${cell}`;
 
@@ -54,7 +47,7 @@ export function cellOptions(outline: ModelDraftOutline, row: string): Option[] {
         : []),
     ];
     return ends
-      .filter((end) => ancestorsOf(outline, end.cell).length > 0)
+      .filter((end) => ancestorTypeKeys(outline, end.cell, { depthFirst: true }).length > 0)
       .map((end) => ({
         value: cellValue(relation.relationType, end.direction, end.cell),
         label: `${typeLabel(outline, end.cell)}, through ${end.name ?? relation.relationType}`,
@@ -70,7 +63,7 @@ export function rowOptions(outline: ModelDraftOutline): Option[] {
 
 /** The furthest parents first: a top-level type usually gives the columns meant. */
 export function columnOptions(outline: ModelDraftOutline, value: unknown): Option[] {
-  return [...ancestorsOf(outline, parseCell(value).cell)]
+  return [...ancestorTypeKeys(outline, parseCell(value).cell, { depthFirst: true })]
     .reverse()
     .map((key) => ({ value: key, label: typeLabel(outline, key) }));
 }
@@ -96,7 +89,7 @@ export function cellFieldOptions(outline: ModelDraftOutline, value: unknown): Op
 
 /** The types above a type as columns (`ancestor:<type>`), shared by a matrix's rows and a mapping grid's. */
 export function ancestorColumnOptions(outline: ModelDraftOutline, key: string): (Option & { group: string })[] {
-  return ancestorsOf(outline, key).map((ancestor) => ({
+  return ancestorTypeKeys(outline, key, { depthFirst: true }).map((ancestor) => ({
     value: `ancestor:${ancestor}`,
     label: typeName(outline, ancestor),
     group: "From the parents",
@@ -121,7 +114,7 @@ const UNLINK = { value: "unlink", label: "Unlink" };
 export function actionOptions(outline: ModelDraftOutline, values: Values): Option[] {
   const { relationType, direction, cell } = parseCell(values.cell);
   const attributes = objectTypeOf(outline, cell)?.attributes ?? [];
-  const fields = list(values.cellFields);
+  const fields = stringList(values.cellFields);
   const binding = bindingOf(outline, String(values.row ?? ""), values.cell);
   const canCreate =
     attributes.every((item) => !item.required || fields.includes(item.attributeType)) &&
@@ -205,7 +198,7 @@ export function followMatrix<V extends Values>(
   const offered = actionOptions(outline, values).map((item) => item.value);
   values.actions = cell
     ? offered.filter((item) => item === "create" || item === "edit")
-    : list(values.actions).filter((item) => offered.includes(item));
+    : stringList(values.actions).filter((item) => offered.includes(item));
   if (cell && previous.name === defaultName(outline, previous)) values.name = defaultName(outline, values);
   return values as V;
 }
@@ -224,9 +217,9 @@ export function matrixValues<V extends Values>(view: { name: string; matrix?: Re
     cell: cellValue(String(config.relationTypeKey), String(config.direction), String(config.cellObjectTypeKey)),
     column: config.columnObjectTypeKey,
     columnLabel: config.columnLabelField,
-    cellFields: list(config.cellFields),
-    rowColumns: list(config.rowColumns),
-    actions: list(config.cellActions),
+    cellFields: stringList(config.cellFields),
+    rowColumns: stringList(config.rowColumns),
+    actions: stringList(config.cellActions),
   } as unknown as V;
 }
 
@@ -234,7 +227,7 @@ function configOf(outline: ModelDraftOutline, values: Values) {
   const { relationType, direction, cell } = parseCell(values.cell);
   const row = String(values.row ?? "");
   const searchable = (objectTypeOf(outline, row)?.attributes ?? []).filter(
-    (item) => outline.attributeTypes.find((type) => type.key === item.attributeType)?.features.searchable === true,
+    (item) => attributeTypeOf(outline, item.attributeType)?.features.searchable === true,
   );
   return {
     relationTypeKey: relationType,
@@ -242,11 +235,11 @@ function configOf(outline: ModelDraftOutline, values: Values) {
     rowObjectTypeKey: row,
     columnObjectTypeKey: String(values.column ?? ""),
     cellObjectTypeKey: cell,
-    rowColumns: list(values.rowColumns),
+    rowColumns: stringList(values.rowColumns),
     columnLabelField: String(values.columnLabel ?? ""),
-    cellFields: list(values.cellFields),
+    cellFields: stringList(values.cellFields),
     searchFields: ["name", ...searchable.map((item) => item.attributeType)],
-    cellActions: list(values.actions),
+    cellActions: stringList(values.actions),
     pageSize: 20,
   };
 }
@@ -327,9 +320,9 @@ export function matrixPreview(outline: ModelDraftOutline, applicationKey: string
     options.find((item) => item.value === value)?.label ?? value;
   return {
     title: String(values.name ?? ""),
-    rowColumns: list(values.rowColumns).map((item) => label(rowColumnOptions(outline, values.row), item)),
+    rowColumns: stringList(values.rowColumns).map((item) => label(rowColumnOptions(outline, values.row), item)),
     heading: label(columnLabelOptions(outline, values.column), String(values.columnLabel ?? "")),
-    cellFields: list(values.cellFields).map((item) => label(cellFieldOptions(outline, values.cell), item)),
+    cellFields: stringList(values.cellFields).map((item) => label(cellFieldOptions(outline, values.cell), item)),
     columnType: typeName(outline, String(values.column ?? "")),
     listed: typesToList(outline, applicationKey, values).map((key) => typeName(outline, key)),
   };

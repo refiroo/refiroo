@@ -7,7 +7,7 @@
  * places never disagree.
  */
 
-import { useHoldsGroup } from "@/app/useMe";
+import { useHoldsGroup } from "@/state/useMe";
 import { useCapabilities } from "@/state/useSystem";
 import { holds, useWorkspacePermissions } from "@/state/permissions";
 import { useAssistantOfferIn } from "@/state/useWorkspaceAiOffer";

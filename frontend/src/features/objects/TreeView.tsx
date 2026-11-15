@@ -33,7 +33,7 @@
 
 import { Card } from "@/ui/Card";
 import { useCallback, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { changedObjectType, errorMessage, isApiError } from "@/api/errors";
+import { changedObjectType, errorMessage, isVersionConflict } from "@/api/errors";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { holds } from "@/state/permissions";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
@@ -43,7 +43,7 @@ import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
 import { useTreeMoves } from "@/features/objects/useTreeMoves";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { attributeName, fieldValue, isQueryableField } from "@/model/fields";
-import { objectTypeFor } from "@/model/lookup";
+import { attributeTypeFor, objectTypeFor, typeName } from "@/model/lookup";
 import { objectTypeHue } from "@/model/hues";
 import { HueTile } from "@/ui/HueTile";
 import { childObjectTypeKeys } from "@/model/placements";
@@ -147,8 +147,7 @@ export function TreeView({
     typeChanges,
     live,
   });
-  const labelAttribute =
-    config.labelField === "name" ? undefined : model.attributeTypes.find((item) => item.key === config.labelField);
+  const labelAttribute = config.labelField === "name" ? undefined : attributeTypeFor(model, config.labelField);
   const availabilityName = config.availabilityField ? attributeName(model, config.availabilityField) : "";
   const labelOf = useCallback(
     (item: ObjectItem) =>
@@ -202,7 +201,7 @@ export function TreeView({
       } catch (cause) {
         setActionError(`${labelOf(item)}: ${errorMessage(cause)}`);
         // A newer version elsewhere: read the tree again so the next attempt claims it.
-        if (isApiError(cause, "VERSION_CONFLICT")) onChanged?.();
+        if (isVersionConflict(cause, ["VERSION_CONFLICT"])) onChanged?.();
       } finally {
         setBusy(undefined);
         focusNode(item.id);
@@ -277,7 +276,7 @@ export function TreeView({
       for (const under of choices.changeTypeUnder)
         entries.push({
           id: `changeTypeUnder:${under.fromObjectTypeKey}`,
-          label: `Change type of all ${(objectTypeFor(model, under.fromObjectTypeKey)?.pluralName ?? under.fromObjectTypeKey).toLowerCase()} in here…`,
+          label: `Change type of all ${typeName(model, under.fromObjectTypeKey, { plural: true }).toLowerCase()} in here…`,
           run: () =>
             setRestructuring({
               kind: "changeTypeUnder",
@@ -353,7 +352,7 @@ export function TreeView({
         <Icon name="plus" /> Add {objectType.name}
       </button>
     ));
-  const emptyName = (objectTypeFor(model, config.rootObjectTypeKeys[0])?.pluralName ?? "records").toLowerCase();
+  const emptyName = typeName(model, config.rootObjectTypeKeys[0], { plural: true, lower: true }) || "records";
 
   const treeConfig: TreeConfiguration = {
     rootTypes: config.rootObjectTypeKeys,
@@ -457,7 +456,7 @@ export function TreeView({
       : undefined,
   };
 
-  const rootNames = config.objectTypeKeys.map((key) => objectTypeFor(model, key)?.pluralName ?? key);
+  const rootNames = config.objectTypeKeys.map((key) => typeName(model, key, { plural: true }));
   // The header carries the tile of the type the lens starts from, as its collection's page does.
   const rootType = objectTypeFor(model, config.rootObjectTypeKeys[0]);
   const headingId = `tree-lens-${view.key}`;
@@ -671,7 +670,7 @@ function RenameField({
       onSaved();
     } catch (cause) {
       setError(errorMessage(cause));
-      if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) onConflict();
+      if (isVersionConflict(cause, ["VERSION_CONFLICT", "CHANGE_SET_VERSION_CONFLICT"])) onConflict();
       setSaving(false);
     }
   }

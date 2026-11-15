@@ -13,7 +13,6 @@
  */
 
 import { useRef, useState } from "react";
-import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
@@ -36,14 +35,15 @@ import { recreation, type GrantChange } from "./grantPlan";
 import type { PickedPrincipal } from "./PrincipalPicker";
 import { grantHeld, grantWhere } from "./securityText";
 import { useSettingsRead } from "@/state/useSystem";
+import { allWorkspaces } from "@/api/allWorkspaces";
 
 /** Every workspace's label by key, retired ones included, for naming where a grant applies. */
-const allWorkspaces = () => api.workspaces({ status: "all", pageSize: 500 });
+const everyWorkspace = () => allWorkspaces({ status: "all" });
 
 /** Every workspace's label by key, as the Security pages name workspaces. */
 export function useWorkspaceLabels(): ReadonlyMap<string, string> {
-  const { data } = useSettingsRead(allWorkspaces);
-  return new Map(data?.items.map((workspace) => [workspace.key, workspace.label]));
+  const { data } = useSettingsRead(everyWorkspace);
+  return new Map(data?.map((workspace) => [workspace.key, workspace.label]));
 }
 
 function principalRoute(principal: Grant["principal"]): SettingsRoute {

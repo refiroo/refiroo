@@ -6,6 +6,7 @@
  */
 
 import type { ReactNode } from "react";
+import { counted } from "@/lib/count";
 import type { DraftOperation, ModelDraftOutline, ProfileSource, SourceBlock, SourceColumn } from "@/types";
 import type { DraftProfileDocument } from "@/types/sources";
 import { InlineError } from "@/ui/InlineError";
@@ -132,9 +133,7 @@ export function ListPanel({
           <dt>Cells</dt>
           <dd>
             <span className="mono">{rangeOf(rectangle)}</span> · header row {rectangle.headerRow} ·{" "}
-            {loaded
-              ? `${rows} ${rows === 1 ? "row" : "rows"} below it`
-              : `${block.rows} ${block.rows === 1 ? "row" : "rows"}`}
+            {loaded ? `${counted(rows, "row")} below it` : `${counted(block.rows, "row")}`}
           </dd>
         </div>
         <div>

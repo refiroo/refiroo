@@ -11,6 +11,7 @@
 import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
+import { count, counted } from "@/lib/count";
 import { WORKBOOK_ACCEPT } from "@/ui/AddWorkbookDialog";
 import {
   findings,
@@ -208,10 +209,8 @@ export function NewFromWorkbook({
           {found && found.lists.length > 0 ? (
             <>
               <p className="fw-total">
-                {found.rows.toLocaleString("en")} {found.rows === 1 ? "row" : "rows"} checked, every one:{" "}
-                {found.refused === 0
-                  ? "all of them load."
-                  : `${found.refused.toLocaleString("en")} ${found.refused === 1 ? "does" : "do"} not load.`}
+                {counted(found.rows, "row")} checked, every one:{" "}
+                {found.refused === 0 ? "all of them load." : `${counted(found.refused, "does", "do")} not load.`}
               </p>
               <ul className="fw-lists">
                 {found.lists.map((list) => (
@@ -220,19 +219,18 @@ export function NewFromWorkbook({
                       <strong>{list.list}</strong>
                       <small>
                         {list.sheet ? `from ${list.sheet} · ` : ""}
-                        {list.rows.toLocaleString("en")} {list.rows === 1 ? "row" : "rows"}
+                        {counted(list.rows, "row")}
                       </small>
                     </div>
                     <small>
-                      {list.loads.toLocaleString("en")} {list.loads === 1 ? "row loads" : "rows load"}
-                      {list.skipped > 0 ? `, ${list.skipped.toLocaleString("en")} skipped for want of a key` : ""}
+                      {counted(list.loads, "row loads", "rows load")}
+                      {list.skipped > 0 ? `, ${count(list.skipped)} skipped for want of a key` : ""}
                     </small>
                     {list.refused.length > 0 && (
                       <ul className="fw-refused" aria-label={`Rows of ${list.list} that do not load`}>
                         {list.refused.map((item) => (
                           <li key={item.code}>
-                            {item.rows.toLocaleString("en")} {item.rows === 1 ? "row does" : "rows do"} not load:{" "}
-                            {item.reason ?? item.code}
+                            {counted(item.rows, "row does", "rows do")} not load: {item.reason ?? item.code}
                           </li>
                         ))}
                       </ul>

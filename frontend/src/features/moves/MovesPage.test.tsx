@@ -8,7 +8,7 @@ vi.mock("@/api/client", async (load) => {
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
 });
 const holds = vi.hoisted(() => ({ copyMove: true }));
-vi.mock("@/app/useMe", () => ({ useHoldsGroup: () => holds.copyMove }));
+vi.mock("@/state/useMe", () => ({ useHoldsGroup: () => holds.copyMove }));
 vi.mock("@/state/useSystem", () => ({
   useCapabilities: () => ({
     capabilities: {

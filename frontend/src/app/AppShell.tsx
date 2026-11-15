@@ -27,7 +27,7 @@ import { DataContextBand, RETIRED_WORKSPACE_TEXT } from "./DataContextBand";
 import { ShellFrame } from "./ShellFrame";
 import { AiTaskJourneyBar } from "@/features/ai-tasks/AiTaskJourneyBar";
 import { TopBar } from "./TopBar";
-import { useHoldsGroup } from "./useMe";
+import { useHoldsGroup } from "@/state/useMe";
 
 export function AppShell({
   model,

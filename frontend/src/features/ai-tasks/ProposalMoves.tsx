@@ -2,10 +2,10 @@
  * records the workspace holds of each, from the engine's own figures. */
 
 import type { ReactElement } from "react";
+import { count, counted, plural } from "@/lib/count";
 import type { AiTask, AiTaskMove } from "@/types";
 import { Card } from "@/ui/Card";
 import { SettingsTable } from "@/ui/SettingsTable";
-import { count } from "@/ui/limits";
 
 /** A move that only changes the application of a type, which keeps its key. */
 function onlyApplication(move: AiTaskMove): boolean {
@@ -35,12 +35,12 @@ export function movesSentence(task: Pick<AiTask, "design">): string | undefined 
   const moves = task.design?.moves ?? [];
   if (moves.length === 0) return undefined;
   const records = moves.reduce((total, move) => total + move.records, 0);
-  const kept = `${count(records)} ${records === 1 ? "record keeps" : "records keep"} ${records === 1 ? "its" : "their"} IDs, history and relationships.`;
+  const kept = `${counted(records, "record keeps", "records keep")} ${plural(records, "its", "their")} IDs, history and relationships.`;
   const across = moves.filter(onlyApplication);
   const apps = [...new Set(across.map((move) => move.toApplicationName ?? move.toApplication))];
   if (across.length === 0 || apps.length !== 1) return kept;
   const here = across.reduce((total, move) => total + move.records, 0);
-  return `${count(across.length)} ${across.length === 1 ? "type moves" : "types move"} to ${apps[0]}, ${count(here)} ${here === 1 ? "record" : "records"}. ${kept}`;
+  return `${counted(across.length, "type moves", "types move")} to ${apps[0]}, ${counted(here, "record")}. ${kept}`;
 }
 
 /** What changes for the consumers of the model: each consumer API whose version the proposal raises. */
@@ -63,11 +63,13 @@ export function ConsumerChanges({ task }: { task: Pick<AiTask, "design"> }) {
 export function MoveLosses({ task }: { task: Pick<AiTask, "design"> }) {
   const lines = (task.design?.moves ?? []).flatMap((move) => {
     const lost = move.lost ?? {};
-    const parts = [
-      [lost.records, "record", "records"],
-      [lost.values, "value", "values"],
-      [lost.relationships, "relationship", "relationships"],
-    ].flatMap(([n, one, many]) => (typeof n === "number" && n > 0 ? [`${count(n)} ${n === 1 ? one : many}`] : []));
+    const parts = (
+      [
+        [lost.records, "record", "records"],
+        [lost.values, "value", "values"],
+        [lost.relationships, "relationship", "relationships"],
+      ] as const
+    ).flatMap(([n, one, many]) => (typeof n === "number" && n > 0 ? [counted(n, one, many)] : []));
     return parts.length > 0 ? [{ key: move.from, text: `${move.fromName}: ${parts.join(", ")} would be lost.` }] : [];
   });
   return (

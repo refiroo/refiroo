@@ -8,6 +8,7 @@
  * offers only the view's `cellActions`, and a save re-reads that one cell.
  */
 
+import { plural } from "@/lib/count";
 import { StatusPill } from "@/ui/StatusPill";
 import { Card } from "@/ui/Card";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -494,7 +495,7 @@ export function RelationMatrixView({
         </div>
         {hideEmpty && columnPage?.key === columnsKey && columnPage.emptyHidden > 0 && (
           <p className="matrix-hidden-columns" role="status">
-            {columnPage.emptyHidden} empty {columnPage.emptyHidden === 1 ? "column" : "columns"} hidden ·{" "}
+            {columnPage.emptyHidden} empty {plural(columnPage.emptyHidden, "column")} hidden ·{" "}
             <button type="button" className="ghost" onClick={() => chooseHideEmpty(false)}>
               Show all
             </button>

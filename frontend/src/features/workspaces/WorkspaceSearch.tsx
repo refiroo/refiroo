@@ -10,6 +10,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { counted } from "@/lib/count";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { collectionGroups, entryLabel } from "@/model/collections";
 import { applicationFor, objectTypeFor } from "@/model/lookup";
@@ -215,7 +216,7 @@ export function WorkspaceSearch({
           : result.error
             ? ""
             : items.length
-              ? `${items.length} ${items.length === 1 ? "record" : "records"} found`
+              ? `${counted(items.length, "record")} found`
               : "No record's name matches"}
       </p>
       {shown && (result || listMatches.length > 0 || placeMatches.length > 0) && (

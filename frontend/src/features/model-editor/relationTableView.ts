@@ -3,7 +3,16 @@
  * columns each end and the relationship offer, and only what the model's validation accepts
  * (`application_rules._check_relation_table_view`). Filters and sorts follow from the columns.
  */
-import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/model/outline";
+import { stringList } from "@/lib/coerce";
+import {
+  attributeTypeName,
+  attributeTypeOf,
+  keyFromLabel,
+  objectTypeOf,
+  relationTypeName,
+  typeLabel,
+  typeName,
+} from "@/model/outline";
 import type { DraftOperation, ModelDraftOutline, OutlineApplication } from "@/types";
 
 type Values = Record<string, unknown>;
@@ -11,7 +20,6 @@ type Option = { value: string; label: string };
 
 const SCALAR = new Set(["text", "longText", "integer", "decimal", "boolean", "date", "dateTime"]);
 
-const list = (value: unknown): string[] => (Array.isArray(value) ? (value as string[]) : []);
 const bindingValue = (relationType: string, from: string, to: string) => `${relationType}|${from}|${to}`;
 
 export function parseBinding(value: unknown) {
@@ -30,9 +38,10 @@ export function bindingOptions(outline: ModelDraftOutline): Option[] {
     .filter((relation) => !relation.containment)
     .map((relation) => ({
       value: bindingValue(relation.relationType, relation.from, relation.to),
-      label: `${typeLabel(outline, relation.from)} → ${typeLabel(outline, relation.to)}, through ${
-        relationTypeOf(outline, relation.relationType)?.name ?? relation.relationType
-      }`,
+      label: `${typeLabel(outline, relation.from)} → ${typeLabel(outline, relation.to)}, through ${relationTypeName(
+        outline,
+        relation.relationType,
+      )}`,
     }));
 }
 
@@ -51,7 +60,7 @@ export function endColumnOptions(outline: ModelDraftOutline, binding: unknown, e
 export function attributeOptions(outline: ModelDraftOutline, binding: unknown): Option[] {
   return (bindingOf(outline, binding)?.attributeTypeKeys ?? []).map((key) => ({
     value: key,
-    label: outline.attributeTypes.find((item) => item.key === key)?.name ?? key,
+    label: attributeTypeName(outline, key),
   }));
 }
 
@@ -90,12 +99,12 @@ export function newTableValues<V extends Values>(outline: ModelDraftOutline): V 
 
 function configOf(outline: ModelDraftOutline, values: Values) {
   const { relationType, from, to } = parseBinding(values.binding);
-  const features = (key: string) => outline.attributeTypes.find((item) => item.key === key)?.features ?? {};
-  const fromColumns = list(values.fromColumns);
-  const toColumns = list(values.toColumns);
-  const attributes = list(values.attributeColumns);
+  const features = (key: string) => attributeTypeOf(outline, key)?.features ?? {};
+  const fromColumns = stringList(values.fromColumns);
+  const toColumns = stringList(values.toColumns);
+  const attributes = stringList(values.attributeColumns);
   // The model's validation refuses a JSON attribute as a filter or a sort; it may still be a column.
-  const json = (key: string) => outline.attributeTypes.find((item) => item.key === key)?.valueType === "json";
+  const json = (key: string) => attributeTypeOf(outline, key)?.valueType === "json";
   const filterable = (ref: string, key: string) => (features(key).filterable === true && !json(key) ? [ref] : []);
   const sortable = (key: string) => (json(key) ? [] : [`relation:${key}`]);
   return {

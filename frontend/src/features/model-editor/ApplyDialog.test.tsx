@@ -101,6 +101,20 @@ describe("ApplyDialog", () => {
     expect(api.activateWorkspaceModel).toHaveBeenCalled();
   });
 
+  it("names every other active workspace as not changed, in list order, past the first page", async () => {
+    const zeta = { ...south, key: "zeta", label: "Zeta" };
+    const east = { ...south, key: "east", label: "East" };
+    vi.mocked(api.workspaces)
+      .mockResolvedValueOnce({ items: [zeta, north], nextCursor: "page-2" } as never)
+      .mockResolvedValueOnce({ items: [south, east], nextCursor: null } as never);
+    open(compiled("compatible"));
+    await screen.findByText("Your records stay as they are");
+    expect(
+      screen.getByText(/Not changed: Zeta \(Model 1\.0\), South \(Model 1\.0\), East \(Model 1\.0\)\./),
+    ).toBeInTheDocument();
+    expect(api.workspaces).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "page-2", status: "active" }));
+  });
+
   it("offers the free version when the release's version is taken, and installs with it (RELEASE_IDENTITY_CONFLICT)", async () => {
     vi.mocked(api.installModelDraft)
       .mockRejectedValueOnce(

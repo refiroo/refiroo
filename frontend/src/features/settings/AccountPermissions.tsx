@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import { counted } from "@/lib/count";
 import { workspaceHue } from "@/model/workspaceTile";
 import { appPath, openApplication, openWorkspace, workspacePathOf, type Navigate } from "@/state/openWorkspace";
 import { RoleChip } from "@/features/security/RoleChip";
@@ -199,8 +200,6 @@ export function placeRows(
   return { rows, instance: roleEntries(instance, groups) };
 }
 
-const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
-
 interface LinkContext {
   workspaceKey: string | null;
   apps: AppsByName | undefined;
@@ -255,8 +254,8 @@ function ReachCell({ reach: value, fold }: { reach: Reach | undefined; fold: Fol
         onClick={fold.onToggle}
       >
         {[
-          value.applications.length > 0 && plural(value.applications.length, "application"),
-          value.recordTypes.length > 0 && plural(value.recordTypes.length, "record type"),
+          value.applications.length > 0 && counted(value.applications.length, "application"),
+          value.recordTypes.length > 0 && counted(value.recordTypes.length, "record type"),
         ]
           .filter(Boolean)
           .join(", ")}
@@ -641,5 +640,7 @@ export function permissionsSummary(
 ) {
   const { rows } = placeRows(grants, labels, groups);
   const workspaces = rows.filter((row) => row.workspaceKey !== null).length;
-  return [workspaces > 0 && plural(workspaces, "workspace"), plural(grants.length, "role")].filter(Boolean).join(" · ");
+  return [workspaces > 0 && counted(workspaces, "workspace"), counted(grants.length, "role")]
+    .filter(Boolean)
+    .join(" · ");
 }

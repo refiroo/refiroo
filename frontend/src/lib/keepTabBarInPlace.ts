@@ -4,6 +4,8 @@
  * bar, so the page is scrolled by however far the bar moved.
  */
 
+import { scrollingAncestor } from "@/lib/scrollAncestor";
+
 /**
  * How far to scroll to bring a tab bar back to where it was. `before` and `after` are the bar's
  * distance from the top of the viewport. A bar that was scrolled out above the viewport is left
@@ -13,19 +15,10 @@ export function scrollDelta(before: number, after: number): number {
   return before < 0 ? 0 : after - before;
 }
 
-/** The nearest ancestor that scrolls, or the page itself. */
-export function scrollContainer(element: Element): Element {
-  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
-    const { overflowY } = getComputedStyle(parent);
-    if ((overflowY === "auto" || overflowY === "scroll") && parent.scrollHeight > parent.clientHeight) return parent;
-  }
-  return document.scrollingElement ?? document.documentElement;
-}
-
 /** Scroll so that `bar` is `before` pixels from the top of the viewport again, if it can be. */
 export function restoreTabBar(bar: Element, before: number) {
   const delta = scrollDelta(before, bar.getBoundingClientRect().top);
-  if (delta) scrollContainer(bar).scrollTop += delta;
+  if (delta) scrollingAncestor(bar, { pastBody: true }).scrollTop += delta;
 }
 
 /**

@@ -2,7 +2,7 @@
  * The containment path from the root object down to the object being viewed.
  */
 
-import { objectTypeFor } from "@/model/lookup";
+import { typeName } from "@/model/lookup";
 import type { HierarchyPanelDefinition } from "@/types";
 import type { PanelProps } from "./types";
 
@@ -33,7 +33,7 @@ export function HierarchyPanel({ model, object, panel, onOpen }: PanelProps) {
               ) : (
                 <button onClick={() => onOpen(part.objectTypeKey, part.id)}>{part.name}</button>
               )}
-              <small>{objectTypeFor(model, part.objectTypeKey)?.name}</small>
+              <small>{typeName(model, part.objectTypeKey)}</small>
               {index < visiblePath.length - 1 && <span>›</span>}
             </li>
           ))}

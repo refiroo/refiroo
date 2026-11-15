@@ -20,7 +20,7 @@ import {
   type OperationSpec,
   type OperationTarget,
 } from "@/features/model-editor/operations";
-import { draftTypeHue, relationTypeOf } from "@/model/outline";
+import { draftTypeHue, relationTypeName, relationTypeOf } from "@/model/outline";
 import { MarkPill } from "@/features/model-editor/MarkPill";
 
 const SHORT: Record<string, string> = {
@@ -213,6 +213,5 @@ export function RelationshipMatrix({
 }
 
 function relationName(outline: ModelDraftOutline, relation: OutlineRelation) {
-  const name = relationTypeOf(outline, relation.relationType)?.name ?? relation.relationType;
-  return relation.containment ? `contains · ${name}` : name;
+  return relationTypeName(outline, relation.relationType, { contains: relation.containment });
 }

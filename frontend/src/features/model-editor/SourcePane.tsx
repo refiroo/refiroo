@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { count, counted } from "@/lib/count";
 import type {
   DraftProfile,
   EditorSelection,
@@ -131,7 +132,7 @@ export function SourcePane({
           onChange={setChosenSheet}
           tabs={sheets.map((sheet) => ({
             id: sheet.name,
-            label: `${sheet.name} · ${sheet.rows.toLocaleString()}`,
+            label: `${sheet.name} · ${count(sheet.rows)}`,
             content: sheet.laidOut ? (
               <SheetLists
                 sheet={sheet}
@@ -533,7 +534,7 @@ function SheetLists({
         <span className="muted">
           {ignored
             ? "Ignored: nothing loads from this sheet"
-            : `Laid out for reading · ${lists.length} ${lists.length === 1 ? "list" : "lists"}, ${loaded} loaded`}
+            : `Laid out for reading · ${counted(lists.length, "list")}, ${loaded} loaded`}
         </span>
         <ActionMenu
           label={`Sheet ${sheet.name}`}

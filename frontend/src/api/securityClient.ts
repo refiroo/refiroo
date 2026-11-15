@@ -4,7 +4,7 @@
  * that changes a stored entry carries the version it was based on.
  */
 
-import { request, type PageSelector } from "@/api/client";
+import { json, request, type PageSelector } from "@/api/client";
 import type {
   PasskeyPage,
   ActionGroup,
@@ -56,8 +56,6 @@ function selecting(selector: PageSelector) {
     includeTotal: selector.includeTotal || undefined,
   };
 }
-
-const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
 export const security = {
   /** People as created, each with their roles (D298); `includeTotal` counts the filter's matches. */
