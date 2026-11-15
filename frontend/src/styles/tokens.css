@@ -470,6 +470,26 @@
   --shadow-overlay: 0 24px 64px rgba(29, 28, 26, 0.22);
   /* A bottom sheet's shadow, cast upward (0.9 K6a). */
   --shadow-sheet: 0 -12px 40px rgba(29, 28, 26, 0.2);
+  /* Stacking (0.17 SR6): every z-index a stylesheet writes is one of these. Their order and the values that were
+     equal are the order and the ties the stylesheets had; a layer is named by what sits on it. */
+  --z-behind: -1; /* a header's backing sheet */
+  --z-sticky: 1; /* a sticky table head or first column, a pinned menu, a dialog's action row */
+  --z-sticky-cross: 2; /* a sticky head or column over the sticky one it crosses, a tab list, column resizers, Home's welcome */
+  --z-raised: 3; /* a grid's sticky head, a sticky bar, a pane's resizer, a carried card */
+  --z-corner: 4; /* a grid's sticky corner, a cell editor, the canvas zoom */
+  --z-results: 5; /* Home's search results */
+  --z-line-popover: 6; /* the canvas line's popover anchor */
+  --z-band: 10; /* the data band */
+  --z-journey: 15; /* the journey bar */
+  --z-header: 20; /* the global header, the rail's band, the canvas find list */
+  --z-side: 21; /* the frame's side, the navigation resizer */
+  --z-search: 30; /* the workspace search results */
+  --z-sheet: 40; /* a decision's actions on a phone */
+  --z-backdrop: 50; /* a dialog's backdrop */
+  --z-float: 60; /* toasts, the floating cell editor, a cell's full value */
+  --z-popover: 100; /* a popover, an info hint, the skip link */
+  --z-drop-line: 110; /* the tree's drop line */
+  --z-drag-preview: 111; /* the tree's drag preview, over its drop line */
 }
 
 /* --- 2. Semantic roles, dark: an explicit choice, or the system preference unless light is pinned.
@@ -1551,7 +1571,7 @@
   --display-weight: 650;
   --display-tracking: -0.03em;
   --radius-control: 10px;
-  --radius-button: 999px;
+  --radius-button: var(--pill-radius);
   --card-radius: 16px;
   --radius-overlay: 26px;
   --radius-xs: 6px;

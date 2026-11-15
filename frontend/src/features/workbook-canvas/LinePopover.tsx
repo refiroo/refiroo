@@ -68,7 +68,7 @@ export function LinePopover({
   return (
     <div
       ref={box}
-      className="canvas-line-popover"
+      className="popover canvas-line-popover"
       role="dialog"
       aria-label={`Rule of ${title}`}
       onPointerDown={(event) => event.stopPropagation()}

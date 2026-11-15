@@ -351,7 +351,7 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
                 cannot be decided as submitted.
               </Notice>
               {refresh && (
-                <div className="decision-actions">
+                <div className="decision-actions wrap-row">
                   <button type="button" className="secondary" onClick={() => void refresh()}>
                     Reload
                   </button>
@@ -375,7 +375,7 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
                 <small id="decision-comment-help">Required to send back</small>
               </label>
               {commentError && <p className="field-error">{commentError}</p>}
-              <div className="decision-actions">
+              <div className="decision-actions wrap-row">
                 <button type="button" className="secondary" disabled={pending} onClick={() => void decide("sendBack")}>
                   Send back
                 </button>
@@ -567,7 +567,7 @@ function ChangeList<T>({
           {(drawn) => (
             <>
               {list.items.length > 0 && (
-                <ul className="change-rows" aria-busy={list.loading || undefined}>
+                <ul className="change-rows list-reset" aria-busy={list.loading || undefined}>
                   <WindowSpacer as="li" edge="before" height={drawn.before} />
                   {drawn.rows.map(({ index, item, size }) =>
                     item === undefined ? (

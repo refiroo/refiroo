@@ -12,7 +12,7 @@ export function RecordChip({ hue, children, onOpen }: { hue?: Hue; children: Rea
   const content = (
     <>
       <span className="record-chip-marker" aria-hidden="true" />
-      <span className="record-chip-name">{children}</span>
+      <span className="record-chip-name truncate">{children}</span>
     </>
   );
   if (onOpen)

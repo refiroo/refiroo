@@ -249,7 +249,7 @@ function OperationPopover({
       title={title}
       onClose={onClose}
       dismissible={!pending}
-      className={`control-popover editor-popover${wide ? " editor-popover-wide" : ""}`}
+      className={`popover control-popover editor-popover${wide ? " editor-popover-wide" : ""}`}
       titleClassName="editor-popover-title"
     >
       <form ref={formRef} className="editor-popover-form" onSubmit={onSubmit}>

@@ -87,7 +87,7 @@ export function JourneyBar({
         <p className="journey-sentence" role="status">
           {sentence}
         </p>
-        <div className="journey-actions">
+        <div className="journey-actions wrap-row">
           {stop && (
             <button type="button" className="secondary" disabled={stop.disabled} onClick={stop.onClick}>
               {stop.label}

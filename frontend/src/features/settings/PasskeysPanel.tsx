@@ -49,7 +49,7 @@ export function PasskeysPanel() {
               You have no passkey yet.
             </SettingsEmpty>
           ) : (
-            <ul className="account-list" aria-label="Your passkeys">
+            <ul className="account-list list-reset" aria-label="Your passkeys">
               {passkeys.map((passkey) => (
                 <li key={passkey.id}>
                   <SettingRow

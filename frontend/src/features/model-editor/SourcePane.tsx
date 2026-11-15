@@ -311,7 +311,7 @@ function SheetColumns({
       {!columns ? (
         <Skeleton lines={6} label={`Reading the columns of ${sheet.name}`} />
       ) : (
-        <ul className="source-columns" role="listbox" aria-label={`Columns of ${sheet.name}`} ref={list}>
+        <ul className="source-columns list-reset" role="listbox" aria-label={`Columns of ${sheet.name}`} ref={list}>
           {rows.map((column, index) => {
             const header = column.header ?? "";
             const status = columnDisplayStatus(profile, issues, proposed, sheet.name, header, { describes, ignored });

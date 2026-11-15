@@ -205,7 +205,7 @@ export function ControlPopover({
       <Popover
         ref={popoverRef}
         isNonModal
-        className={`control-popover${className ? ` ${className}` : ""}`}
+        className={`popover control-popover${className ? ` ${className}` : ""}`}
         placement={placement}
         boundaryElement={boundary}
         UNSTABLE_portalContainer={container}

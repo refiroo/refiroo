@@ -166,7 +166,7 @@ export function HomeSearch({ workspaces, onNavigate }: { workspaces: readonly Ow
             : "No record's name matches"}
       </p>
       {shown && result && (
-        <div className="workspace-search-results">
+        <div className="popover workspace-search-results">
           {result.error ? (
             <p className="workspace-search-note" role="alert">
               {result.error}

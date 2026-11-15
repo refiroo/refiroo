@@ -2,7 +2,7 @@
 
 @media (max-width: 1080px) {
   .workspace-main {
-    padding-bottom: 40px;
+    padding-bottom: var(--space-10);
   }
   .model-summary {
     grid-template-columns: repeat(3, 1fr);
@@ -65,7 +65,7 @@
     align-items: center;
     gap: 0 var(--space-3);
     height: auto;
-    padding: 0 12px;
+    padding: 0 var(--space-3);
   }
   .product-mark {
     grid-area: mark;
@@ -103,10 +103,10 @@
   .navigation-toggle {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     width: 100%;
     min-height: 44px;
-    padding: 0 16px;
+    padding: 0 var(--space-4);
     border: 0;
     border-bottom: 1px solid var(--border-subtle);
     background: var(--surface-nav);
@@ -117,7 +117,7 @@
   .workspace-main {
     --main-pad-top: 16px;
     --main-pad-x: 16px;
-    padding-bottom: 32px;
+    padding-bottom: var(--space-8);
   }
   /* On a phone the band would cover much of the screen, so it scrolls with the page. */
   .data-context-band {
@@ -168,7 +168,7 @@
   .collection-header {
     align-items: flex-start;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: var(--space-3);
   }
   .page-icon:not(:has(> .hue-tile)) {
     display: none;
@@ -177,7 +177,7 @@
   .object-toolbar,
   .embedded-toolbar {
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--space-2);
   }
   .object-toolbar .search-box,
   .embedded-toolbar .search-box,
@@ -262,7 +262,7 @@
     position: sticky;
     bottom: 0;
     margin-top: auto;
-    padding: 12px 0 0;
+    padding: var(--space-3) 0 0;
     background: var(--surface-raised);
   }
   .dialog-actions-spacer {
@@ -276,9 +276,6 @@
   }
   .model-summary div:nth-child(even) {
     border-right: 0;
-  }
-  .release-metadata {
-    grid-template-columns: 1fr;
   }
   .ruled-list-item {
     align-items: stretch;
@@ -306,7 +303,7 @@
     min-height: 40px;
   }
   .attribute-grid dt {
-    padding-right: 40px;
+    padding-right: var(--space-10);
   }
   .attribute-edit {
     align-items: center;
@@ -328,7 +325,7 @@
     min-width: 108px;
   }
   .matrix-legend {
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
   }
 }
 
@@ -336,7 +333,7 @@
 @media (max-width: 760px) {
   .journey-bar {
     position: static;
-    padding: var(--space-2) 16px;
+    padding: var(--space-2) var(--space-4);
   }
   .journey-steps {
     display: none;

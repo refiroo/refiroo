@@ -211,12 +211,27 @@ try {
 
   // --- 12. Relation matrix (Base 0.8 A5): SC-09's Delivery Methods by language (one, none and
   // history-only cells, the legend) and the history-only cell's dialog, light and dark ---
-  await seedTranslationMatrix(api, records);
+  const matrix = await seedTranslationMatrix(api, records);
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });
     await openTranslationMatrix(page, uiUrl);
     await page.mouse.move(0, 0); // no hover left from the previous pass's click
     await capture(page, `relation-matrix-${scheme}`, output);
+    // The columns named in Filter, shown as the applied-filter chips above the matrix (SR6).
+    await openTranslationMatrix(
+      page,
+      uiUrl,
+      `&matrixColumn=${matrix.languages.cs.id}&matrixColumn=${matrix.languages.de.id}`,
+    );
+    await page
+      .getByRole("group", { name: "Applied filters" })
+      .or(page.locator('[aria-label="Applied filters"]'))
+      .first()
+      .waitFor();
+    await page.mouse.move(0, 0);
+    await capture(page, `relation-matrix-filtered-${scheme}`, output);
+    await openTranslationMatrix(page, uiUrl);
+    await page.mouse.move(0, 0);
     await openTranslationCell(page, "de");
     await capture(page, `relation-matrix-cell-${scheme}`, output);
     await page.keyboard.press("Escape");

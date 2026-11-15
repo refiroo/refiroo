@@ -42,7 +42,7 @@ export function Card({
     <section className={classes} aria-labelledby={headingId} {...rest}>
       <div className="card-header">
         <Heading id={headingId}>{title}</Heading>
-        {actions && <div className="card-actions">{actions}</div>}
+        {actions && <div className="card-actions wrap-row">{actions}</div>}
       </div>
       {children}
     </section>

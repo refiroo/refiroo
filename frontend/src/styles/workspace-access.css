@@ -3,8 +3,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 .access-search {
   flex: 0 1 300px;
@@ -32,15 +32,15 @@
 .access-row {
   display: grid;
   grid-template-columns: minmax(200px, 300px) 1fr;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: center;
-  padding: 12px 4px;
+  padding: var(--space-3) var(--space-1);
   border-bottom: 1px solid var(--border-faint);
 }
 .access-who {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   min-width: 0;
 }
 .access-who-text {
@@ -82,14 +82,14 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .access-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 28px;
-  padding: 0 8px 0 10px;
+  padding: 0 var(--space-2) 0 10px;
   border: 1px solid var(--chip-marker, var(--border-subtle));
   border-radius: var(--radius-control);
   background: var(--chip-fill, var(--surface-fill));
@@ -101,39 +101,21 @@
   font-size: var(--text-xs);
   font-weight: 400;
 }
-.access-chip[data-hue="1"] {
-  --chip-fill: var(--hue-1-fill);
-  --chip-ink: var(--hue-1-ink);
-  --chip-marker: var(--hue-1-marker);
-}
-.access-chip[data-hue="2"] {
-  --chip-fill: var(--hue-2-fill);
-  --chip-ink: var(--hue-2-ink);
-  --chip-marker: var(--hue-2-marker);
-}
-.access-chip[data-hue="3"] {
-  --chip-fill: var(--hue-3-fill);
-  --chip-ink: var(--hue-3-ink);
-  --chip-marker: var(--hue-3-marker);
-}
-.access-chip[data-hue="4"] {
-  --chip-fill: var(--hue-4-fill);
-  --chip-ink: var(--hue-4-ink);
-  --chip-marker: var(--hue-4-marker);
-}
-.access-chip[data-hue="7"] {
-  --chip-fill: var(--hue-7-fill);
-  --chip-ink: var(--hue-7-ink);
-  --chip-marker: var(--hue-7-marker);
-}
+/* A chip's colours are the hue convention (`[data-hue]` sets `--hue-fill`, `--hue-ink` and `--hue-marker`); the
+   neutral chip and the hues 5 and 6, which no role has, keep the plain look. */
+.access-chip[data-hue="1"],
+.access-chip[data-hue="2"],
+.access-chip[data-hue="3"],
+.access-chip[data-hue="4"],
+.access-chip[data-hue="7"],
 .access-chip[data-hue="8"] {
-  --chip-fill: var(--hue-8-fill);
-  --chip-ink: var(--hue-8-ink);
-  --chip-marker: var(--hue-8-marker);
+  --chip-fill: var(--hue-fill);
+  --chip-ink: var(--hue-ink);
+  --chip-marker: var(--hue-marker);
 }
 .access-legend-chip {
   min-height: 22px;
-  padding: 0 8px;
+  padding: 0 var(--space-2);
   font-size: var(--text-xs);
 }
 .access-chip-stale {
@@ -209,7 +191,7 @@
   .access-row {
     grid-template-columns: 1fr;
     gap: 10px;
-    padding: 12px;
+    padding: var(--space-3);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-panel);
     background: var(--surface-raised);

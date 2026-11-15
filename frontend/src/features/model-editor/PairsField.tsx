@@ -100,7 +100,7 @@ export function PairsField({
         <p className="choice-list-empty">No fields yet.</p>
       )}
       {next && (
-        <div className="choice-list-add">
+        <div className="choice-list-add wrap-row">
           <button
             type="button"
             className="secondary"

@@ -200,7 +200,7 @@ export function ObjectToolbar({
         </div>
       </div>
       {query.search !== "" && query.filters.length > 0 && (
-        <div className="filter-chips" aria-label="Applied search">
+        <div className="filter-chips filter-chips-applied" aria-label="Applied search">
           <button className="ghost" onClick={() => onChange({ ...query, search: "", filters: [] })}>
             Clear search and filters
           </button>

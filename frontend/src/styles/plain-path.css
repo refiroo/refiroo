@@ -101,8 +101,7 @@
 .dialog form .lookup-field .object-lookup-options {
   padding-bottom: var(--space-2);
 }
-.dialog form .lookup-field + label,
-.dialog form .lookup-field + .field-group {
+.dialog form .lookup-field + label {
   margin-top: var(--space-2);
 }
 

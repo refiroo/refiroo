@@ -79,7 +79,7 @@ export function FloatingCellEditor({
           <span className="cell-edit-actions cell-edit-actions-kept" data-icons="1" />
         </span>
       )}
-      <div className="floating-cell-editor" ref={layer}>
+      <div className="popover floating-cell-editor" ref={layer}>
         {children}
       </div>
     </>

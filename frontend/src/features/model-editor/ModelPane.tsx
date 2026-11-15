@@ -419,7 +419,7 @@ export function EditorTree({
 
   return (
     <ul
-      className="model-pane-tree"
+      className="model-pane-tree list-reset"
       role="tree"
       aria-label={label}
       ref={tree}
@@ -504,7 +504,7 @@ export function EditorTree({
             {row.borrowed && (
               <span className="model-pane-borrowed" title={row.borrowed.text}>
                 {row.borrowed.chip && <span className="model-pane-chip">{row.borrowed.chip}</span>}
-                <span className="model-pane-borrowed-text">{row.borrowed.text}</span>
+                <span className="model-pane-borrowed-text truncate">{row.borrowed.text}</span>
               </span>
             )}
             {row.note && <span className="model-pane-note">{row.note}</span>}

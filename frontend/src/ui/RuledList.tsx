@@ -10,7 +10,7 @@ import { Card } from "@/ui/Card";
 export function RuledList({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Card flush className="ruled-list-card">
-      <ul className="ruled-list" aria-label={label}>
+      <ul className="ruled-list list-reset" aria-label={label}>
         {children}
       </ul>
     </Card>

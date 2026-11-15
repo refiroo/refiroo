@@ -1,6 +1,6 @@
 // Browser runners, the accessibility gate and the visual gate in lanes (TS3).
 //
-//   npm --prefix frontend run test:lanes -- <runner>... | all [--lanes N] [--out DIR] [--update-baselines] [--keep]
+//   npm --prefix frontend run test:lanes -- <runner>... | all [--lanes N] [--out DIR] [--update-baselines [--changed-only]] [--keep]
 //   npm --prefix frontend run test:lanes -- --list
 //
 // Each lane runs one runner at a time as a process of its own; the runner starts its own backend on a
@@ -54,6 +54,7 @@ function parse(argv) {
     if (arg === "--lanes") options.lanes = argv[++at];
     else if (arg === "--out") options.out = argv[++at];
     else if (arg === "--update-baselines") options.updateBaselines = true;
+    else if (arg === "--changed-only") options.changedOnly = true;
     else if (arg === "--list") options.show = true;
     else if (arg === "--keep") options.keep = true;
     else if (arg.startsWith("--")) throw new Error(`Unknown option ${arg}.`);
@@ -63,7 +64,7 @@ function parse(argv) {
 }
 
 /** Run one runner; its output goes to a log kept to a head and a tail, never to the terminal. */
-async function execute(runner, lane, { out, updateBaselines }) {
+async function execute(runner, lane, { out, updateBaselines, changedOnly }) {
   const log = resolve(out, `${runner.name.replace(/[^\w.-]/g, "_")}.log`);
   // The runner's helpers make their evidence folders in the system temporary folder (`mkdtemp(tmpdir()…)`),
   // so TMPDIR is the one place that holds them all: a folder of the runner's own, removed when it passes.
@@ -76,7 +77,9 @@ async function execute(runner, lane, { out, updateBaselines }) {
     const args = [
       "e2e/" + runner.file,
       ...runner.args,
-      ...(updateBaselines && runner.baselines ? ["--update-baselines"] : []),
+      ...(updateBaselines && runner.baselines
+        ? ["--update-baselines", ...(changedOnly ? ["--changed-only"] : [])]
+        : []),
     ];
     const child = spawn(process.execPath, args, {
       cwd: frontend,
@@ -146,7 +149,7 @@ if (options.show) {
 }
 if (!options.list.length) {
   console.error(
-    "Name the runners to run, or `all`: test:lanes -- <runner>... | all [--lanes N] [--out DIR] [--update-baselines] [--keep]",
+    "Name the runners to run, or `all`: test:lanes -- <runner>... | all [--lanes N] [--out DIR] [--update-baselines [--changed-only]] [--keep]",
   );
   process.exit(2);
 }
@@ -168,7 +171,11 @@ const results = await runLanes(chosen, {
   lanes,
   updateBaselines: options.updateBaselines,
   execute: async (runner, lane) => {
-    const result = await execute(runner, lane, { out, updateBaselines: options.updateBaselines });
+    const result = await execute(runner, lane, {
+      out,
+      updateBaselines: options.updateBaselines,
+      changedOnly: options.changedOnly,
+    });
     console.log(
       `lane ${lane}: ${runner.name} ${result.passed ? "passed" : "FAILED"} (${(result.durationMs / 1000).toFixed(1)} s)`,
     );

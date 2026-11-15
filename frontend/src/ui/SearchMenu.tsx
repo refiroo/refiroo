@@ -33,7 +33,7 @@ export function SearchMenu({
       <Button className="secondary chip-add" isDisabled={items.length === 0}>
         <Icon name={icon} size={14} /> {label}
       </Button>
-      <Popover className="picker-popover" placement="bottom end">
+      <Popover className="popover picker-popover" placement="bottom end">
         <div className="picker">
           <Autocomplete filter={contains}>
             <SearchField aria-label={`Search: ${label}`} className="picker-search" autoFocus>

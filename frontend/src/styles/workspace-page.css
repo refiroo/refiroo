@@ -158,7 +158,7 @@
 }
 .ws-pin-menu {
   position: relative;
-  z-index: 1;
+  z-index: var(--z-sticky);
 }
 .ws-shelf-empty {
   display: grid;

@@ -27,7 +27,7 @@
   grid-row: 1 / -1;
   position: sticky;
   top: 0;
-  z-index: 21;
+  z-index: var(--z-side);
   align-self: start;
   height: 100dvh;
   min-width: 0;
@@ -134,7 +134,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    z-index: -1;
+    z-index: var(--z-behind);
     background: var(--surface-app);
     opacity: 0.86;
     backdrop-filter: blur(10px);
@@ -241,7 +241,7 @@
   .frame-rail .data-context-band,
   .frame-rail .workspace-main.fill-main > .data-context-band {
     position: fixed;
-    z-index: 20;
+    z-index: var(--z-header);
     top: auto;
     right: 0;
     bottom: 0;
@@ -251,7 +251,7 @@
     padding: 2px var(--space-4);
     border-top: 1px solid var(--border-subtle);
     border-bottom: 0;
-    font-size: var(--fs-12);
+    font-size: var(--text-xs);
   }
   .frame-rail.app-shell-full .data-context-band {
     left: var(--frame-strip);

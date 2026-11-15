@@ -150,7 +150,7 @@ export function ColumnPanel({
           <dt>Feeds</dt>
           <dd>
             {uses.length ? (
-              <ul className="plain-list">
+              <ul className="plain-list list-reset">
                 {uses.map((use) => (
                   <li key={use.source.id}>{feedWords(outline, use, header)}</li>
                 ))}
@@ -331,7 +331,7 @@ export function ColumnPanel({
               <div>
                 <dt>Most frequent values</dt>
                 <dd>
-                  <ul className="plain-list column-values">
+                  <ul className="plain-list list-reset column-values">
                     {(column.values ?? []).map((item) => (
                       <li key={item.value}>
                         <span>{item.value}</span> <span className="muted">{item.count} rows</span>
@@ -364,7 +364,7 @@ export function ColumnPanel({
               <div>
                 <dt>Shares values with</dt>
                 <dd>
-                  <ul className="plain-list">
+                  <ul className="plain-list list-reset">
                     {column.overlaps.map((item, index) => (
                       <li key={index}>
                         {item.objectTypeKey

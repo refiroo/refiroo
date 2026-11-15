@@ -78,7 +78,7 @@ export function CanvasFind({ outline, onGo }: { outline: ModelDraftOutline; onGo
         }}
       />
       {shown && (
-        <ul id={list} role="listbox" aria-label="Matches" className="canvas-find-list">
+        <ul id={list} role="listbox" aria-label="Matches" className="popover canvas-find-list">
           {hits.length === 0 && <li className="canvas-find-none">Nothing is called that.</li>}
           {hits.map((hit, index) => (
             <li

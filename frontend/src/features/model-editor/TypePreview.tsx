@@ -279,7 +279,7 @@ export function TypePreview({
             label={`Application: ${application.name}`}
             trigger={
               <>
-                <span className="band-choice-text">{application.name}</span>
+                <span className="band-choice-text truncate">{application.name}</span>
                 {chevron}
               </>
             }
@@ -317,7 +317,7 @@ export function TypePreview({
             label={`Workspace: ${workspaceLabel}`}
             trigger={
               <>
-                <span className="band-choice-text">{workspaceLabel}</span>
+                <span className="band-choice-text truncate">{workspaceLabel}</span>
                 {chevron}
               </>
             }
@@ -345,7 +345,7 @@ export function TypePreview({
           label={`Record: ${recordLabel}`}
           trigger={
             <>
-              <span className="band-choice-text">{recordLabel}</span>
+              <span className="band-choice-text truncate">{recordLabel}</span>
               {chevron}
             </>
           }
@@ -381,7 +381,7 @@ export function TypePreview({
           )}
         </ControlPopover>
       ) : (
-        <span className="band-choice-text muted">Empty record: {objectType.name} is new, no records yet</span>
+        <span className="band-choice-text truncate muted">Empty record: {objectType.name} is new, no records yet</span>
       )}
     </div>
   );
@@ -907,7 +907,7 @@ function LayoutCanvas({
                 </LayoutFrame>
               ))}
               {region === "main" && (
-                <div className="layout-add-row">
+                <div className="layout-add-row wrap-row">
                   <button
                     type="button"
                     className="secondary layout-add"

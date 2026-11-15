@@ -315,7 +315,7 @@ function Sessions() {
       ) : (
         <>
           <SettingsPanel>
-            <ul className="account-list" aria-label="Where you’re signed in">
+            <ul className="account-list list-reset" aria-label="Where you’re signed in">
               {sessions.map((session) => {
                 const name = session.application
                   ? `${session.application} (assistant)`

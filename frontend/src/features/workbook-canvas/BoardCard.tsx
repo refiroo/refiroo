@@ -414,7 +414,7 @@ function BoardCardView({
       </header>
       {!card.folded && (
         <>
-          <ul className="canvas-fields">
+          <ul className="canvas-fields list-reset">
             {card.fields.map((item) => (
               <FieldRow
                 key={item.id}

@@ -423,6 +423,7 @@ cd frontend
 npm run test:lanes -- lb k1 k2 a11y visual            # these, in lanes
 npm run test:lanes -- all                             # a release's block
 npm run test:lanes -- visual --update-baselines       # record baselines (one visual runner writes at a time)
+npm run test:lanes -- visual --update-baselines --changed-only  # only the missing ones and those that differ
 npm run test:lanes -- --list
 ```
 

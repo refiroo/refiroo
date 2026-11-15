@@ -119,7 +119,7 @@ export function DryRunPanel({
               from {source.sheet} · {source.rows} rows
             </span>
           </h3>
-          <div className="dry-run-figures">
+          <div className="dry-run-figures wrap-row">
             {figuresOf(source)
               .filter(
                 (figure) =>

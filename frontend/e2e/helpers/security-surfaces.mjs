@@ -373,7 +373,10 @@ with engine.begin() as connection:
         async () => {
           await page.goto(`${uiUrl}/settings/people/${nia.id}`);
           await heading(1, "Nia Okafor")();
-          await page.getByRole("list", { name: /^Roles in / }).first().waitFor();
+          await page
+            .getByRole("list", { name: /^Roles in / })
+            .first()
+            .waitFor();
           await settled();
         },
       ],
@@ -470,9 +473,12 @@ with engine.begin() as connection:
       ],
       [
         "security-workspace-activity",
-        staysOn("/settings/workspaces/default/activity", () =>
-          page.getByRole("tab", { name: "Activity", selected: true }).waitFor(),
-        ),
+        // The seed's changes are as old as the day its database was built, the run's as new as now, so the list has one
+        // day heading or two depending on the day: the headings are left out of the picture.
+        staysOn("/settings/workspaces/default/activity", async () => {
+          await page.getByRole("tab", { name: "Activity", selected: true }).waitFor();
+          await page.addStyleTag({ content: ".history-day { display: none; }" });
+        }),
       ],
       ["security-model-list", staysOn("/settings/model", () => page.getByText("Runs the default workspace").waitFor())],
     ];

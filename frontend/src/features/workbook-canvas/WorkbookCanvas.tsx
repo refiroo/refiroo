@@ -1293,7 +1293,7 @@ export function WorkbookCanvas({
           view="canvas"
           onChange={(view) => onNavigate(draftViewRoute(draftId, view, { forWorkspace: forThisWorkspace, journey }))}
         />
-        <div className="canvas-actions">
+        <div className="canvas-actions wrap-row">
           {forThisWorkspace ? (
             <button type="button" className="primary" disabled={proposing} onClick={() => draftActions.open("apply")}>
               Apply to this workspace…
@@ -1350,7 +1350,7 @@ export function WorkbookCanvas({
           </div>
           <div className="canvas-strip-group canvas-strip-tools">
             <CanvasFind outline={outline} onGo={goTo} />
-            <div className="canvas-actions">
+            <div className="canvas-actions wrap-row">
               <button type="button" onClick={() => void editing.undo()} disabled={busy}>
                 <Icon name="undo" size={14} /> Undo
               </button>

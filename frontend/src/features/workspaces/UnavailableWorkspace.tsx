@@ -159,7 +159,7 @@ function RepairCard({
       ) : mayRaise ? (
         <>
           <p>Raise the model to schema {target}. Its records, history and change sets stay as they are.</p>
-          <div className="unavailable-actions">
+          <div className="unavailable-actions wrap-row">
             <button type="button" className="primary" onClick={() => setReviewing(true)}>
               Review the change…
             </button>
@@ -344,7 +344,7 @@ function ContinueElsewhere({
           ))}
         </ul>
       ) : null}
-      <div className="unavailable-actions">
+      <div className="unavailable-actions wrap-row">
         <button
           type="button"
           className="secondary"

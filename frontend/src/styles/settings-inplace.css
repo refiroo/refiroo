@@ -21,9 +21,9 @@
 }
 /* A description under the title, where the header's line stood. */
 .model-detail-header .text-in-place:not(.text-in-place-heading) {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   color: var(--text-tertiary);
-  font-size: var(--fs-13);
+  font-size: var(--text-sm);
 }
 /* A passkey's name in its row. */
 .account-row-text .text-in-place {

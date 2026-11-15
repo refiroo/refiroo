@@ -184,7 +184,7 @@ function RevealBox({ store }: { store: RevealStore }) {
   if (!reveal) return null;
   return createPortal(
     <div
-      className={`cell-reveal${reveal.above ? " cell-reveal-above" : ""}`}
+      className={`popover cell-reveal${reveal.above ? " cell-reveal-above" : ""}`}
       aria-hidden="true"
       style={{ left: reveal.left, top: reveal.top, width: reveal.width }}
     >

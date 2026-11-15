@@ -220,7 +220,7 @@ export function WorkspaceSearch({
               : "No record's name matches"}
       </p>
       {shown && (result || listMatches.length > 0 || placeMatches.length > 0) && (
-        <div className="workspace-search-results">
+        <div className="popover workspace-search-results">
           {listMatches.length > 0 && (
             <div className="workspace-search-lists" role="group" aria-label="Lists">
               <span className="workspace-search-type" aria-hidden="true">

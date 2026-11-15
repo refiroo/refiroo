@@ -112,13 +112,6 @@
   display: flex;
   flex-direction: column;
 }
-.home-card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-4);
-  padding: 22px 22px 18px;
-}
 .home-tile-link {
   display: flex;
   flex: none;
@@ -128,7 +121,7 @@
   display: grid;
   flex: none;
   justify-items: end;
-  gap: 4px;
+  gap: var(--space-1);
   align-self: flex-start;
 }
 .home-follow-button {
@@ -146,12 +139,6 @@
   .home-follow-button {
     min-height: 44px;
   }
-}
-.home-card-title {
-  display: grid;
-  flex: 1 1 10rem;
-  gap: 6px;
-  min-width: 0;
 }
 .home-card-title h3 {
   display: flex;
@@ -181,7 +168,7 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   margin: 0;
-  padding: 0 22px 20px;
+  padding: 0 22px var(--space-5);
   list-style: none;
 }
 .home-app {
@@ -189,7 +176,7 @@
   align-items: center;
   gap: var(--space-2);
   min-height: 36px;
-  padding: 0 12px 0 8px;
+  padding: 0 var(--space-3) 0 var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
   color: var(--text-primary);
@@ -202,7 +189,7 @@
 }
 .home-card-unavailable {
   margin: 0;
-  padding: 0 22px 20px;
+  padding: 0 22px var(--space-5);
 }
 .home-stats {
   display: flex;
@@ -239,7 +226,7 @@
 .home-stat span {
   flex: 1;
   color: var(--text-secondary);
-  font-size: var(--fs-13);
+  font-size: var(--text-sm);
   line-height: 1.25;
 }
 .home-stat > svg {
@@ -503,9 +490,6 @@
   .home-welcome h1 {
     font-size: var(--fs-22);
   }
-  .home-card-head {
-    padding: var(--space-4);
-  }
   .home-card-head .workspace-tile-large {
     width: 52px;
     height: 52px;
@@ -554,7 +538,7 @@
 /* The results open over what lies under the card, so the card does not clip. */
 .account-panel.home-welcome {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-sticky-cross);
   overflow: visible;
 }
 .home-search {
@@ -564,5 +548,5 @@
   margin: var(--space-3) 0 var(--space-2);
 }
 .home-search .workspace-search-results {
-  z-index: 5;
+  z-index: var(--z-results);
 }

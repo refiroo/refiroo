@@ -47,7 +47,7 @@ export function SelectField({
         <SelectValue />
         <Icon name="chevron-down" />
       </Button>
-      <Popover className="selection-popover">
+      <Popover className="popover selection-popover">
         <ListBox className="selection-list" items={options}>
           {(option) => (
             <ListBoxItem
@@ -140,7 +140,7 @@ export function ComboBoxField({
         </Button>
       </div>
       {description && <small className="field-description">{description}</small>}
-      <Popover className="selection-popover">
+      <Popover className="popover selection-popover">
         <ListBox className="selection-list" items={items}>
           {(option) => (
             <ListBoxItem

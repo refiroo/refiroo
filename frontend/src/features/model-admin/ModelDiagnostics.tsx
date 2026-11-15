@@ -10,7 +10,7 @@ export function ModelDiagnostics({
 }) {
   if (!diagnostics.length) return <p className="model-ok">No validation diagnostics.</p>;
   return (
-    <ul className="diagnostic-list">
+    <ul className="diagnostic-list list-reset">
       {diagnostics.map((item, index) => (
         <li key={`${item.path}:${item.code}:${index}`} className={item.severity}>
           <div>

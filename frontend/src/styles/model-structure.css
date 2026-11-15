@@ -1,16 +1,16 @@
 /* The model's Structure tab: applications, object types, attributes and relations, read only. */
 .model-structure {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
   min-width: 0;
   /* The inset the Overview and Releases sections use (.model-detail-section). */
-  padding: 0 20px 18px;
+  padding: 0 var(--space-5) 18px;
 }
 .structure-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
+  gap: var(--space-2) var(--space-3);
 }
 .structure-picker-label {
   color: var(--text-secondary);
@@ -21,7 +21,7 @@
 .release-single {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 0;
 }
 .release-trigger-version {
@@ -41,7 +41,7 @@
 .release-option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
   min-height: 40px;
   padding: 6px 10px;
@@ -74,12 +74,16 @@
 .structure-latest {
   flex: none;
   white-space: nowrap;
-  padding: 1px 8px;
+  padding: 1px var(--space-2);
   border-radius: var(--pill-radius);
   background: var(--surface-fill);
   color: var(--text-secondary);
   font-size: var(--text-xs);
 }
+.muted-text,
+.connected-state,
+.chip-empty,
+.account-muted,
 .structure-note,
 .structure-empty,
 .structure-count,
@@ -110,10 +114,10 @@
 .structure-type-head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   width: 100%;
   min-height: 44px;
-  padding: 8px 14px;
+  padding: var(--space-2) 14px;
   border: 0;
   background: transparent;
   color: var(--text-primary);
@@ -134,16 +138,11 @@
 .structure-app-name strong {
   font-size: var(--text-lg);
 }
-.structure-types {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 .structure-type {
   border-top: 1px solid var(--border-faint);
 }
 .structure-type-head {
-  padding-left: 28px;
+  padding-left: var(--space-7);
   font-size: var(--text-md);
   font-weight: 600;
 }
@@ -157,13 +156,10 @@
 .structure-detail {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 24px 64px;
-  padding: 16px 20px 20px 62px;
+  gap: var(--space-6) 64px;
+  padding: var(--space-4) var(--space-5) var(--space-5) 62px;
   border-top: 1px solid var(--border-faint);
   background: var(--surface-sunken);
-}
-.structure-block {
-  min-width: 0;
 }
 .structure-block + .structure-block {
   position: relative;
@@ -177,7 +173,7 @@
   border-left: 1px solid var(--border-subtle);
 }
 .structure-detail h4 {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   color: var(--text-primary);
   font-size: var(--fs-16);
   font-weight: 600;
@@ -187,6 +183,7 @@
   font-weight: 400;
 }
 .structure-block {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 .structure-block .settings-table {
@@ -202,7 +199,7 @@
   border-bottom: 1px solid var(--border-strong);
   background: var(--surface-fill);
   color: var(--text-primary);
-  font-size: var(--fs-13);
+  font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
@@ -210,7 +207,7 @@
 }
 .structure-block .settings-table tbody th,
 .structure-block .settings-table td {
-  font-size: var(--fs-14);
+  font-size: var(--text-md);
   font-weight: 400;
 }
 .structure-key {
@@ -227,8 +224,8 @@
 @media (max-width: 900px) {
   .structure-detail {
     grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-    padding-left: 20px;
+    gap: var(--space-6);
+    padding-left: var(--space-5);
   }
   .structure-block + .structure-block::before {
     display: none;
@@ -236,7 +233,7 @@
 }
 @media (max-width: 600px) {
   .structure-detail {
-    padding: 16px 14px;
+    padding: var(--space-4) 14px;
   }
   .structure-type-head {
     flex-wrap: wrap;
@@ -244,6 +241,6 @@
   }
   .structure-count {
     flex-basis: 100%;
-    padding-left: 32px;
+    padding-left: var(--space-8);
   }
 }

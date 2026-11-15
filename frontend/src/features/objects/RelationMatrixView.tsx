@@ -633,10 +633,10 @@ function MatrixChips({
     return column ? columnLabel(column) : "…";
   });
   return (
-    <div className="filter-chips" aria-label="Applied filters">
+    <div className="filter-chips filter-chips-applied" aria-label="Applied filters">
       {query.matrixState && (
         <button
-          className="filter-chip"
+          className="filter-chip-applied"
           aria-label={`Remove cell state ${stateLabel(query.matrixState, false)}`}
           onClick={() => onChange({ matrixColumnIds: columnIds, matrixState: undefined })}
         >
@@ -647,7 +647,7 @@ function MatrixChips({
         </button>
       )}
       <button
-        className="filter-chip"
+        className="filter-chip-applied"
         aria-label={`Remove chosen columns ${names.join(", ")}`}
         onClick={() => onChange({ matrixColumnIds: undefined, matrixState: undefined })}
       >

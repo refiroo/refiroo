@@ -95,7 +95,7 @@ export function RefusedDialog({
                   {found.values.length > 6 ? ` and ${found.values.length - 6} more` : ""}
                 </p>
               ))}
-              <div className="canvas-refused-actions">
+              <div className="canvas-refused-actions wrap-row">
                 <button type="button" className="secondary" onClick={() => onSeeRows(item)}>
                   See the rows
                 </button>

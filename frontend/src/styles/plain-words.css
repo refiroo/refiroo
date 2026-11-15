@@ -1,7 +1,7 @@
 /* Plain path PL5/PL6: folded step groups, the import dialog's file-first choices. Tokens only. */
 
 .plain-fold-toggle {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   padding: 0;
   border: 0;
   background: none;
@@ -26,33 +26,15 @@
   background: var(--surface-hover);
 }
 .plain-change-group-steps {
-  padding-left: 24px;
+  padding-left: var(--space-6);
   border-top: 1px solid var(--border-faint);
 }
 .plain-change-group-steps .account-row {
   padding-block: 10px;
 }
-
-.plain-import-profile {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-.plain-import-profile legend {
-  padding: 0;
-  font-weight: 600;
-}
-.plain-import-profile label {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: var(--text-sm);
-}
 .plain-import-options {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .plain-import-options > summary {
   cursor: pointer;
@@ -60,5 +42,5 @@
   font-size: var(--text-sm);
 }
 .plain-import-options[open] > summary {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }

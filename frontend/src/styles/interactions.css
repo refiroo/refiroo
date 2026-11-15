@@ -12,13 +12,14 @@
   :where(.dialog:not(.confirm-dialog):not(.navigation-dialog)) .dialog-actions {
     position: sticky;
     bottom: 0;
-    z-index: 1;
+    z-index: var(--z-sticky);
     margin-bottom: -20px;
-    padding-bottom: 20px;
+    padding-bottom: var(--space-5);
     background: var(--surface-raised);
   }
 }
 .confirm-dialog {
+  width: min(500px, 100%);
   border-radius: var(--radius-overlay);
   animation: pop-in var(--motion) var(--ease-out);
 }
@@ -40,6 +41,8 @@
    does, and Escape puts the old value back: there are no buttons (0.17 UX2, PP-D68). Only a refused save shows its
    reason under the field, with Cancel and Save again small beside it for the pointer. --- */
 .inline-attribute-editor {
+  display: grid;
+  border-radius: var(--radius-panel);
   gap: 6px;
   margin-top: 0;
   padding: 0;
@@ -53,17 +56,14 @@
 .inline-attribute-editor fieldset > label:not(.checkbox) > * {
   font-size: var(--text-md);
 }
-.inline-attribute-editor .dialog-actions {
-  gap: 6px;
-}
 .inline-edit-saving {
   color: var(--text-tertiary);
-  font-size: var(--fs-12);
+  font-size: var(--text-xs);
 }
 .inline-attribute-editor .dialog-actions button {
   min-height: 28px;
   padding: 0 10px;
-  font-size: var(--fs-12);
+  font-size: var(--text-xs);
 }
 
 /* --- A yes or no is a switch that saves itself, in a record's details and in a table alike. --- */
@@ -106,6 +106,8 @@
 /* --- A file is chosen or dropped in one place: the file field is a drop area, and its button looks like the
    other buttons in every theme. --- */
 .file-field {
+  max-width: 100%;
+  font: inherit;
   display: block;
   width: 100%;
   padding: var(--space-4);
@@ -161,7 +163,7 @@ td .field-editor-cell {
 .attribute-row .field-editor-row .inline-attribute-editor :is(input:not([type="checkbox"]):not([type="radio"]), select),
 td .field-editor-cell .inline-attribute-editor :is(input:not([type="checkbox"]):not([type="radio"]), select) {
   min-height: 28px;
-  padding: 3px 8px;
+  padding: 3px var(--space-2);
 }
 /* A form has no text line to stand on, so the row's name and its field line up by their tops while it is open. */
 .attribute-row.editing,

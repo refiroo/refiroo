@@ -22,7 +22,7 @@
   border-radius: var(--radius-panel);
   background: var(--action-primary);
   color: var(--text-on-action);
-  font-size: var(--fs-12);
+  font-size: var(--text-xs);
   font-weight: 600;
   line-height: 20px;
   text-align: center;
@@ -42,7 +42,7 @@ nav.settings-rail {
 .settings-nav-group h2.nav-label {
   margin-bottom: var(--space-2);
   color: var(--text-primary);
-  font-size: var(--fs-12);
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .settings-nav-group ul {
@@ -79,23 +79,14 @@ nav.settings-rail {
   display: grid;
   gap: var(--space-6);
 }
-.settings-page > .page-header {
-  margin-bottom: 0;
-}
 .settings-page .notice code {
   overflow-wrap: anywhere;
 }
-/* The chips of a list's or log's tools (`ui/SettingsParts` FilterChip) carry no rule or inset of components.css's
-   `.filter-chips` (0.17 ST1). */
+/* The chips of a list's or log's tools (`ui/SettingsParts` FilterChip) carry no rule or inset of the base
+   `.filter-chips` (settings-family.css; 0.17 ST1). */
 .settings-page .filter-chips {
   padding: 0;
   border-bottom: 0;
-}
-
-.model-catalogue .empty-message {
-  justify-items: center;
-  padding: var(--space-3) 10px;
-  font-size: var(--text-sm);
 }
 .settings-page .page-header .eyebrow a {
   color: var(--link);
@@ -190,6 +181,7 @@ nav.settings-rail {
   margin-bottom: 6px;
 }
 .field-error {
+  margin: var(--space-1) 0 0;
   color: var(--status-error-text);
   font-size: var(--text-sm);
 }
@@ -257,7 +249,7 @@ nav.settings-rail {
   position: fixed;
   right: var(--space-5);
   bottom: var(--space-5);
-  z-index: 60;
+  z-index: var(--z-float);
   display: grid;
   gap: var(--space-2);
   width: min(380px, calc(100vw - 32px));
@@ -411,7 +403,7 @@ nav.settings-rail {
   font-size: var(--fs-13-5);
 }
 .deployment-default {
-  font-size: var(--fs-12);
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 @media (max-width: 760px) {
@@ -422,30 +414,6 @@ nav.settings-rail {
     justify-items: start;
     text-align: left;
   }
-}
-
-/* Capability groups (still drawn by the AI page). */
-.capability-groups {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.capability-groups > li {
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-.capability-group-header {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-.capability-group-header code {
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
 }
 
 /* Links in a settings page's facts, notes and tables. */
@@ -557,24 +525,6 @@ p.job-state {
 .dialog-form > .section + .section {
   margin-top: var(--space-6);
 }
-/* A bulk change's fields (0.9 K2): each a group of Keep, Set to and Clear, its value below. */
-.bulk-field {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-3) 0;
-  border: 0;
-  border-top: 1px solid var(--border-subtle);
-  min-width: 0;
-}
-.bulk-field legend {
-  float: left;
-  padding: 0;
-  font-weight: 650;
-}
-.bulk-field legend + * {
-  clear: both;
-}
 .row-problems,
 .field-problems {
   margin: var(--space-1) 0 0;
@@ -588,10 +538,6 @@ td:has(> .row-problems) {
   max-width: none;
   white-space: normal;
   overflow-wrap: anywhere;
-}
-.file-field {
-  max-width: 100%;
-  font: inherit;
 }
 
 @media (max-width: 760px) {
@@ -639,8 +585,7 @@ td:has(> .row-problems) {
 }
 
 .webhook-event-list,
-.webhook-findings,
-.workspace-subscriptions {
+.webhook-findings {
   display: grid;
   gap: var(--space-1);
   margin: 0;
@@ -653,9 +598,6 @@ td:has(> .row-problems) {
 }
 .webhook-findings {
   margin-bottom: var(--space-2);
-}
-.workspace-subscriptions {
-  margin-top: var(--space-1);
 }
 /* The events to choose, and the resume's two starting points: a choice with its explanation. */
 .webhook-events {
@@ -676,7 +618,7 @@ td:has(> .row-problems) {
   display: block;
   margin-top: 2px;
   color: var(--text-tertiary);
-  font-size: var(--fs-12);
+  font-size: var(--text-xs);
   font-weight: 400;
 }
 
@@ -761,7 +703,7 @@ td:has(> .row-problems) {
 .export-advanced > summary {
   padding: 10px 14px;
   color: var(--text-secondary);
-  font-size: var(--fs-13);
+  font-size: var(--text-sm);
   font-weight: 550;
   cursor: pointer;
 }
@@ -771,7 +713,7 @@ td:has(> .row-problems) {
 .export-advanced-body {
   display: grid;
   gap: var(--space-4);
-  padding: 12px 14px;
+  padding: var(--space-3) 14px;
 }
 .export-advanced-body fieldset {
   display: grid;
@@ -811,36 +753,9 @@ td:has(> .row-problems) {
   grid-column: 1 / -1;
   width: auto;
   max-width: min(16rem, 100%);
-  margin: 0 0 0 24px;
-}
-/* A matrix's column and the container its new cells go into, on one line (0.17 EX1, PP-D20). */
-.export-containers {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.export-containers li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 16rem);
-  align-items: center;
-  column-gap: var(--space-3);
-  row-gap: var(--space-1);
-  min-width: 0;
-}
-.export-containers label {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.dialog form .export-containers select {
-  width: 100%;
-  margin: 0;
+  margin: 0 0 0 var(--space-6);
 }
 @media (max-width: 600px) {
-  .export-containers li {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 /* An owned relationship's sheet and, ticked, its layout below it (0.9 J6a). */
 .export-sheet {
@@ -852,7 +767,7 @@ td:has(> .row-problems) {
   display: grid;
   gap: var(--space-3);
   min-width: 0;
-  margin-left: 24px;
+  margin-left: var(--space-6);
   padding-left: var(--space-3);
   border-left: 2px solid var(--border-faint);
 }
@@ -1004,9 +919,6 @@ td:has(> .row-problems) {
 }
 
 @container (max-width: 900px) {
-  .import-detail .check-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 .check-figure {
   display: inline-flex;
@@ -1163,7 +1075,7 @@ tr.openable-row:hover > * {
   display: grid;
   gap: var(--space-2);
   margin: 0;
-  padding: 0 14px 12px;
+  padding: 0 14px var(--space-3);
   list-style: none;
 }
 .release-workspace-checks li {
@@ -1193,11 +1105,6 @@ tr.openable-row:hover > * {
 }
 .unavailable-card p {
   margin: 0 0 var(--space-3);
-}
-.unavailable-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 .unavailable-others {
   display: grid;
@@ -1417,7 +1324,7 @@ tr.openable-row:hover > * {
   position: sticky;
   bottom: 0;
   /* Above the items table's sticky header. */
-  z-index: 3;
+  z-index: var(--z-raised);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1599,7 +1506,7 @@ tr.openable-row:hover > * {
 }
 .move-type-card {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
@@ -1683,7 +1590,7 @@ tr.openable-row:hover > * {
   justify-content: flex-end;
 }
 .move-row-reported {
-  padding: 2px 8px;
+  padding: 2px var(--space-2);
   border-radius: var(--pill-radius);
   background: var(--status-warning-surface);
   color: var(--status-warning-text);
@@ -1773,7 +1680,7 @@ tr.openable-row:hover > * {
 .move-phone-start {
   position: sticky;
   bottom: 0;
-  z-index: 3;
+  z-index: var(--z-raised);
   display: grid;
   gap: var(--space-1);
   padding: var(--space-3) 0;
@@ -1835,7 +1742,7 @@ tr.openable-row:hover > * {
     margin-left: 0;
   }
   .move-editor {
-    padding-inline: 16px;
+    padding-inline: var(--space-4);
   }
   .move-band-arrow {
     display: none;
@@ -1927,7 +1834,7 @@ tr.openable-row:hover > * {
   border-color: transparent;
   background: var(--state-selected);
   color: var(--state-selected-text);
-  font-size: var(--fs-12);
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .account-panel {
@@ -1936,20 +1843,11 @@ tr.openable-row:hover > * {
   border-radius: var(--radius-large);
   background: var(--surface-raised);
 }
-.account-muted {
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
 .account-pills {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-2) !important;
-}
-.account-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 .account-row {
   display: flex;
@@ -2060,17 +1958,6 @@ tr.openable-row:hover > * {
   color: var(--text-secondary);
   font-size: var(--text-xs);
 }
-.account-reach-names {
-  display: grid;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.account-reach-names small {
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-}
 .account-reach-app {
   display: block;
   max-width: 210px;
@@ -2089,7 +1976,7 @@ a.account-reach-app:hover {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: 4px 10px;
+  padding: var(--space-1) 10px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
   background: var(--surface-sunken);
@@ -2132,7 +2019,7 @@ a.account-reach-app:hover {
 }
 .account-detail th,
 .account-detail td {
-  padding: 6px 12px;
+  padding: 6px var(--space-3);
   border-bottom: 1px solid var(--border-faint);
   text-align: left;
   vertical-align: top;
@@ -2174,10 +2061,6 @@ a.account-reach-app:hover {
   align-items: center;
   gap: var(--space-3);
 }
-.account-permissions-footer {
-  margin: 0;
-  font-size: var(--text-sm);
-}
 /* The phone: a workspace card stacks its name, roles, then what each kind of work covers. */
 .account-place:has(> dl) {
   display: grid;
@@ -2205,15 +2088,6 @@ a.account-reach-app:hover {
   min-width: 0;
   margin: 0;
 }
-.account-place:has(> dl) .account-reach-names {
-  display: block;
-}
-.account-place:has(> dl) .account-reach-names li {
-  display: inline;
-}
-.account-place:has(> dl) .account-reach-names li + li::before {
-  content: ", ";
-}
 .account-place:has(> dl) .account-reach-app {
   display: inline-block;
   max-width: 100%;
@@ -2239,7 +2113,7 @@ a.account-reach-app:hover {
 }
 .account-password-field input {
   width: 100%;
-  padding-right: 40px;
+  padding-right: var(--space-10);
 }
 .account-reveal {
   position: absolute;
@@ -2261,7 +2135,7 @@ a.account-reach-app:hover {
 }
 .account-meter {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   margin-top: var(--space-2);
 }
 .account-meter span {
@@ -2344,7 +2218,7 @@ a.account-reach-app:hover {
   gap: var(--space-2) var(--space-3);
 }
 .grant-place-label {
-  font-size: var(--fs-12);
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2376,12 +2250,6 @@ a.account-reach-app:hover {
   gap: var(--space-2);
   min-width: 0;
   overflow-wrap: anywhere;
-}
-.grant-stale {
-  display: block;
-  margin-top: 2px;
-  color: var(--status-warning-text);
-  font-size: var(--text-xs);
 }
 .grant-form {
   display: grid;
@@ -2438,7 +2306,7 @@ a.account-reach-app:hover {
 .grant-table thead th {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: var(--z-sticky-cross);
   border-bottom-color: var(--border-subtle);
   background: var(--surface-sunken);
   color: var(--text-secondary);
@@ -2454,11 +2322,11 @@ a.account-reach-app:hover {
 .grant-table tbody th.grant-first {
   position: sticky;
   left: 0;
-  z-index: 1;
+  z-index: var(--z-sticky);
   text-align: left;
 }
 .grant-table thead th:first-child {
-  z-index: 3;
+  z-index: var(--z-raised);
 }
 .grant-table .grant-first {
   min-width: 180px;
@@ -2570,7 +2438,7 @@ a.account-reach-app:hover {
 .role-matrix .role-matrix-group {
   position: sticky;
   left: 0;
-  z-index: 1;
+  z-index: var(--z-sticky);
   min-width: 200px;
   max-width: 300px;
   border-right: 1px solid var(--border-subtle);
@@ -2604,7 +2472,7 @@ a.account-reach-app:hover {
   color: var(--action-primary);
 }
 .role-edit {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   font-size: var(--text-xs);
 }
 .settings-panel > .role-matrix-wrap {
@@ -2653,7 +2521,7 @@ a.account-reach-app:hover {
   height: 20px;
   padding: 0;
   border: 1px solid var(--border-control);
-  border-radius: 999px;
+  border-radius: var(--pill-radius);
   background: var(--surface-fill);
   cursor: pointer;
 }
@@ -2735,7 +2603,7 @@ a.account-reach-app:hover {
 .workspace-activity {
   display: grid;
   gap: var(--space-2);
-  margin: 0 20px;
+  margin: 0 var(--space-5);
 }
 .workspace-applications h3 {
   margin: 0;
@@ -2773,7 +2641,7 @@ a.account-reach-app:hover {
 .entity-list {
   display: grid;
   gap: 14px;
-  padding: 16px 20px 20px;
+  padding: var(--space-4) var(--space-5) var(--space-5);
 }
 .entity-groups {
   display: grid;
@@ -2785,7 +2653,7 @@ a.account-reach-app:hover {
   gap: 2px;
 }
 .entity-group .nav-label {
-  margin: 0 10px 4px;
+  margin: 0 10px var(--space-1);
   text-transform: uppercase;
 }
 .entity-row {
@@ -2815,7 +2683,7 @@ a.account-reach-app:hover {
 .entity-facts {
   display: flex;
   flex: none;
-  gap: 16px;
+  gap: var(--space-4);
 }
 .entity-fact {
   display: grid;
@@ -2891,7 +2759,7 @@ a.account-reach-app:hover {
     flex-wrap: wrap;
     grid-column: -2 / -1;
     align-items: center;
-    gap: 4px 6px;
+    gap: var(--space-1) 6px;
     min-width: 0;
   }
 }
@@ -2902,12 +2770,12 @@ a.account-reach-app:hover {
   .entity-status {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 6px;
+    gap: var(--space-1) 6px;
   }
   .entity-facts {
     flex: 1 1 100%;
     flex-wrap: wrap;
-    gap: 4px 16px;
+    gap: var(--space-1) var(--space-4);
     padding-left: 42px;
   }
   .entity-fact {
@@ -2940,12 +2808,12 @@ a.account-reach-app:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   overflow: visible;
   white-space: normal;
 }
 .entity-more {
-  font-size: var(--fs-13);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 .search-box.entity-search {
@@ -2963,45 +2831,16 @@ a.account-reach-app:hover {
 .account-kinds legend {
   float: left;
   width: 100%;
-  padding: 12px 18px 2px;
+  padding: var(--space-3) 18px 2px;
   font-weight: 600;
 }
 .account-kinds legend + .account-row {
   clear: both;
 }
-.account-kind-row {
-  flex-wrap: wrap;
-}
-.account-kind-row .theme-choice {
-  align-self: center;
-}
-.account-digest .account-row-text {
-  gap: 8px;
-}
 @media (max-width: 640px) {
-  .account-kind-row [role="radiogroup"],
-  .account-kind-row .theme-choice {
-    width: 100%;
-  }
-  .account-kind-row .theme-choice label {
-    flex: 1;
-    min-height: 44px;
-  }
-  .account-digest .theme-choice {
-    width: 100%;
-  }
-  .account-digest .theme-choice label {
-    flex: 1;
-    min-height: 44px;
-  }
   .account-list .secondary {
     min-height: 44px;
   }
-}
-.account-kinds-note {
-  margin: 0;
-  padding: 10px 18px 14px;
-  border-top: 1px solid var(--border-faint);
 }
 
 /* The list's placeholders (Settings › Workspaces). */
@@ -3058,17 +2897,6 @@ a.account-reach-app:hover {
   gap: var(--space-3);
   margin-bottom: var(--space-3);
 }
-.task-table-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.task-table-head h3 {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
 .task-table h4 {
   margin: 0;
 }
@@ -3076,32 +2904,13 @@ a.account-reach-app:hover {
   margin: 0;
   color: var(--text-secondary);
 }
-.task-choices {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  gap: var(--space-3);
-  align-items: start;
-}
-.task-choices .theme-choice {
-  flex-wrap: wrap;
-}
-.task-meaning,
 .task-refusals,
-.task-fixes,
 .task-next {
   display: grid;
   gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
-}
-.task-meaning li,
-.task-fixes li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2);
-  overflow-wrap: anywhere;
 }
 .task-notes {
   display: grid;
@@ -3125,7 +2934,7 @@ a.account-reach-app:hover {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
 }
 /* A folded part: a group row with a chevron, or a line with a Show button. */
 .disclosure-toggle {
@@ -3201,24 +3010,7 @@ a.account-reach-app:hover {
   padding-left: var(--space-4);
   color: var(--text-secondary);
 }
-.task-structure {
-  display: grid;
-  gap: var(--space-1);
-}
-.task-structure h4 {
-  margin: var(--space-3) 0 0;
-}
-.task-child {
-  color: var(--text-secondary);
-}
-.task-figures {
-  margin: 0;
-  color: var(--text-secondary);
-}
 @media (max-width: 760px) {
-  .task-choices {
-    grid-template-columns: 1fr;
-  }
   .task-actions > button {
     flex: 1 1 0;
   }
@@ -3381,19 +3173,6 @@ a.account-reach-app:hover {
   }
 }
 
-/* The command line that connects Claude Code, on Agent access (0.16 AG1). */
-.agent-command {
-  margin: var(--space-3) 0 0;
-  padding: var(--space-3);
-  overflow-x: auto;
-  border-radius: var(--radius-control);
-  background: var(--surface-sunken);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  white-space: pre;
-}
-
 /* The account of a model change, beside the check in the activation dialog and in Apply (0.16 AO1). */
 .impact-summary {
   display: grid;
@@ -3429,7 +3208,7 @@ a.account-reach-app:hover {
 .impact-facts {
   display: grid;
   gap: var(--space-2);
-  padding-left: 20px;
+  padding-left: var(--space-5);
 }
 .impact-facts {
   font-size: var(--text-sm);
@@ -3605,7 +3384,4 @@ a.account-reach-app:hover {
 .settings-page > .react-aria-Tabs > .react-aria-TabPanel,
 .settings-page > .react-aria-Tabs > div > .react-aria-TabPanel {
   padding-top: var(--space-5);
-}
-.settings-fields {
-  align-items: start;
 }

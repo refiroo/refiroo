@@ -81,7 +81,7 @@ export function Timeline({
       {byDay(entries.map((entry) => ({ ...entry, occurredAt: entry.at }))).map((day) => (
         <section key={day.day} aria-label={day.day}>
           <h3 className="history-day">{day.day}</h3>
-          <ol className="history-lines">
+          <ol className="history-lines list-reset">
             {day.entries.map((entry) => {
               const expanded = open.has(entry.key);
               const line = (

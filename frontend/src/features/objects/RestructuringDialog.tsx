@@ -443,7 +443,10 @@ export function RestructuringDialog({
                       >
                         {(drawn) => (
                           <>
-                            <ul className="restructuring-record-list" aria-busy={records.loading || undefined}>
+                            <ul
+                              className="restructuring-record-list list-reset"
+                              aria-busy={records.loading || undefined}
+                            >
                               <WindowSpacer as="li" edge="before" height={drawn.before} />
                               {drawn.rows.map(({ index, item: record, size }) =>
                                 record === undefined ? (

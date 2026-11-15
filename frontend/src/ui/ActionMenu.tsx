@@ -105,7 +105,7 @@ export function ActionMenu({
       ) : (
         trigger
       )}
-      <Popover className="action-menu-popover" placement="bottom end">
+      <Popover className="popover action-menu-popover" placement="bottom end">
         <Menu className="action-menu" aria-label={label}>
           {choices.map((choice) => (
             <MenuSection

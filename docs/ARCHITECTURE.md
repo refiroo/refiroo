@@ -739,6 +739,23 @@ show" (this section's table), `ui/` imports only `state`, `lib`, `model`, `api`,
 rule that holds it passes with each of them there), and a part with two or more features as users has no feature
 to own it. No new layer is needed. ADR-023's "generic wrappers" describes what `ui/` began as, not a limit on it.
 
+**One stylesheet rule for each look (0.17 SR6).** A popover's surface, its colour and 1px border, is `.popover`
+(`components.css`), which the popover's own class follows in the markup (`ControlPopover`, `Selection`, `ActionMenu`,
+`AnchoredMenu`, `SearchMenu`, `MultiSelect`, `InfoHint`, `CellReveal`, `FloatingCellEditor`, the editor's anchored
+popovers (`OperationDialog`, `ReadingAsks`), the workspace search results, the canvas line popover and find list); each keeps its corner, shadow, width and padding, and a popover with a
+stronger edge sets `border-color`. A pill or chip takes its corner from `--pill-radius`, and a chip coloured by hue reads
+the `[data-hue]` convention (`--hue-fill`, `--hue-ink`, `--hue-marker`); no stylesheet writes `999px`. The chips that
+filter a list are `.filter-chips` (one rule, `settings-family.css`) holding `.filter-chip` (a toggle, pressed or not)
+and `.filter-chip-applied` (the matrix's applied filter). A look several classes wrote alike is one rule: `.truncate`,
+`.list-reset` and `.wrap-row` (`base.css`, used in the markup beside the class that needs more); the quiet line of a
+note, a count or an empty list's text is one grouped rule, and `.empty-state` stays the card an empty page draws. A type size that is the
+same in every theme reads the `--text-*` step (`--text-xs`, `--text-sm`, `--text-md`); the other `--fs-*` steps stay
+because a theme moves them apart. Every `z-index` is a `--z-*` token (`tokens.css`), in the order and with the ties the
+stylesheets had; padding, margins and gaps that equal a step read `--space-*`. A bare selector is defined once: a
+second definition of it in another stylesheet is a defect (contextual and media rules differ and stay; the one
+exception is `.dialog`, whose animation must follow the shorthand that sits between its two rules). A class with no use
+in the markup, the tests or a built name is deleted.
+
 A part used by several features lives in the lowest layer its own imports allow; a part that is one
 feature's own and shown by another stays where it is, as a **deliberate edge**. The deliberate edges
 are `workbook-canvas` to `model-editor` (the canvas is a second view of the model editor) and to

@@ -78,17 +78,17 @@ button.model-editor-crumb {
    padding so nothing shows above it, and rows scrolled into view stop below it (scroll-padding-top). */
 .model-editor-model > div > .tab-list {
   position: sticky;
-  z-index: 2;
+  z-index: var(--z-sticky-cross);
   top: 0;
   box-sizing: border-box;
   height: var(--pane-tabs-height);
   margin: 0 calc(-1 * var(--space-2)) var(--space-2);
-  padding: var(--space-2) calc(40px + var(--space-2)) 0 var(--space-2);
+  padding: var(--space-2) calc(var(--space-10) + var(--space-2)) 0 var(--space-2);
   background: var(--rail-surface);
 }
 .model-editor-pane-add {
   position: sticky;
-  z-index: 3;
+  z-index: var(--z-raised);
   top: var(--space-2);
   height: 0;
   /* Lifted onto the strip, and the lift given back below, so the rows keep their place under it. */
@@ -103,7 +103,7 @@ button.model-editor-crumb {
 /* A pane boundary that drags (ui/ResizeHandle), as the main screens' rail does. */
 .editor-resizer {
   position: absolute;
-  z-index: 3;
+  z-index: var(--z-raised);
   top: 0;
   bottom: 0;
   left: calc(var(--editor-pane, 300px) - 5px);
@@ -111,11 +111,6 @@ button.model-editor-crumb {
 }
 .model-editor-empty {
   padding: var(--space-2);
-}
-.model-pane-tree {
-  list-style: none;
-  margin: 0;
-  padding: 0;
 }
 .model-pane-row {
   display: flex;
@@ -152,7 +147,7 @@ button.model-editor-crumb {
   padding-left: calc(var(--space-2) + 14px);
 }
 .model-pane-row.level-3 {
-  padding-left: calc(var(--space-2) + 28px);
+  padding-left: calc(var(--space-2) + var(--space-7));
 }
 .model-pane-row.level-4 {
   padding-left: calc(var(--space-2) + 42px);
@@ -199,8 +194,8 @@ button.model-editor-crumb {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   column-gap: var(--space-2);
-  padding-top: 4px;
-  padding-bottom: 4px;
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
 }
 .model-pane-borrowed {
   grid-column: 2 / -1;
@@ -212,12 +207,6 @@ button.model-editor-crumb {
   color: var(--text-tertiary);
   font-size: var(--text-xs);
   font-weight: 400;
-}
-.model-pane-borrowed-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .model-pane-chip {
   flex: none;
@@ -315,18 +304,6 @@ button.model-editor-crumb {
 .element-subheading {
   margin: var(--space-5) 0 var(--space-2);
   font-size: var(--text-md);
-}
-.element-list {
-  display: grid;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.element-list .link-button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 .element-key {
   color: var(--text-tertiary);
@@ -536,7 +513,7 @@ button.model-editor-crumb {
 }
 .relationship-matrix thead th {
   position: sticky;
-  z-index: 1;
+  z-index: var(--z-sticky);
   top: 0;
 }
 .relationship-matrix tbody th,
@@ -545,10 +522,10 @@ button.model-editor-crumb {
   left: 0;
 }
 .relationship-matrix tbody th {
-  z-index: 1;
+  z-index: var(--z-sticky);
 }
 .relationship-matrix thead th:first-child {
-  z-index: 2;
+  z-index: var(--z-sticky-cross);
 }
 .relationship-matrix td {
   height: 56px;
@@ -574,7 +551,7 @@ button.model-editor-crumb {
   display: flex;
   justify-content: space-between;
   gap: var(--space-2);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
   padding: 2px 6px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
@@ -605,9 +582,6 @@ button.model-editor-crumb {
   align-items: center;
   gap: var(--space-2);
 }
-.matrix-pair-heading .menu-trigger {
-  margin-left: auto;
-}
 .matrix-pair-relation p {
   margin: var(--space-1) 0 0;
   font-size: var(--text-sm);
@@ -621,6 +595,7 @@ button.model-editor-crumb {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3);
+  align-items: start;
 }
 .install-heading {
   margin: var(--space-3) 0 var(--space-2);
@@ -702,7 +677,7 @@ button.model-editor-crumb {
   grid-column: 1 / -1;
   position: sticky;
   bottom: 0;
-  padding-bottom: 20px;
+  padding-bottom: var(--space-5);
   background: var(--surface-raised);
 }
 .matrix-preview {
@@ -772,11 +747,6 @@ button.model-editor-crumb {
   font-size: var(--text-sm);
   font-weight: 600;
   margin-top: var(--space-1);
-}
-.model-detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 
 /* The preview and the layout editor (0.10 A4b): the selected type's record page and table from the
@@ -856,8 +826,7 @@ button.model-editor-crumb {
 .type-preview-body .collection-surface .scroll-window {
   --window-height: calc(100cqh - 64px);
 }
-.type-preview-body > .empty-message,
-.type-preview-body > .inline-error {
+.type-preview-body > .empty-message {
   margin: var(--space-5) 0;
 }
 .preview-invalid {
@@ -891,11 +860,6 @@ button.model-editor-crumb {
 }
 .preview-record-choice > .object-lookup {
   align-self: stretch;
-}
-
-.preview-note {
-  margin: 0;
-  font-size: var(--text-xs);
 }
 .preview-body {
   padding-top: var(--space-4);
@@ -945,11 +909,6 @@ button.model-editor-crumb {
 }
 .layout-add {
   align-self: flex-start;
-}
-.layout-add-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 .layout-frame {
   border: 1px solid color-mix(in srgb, var(--action-primary) 35%, var(--border-subtle));
@@ -1005,10 +964,6 @@ button.model-editor-crumb {
   padding: 0 var(--space-2) var(--space-2) calc(var(--space-2) + 22px);
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
-}
-.layout-empty {
-  margin: 0;
-  font-size: var(--text-sm);
 }
 .table-preview {
   display: flex;
@@ -1085,7 +1040,7 @@ button.model-editor-crumb {
     position: static;
     height: auto;
     margin: 0 0 var(--space-2);
-    padding: 0 40px 0 0;
+    padding: 0 var(--space-10) 0 0;
     background: none;
   }
   .model-editor-pane-add {
@@ -1117,6 +1072,7 @@ button.model-editor-crumb {
 
 /* A row's operations: the quiet icon trigger of the record lists' actions column. */
 .matrix-pair-heading .menu-trigger {
+  margin-left: auto;
   width: 32px;
   min-width: 32px;
   min-height: 32px;
@@ -1128,15 +1084,6 @@ button.model-editor-crumb {
 }
 .matrix-pair-heading .menu-trigger:hover {
   background: var(--surface-fill);
-}
-.install-identity {
-  align-items: start;
-}
-.install-identity input {
-  width: 100%;
-}
-.install-identity {
-  align-items: start;
 }
 .install-identity input {
   width: 100%;
@@ -1193,7 +1140,7 @@ button.model-editor-crumb {
 /* The open editor stands above the cells beside it, which it may cover until it closes. */
 .cell-editor {
   position: relative;
-  z-index: 4;
+  z-index: var(--z-corner);
 }
 .cell-editor .inline-attribute-editor {
   min-width: 220px;
@@ -1229,7 +1176,7 @@ button.model-editor-crumb {
 .candidates-end legend {
   padding: 0 var(--space-1);
   color: var(--text-primary);
-  font-size: var(--fs-13);
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 .candidates-end p {
@@ -1399,6 +1346,8 @@ button.model-editor-crumb {
   padding: 0;
   font-weight: 600;
 }
+.account-permissions-footer,
+.layout-empty,
 .choice-list-hint {
   margin: 0;
   font-size: var(--text-sm);
@@ -1439,9 +1388,9 @@ button.model-editor-crumb {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px 4px 2px 10px;
+  padding: 2px var(--space-1) 2px 10px;
   border: 1px solid var(--border-subtle);
-  border-radius: 999px;
+  border-radius: var(--pill-radius);
   background: var(--state-selected);
   color: var(--state-selected-text);
   font-size: var(--text-sm);
@@ -1463,11 +1412,6 @@ button.model-editor-crumb {
 .choice-chip button:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
-}
-.choice-list-add {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 .choice-list-add select {
   flex: 1 1 220px;
@@ -1545,11 +1489,6 @@ button.model-editor-crumb {
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-xs);
 }
-.source-columns {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 .source-column {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr) auto;
@@ -1610,7 +1549,7 @@ button.model-editor-crumb {
 .source-dot {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--pill-radius);
   background: var(--border-control);
 }
 .source-dot.status-key,
@@ -1672,7 +1611,7 @@ button.model-editor-crumb {
   color: inherit;
 }
 .source-column.in-list {
-  padding-left: calc(var(--space-3) + 20px);
+  padding-left: calc(var(--space-3) + var(--space-5));
   background: var(--surface-sunken);
 }
 .source-column.in-list.selected {
@@ -1841,11 +1780,6 @@ button.model-editor-crumb {
   list-style: none;
   font-size: var(--text-sm);
 }
-.plain-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 
 /* Map to… */
 .map-kinds {
@@ -1926,11 +1860,6 @@ button.model-editor-crumb {
   margin: 0 0 var(--space-2);
   font-size: var(--text-sm);
 }
-.dry-run-figures {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
 .dry-run-figure {
   display: grid;
   justify-items: start;
@@ -1979,7 +1908,7 @@ button.model-editor-crumb {
   width: 26px;
   height: 26px;
   border: 1px solid var(--border-control);
-  border-radius: 999px;
+  border-radius: var(--pill-radius);
   font-size: var(--text-xs);
   font-weight: 600;
 }

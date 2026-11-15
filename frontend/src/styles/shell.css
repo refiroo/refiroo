@@ -3,7 +3,14 @@
    colours and radii are the existing ones. */
 
 /* The tabs take the room the search leaves; those that do not fit are under More. */
+/* The tabs start 36px after the product name (ADR-040); the header's gap gives the first 20. */
 .application-nav {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-5);
+  margin-inline-start: calc(var(--space-9) - var(--space-5));
+  min-width: 0;
+  scrollbar-width: none;
   position: relative;
   flex: 1 1 0;
   overflow: visible;
@@ -55,10 +62,8 @@
   width: 100%;
 }
 .workspace-search-results {
-  z-index: 30;
+  z-index: var(--z-search);
   color: var(--text-primary);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
   box-shadow: var(--shadow-md, var(--shadow-sm));
 }
@@ -146,10 +151,17 @@
   flex: 0 1 auto;
   min-width: min(18rem, 100%);
 }
+/* The pinned strip holds the name on one line (full name in its title) and the waiting pill. */
 .change-set-bar-main {
+  display: flex;
+  align-items: center;
+  flex: 1 1 12rem;
   gap: var(--space-1) var(--space-3);
 }
 .change-set-bar-main h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
@@ -244,15 +256,27 @@
   color: var(--action-primary);
   text-decoration: underline;
 }
+/* The record's ID under its title, in the header band (UA4 revision). */
 .record-meta {
+  margin: -4px 0 0 52px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1) var(--space-4);
 }
+@media (max-width: 760px) {
+  .record-meta {
+    margin-left: 0;
+  }
+}
 
 /* The record header's actions are centred on the title block, not on the bottom of a subtitle. */
 .record-header .detail-header {
+  margin: 0;
+  padding: 0;
+  border-bottom: 0;
   align-items: center;
 }
 
@@ -298,6 +322,10 @@
 
 /* The side inspector sticks below the top bar and the band, so the record's title is not under it. */
 .record-inspector {
+  position: sticky;
+  overflow: auto;
+  padding-left: 18px;
+  border-left: 1px solid var(--border-subtle);
   top: calc(var(--topbar-height) + var(--band-height, 0px) + 16px);
   max-height: calc(100dvh - var(--topbar-height) - var(--band-height, 0px) - 32px);
 }
@@ -363,6 +391,9 @@
   position: static;
 }
 .properties-resizer {
+  position: sticky;
+  grid-column: 2;
+  grid-row: 1;
   top: calc(var(--topbar-height) + var(--band-height, 0px) + 16px);
   height: calc(100dvh - var(--topbar-height) - var(--band-height, 0px) - 40px);
 }
@@ -370,16 +401,26 @@
 /* Home's card: the name row holds tile, name, badge and Follow; the model and the roles run under it
    across the card's full width. */
 .home-card-head {
+  display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  padding-bottom: var(--space-2);
+  gap: var(--space-4);
+  padding: 22px 22px var(--space-2);
+}
+@media (max-width: 760px) {
+  .home-card-head {
+    padding: var(--space-4) var(--space-4) var(--space-2);
+  }
 }
 .home-card-title {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
   flex: 1 1 0;
 }
 .home-card-meta {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
   padding: 0 22px var(--space-3);
 }
@@ -392,12 +433,6 @@
   .home-card-meta {
     padding: 0 var(--space-4) var(--space-3);
   }
-}
-.home-card-line {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .home-card-title > .home-card-line {
   display: block;

@@ -31,7 +31,7 @@ export function AnchoredMenu({
       isOpen
       onOpenChange={(open) => !open && onClose()}
       placement="bottom end"
-      className="action-menu-popover"
+      className="popover action-menu-popover"
     >
       <Menu
         className="action-menu"

@@ -162,7 +162,7 @@ export function DataContextBand({
             label={`Workspace: ${workspaceLabel}`}
             trigger={
               <>
-                <span className="band-choice-text">{workspaceLabel}</span>
+                <span className="band-choice-text truncate">{workspaceLabel}</span>
                 <Icon name="chevron-down" size={13} />
               </>
             }
@@ -203,7 +203,7 @@ export function DataContextBand({
             trigger={
               <>
                 <HueTile hue={applicationHue(model, application.key)} icon={application.icon} size={18} />
-                <span className="band-choice-text">{application.name}</span>
+                <span className="band-choice-text truncate">{application.name}</span>
                 <Icon name="chevron-down" size={13} />
               </>
             }
@@ -229,7 +229,7 @@ export function DataContextBand({
             trigger={
               <>
                 {listing ? (
-                  <span className="band-choice-text">{contextName}</span>
+                  <span className="band-choice-text truncate">{contextName}</span>
                 ) : (
                   <StatusPill tone={tone}>{status}</StatusPill>
                 )}

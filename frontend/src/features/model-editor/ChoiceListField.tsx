@@ -108,7 +108,7 @@ export function ChoiceListField({
         </ul>
       )}
       {left.length > 0 && (
-        <div className="choice-list-add">
+        <div className="choice-list-add wrap-row">
           <label className="visually-hidden" htmlFor={`${id}-pick`}>
             {`Add to ${label}`}
           </label>

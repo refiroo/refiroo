@@ -74,7 +74,7 @@ export function InfoHint({ label, children }: { label: string; children: ReactNo
         isNonModal
         placement="bottom start"
         offset={6}
-        className="info-hint-popover"
+        className="popover info-hint-popover"
         UNSTABLE_portalContainer={container}
       >
         <div id={id} role="tooltip">

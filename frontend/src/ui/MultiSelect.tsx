@@ -63,7 +63,7 @@ export function MultiSelect({
         <Button className="secondary chip-add">
           <Icon name="plus" size={14} /> {addLabel}
         </Button>
-        <Popover className="picker-popover" placement="bottom start">
+        <Popover className="popover picker-popover" placement="bottom start">
           <Dialog aria-label={label} className="picker">
             {({ close }) => (
               <>

@@ -186,7 +186,7 @@ function ApplicationRow({
         </span>
       </button>
       {open && (
-        <ul className="structure-types">
+        <ul className="structure-types list-reset">
           {application.objectTypes.map((type) => (
             <TypeRow key={type.key} type={type} hues={hues} />
           ))}

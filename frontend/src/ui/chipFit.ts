@@ -54,7 +54,7 @@ function read(): Metrics | undefined {
   sample.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;width:auto";
   sample.innerHTML =
     '<span class="related-records-chip"><span class="record-chip"><span class="record-chip-marker"></span>' +
-    '<span class="record-chip-name">M</span></span></span><span class="related-records-more">+1 more</span>' +
+    '<span class="record-chip-name truncate">M</span></span></span><span class="related-records-more">+1 more</span>' +
     '<span class="cell-edit"><span class="cell-edit-value"></span><span class="cell-edit-actions">' +
     '<button class="icon-button icon-button-quiet" tabindex="-1"></button></span></span>';
   document.body.appendChild(sample);

@@ -279,12 +279,12 @@ function WorkspaceCard({
       <div className="home-card-meta">
         <span className="account-muted home-card-model">
           <Icon name="model" size={14} />
-          <span className="home-card-line">
+          <span className="home-card-line truncate">
             {workspace.model.releaseName} {workspace.model.releaseVersion}
           </span>
         </span>
         {role && (
-          <span className="account-muted home-card-line" title={role}>
+          <span className="account-muted home-card-line truncate" title={role}>
             <span aria-hidden="true">{roleShort}</span>
             <span className="visually-hidden">{role}</span>
           </span>
@@ -433,7 +433,7 @@ export function WaitingApprovals({
         <span className="account-muted">Newest first</span>
       </div>
       <div className="account-panel">
-        <ul className="account-list">
+        <ul className="account-list list-reset">
           {items.map((item) => {
             const application = firstApplication.get(item.workspaceKey);
             return (
@@ -508,7 +508,7 @@ function OwnChangeSets({ workspaces, onNavigate }: { workspaces: OwnWorkspace[];
         <span className="account-muted">Open, newest change first</span>
       </div>
       <div className="account-panel">
-        <ul className="account-list">
+        <ul className="account-list list-reset">
           {items.map((item) => {
             const application = firstApplication.get(item.workspaceKey);
             const name = changeSetTitle(item.name);
@@ -602,7 +602,7 @@ function RecentChanges({
         </RouteLink>
       </div>
       <div className="account-panel">
-        <ul className="account-list">
+        <ul className="account-list list-reset">
           {groupDraftSteps(items).map((item) =>
             item.kind === "entry" ? (
               <ChangeRow
@@ -683,7 +683,7 @@ function DraftStepsRow({
         <span aria-hidden="true">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
-        <ul className="account-list plain-change-group-steps">
+        <ul className="account-list list-reset plain-change-group-steps">
           {item.entries.map((entry) => (
             <ChangeRow key={entry.id} entry={entry} firstApplication={firstApplication} onNavigate={onNavigate} />
           ))}

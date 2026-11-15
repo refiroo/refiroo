@@ -9,7 +9,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AnchoredPopover } from "@/ui/AnchoredPopover";
 
-const POPOVER = "control-popover editor-popover canvas-popover";
+const POPOVER = "popover control-popover editor-popover canvas-popover";
 
 export function Frame({
   anchor,

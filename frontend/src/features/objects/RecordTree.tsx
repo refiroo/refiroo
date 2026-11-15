@@ -1103,7 +1103,7 @@ function TreeGroup({
         </div>
         {groupOpen && (
           <FlatRows list={list} label={label}>
-            <ul role="none" className="tree-rows">
+            <ul role="none" className="tree-rows list-reset">
               {list.items.map((item, position) => (
                 <TreeNode
                   key={item.id}
