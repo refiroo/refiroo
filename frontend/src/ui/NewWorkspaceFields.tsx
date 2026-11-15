@@ -26,9 +26,9 @@ export function suggestKey(label: string) {
 }
 
 /** The name and key typed for a new workspace; the key follows the name until edited. */
-export function useNewWorkspaceIdentity() {
-  const [label, setLabel] = useState("");
-  const [key, setKey] = useState("");
+export function useNewWorkspaceIdentity(initialLabel = "") {
+  const [label, setLabel] = useState(initialLabel);
+  const [key, setKey] = useState(() => suggestKey(initialLabel));
   const [keyEdited, setKeyEdited] = useState(false);
   return {
     label,
@@ -51,9 +51,15 @@ export function NewWorkspaceFields({
   identity,
   autoFocus = false,
   qualified = false,
+  withKey = true,
+  disabled = false,
 }: {
   identity: NewWorkspaceIdentity;
   autoFocus?: boolean;
+  /** Without the key field the dialog asks for the name alone, and the server derives the key. */
+  withKey?: boolean;
+  /** The workspace is being made: nothing is typed meanwhile. */
+  disabled?: boolean;
   /** "Workspace name" and "Workspace key", where the dialog names other things too (D55). */
   qualified?: boolean;
 }) {
@@ -66,25 +72,29 @@ export function NewWorkspaceFields({
           autoFocus={autoFocus}
           required
           maxLength={300}
+          disabled={disabled}
           value={identity.label}
           onChange={(event) => identity.changeLabel(event.target.value)}
         />
       </label>
-      <label>
-        {qualified ? "Workspace key" : "Key"}
-        <input
-          required
-          maxLength={160}
-          pattern={KEY_PATTERN}
-          aria-describedby={hintId}
-          value={identity.key}
-          onChange={(event) => identity.changeKey(event.target.value)}
-        />
-        <small id={hintId} className="field-description">
-          Lowercase letters and digits, separated by single hyphens. The key is permanent and appears in links and API
-          requests.
-        </small>
-      </label>
+      {withKey && (
+        <label>
+          {qualified ? "Workspace key" : "Key"}
+          <input
+            required
+            maxLength={160}
+            disabled={disabled}
+            pattern={KEY_PATTERN}
+            aria-describedby={hintId}
+            value={identity.key}
+            onChange={(event) => identity.changeKey(event.target.value)}
+          />
+          <small id={hintId} className="field-description">
+            Lowercase letters and digits, separated by single hyphens. The key is permanent and appears in links and API
+            requests.
+          </small>
+        </label>
+      )}
     </>
   );
 }

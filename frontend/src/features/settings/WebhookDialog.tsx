@@ -25,10 +25,11 @@ import type {
 import { Choice } from "@/ui/Choice";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { MultiSelect, type PickOption } from "@/ui/MultiSelect";
 import { Notice } from "@/ui/Notice";
 import { SearchMenu } from "@/ui/SearchMenu";
+import { WorkspaceField } from "@/ui/WorkspaceField";
 import { TokenField } from "@/ui/TokenField";
 import { sourceName, subscribable } from "./consumerDefinitions";
 import { CONTENT, FORMAT, WORKSPACE_EVENTS, eventDeclaration } from "@/ui/webhookText";
@@ -356,31 +357,18 @@ export function WebhookDialog({
                     )}
                   </FormField>
                 )}
-                <FormField
-                  label="Workspace"
+                <WorkspaceField
+                  items={workspaces ?? null}
+                  value={draft.workspaceKey}
+                  onChange={(workspaceKey) => set({ workspaceKey })}
+                  optionText={(workspace) => `${workspace.label} (${workspace.key})`}
                   help={
                     workspaceSource
                       ? "Its change-set steps (submitted, approved, sent back) are delivered."
                       : "Changes to its live data are delivered."
                   }
                   error={fieldError("workspaceKey")}
-                >
-                  {(control) => (
-                    <select
-                      {...control}
-                      value={draft.workspaceKey}
-                      disabled={!workspaces}
-                      onChange={(event) => set({ workspaceKey: event.target.value })}
-                    >
-                      {!workspaces && <option value="">Loading workspaces…</option>}
-                      {workspaces?.map((workspace) => (
-                        <option key={workspace.key} value={workspace.key}>
-                          {workspace.label} ({workspace.key})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </FormField>
+                />
               </div>
             </>
           )}
@@ -574,9 +562,7 @@ export function WebhookDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button
             className="primary"
             disabled={

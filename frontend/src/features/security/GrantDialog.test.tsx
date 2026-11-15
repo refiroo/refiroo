@@ -169,7 +169,11 @@ describe("setting a client's consumer APIs by ticking a grid (0.12 U9, 0.17)", (
     expect(within(dialog).getByLabelText("RDM in Pilot")).toBeChecked();
     expect(within(dialog).getByLabelText("RDM in Default")).not.toBeChecked();
     expect(within(dialog).getByRole("button", { name: "Save" })).toBeEnabled();
+    // The refused removal is unsaved still: Close asks before it is dropped.
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(within(dialog).getAllByRole("button", { name: "Close" }).at(-1)!);
+    expect(confirm).toHaveBeenCalledWith("Discard your unsaved changes?");
+    confirm.mockRestore();
     expect(onChanged).toHaveBeenCalledTimes(1);
     expect(onChanged.mock.calls[0]?.[0].added).toHaveLength(1);
     expect(onClose).not.toHaveBeenCalled();

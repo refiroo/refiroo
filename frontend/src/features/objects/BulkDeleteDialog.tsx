@@ -8,17 +8,11 @@
  */
 
 import { countedType } from "@/model/lookup";
-import type { Noun, TypeName } from "@/ui/BatchOutcome";
+import { nounOf, type TypeName } from "@/ui/BatchOutcome";
 import { BatchDeletionSection } from "@/ui/BatchOutcome";
-import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
-import type { EngineModel, Job, ObjectTypeDefinition } from "@/types";
-import { BulkJobDialog, targetText } from "./BulkJobDialog";
+import type { Job } from "@/types";
+import { BulkJobDialog, targetText, type BulkDialogProps } from "./BulkJobDialog";
 import { deletedIds, deleteItems, deleteLabel, deletionWords } from "./bulkDelete";
-
-const POLICIES = [
-  ["independent", "Delete the rest"],
-  ["atomic", "Delete none"],
-] as const;
 
 export function BulkDeleteDialog({
   model,
@@ -30,23 +24,11 @@ export function BulkDeleteDialog({
   onClose,
   onDeleted,
   onOpenRecord,
-}: {
-  model: EngineModel;
-  objectType: ObjectTypeDefinition;
-  workspaceKey: string;
-  selection: RecordSelection;
-  selected: number;
-  /** Reads every record the list matches, for "all matching" (D102). */
-  readMatching: (
-    signal: AbortSignal,
-    onProgress: (read: number, total: number | undefined) => void,
-  ) => Promise<SelectableRow[]>;
-  onClose: () => void;
+}: BulkDialogProps & {
   /** A job that deleted records ended: the selected records it removed (D125). */
   onDeleted: (job: Job, deleted: Set<string>) => void;
-  onOpenRecord: (id: string) => void;
 }) {
-  const noun: Noun = [objectType.name.toLowerCase(), objectType.pluralName.toLowerCase()];
+  const noun = nounOf(objectType);
   const typeName: TypeName = (key, records) => countedType(model, key, records);
 
   function summary(job: Job) {
@@ -76,7 +58,7 @@ export function BulkDeleteDialog({
       selection={selection}
       selected={selected}
       workspaceKey={workspaceKey}
-      policies={POLICIES}
+      verb="delete"
       policyLabel="If a record cannot be deleted"
       applyingHint="Nothing is deleted yet: the preview shows everything deleting removes, then you delete it."
       nothing="Nothing to delete"

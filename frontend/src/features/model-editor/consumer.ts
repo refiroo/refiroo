@@ -10,6 +10,7 @@
 import { list, record, text } from "@/lib/coerce";
 import type { ConsumerDefinition, DraftOperation, ModelDraftOutline } from "@/types";
 import { attributeTypeOf, objectTypeOf, relationTypeOf, typeName } from "@/model/outline";
+import { WRITTEN_BY_HAND } from "@/lib/words";
 
 type Json = Record<string, unknown>;
 
@@ -103,7 +104,7 @@ export function sourceOptions(outline: ModelDraftOutline, exposes: string[], cur
         "From a type above",
       );
   }
-  for (const value of current) add(value, value, "Written by hand");
+  for (const value of current) add(value, value, WRITTEN_BY_HAND);
   return [...options.values()];
 }
 
@@ -333,7 +334,7 @@ export function parentFieldOptions(
           group: "Attributes of the parent types",
         });
   for (const value of current)
-    if (!options.has(value)) options.set(value, { value, label: value, group: "Written by hand" });
+    if (!options.has(value)) options.set(value, { value, label: value, group: WRITTEN_BY_HAND });
   return [...options.values()];
 }
 
@@ -678,7 +679,7 @@ export function matchOptions(
         if (item.value !== "objectType") add(item.value, item.label, item.group);
     }
   }
-  for (const value of current) add(value, value, "Written by hand");
+  for (const value of current) add(value, value, WRITTEN_BY_HAND);
   return [...options.values()];
 }
 
@@ -738,7 +739,7 @@ export function relatedFieldOptions(
     .map((value) => ({
       value,
       label: attributeTypeOf(outline, value.slice(9))?.name ?? value,
-      group: "Written by hand",
+      group: WRITTEN_BY_HAND,
     }));
   return [
     { value: "id", label: "ID", group: "Built in" },
@@ -780,7 +781,7 @@ export function throughOptions(definition: ConsumerDefinition, current: string[]
   ];
   for (const value of current)
     if (!options.some((option) => option.value === value))
-      options.push({ value, label: value, group: "Written by hand" });
+      options.push({ value, label: value, group: WRITTEN_BY_HAND });
   return options;
 }
 

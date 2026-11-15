@@ -12,6 +12,7 @@ import { errorMessage } from "@/api/errors";
 import { count, counted, plural } from "@/lib/count";
 import { attributeTypeName, typeName } from "@/model/outline";
 import type { DraftMigration, DraftMigrationRow, MigrationProposal, ModelDraftOutline } from "@/types";
+import { ActivationVerdict } from "@/ui/ActivationParts";
 import { Notice } from "@/ui/Notice";
 
 /** The migration the draft states, read for `workspaceKey` while `enabled`; again when `version` moves. */
@@ -115,7 +116,7 @@ export function DraftMigrationNotice({
   ];
   return (
     <div className="draft-migration">
-      <Notice tone="warning" title="Activation needs a migration">
+      <ActivationVerdict>
         {steps > 0
           ? `${steps === 1 ? "One step" : counted(steps, "step")} of this draft ${plural(steps, "changes", "change")} stored data. The migration below comes from ${plural(steps, "it", "them")}; review it before activating.`
           : "The draft's data does not fit as it is."}
@@ -130,7 +131,7 @@ export function DraftMigrationNotice({
         {migration.notes.map((note, position) => (
           <p key={`${note.code}:${position}`}>{note.message}.</p>
         ))}
-      </Notice>
+      </ActivationVerdict>
       {landing && (
         <dl className="draft-migration-figures" aria-label={`What the migration does to ${label}`}>
           <div>

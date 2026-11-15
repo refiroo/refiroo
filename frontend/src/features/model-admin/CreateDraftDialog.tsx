@@ -25,7 +25,7 @@ import { WorkspaceField } from "@/ui/WorkspaceField";
 import { emptyDraftModel } from "@/model/emptyDraftModel";
 import { schemaLanguages } from "@/state/useSystem";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 
 export interface CreateDraftSeed {
@@ -123,6 +123,7 @@ export function CreateDraftDialog({
       }
       size={seed.workbook ? "wide" : "compact"}
       busy={pending}
+      dirty={createName !== seed.name || importText !== "{}" || Boolean(workbook)}
       onClose={onClose}
     >
       <form
@@ -222,9 +223,7 @@ export function CreateDraftDialog({
         )}
         {createError && <Notice tone="error">{createError}</Notice>}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={() => onClose()}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button
             className="primary"
             disabled={

@@ -32,11 +32,11 @@ import type {
 import { canRedo, historySteps, undoable } from "@/features/model-editor/history";
 import { useCapabilities } from "@/state/useSystem";
 import { Trail } from "@/ui/Trail";
-import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { ProposalNote } from "@/ui/ProposalNote";
 import { RouteLink } from "@/ui/RouteLink";
 import { Skeleton } from "@/ui/Skeleton";
+import { StalePreviewDialog } from "@/ui/StalePreviewDialog";
 import { Tabs } from "@/ui/Tabs";
 import { MappingPane, rowId, type RowNote } from "./MappingPane";
 import { MoveReport } from "./MoveReport";
@@ -798,40 +798,31 @@ export function MoveEditor({
         />
       )}
       {stale && (
-        <Modal
-          role="alertdialog"
-          size="confirm"
-          showClose={false}
+        <StalePreviewDialog
           title={
             stale === "mapping"
               ? "The mapping changed after this dry run"
               : "A workspace's release changed after this dry run"
           }
-          onClose={() => setStale(undefined)}
-        >
-          <div className="dialog-body">
-            <p>
-              {stale === "mapping"
-                ? `The mapping was changed, here or in another session, after the dry run you reviewed (version ${summary?.mapping.version ?? mapping.version}). Nothing was ${w.past}. Run the dry run again and review its figures before starting.`
-                : `${sourceLabel} or ${targetLabel} runs another release than at the dry run you reviewed. Nothing was ${w.past}. Run the dry run again and review its figures before starting.`}
-            </p>
-            <div className="dialog-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  setStale(undefined);
-                  onAddress({ ...address, view: undefined });
-                }}
-              >
-                Open the mapping
-              </button>
-              <button type="button" className="primary" onClick={() => void runAgain()}>
-                Dry run again
-              </button>
-            </div>
-          </div>
-        </Modal>
+          reason={
+            stale === "mapping"
+              ? `The mapping was changed, here or in another session, after the dry run you reviewed (version ${summary?.mapping.version ?? mapping.version}).`
+              : `${sourceLabel} or ${targetLabel} runs another release than at the dry run you reviewed.`
+          }
+          past={w.past}
+          next="Run the dry run again and review its figures before starting."
+          confirmLabel="Dry run again"
+          secondary={{
+            label: "Open the mapping",
+            onClick: () => {
+              setStale(undefined);
+              onAddress({ ...address, view: undefined });
+            },
+          }}
+          dismissable={false}
+          onCancel={() => setStale(undefined)}
+          onConfirm={() => void runAgain()}
+        />
       )}
     </div>
   );

@@ -346,6 +346,24 @@ nav.settings-rail {
   color: var(--text-secondary);
 }
 
+/* A plain table that only borrows the stacking at phone width keeps its own look on a wider screen. */
+@media (min-width: 761px) {
+  .settings-table.settings-table-plain table {
+    font-size: var(--text-md);
+  }
+  .settings-table.settings-table-plain th {
+    background: var(--surface-sunken);
+  }
+  .settings-table.settings-table-plain td {
+    max-width: 360px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    color: var(--text-secondary);
+  }
+}
+
 /* Settings › AI: what a call sent and was answered, on demand. */
 .ai-call-content {
   margin-top: var(--space-2);
@@ -1927,33 +1945,6 @@ tr.openable-row:hover > * {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-2) !important;
-}
-.account-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 22px;
-  padding: 0 9px;
-  border-radius: 11px;
-  background: var(--surface-fill);
-  color: var(--text-secondary);
-  font-size: var(--fs-12);
-  font-weight: 500;
-  white-space: nowrap;
-}
-.account-pill.success {
-  background: var(--status-success-surface);
-  color: var(--status-success-text);
-}
-.account-pill.warning {
-  background: var(--status-warning-surface);
-  color: var(--status-warning-text);
-}
-.account-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--status-success-marker);
 }
 .account-list {
   margin: 0;

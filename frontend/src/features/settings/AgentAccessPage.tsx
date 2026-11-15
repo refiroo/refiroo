@@ -19,8 +19,10 @@ import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
 import { FormField } from "@/ui/FormField";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
+import { ActionNotices } from "@/ui/ActionNotices";
 import { Notice } from "@/ui/Notice";
+import { useGuardedWrite } from "@/ui/useGuardedWrite";
 import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import {
@@ -258,15 +260,13 @@ function ApplicationsSection({ hue }: { hue: Hue }) {
   const feed = useCursorFeed((cursor) => agentAccess.applications(cursor), []);
   const [registering, setRegistering] = useState(false);
   const [blocking, setBlocking] = useState<AgentApplication>();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const guard = useGuardedWrite();
+  const { pending, error, setError } = guard;
   const registerRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
 
-  async function change(application: AgentApplication, action: "block" | "restore") {
-    setPending(true);
-    setError("");
-    try {
+  function change(application: AgentApplication, action: "block" | "restore") {
+    return guard.run(async () => {
       await agentAccess[action](application.id);
       setBlocking(undefined);
       feed.reload();
@@ -275,11 +275,7 @@ function ApplicationsSection({ hue }: { hue: Hue }) {
           ? `${application.name} was blocked. Its sessions end on their next call.`
           : `${application.name} was restored. People may sign in with it again.`,
       );
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setPending(false);
-    }
+    }, {});
   }
 
   return (
@@ -293,11 +289,7 @@ function ApplicationsSection({ hue }: { hue: Hue }) {
         </button>
       }
     >
-      {error && !blocking && (
-        <Notice tone="error" title="The action could not be completed">
-          {error}
-        </Notice>
-      )}
+      <ActionNotices guard={guard} hideError={Boolean(blocking)} />
       <SettingsPanel>
         {feed.error ? (
           <InlineError message={feed.error} onRetry={feed.retry} />
@@ -490,9 +482,7 @@ function RegisterDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending || !name.trim() || !redirectUris.length}>
             {pending ? "Adding…" : "Add assistant"}
           </button>

@@ -11,8 +11,9 @@ import { errorMessage } from "@/api/errors";
 import { counted } from "@/lib/count";
 import { newestFirst } from "@/model/newestFirst";
 import type { ChangeSet } from "@/types";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { changeSetTitle } from "@/lib/words";
 
 export interface OwnChangeSet {
   changeSet?: ChangeSet;
@@ -58,7 +59,7 @@ export function useOwnChangeSet(
 /** How the band and the button name a change set and its count: "Spring determinations · 3 changes". */
 export function ownChangeSetText(own: OwnChangeSet): string | undefined {
   if (!own.changeSet) return undefined;
-  const name = own.changeSet.name || "Untitled change set";
+  const name = changeSetTitle(own.changeSet.name);
   if (own.changes === undefined) return `Your change set: ${name}`;
   return `Your change set: ${name} · ${counted(own.changes, "change")}`;
 }
@@ -105,9 +106,7 @@ export function ProposeDialog({
         </label>
         {error && <Notice tone="error">{error}</Notice>}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending}>
             Start and edit
           </button>

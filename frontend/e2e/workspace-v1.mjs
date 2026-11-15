@@ -326,7 +326,7 @@ try {
   // 1–3 on generated-a.
   const a = await setUp("a", "probe-a", "Probe A");
   const dialog = await openActivation(a.x1, "Probe A", a.renamed.version);
-  await dialog.getByText("A migration is needed").waitFor();
+  await dialog.getByText("Activation needs a migration", { exact: true }).waitFor();
   await assertAccessible(page, "the activation dialog offering a migration");
   await shotBoth("activate-migration");
   await dialog.getByRole("button", { name: "Preview the migration…" }).focus();

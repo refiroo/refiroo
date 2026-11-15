@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 
 export type StatusTone =
-  "live" | "changeSet" | "publication" | "draft" | "proposed" | "success" | "warning" | "error" | "neutral";
+  "live" | "changeSet" | "publication" | "draft" | "proposed" | "success" | "warning" | "error" | "neutral" | "plain";
+
+/** `compact` is a 22 px line of 12 px text (a count or a role on a card); `small` a 12 px tag in a toolbar or note. */
+export type StatusSize = "default" | "compact" | "small";
 
 const TONE_CLASS: Record<StatusTone, string> = {
   live: "tone-live",
@@ -13,6 +16,7 @@ const TONE_CLASS: Record<StatusTone, string> = {
   warning: "tone-warning",
   error: "tone-error",
   neutral: "tone-neutral",
+  plain: "tone-plain",
 };
 
 /**
@@ -24,16 +28,22 @@ export function StatusPill({
   tone,
   children,
   marker = true,
+  size = "default",
   className,
 }: {
   tone: StatusTone;
   children: ReactNode;
   /** The dot before the text; off for compact uses such as a version. */
   marker?: boolean;
+  size?: StatusSize;
   className?: string;
 }) {
   return (
-    <span className={["status-pill", TONE_CLASS[tone], className].filter(Boolean).join(" ")}>
+    <span
+      className={["status-pill", TONE_CLASS[tone], size !== "default" && `status-pill-${size}`, className]
+        .filter(Boolean)
+        .join(" ")}
+    >
       {marker && <span className="status-pill-marker" aria-hidden="true" />}
       {children}
     </span>

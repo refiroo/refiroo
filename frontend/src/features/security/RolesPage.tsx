@@ -14,7 +14,7 @@ import type { ActionGroup, Role } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { SelectField } from "@/ui/Selection";
 import { SettingsLayout } from "@/ui/SettingsLayout";
@@ -384,9 +384,7 @@ function NewRoleDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending || !name.trim()}>
             {pending ? "Adding…" : "Add role"}
           </button>

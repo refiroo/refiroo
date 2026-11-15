@@ -14,6 +14,7 @@ import { OutcomeCards } from "@/ui/OutcomeCards";
 import { modeWords, reasonCards, rowForAction, VALUES_NOT_CARRIED } from "@/model/moveRun";
 import { rowId } from "./MappingPane";
 import { MoveRowsTable } from "@/ui/MoveRowsTable";
+import { SettingsTable } from "@/ui/SettingsTable";
 
 export function MoveReport({
   jobId,
@@ -119,29 +120,17 @@ function ReasonRows({
 
 function ValuesNotCarried({ summary, source }: { summary: MoveSummary; source: EngineModel }) {
   return (
-    <div className="table-wrap" role="group" aria-label="Values not carried" tabIndex={0}>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">Type</th>
-            <th scope="col">Field</th>
-            <th scope="col">Records</th>
-            <th scope="col">Code</th>
-          </tr>
-        </thead>
-        <tbody>
-          {summary.attributesNotCarried.map((item) => (
-            <tr key={`${item.sourceType}/${item.attributeTypeKey}/${item.code}`}>
-              <td>{typeName(source, item.sourceType)}</td>
-              <td>{attributeName(source, item.attributeTypeKey)}</td>
-              <td>{count(item.count)}</td>
-              <td>
-                <span className="mono">{item.code}</span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <SettingsTable plain label="Values not carried" columns={["Type", "Field", "Records", "Code"]}>
+      {summary.attributesNotCarried.map((item) => (
+        <tr key={`${item.sourceType}/${item.attributeTypeKey}/${item.code}`}>
+          <td data-label="Type">{typeName(source, item.sourceType)}</td>
+          <td data-label="Field">{attributeName(source, item.attributeTypeKey)}</td>
+          <td data-label="Records">{count(item.count)}</td>
+          <td data-label="Code">
+            <span className="mono">{item.code}</span>
+          </td>
+        </tr>
+      ))}
+    </SettingsTable>
   );
 }

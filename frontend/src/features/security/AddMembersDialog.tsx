@@ -12,7 +12,7 @@ import { errorMessage } from "@/api/errors";
 import { counted } from "@/lib/count";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { Group, GroupMember, GroupMemberOutcome, GroupMembersResult } from "@/types";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { SearchField } from "@/ui/SearchField";
 import { Tabs } from "@/ui/Tabs";
@@ -112,9 +112,7 @@ export function AddMembersDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button type="button" className="primary" disabled={pending || !count} onClick={() => void add()}>
             {pending ? "Adding…" : count ? `Add ${counted(count, "member")}` : "Add members"}
           </button>

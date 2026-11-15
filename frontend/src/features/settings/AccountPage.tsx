@@ -32,6 +32,7 @@ import { PasskeysPanel } from "./PasskeysPanel";
 import { SecondFactorPanel } from "./SecondFactorPanel";
 import { useSettingsRead } from "@/state/useSystem";
 import { allWorkspaces } from "@/api/allWorkspaces";
+import { SIGN_OUT_EVERYWHERE } from "@/lib/words";
 
 const SIGNED_IN_WITH: Record<string, string> = {
   password: "Signed in with your password",
@@ -353,11 +354,11 @@ function Sessions() {
           </SettingsPanel>
           <SettingsPanel>
             <SettingRow
-              name="Sign out everywhere"
+              name={SIGN_OUT_EVERYWHERE}
               help="Lost a device, or signed in somewhere you shouldn’t have? Sign out of every browser at once, this one included."
             >
               <button type="button" className="danger-ghost" onClick={() => setConfirming(true)}>
-                Sign out everywhere
+                {SIGN_OUT_EVERYWHERE}
               </button>
             </SettingRow>
           </SettingsPanel>
@@ -365,8 +366,8 @@ function Sessions() {
       )}
       {confirming && (
         <ConfirmDialog
-          title="Sign out everywhere?"
-          confirmLabel="Sign out everywhere"
+          title={`${SIGN_OUT_EVERYWHERE}?`}
+          confirmLabel={SIGN_OUT_EVERYWHERE}
           pending={pending === "all"}
           onCancel={() => setConfirming(false)}
           onConfirm={() => void endAll()}

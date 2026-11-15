@@ -6,6 +6,7 @@
  * Show proposed. Closing while it runs leaves the job going; its end is announced.
  */
 
+import { JobProgress } from "@/ui/JobProgress";
 import { useEffect, useState, type FormEvent } from "react";
 import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
 import { ai } from "@/api/aiClient";
@@ -264,20 +265,13 @@ export function MappingProposalDialog({
         </form>
       ) : step === "running" && job ? (
         <form className="dialog-form" onSubmit={(event) => event.preventDefault()} aria-label={title}>
-          <div className="job-progress">
-            <progress
-              value={job.progress.total ? job.progress.processed : undefined}
-              max={job.progress.total ?? undefined}
-              aria-label="Progress"
-            />
-            <span role="status">
-              {job.progress.total !== null
-                ? `${count(job.progress.processed)} of ${count(job.progress.total)} ${scope.sources}`
-                : job.state === "queued"
-                  ? "Waiting to start"
-                  : `${count(job.progress.processed)} ${scope.sources} done`}
-            </span>
-          </div>
+          <JobProgress processed={job.progress.processed} total={job.progress.total} role="text">
+            {job.progress.total !== null
+              ? `${count(job.progress.processed)} of ${count(job.progress.total)} ${scope.sources}`
+              : job.state === "queued"
+                ? "Waiting to start"
+                : `${count(job.progress.processed)} ${scope.sources} done`}
+          </JobProgress>
           <p className="admin-hint">
             You can close this: the job goes on and you are told when it ends. Proposals already made stay if you stop.
           </p>

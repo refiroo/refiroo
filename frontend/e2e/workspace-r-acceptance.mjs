@@ -126,7 +126,8 @@ async function createRecord(addButton, name, what) {
   await keys.fill(dialog.getByLabel("Name", { exact: true }), name, "a record's name");
   const [created] = await Promise.all([
     page.waitForResponse(
-      (response) => response.request().method() === "POST" && /\/api\/v1\/objects$/.test(new URL(response.url()).pathname),
+      (response) =>
+        response.request().method() === "POST" && /\/api\/v1\/objects$/.test(new URL(response.url()).pathname),
     ),
     keys.press(dialog.getByRole("button", { name: /^Add / }), "Create"),
   ]);
@@ -184,7 +185,8 @@ async function j36(variant, label) {
   await page.getByRole("tab", { name: "Model", exact: true }).first().waitFor();
   const installButton = page.getByRole("button", { name: "Install and activate…" });
   if (await installButton.isVisible()) await keys.press(installButton, "Install and activate…");
-  else await keys.menu(page.getByRole("button", { name: /^More: / }), "Install and activate…", "the editor's More menu");
+  else
+    await keys.menu(page.getByRole("button", { name: /^More: / }), "Install and activate…", "the editor's More menu");
   const installing = page.getByRole("dialog", { name: "Install and activate" });
   assert.equal(await installing.getByRole("radio", { name: "A new workspace" }).isChecked(), true);
   await keys.fill(installing.getByLabel("Workspace name"), label, "Workspace name");
@@ -215,7 +217,10 @@ async function j36(variant, label) {
   );
   assert.equal(child.parentObjectId, record.id, "the child stands under the record it was added from");
   await editValue(side.code, `${key}-live`);
-  assert.equal(valueOf(await api(`/objects/${side.root.key}/${record.id}?workspaceKey=${key}`), side.code), `${key}-live`);
+  assert.equal(
+    valueOf(await api(`/objects/${side.root.key}/${record.id}?workspaceKey=${key}`), side.code),
+    `${key}-live`,
+  );
   await noSidewaysScroll("the record page");
 
   // A change set: started from the band, the record changed in it, validated and published.
@@ -223,7 +228,13 @@ async function j36(variant, label) {
   const data = page.getByRole("button", { name: /^Data: / });
   if (await data.isVisible()) await keys.press(data, "the band's Data popover");
   const band = page.getByRole("navigation", { name: "Workspace data context" });
-  await keys.press(band.getByRole("link", { name: "Change sets" }).or(band.getByRole("button", { name: "Change sets" })).first(), "Change sets");
+  await keys.press(
+    band
+      .getByRole("link", { name: "Change sets" })
+      .or(band.getByRole("button", { name: "Change sets" }))
+      .first(),
+    "Change sets",
+  );
   await keys.press(
     page.locator(".page-header").getByRole("button", { name: "New change set", exact: true }),
     "New change set",
@@ -250,7 +261,9 @@ async function j36(variant, label) {
   const next = release(config.model, "1.1.0");
   const note = { key: "r-note", name: "Acceptance note", valueType: "text" };
   next.attributeTypes.push(note);
-  next.objectTypes.find((item) => item.key === side.root.key).attributes.push({ attributeTypeKey: note.key, order: 999 });
+  next.objectTypes
+    .find((item) => item.key === side.root.key)
+    .attributes.push({ attributeTypeKey: note.key, order: 999 });
   await install(next, `${label} next`);
   const leftBehind = await api(`/workspaces/${key}/change-sets`, { name: `Open in ${label}`, source: "currentLive" });
   const activation = await openActivation(first.release.key, first.release.name, label, "1.1.0");
@@ -277,12 +290,16 @@ async function j37(variant, walked) {
   const target = release(config.withoutChild, "1.2.0");
   const installed = await install(target, `${label} without children`);
   const dialog = await openActivation(next.release.key, next.release.name, label, "1.2.0");
-  await dialog.getByText("A migration is needed").waitFor();
+  await dialog.getByText("Activation needs a migration", { exact: true }).waitFor();
   await keys.press(dialog.getByRole("button", { name: "Preview the migration…" }), "Preview the migration…");
   await page.waitForURL(/\/settings\/model\/migrations\//);
   await page.getByRole("group", { name: "Items by outcome" }).waitFor({ timeout: 30_000 });
   await page.getByText("Nothing has changed yet.").waitFor();
-  assert.equal((await api(`/workspaces/${key}/model`)).releaseId, walked.nextRelease.releaseId, "the preview changed nothing");
+  assert.equal(
+    (await api(`/workspaces/${key}/model`)).releaseId,
+    walked.nextRelease.releaseId,
+    "the preview changed nothing",
+  );
   await keys.press(
     page.getByRole("group", { name: "Items by outcome" }).getByRole("button", { name: /Removed/ }),
     "Removed",
@@ -328,7 +345,11 @@ async function j38(variant) {
   const toLabel = (await to.locator(`option[value="${target.key}"]`).textContent()).trim();
   await keys.choose(to, toLabel, "To workspace");
   await keys.radio(opening.getByRole("radio", { name: /A new mapping, proposed/ }), "A new mapping");
-  await keys.fill(opening.getByLabel("Name of the new mapping"), `${source.label} to ${target.label}`, "the mapping's name");
+  await keys.fill(
+    opening.getByLabel("Name of the new mapping"),
+    `${source.label} to ${target.label}`,
+    "the mapping's name",
+  );
   await keys.press(opening.getByRole("button", { name: "Open the editor" }), "Open the editor");
   await page.waitForURL(/\/settings\/moves\/[^?]+\?/, { timeout: 60_000 });
   await settledFigures();
@@ -367,7 +388,10 @@ async function j38(variant) {
   await noSidewaysScroll("the published copy");
   const ledgers = (await api(`/objects/${config.targetTypes.R}?workspaceKey=${target.key}&pageSize=200`)).items;
   const entries = (await api(`/objects/${config.targetTypes.R2}?workspaceKey=${target.key}&pageSize=200`)).items;
-  assert.deepEqual(ledgers.map((item) => item.name), [made.R.name]);
+  assert.deepEqual(
+    ledgers.map((item) => item.name),
+    [made.R.name],
+  );
   assert.equal(entries[0].parentObjectId, ledgers[0].id, "the entry stands under its ledger");
   assert.equal((await api(`/workspaces/${source.key}/feed`)).headPosition, sourceFeed, "the source unchanged");
   checks.push(

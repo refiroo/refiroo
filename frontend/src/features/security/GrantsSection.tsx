@@ -118,8 +118,6 @@ export function GrantsSection({
     onChanged?.();
   }
 
-  const undoAction = (change: GrantChange) => ({ actions: [{ label: "Undo", onPress: () => void undo(change) }] });
-
   async function remove(grant: Grant): Promise<boolean> {
     setRemoving(grant.id);
     setError(undefined);
@@ -127,7 +125,7 @@ export function GrantsSection({
       await security.deleteGrant(grant.id);
       feed.setItems((items) => items.filter((item) => item.id !== grant.id));
       onChanged?.();
-      toast(heldSentence(grant, false), undoAction({ added: [], removed: [grant] }));
+      toast.withUndo(heldSentence(grant, false), () => undo({ added: [], removed: [grant] }));
       return true;
     } catch (cause) {
       setError({ title: "The grant was not removed", message: errorMessage(cause) });
@@ -168,7 +166,7 @@ export function GrantsSection({
         setGranting(false);
         setGrantingFor(undefined);
         const text = changeText(change);
-        if (text) toast(text, undoAction(change));
+        if (text) toast.withUndo(text, () => undo(change));
         feed.reload();
         onChanged?.();
         (grantingFor?.opener ?? grantRef.current)?.focus();

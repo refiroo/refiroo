@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
+import { confirmDiscard } from "@/lib/confirmDiscard";
 
 interface Guard {
   dirty: boolean;
@@ -14,7 +15,7 @@ export function allowNavigation(): boolean {
     window.alert("A request is still in progress. Wait for it to finish before leaving.");
     return false;
   }
-  if (active.some((guard) => guard.dirty) && !window.confirm("Discard your unsaved changes?")) return false;
+  if (active.some((guard) => guard.dirty) && !confirmDiscard()) return false;
   for (const guard of active) {
     guards.delete(guard);
     guard.discard();

@@ -662,7 +662,7 @@
    "Add an application",
    "Application"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:829",
+  "source": "frontend/src/features/model-editor/operations.ts:832",
   "section": "model",
   "on": "draft",
   "buildKinds": [
@@ -676,7 +676,7 @@
    "Add an object type",
    "Object type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:846",
+  "source": "frontend/src/features/model-editor/operations.ts:849",
   "section": "model",
   "on": "draft"
  },
@@ -687,7 +687,7 @@
    "Add an attribute type",
    "Attribute type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:856",
+  "source": "frontend/src/features/model-editor/operations.ts:859",
   "section": "model",
   "on": "draft",
   "buildKinds": [
@@ -701,7 +701,7 @@
    "Add a relation type",
    "Relation type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:872",
+  "source": "frontend/src/features/model-editor/operations.ts:875",
   "section": "model",
   "on": "draft",
   "buildKinds": [
@@ -715,7 +715,7 @@
    "Add a navigation group",
    "Navigation group"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:885",
+  "source": "frontend/src/features/model-editor/operations.ts:888",
   "section": "model",
   "on": "draft"
  },
@@ -725,7 +725,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:897",
+  "source": "frontend/src/features/model-editor/operations.ts:900",
   "section": "model",
   "context": [
    "application"
@@ -742,7 +742,7 @@
   "labels": [
    "Change key"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:908",
+  "source": "frontend/src/features/model-editor/operations.ts:911",
   "section": "model",
   "context": [
    "application"
@@ -759,7 +759,7 @@
   "labels": [
    "Add an object type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:917",
+  "source": "frontend/src/features/model-editor/operations.ts:920",
   "section": "model",
   "on": "application"
  },
@@ -770,7 +770,7 @@
    "Add a view",
    "Add a view to"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:925",
+  "source": "frontend/src/features/model-editor/operations.ts:928",
   "section": "model",
   "on": "application"
  },
@@ -781,7 +781,7 @@
    "List an existing type",
    "List an existing type in"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:958",
+  "source": "frontend/src/features/model-editor/operations.ts:961",
   "section": "model",
   "on": "application",
   "buildKinds": [
@@ -794,7 +794,7 @@
   "labels": [
    "Add a navigation group"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:984",
+  "source": "frontend/src/features/model-editor/operations.ts:987",
   "section": "model",
   "on": "application"
  },
@@ -804,7 +804,7 @@
   "labels": [
    "Remove application"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:991",
+  "source": "frontend/src/features/model-editor/operations.ts:994",
   "section": "model",
   "context": [
    "application"
@@ -821,7 +821,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1002",
+  "source": "frontend/src/features/model-editor/operations.ts:1005",
   "section": "model",
   "context": [
    "view"
@@ -838,7 +838,7 @@
   "labels": [
    "Change"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1019",
+  "source": "frontend/src/features/model-editor/operations.ts:1022",
   "section": "model",
   "context": [
    "view"
@@ -852,7 +852,7 @@
   "labels": [
    "Change"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1031",
+  "source": "frontend/src/features/model-editor/operations.ts:1034",
   "section": "model",
   "context": [
    "view"
@@ -866,7 +866,7 @@
   "labels": [
    "Change"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1044",
+  "source": "frontend/src/features/model-editor/operations.ts:1047",
   "section": "model",
   "context": [
    "view"
@@ -880,7 +880,7 @@
   "labels": [
    "Move to group"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1058",
+  "source": "frontend/src/features/model-editor/operations.ts:1061",
   "section": "model",
   "on": "view",
   "buildKinds": [
@@ -893,7 +893,7 @@
   "labels": [
    "Remove view"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1088",
+  "source": "frontend/src/features/model-editor/operations.ts:1091",
   "section": "model",
   "context": [
    "view"
@@ -911,7 +911,7 @@
    "Layout",
    "Layout of"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1096",
+  "source": "frontend/src/features/model-editor/operations.ts:1099",
   "section": "model",
   "context": [
    "view"
@@ -928,7 +928,7 @@
   "labels": [
    "Remove relationships table"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1116",
+  "source": "frontend/src/features/model-editor/operations.ts:1119",
   "section": "model",
   "on": "view",
   "buildKinds": [
@@ -941,7 +941,7 @@
   "labels": [
    "Remove relation matrix"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1124",
+  "source": "frontend/src/features/model-editor/operations.ts:1127",
   "section": "model",
   "on": "view",
   "buildKinds": [
@@ -954,7 +954,7 @@
   "labels": [
    "Stop listing in this application"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1134",
+  "source": "frontend/src/features/model-editor/operations.ts:1137",
   "section": "model",
   "on": "objectType",
   "buildKinds": [
@@ -967,7 +967,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1144",
+  "source": "frontend/src/features/model-editor/operations.ts:1147",
   "section": "model",
   "context": [
    "type",
@@ -985,7 +985,7 @@
   "labels": [
    "Change key"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1166",
+  "source": "frontend/src/features/model-editor/operations.ts:1169",
   "section": "model",
   "context": [
    "type",
@@ -1003,7 +1003,7 @@
   "labels": [
    "Move to"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1175",
+  "source": "frontend/src/features/model-editor/operations.ts:1178",
   "section": "model",
   "context": [
    "type",
@@ -1018,7 +1018,7 @@
   "labels": [
    "Move to group"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1183",
+  "source": "frontend/src/features/model-editor/operations.ts:1186",
   "section": "model",
   "on": "objectType",
   "buildKinds": [
@@ -1032,7 +1032,7 @@
    "New attribute",
    "New attribute on"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1230",
+  "source": "frontend/src/features/model-editor/operations.ts:1233",
   "section": "model",
   "on": "objectType",
   "buildKinds": [
@@ -1047,7 +1047,7 @@
    "Attach an attribute to",
    "Attach an existing attribute"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1251",
+  "source": "frontend/src/features/model-editor/operations.ts:1254",
   "section": "model",
   "on": "objectType",
   "buildKinds": [
@@ -1061,7 +1061,7 @@
    "Allow a relation",
    "Allow a relation from"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1281",
+  "source": "frontend/src/features/model-editor/operations.ts:1284",
   "section": "model",
   "on": "objectType"
  },
@@ -1071,7 +1071,7 @@
   "labels": [
    "Split"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1290",
+  "source": "frontend/src/features/model-editor/operations.ts:1293",
   "section": "model",
   "context": [
    "type",
@@ -1089,7 +1089,7 @@
   "labels": [
    "Merge into"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1331",
+  "source": "frontend/src/features/model-editor/operations.ts:1334",
   "section": "model",
   "context": [
    "type",
@@ -1107,7 +1107,7 @@
   "labels": [
    "Remove type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1350",
+  "source": "frontend/src/features/model-editor/operations.ts:1353",
   "section": "model",
   "context": [
    "type",
@@ -1125,7 +1125,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1361",
+  "source": "frontend/src/features/model-editor/operations.ts:1364",
   "section": "model",
   "context": [
    "attribute"
@@ -1142,7 +1142,7 @@
   "labels": [
    "Change key"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1383",
+  "source": "frontend/src/features/model-editor/operations.ts:1386",
   "section": "model",
   "context": [
    "attribute"
@@ -1159,7 +1159,7 @@
   "labels": [
    "Move to"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1392",
+  "source": "frontend/src/features/model-editor/operations.ts:1395",
   "section": "model",
   "context": [
    "attribute"
@@ -1174,7 +1174,7 @@
    "Make optional",
    "Make required"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1400",
+  "source": "frontend/src/features/model-editor/operations.ts:1403",
   "section": "model",
   "context": [
    "attribute"
@@ -1192,7 +1192,7 @@
    "Make editable",
    "Make read-only"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1415",
+  "source": "frontend/src/features/model-editor/operations.ts:1418",
   "section": "model",
   "context": [
    "attribute"
@@ -1210,7 +1210,7 @@
    "Allow repeated values",
    "Make unique"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1430",
+  "source": "frontend/src/features/model-editor/operations.ts:1433",
   "section": "model",
   "on": "attribute",
   "buildKinds": [
@@ -1224,7 +1224,7 @@
    "Value type",
    "Value type of"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1444",
+  "source": "frontend/src/features/model-editor/operations.ts:1447",
   "section": "model",
   "on": "attribute",
   "buildKinds": [
@@ -1237,7 +1237,7 @@
   "labels": [
    "Turn into a list type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1456",
+  "source": "frontend/src/features/model-editor/operations.ts:1459",
   "section": "model",
   "on": "attribute",
   "buildKinds": [
@@ -1251,7 +1251,7 @@
   "labels": [
    "Move up"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1522",
+  "source": "frontend/src/features/model-editor/operations.ts:1525",
   "section": "model",
   "context": [
    "attribute"
@@ -1265,7 +1265,7 @@
   "labels": [
    "Move down"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1536",
+  "source": "frontend/src/features/model-editor/operations.ts:1539",
   "section": "model",
   "context": [
    "attribute"
@@ -1279,7 +1279,7 @@
   "labels": [
    "Detach from"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1552",
+  "source": "frontend/src/features/model-editor/operations.ts:1555",
   "section": "model",
   "context": [
    "attribute"
@@ -1296,7 +1296,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1563",
+  "source": "frontend/src/features/model-editor/operations.ts:1566",
   "section": "model",
   "context": [
    "attribute type"
@@ -1313,7 +1313,7 @@
   "labels": [
    "Change key"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1573",
+  "source": "frontend/src/features/model-editor/operations.ts:1576",
   "section": "model",
   "context": [
    "attribute type"
@@ -1330,7 +1330,7 @@
   "labels": [
    "Features"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1582",
+  "source": "frontend/src/features/model-editor/operations.ts:1585",
   "section": "model",
   "context": [
    "attribute type"
@@ -1347,7 +1347,7 @@
   "labels": [
    "Value type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1607",
+  "source": "frontend/src/features/model-editor/operations.ts:1610",
   "section": "model",
   "context": [
    "attribute type"
@@ -1364,7 +1364,7 @@
   "labels": [
    "Attach to a type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1618",
+  "source": "frontend/src/features/model-editor/operations.ts:1621",
   "section": "model",
   "on": "attributeType",
   "buildKinds": [
@@ -1377,7 +1377,7 @@
   "labels": [
    "Remove attribute type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1645",
+  "source": "frontend/src/features/model-editor/operations.ts:1648",
   "section": "model",
   "on": "attributeType",
   "buildKinds": [
@@ -1390,7 +1390,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1656",
+  "source": "frontend/src/features/model-editor/operations.ts:1659",
   "section": "model",
   "context": [
    "relation type"
@@ -1407,7 +1407,7 @@
   "labels": [
    "Change keys"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1677",
+  "source": "frontend/src/features/model-editor/operations.ts:1680",
   "section": "model",
   "context": [
    "relation type"
@@ -1424,7 +1424,7 @@
   "labels": [
    "Allow between two types"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1693",
+  "source": "frontend/src/features/model-editor/operations.ts:1696",
   "section": "model",
   "on": "relationType",
   "buildKinds": [
@@ -1437,7 +1437,7 @@
   "labels": [
    "Remove relation type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1731",
+  "source": "frontend/src/features/model-editor/operations.ts:1734",
   "section": "model",
   "on": "relationType",
   "buildKinds": [
@@ -1452,7 +1452,7 @@
    "Display attribute",
    "Which attribute names a"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1755",
+  "source": "frontend/src/features/model-editor/operations.ts:1758",
   "section": "model",
   "on": "objectType",
   "buildKinds": [
@@ -1466,7 +1466,7 @@
    "Effective period",
    "When a"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1783",
+  "source": "frontend/src/features/model-editor/operations.ts:1786",
   "section": "model",
   "context": [
    "type",
@@ -1485,7 +1485,7 @@
    "At least one of",
    "Attributes of"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1828",
+  "source": "frontend/src/features/model-editor/operations.ts:1831",
   "section": "model",
   "on": "objectType",
   "buildKinds": [
@@ -1499,7 +1499,7 @@
    "Parent relationships",
    "Relationships that place a"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1853",
+  "source": "frontend/src/features/model-editor/operations.ts:1856",
   "section": "model",
   "on": "objectType",
   "buildKinds": [
@@ -1513,7 +1513,7 @@
    "Minimum and maximum",
    "Smallest and largest"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1879",
+  "source": "frontend/src/features/model-editor/operations.ts:1882",
   "section": "model",
   "on": "attributeType",
   "buildKinds": [
@@ -1527,7 +1527,7 @@
    "Attributes carried by",
    "Attributes of the relationship"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1909",
+  "source": "frontend/src/features/model-editor/operations.ts:1912",
   "section": "model",
   "on": "relation",
   "buildKinds": [
@@ -1540,7 +1540,7 @@
   "labels": [
    "Cardinality and required"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1939",
+  "source": "frontend/src/features/model-editor/operations.ts:1942",
   "section": "model",
   "on": "relation",
   "buildKinds": [
@@ -1554,7 +1554,7 @@
    "Make optional",
    "Make required"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1965",
+  "source": "frontend/src/features/model-editor/operations.ts:1967",
   "section": "model",
   "context": [
    "relation"
@@ -1572,7 +1572,7 @@
    "Which records",
    "Which records may be chosen"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:1982",
+  "source": "frontend/src/features/model-editor/operations.ts:1984",
   "section": "model",
   "on": "relation",
   "buildKinds": [
@@ -1585,7 +1585,7 @@
   "labels": [
    "Remove relation"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2009",
+  "source": "frontend/src/features/model-editor/operations.ts:2011",
   "section": "model",
   "context": [
    "relation"
@@ -1602,7 +1602,7 @@
   "labels": [
    "Move up"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2034",
+  "source": "frontend/src/features/model-editor/operations.ts:2036",
   "section": "model",
   "weak": true,
   "on": "groupEntry"
@@ -1613,7 +1613,7 @@
   "labels": [
    "Move down"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2042",
+  "source": "frontend/src/features/model-editor/operations.ts:2044",
   "section": "model",
   "weak": true,
   "on": "groupEntry"
@@ -1624,7 +1624,7 @@
   "labels": [
    "Move to another group"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2050",
+  "source": "frontend/src/features/model-editor/operations.ts:2052",
   "section": "model",
   "on": "groupEntry"
  },
@@ -1634,7 +1634,7 @@
   "labels": [
    "Take out of the group"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2067",
+  "source": "frontend/src/features/model-editor/operations.ts:2069",
   "section": "model",
   "on": "groupEntry"
  },
@@ -1645,7 +1645,7 @@
    "Add to",
    "Add to group"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2074",
+  "source": "frontend/src/features/model-editor/operations.ts:2076",
   "section": "model",
   "on": "group"
  },
@@ -1655,7 +1655,7 @@
   "labels": [
    "Add to a group"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2083",
+  "source": "frontend/src/features/model-editor/operations.ts:2085",
   "section": "model",
   "on": "application"
  },
@@ -1665,7 +1665,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2105",
+  "source": "frontend/src/features/model-editor/operations.ts:2107",
   "section": "model",
   "context": [
    "navigation group",
@@ -1684,7 +1684,7 @@
    "Start folded",
    "Start unfolded"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2115",
+  "source": "frontend/src/features/model-editor/operations.ts:2117",
   "section": "model",
   "context": [
    "navigation group",
@@ -1702,7 +1702,7 @@
   "labels": [
    "Change key"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2129",
+  "source": "frontend/src/features/model-editor/operations.ts:2131",
   "section": "model",
   "context": [
    "navigation group",
@@ -1720,7 +1720,7 @@
   "labels": [
    "Move up"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2139",
+  "source": "frontend/src/features/model-editor/operations.ts:2141",
   "section": "model",
   "context": [
    "navigation group",
@@ -1738,7 +1738,7 @@
   "labels": [
    "Move down"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2149",
+  "source": "frontend/src/features/model-editor/operations.ts:2151",
   "section": "model",
   "context": [
    "navigation group",
@@ -1756,7 +1756,7 @@
   "labels": [
    "Remove group"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2159",
+  "source": "frontend/src/features/model-editor/operations.ts:2161",
   "section": "model",
   "context": [
    "navigation group",
@@ -1775,7 +1775,7 @@
    "Consumer API",
    "New consumer API"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2212",
+  "source": "frontend/src/features/model-editor/operations.ts:2214",
   "section": "model",
   "on": "consumerApis",
   "buildKinds": [
@@ -1788,7 +1788,7 @@
   "labels": [
    "Expose a type"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2244",
+  "source": "frontend/src/features/model-editor/operations.ts:2246",
   "section": "model",
   "on": "consumerApi"
  },
@@ -1798,7 +1798,7 @@
   "labels": [
    "Add field"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2262",
+  "source": "frontend/src/features/model-editor/operations.ts:2264",
   "section": "model",
   "context": [
    "consumer API"
@@ -1812,7 +1812,7 @@
   "labels": [
    "Parent, path and hierarchy"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2280",
+  "source": "frontend/src/features/model-editor/operations.ts:2282",
   "section": "model",
   "on": "consumerApi"
  },
@@ -1822,7 +1822,7 @@
   "labels": [
    "Add related"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2305",
+  "source": "frontend/src/features/model-editor/operations.ts:2307",
   "section": "model",
   "context": [
    "consumer API"
@@ -1836,7 +1836,7 @@
   "labels": [
    "Add related to the parent"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2337",
+  "source": "frontend/src/features/model-editor/operations.ts:2339",
   "section": "model",
   "on": "consumerApi"
  },
@@ -1847,7 +1847,7 @@
    "Fields of the parent",
    "Parent fields"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2374",
+  "source": "frontend/src/features/model-editor/operations.ts:2376",
   "section": "model",
   "on": "consumerApi"
  },
@@ -1857,7 +1857,7 @@
   "labels": [
    "Add list"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2409",
+  "source": "frontend/src/features/model-editor/operations.ts:2411",
   "section": "model",
   "context": [
    "consumer API"
@@ -1871,7 +1871,7 @@
   "labels": [
    "Add XREF rule"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2440",
+  "source": "frontend/src/features/model-editor/operations.ts:2442",
   "section": "model",
   "on": "consumerApi"
  },
@@ -1881,7 +1881,7 @@
   "labels": [
    "Add a match through a related block"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2464",
+  "source": "frontend/src/features/model-editor/operations.ts:2466",
   "section": "model",
   "on": "consumerApi"
  },
@@ -1891,7 +1891,7 @@
   "labels": [
    "Add custom event"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2514",
+  "source": "frontend/src/features/model-editor/operations.ts:2516",
   "section": "model",
   "on": "consumerApi"
  },
@@ -1901,7 +1901,7 @@
   "labels": [
    "Add filter"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2551",
+  "source": "frontend/src/features/model-editor/operations.ts:2553",
   "section": "model",
   "context": [
    "consumer API"
@@ -1915,7 +1915,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2610",
+  "source": "frontend/src/features/model-editor/operations.ts:2612",
   "section": "model",
   "context": [
    "consumer API"
@@ -1929,7 +1929,7 @@
   "labels": [
    "Describe"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2618",
+  "source": "frontend/src/features/model-editor/operations.ts:2620",
   "section": "model",
   "context": [
    "consumer API"
@@ -1943,7 +1943,7 @@
   "labels": [
    "Raise contract version to"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2628",
+  "source": "frontend/src/features/model-editor/operations.ts:2630",
   "section": "model",
   "on": "consumerApi",
   "buildKinds": [
@@ -1956,7 +1956,7 @@
   "labels": [
    "Raise to"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2636",
+  "source": "frontend/src/features/model-editor/operations.ts:2638",
   "section": "model",
   "context": [
    "consumer API"
@@ -1973,7 +1973,7 @@
   "labels": [
    "Change key"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2644",
+  "source": "frontend/src/features/model-editor/operations.ts:2646",
   "section": "model",
   "context": [
    "consumer API"
@@ -1987,7 +1987,7 @@
   "labels": [
    "Edit as JSON"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2657",
+  "source": "frontend/src/features/model-editor/operations.ts:2659",
   "section": "model",
   "on": "consumerApi"
  },
@@ -1997,7 +1997,7 @@
   "labels": [
    "Remove consumer API"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2666",
+  "source": "frontend/src/features/model-editor/operations.ts:2668",
   "section": "model",
   "on": "consumerApi",
   "buildKinds": [
@@ -2010,7 +2010,7 @@
   "labels": [
    "Move up"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2675",
+  "source": "frontend/src/features/model-editor/operations.ts:2677",
   "section": "model",
   "context": [
    "consumer API"
@@ -2027,7 +2027,7 @@
   "labels": [
    "Move down"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2685",
+  "source": "frontend/src/features/model-editor/operations.ts:2687",
   "section": "model",
   "context": [
    "consumer API"
@@ -2045,7 +2045,7 @@
    "Sources",
    "Sources of"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2695",
+  "source": "frontend/src/features/model-editor/operations.ts:2697",
   "section": "model",
   "context": [
    "consumer API"
@@ -2060,7 +2060,7 @@
    "Preferred types",
    "Types preferred by"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2708",
+  "source": "frontend/src/features/model-editor/operations.ts:2710",
   "section": "model",
   "on": "consumerItem",
   "buildKinds": [
@@ -2073,7 +2073,7 @@
   "labels": [
    "Matches on"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2733",
+  "source": "frontend/src/features/model-editor/operations.ts:2735",
   "section": "model",
   "context": [
    "consumer API"
@@ -2088,7 +2088,7 @@
    "Fields",
    "Fields of"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2755",
+  "source": "frontend/src/features/model-editor/operations.ts:2757",
   "section": "model",
   "context": [
    "consumer API"
@@ -2102,7 +2102,7 @@
   "labels": [
    "Edit as JSON"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2783",
+  "source": "frontend/src/features/model-editor/operations.ts:2785",
   "section": "model",
   "on": "consumerItem"
  },
@@ -2113,7 +2113,7 @@
    "Set sunset day",
    "Sunset of version"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2792",
+  "source": "frontend/src/features/model-editor/operations.ts:2794",
   "section": "model",
   "on": "consumerItem",
   "buildKinds": [
@@ -2126,7 +2126,7 @@
   "labels": [
    "Stop serving"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2816",
+  "source": "frontend/src/features/model-editor/operations.ts:2818",
   "section": "model",
   "context": [
    "consumer API"
@@ -2143,7 +2143,7 @@
   "labels": [
    "Remove"
   ],
-  "source": "frontend/src/features/model-editor/operations.ts:2825",
+  "source": "frontend/src/features/model-editor/operations.ts:2827",
   "section": "model",
   "context": [
    "consumer API"
@@ -2210,7 +2210,7 @@
   "labels": [
    "Activate in a workspace"
   ],
-  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:292",
+  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:282",
   "section": "use",
   "commonContext": [
    "model",
@@ -2224,7 +2224,7 @@
   "labels": [
    "Create draft from release"
   ],
-  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:295",
+  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:285",
   "section": "use",
   "commonContext": [
    "model",
@@ -2238,7 +2238,7 @@
   "labels": [
    "Export JSON"
   ],
-  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:297",
+  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:287",
   "section": "use",
   "commonContext": [
    "model",
@@ -2252,7 +2252,7 @@
   "labels": [
    "Retire"
   ],
-  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:304",
+  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:294",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -2267,7 +2267,7 @@
   "labels": [
    "Bring back"
   ],
-  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:314",
+  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:304",
   "section": "use",
   "commonContext": [
    "model",
@@ -2281,7 +2281,7 @@
   "labels": [
    "Delete"
   ],
-  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:324",
+  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:314",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -2296,7 +2296,7 @@
   "labels": [
    "Propose again"
   ],
-  "source": "frontend/src/features/model-editor/ModelEditor.tsx:414",
+  "source": "frontend/src/features/model-editor/ModelEditor.tsx:404",
   "section": "model",
   "commonContext": [
    "model",
@@ -2309,7 +2309,7 @@
   "labels": [
    "Close"
   ],
-  "source": "frontend/src/features/model-editor/ModelEditor.tsx:778",
+  "source": "frontend/src/features/model-editor/ModelEditor.tsx:764",
   "section": "model",
   "weak": true,
   "commonContext": [
@@ -2323,7 +2323,7 @@
   "labels": [
    "Ignore this sheet"
   ],
-  "source": "frontend/src/features/model-editor/SourcePane.tsx:307",
+  "source": "frontend/src/features/model-editor/SourcePane.tsx:308",
   "section": "model",
   "commonContext": [
    "source",
@@ -2336,7 +2336,7 @@
   "labels": [
    "Ignore this sheet"
   ],
-  "source": "frontend/src/features/model-editor/SourcePane.tsx:541",
+  "source": "frontend/src/features/model-editor/SourcePane.tsx:542",
   "section": "model",
   "commonContext": [
    "source",
@@ -2349,7 +2349,7 @@
   "labels": [
    "Move up"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:686",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:687",
   "section": "model",
   "commonContext": [
    "type",
@@ -2362,7 +2362,7 @@
   "labels": [
    "Move down"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:694",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:695",
   "section": "model",
   "commonContext": [
    "type",
@@ -2375,7 +2375,7 @@
   "labels": [
    "Move to"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:702",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:703",
   "section": "model",
   "commonContext": [
    "type",
@@ -2389,7 +2389,7 @@
    "Hide",
    "Show"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:709",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:710",
   "section": "model",
   "weak": true,
   "commonContext": [
@@ -2403,7 +2403,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:717",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:718",
   "section": "model",
   "weak": true,
   "commonContext": [
@@ -2417,7 +2417,7 @@
   "labels": [
    "Columns"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:726",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:727",
   "section": "model",
   "weak": true,
   "commonContext": [
@@ -2431,7 +2431,7 @@
   "labels": [
    "Sort"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:736",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:737",
   "section": "model",
   "weak": true,
   "commonContext": [
@@ -2445,7 +2445,7 @@
   "labels": [
    "Settings"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:740",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:741",
   "section": "model",
   "weak": true,
   "commonContext": [
@@ -2459,7 +2459,7 @@
   "labels": [
    "Add fields"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:751",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:752",
   "section": "model",
   "commonContext": [
    "type",
@@ -2472,7 +2472,7 @@
   "labels": [
    "Remove from page"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:760",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:761",
   "section": "model",
   "commonContext": [
    "type",
@@ -2485,7 +2485,7 @@
   "labels": [
    "Move up"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:774",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:775",
   "section": "model",
   "commonContext": [
    "type",
@@ -2498,7 +2498,7 @@
   "labels": [
    "Move down"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:782",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:783",
   "section": "model",
   "commonContext": [
    "type",
@@ -2511,7 +2511,7 @@
   "labels": [
    "Move to"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:792",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:793",
   "section": "model",
   "commonContext": [
    "type",
@@ -2524,7 +2524,7 @@
   "labels": [
    "Remove from panel"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:799",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:800",
   "section": "model",
   "commonContext": [
    "type",
@@ -2537,7 +2537,7 @@
   "labels": [
    "Move left"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:1038",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:1036",
   "section": "model",
   "commonContext": [
    "type",
@@ -2550,7 +2550,7 @@
   "labels": [
    "Move right"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:1045",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:1043",
   "section": "model",
   "commonContext": [
    "type",
@@ -2563,7 +2563,7 @@
   "labels": [
    "Remove column"
   ],
-  "source": "frontend/src/features/model-editor/TypePreview.tsx:1052",
+  "source": "frontend/src/features/model-editor/TypePreview.tsx:1050",
   "section": "model",
   "commonContext": [
    "type",
@@ -2574,7 +2574,7 @@
   "kind": "screen",
   "key": "menu:operations.ts:item",
   "labels": [],
-  "source": "frontend/src/features/model-editor/operations.ts:3185",
+  "source": "frontend/src/features/model-editor/operations.ts:3187",
   "section": "model",
   "weak": true,
   "commonContext": [
@@ -2654,7 +2654,7 @@
   "labels": [
    "See changes"
   ],
-  "source": "frontend/src/features/security/ClientsPage.tsx:446",
+  "source": "frontend/src/features/security/ClientsPage.tsx:359",
   "section": "use",
   "commonContext": [
    "clients",
@@ -2667,7 +2667,7 @@
   "labels": [
    "Deactivate"
   ],
-  "source": "frontend/src/features/security/ClientsPage.tsx:450",
+  "source": "frontend/src/features/security/ClientsPage.tsx:363",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -2681,7 +2681,7 @@
   "labels": [
    "See changes"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:615",
+  "source": "frontend/src/features/security/PeoplePage.tsx:520",
   "section": "use",
   "commonContext": [
    "people",
@@ -2694,7 +2694,7 @@
   "labels": [
    "Link to an existing person"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:619",
+  "source": "frontend/src/features/security/PeoplePage.tsx:524",
   "section": "use",
   "commonContext": [
    "people",
@@ -2707,7 +2707,7 @@
   "labels": [
    "Sign out everywhere"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:631",
+  "source": "frontend/src/features/security/PeoplePage.tsx:536",
   "section": "use",
   "commonContext": [
    "people",
@@ -2720,7 +2720,7 @@
   "labels": [
    "Deactivate"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:637",
+  "source": "frontend/src/features/security/PeoplePage.tsx:542",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -2734,7 +2734,7 @@
   "labels": [
    "Delete the file"
   ],
-  "source": "frontend/src/features/settings/ImportProfilesPage.tsx:364",
+  "source": "frontend/src/features/settings/ImportProfilesPage.tsx:366",
   "section": "use",
   "commonContext": [
    "import",
@@ -2748,7 +2748,7 @@
   "labels": [
    "Delete the profile"
   ],
-  "source": "frontend/src/features/settings/ImportProfilesPage.tsx:371",
+  "source": "frontend/src/features/settings/ImportProfilesPage.tsx:373",
   "section": "use",
   "commonContext": [
    "import",
@@ -2762,7 +2762,7 @@
   "labels": [
    "Rotate key"
   ],
-  "source": "frontend/src/features/settings/WebhooksPage.tsx:550",
+  "source": "frontend/src/features/settings/WebhooksPage.tsx:544",
   "section": "integrate",
   "commonContext": [
    "webhooks",
@@ -2775,7 +2775,7 @@
   "labels": [
    "Delete"
   ],
-  "source": "frontend/src/features/settings/WebhooksPage.tsx:559",
+  "source": "frontend/src/features/settings/WebhooksPage.tsx:553",
   "section": "integrate",
   "weak": true,
   "commonContext": [
@@ -2787,7 +2787,7 @@
   "kind": "screen",
   "key": "menu:WorkbookCanvas.tsx:item",
   "labels": [],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:964",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:953",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -2799,7 +2799,7 @@
   "kind": "screen",
   "key": "menu:WorkbookCanvas.tsx:item#2",
   "labels": [],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:971",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:960",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -2813,7 +2813,7 @@
   "labels": [
    "Move to the top level"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1012",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1001",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2826,7 +2826,7 @@
   "labels": [
    "Add a filter"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1031",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1020",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2839,7 +2839,7 @@
   "labels": [
    "Move to group"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1039",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1028",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2852,7 +2852,7 @@
   "labels": [
    "Make an object type of this sheet"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1051",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1040",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2865,7 +2865,7 @@
   "labels": [
    "Read these columns as rows"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1093",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1082",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2878,7 +2878,7 @@
   "labels": [
    "Stop reading these columns as rows"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1103",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1092",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2892,7 +2892,7 @@
    "Fill blanks from the cell above",
    "Stop filling blanks from the cell above"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1114",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1103",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2905,7 +2905,7 @@
   "labels": [
    "Stop reading rows holding only this column as headings"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1125",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1114",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2918,7 +2918,7 @@
   "labels": [
    "Rows holding only this column are headings"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1132",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1121",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2931,7 +2931,7 @@
   "labels": [
    "Make an object type of its values"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1140",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1129",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2944,7 +2944,7 @@
   "labels": [
    "Leave out"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1146",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1135",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2957,7 +2957,7 @@
   "labels": [
    "Propose again"
   ],
-  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1246",
+  "source": "frontend/src/features/workbook-canvas/WorkbookCanvas.tsx:1235",
   "section": "use",
   "commonContext": [
    "workbook",
@@ -2970,7 +2970,7 @@
   "labels": [
    "Validate now"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:854",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:882",
   "section": "use",
   "commonContext": [
    "change",
@@ -2983,7 +2983,7 @@
   "labels": [
    "Change model version"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:855",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:883",
   "section": "use",
   "commonContext": [
    "change",
@@ -2996,7 +2996,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:861",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:889",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3010,7 +3010,7 @@
   "labels": [
    "Discard"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:870",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:898",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3048,7 +3048,7 @@
   "labels": [
    "Set as default"
   ],
-  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:602",
+  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:595",
   "section": "use",
   "commonContext": [
    "workspace",
@@ -3061,7 +3061,7 @@
   "labels": [
    "Copy or move data"
   ],
-  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:605",
+  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:598",
   "section": "use",
   "commonContext": [
    "workspace",
@@ -3074,7 +3074,7 @@
   "labels": [
    "Retire"
   ],
-  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:610",
+  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:603",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3088,7 +3088,7 @@
   "labels": [
    "Reactivate"
   ],
-  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:623",
+  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:616",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3102,7 +3102,7 @@
   "labels": [
    "Delete"
   ],
-  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:633",
+  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:626",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3116,7 +3116,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:196",
+  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:192",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3130,7 +3130,7 @@
   "labels": [
    "Access"
   ],
-  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:197",
+  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:193",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3144,7 +3144,7 @@
   "labels": [
    "Approval"
   ],
-  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:199",
+  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:195",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3158,7 +3158,7 @@
   "labels": [
    "Copy or move"
   ],
-  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:202",
+  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:198",
   "section": "use",
   "commonContext": [
    "workspace",
@@ -3171,7 +3171,7 @@
   "labels": [
    "Retire"
   ],
-  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:205",
+  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:201",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3185,7 +3185,7 @@
   "labels": [
    "Move earlier"
   ],
-  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:546",
+  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:540",
   "section": "use",
   "commonContext": [
    "workspace",
@@ -3198,7 +3198,7 @@
   "labels": [
    "Move later"
   ],
-  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:549",
+  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:543",
   "section": "use",
   "commonContext": [
    "workspace",
@@ -3211,7 +3211,7 @@
   "labels": [
    "Take off your shelf"
   ],
-  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:551",
+  "source": "frontend/src/features/workspaces/WorkspacePage.tsx:545",
   "section": "use",
   "commonContext": [
    "workspace",
@@ -3238,7 +3238,7 @@
    "Discard and load again",
    "Discard this change set and load again?"
   ],
-  "source": "frontend/src/features/ai-tasks/LoadedView.tsx:216",
+  "source": "frontend/src/features/ai-tasks/LoadedView.tsx:217",
   "section": "use",
   "commonContext": [
    "loaded",
@@ -3252,7 +3252,7 @@
    "Discard",
    "Discard this change set?"
   ],
-  "source": "frontend/src/features/ai-tasks/LoadedView.tsx:234",
+  "source": "frontend/src/features/ai-tasks/LoadedView.tsx:235",
   "section": "use",
   "commonContext": [
    "loaded",
@@ -3280,7 +3280,7 @@
    "Delete all read notifications?",
    "Delete read notifications"
   ],
-  "source": "frontend/src/features/inbox/NotificationsPage.tsx:330",
+  "source": "frontend/src/features/inbox/NotificationsPage.tsx:328",
   "section": "use",
   "commonContext": [
    "notifications",
@@ -3296,10 +3296,23 @@
    "Discard the",
    "Stop the job"
   ],
-  "source": "frontend/src/features/jobs/JobPage.tsx:345",
+  "source": "frontend/src/features/jobs/JobPage.tsx:326",
   "section": "use",
   "commonContext": [
    "job",
+   "page"
+  ]
+ },
+ {
+  "kind": "screen",
+  "key": "confirm:MigrationPage.tsx:Preview again",
+  "labels": [
+   "Preview again"
+  ],
+  "source": "frontend/src/features/model-admin/MigrationPage.tsx:737",
+  "section": "use",
+  "commonContext": [
+   "migration",
    "page"
   ]
  },
@@ -3310,7 +3323,7 @@
    "Install release",
    "Install this model release?"
   ],
-  "source": "frontend/src/features/model-admin/ModelDraftEditor.tsx:347",
+  "source": "frontend/src/features/model-admin/ModelDraftEditor.tsx:343",
   "section": "use",
   "commonContext": [
    "model",
@@ -3324,7 +3337,7 @@
   "labels": [
    "Retire"
   ],
-  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:391",
+  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:381",
   "section": "use",
   "commonContext": [
    "model",
@@ -3339,7 +3352,7 @@
    "Delete",
    "Delete release"
   ],
-  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:412",
+  "source": "frontend/src/features/model-admin/ModelReleaseDetail.tsx:402",
   "section": "use",
   "commonContext": [
    "model",
@@ -3354,7 +3367,7 @@
    "Stop offering XREF",
    "Stop offering XREF?"
   ],
-  "source": "frontend/src/features/model-editor/ConsumerApis.tsx:863",
+  "source": "frontend/src/features/model-editor/ConsumerApis.tsx:864",
   "section": "model",
   "commonContext": [
    "consumer",
@@ -3402,11 +3415,27 @@
  },
  {
   "kind": "screen",
+  "key": "confirm:MoveEditor.tsx:Dry run again",
+  "labels": [
+   "A workspace's release changed after this dry run",
+   "Dry run again",
+   "The mapping changed after this dry run",
+   "mapping"
+  ],
+  "source": "frontend/src/features/moves/MoveEditor.tsx:801",
+  "section": "use",
+  "commonContext": [
+   "move",
+   "editor"
+  ]
+ },
+ {
+  "kind": "screen",
   "key": "confirm:ObjectDeleteDialog.tsx:Retry",
   "labels": [
    "Retry"
   ],
-  "source": "frontend/src/features/objects/ObjectDeleteDialog.tsx:98",
+  "source": "frontend/src/features/objects/ObjectDeleteDialog.tsx:96",
   "section": "use",
   "commonContext": [
    "object",
@@ -3420,7 +3449,7 @@
   "labels": [
    "Delete"
   ],
-  "source": "frontend/src/features/objects/ObjectDeleteDialog.tsx:120",
+  "source": "frontend/src/features/objects/ObjectDeleteDialog.tsx:118",
   "section": "use",
   "commonContext": [
    "object",
@@ -3448,7 +3477,7 @@
   "labels": [
    "Deactivate"
   ],
-  "source": "frontend/src/features/security/ClientsPage.tsx:603",
+  "source": "frontend/src/features/security/ClientsPage.tsx:507",
   "section": "use",
   "commonContext": [
    "clients",
@@ -3462,7 +3491,7 @@
    "Delete",
    "Delete group"
   ],
-  "source": "frontend/src/features/security/GroupsPage.tsx:323",
+  "source": "frontend/src/features/security/GroupsPage.tsx:276",
   "section": "use",
   "commonContext": [
    "groups",
@@ -3475,7 +3504,7 @@
   "labels": [
    "Unlink"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:824",
+  "source": "frontend/src/features/security/PeoplePage.tsx:720",
   "section": "use",
   "commonContext": [
    "people",
@@ -3489,7 +3518,7 @@
    "Remove",
    "Remove second factor"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:845",
+  "source": "frontend/src/features/security/PeoplePage.tsx:741",
   "section": "use",
   "commonContext": [
    "people",
@@ -3502,7 +3531,7 @@
   "labels": [
    "Stop keeping local sign-in"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:871",
+  "source": "frontend/src/features/security/PeoplePage.tsx:767",
   "section": "use",
   "commonContext": [
    "people",
@@ -3515,7 +3544,7 @@
   "labels": [
    "Deactivate"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:896",
+  "source": "frontend/src/features/security/PeoplePage.tsx:792",
   "section": "use",
   "commonContext": [
    "people",
@@ -3529,7 +3558,7 @@
    "Sign",
    "Sign out everywhere"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:921",
+  "source": "frontend/src/features/security/PeoplePage.tsx:817",
   "section": "use",
   "commonContext": [
    "people",
@@ -3543,7 +3572,7 @@
    "Remove",
    "Remove passkey"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:1047",
+  "source": "frontend/src/features/security/PeoplePage.tsx:911",
   "section": "use",
   "commonContext": [
    "people",
@@ -3557,7 +3586,7 @@
    "Delete",
    "Delete role"
   ],
-  "source": "frontend/src/features/security/RolesPage.tsx:308",
+  "source": "frontend/src/features/security/RolesPage.tsx:309",
   "section": "use",
   "commonContext": [
    "roles",
@@ -3571,7 +3600,7 @@
    "Delete",
    "Delete provider"
   ],
-  "source": "frontend/src/features/security/SignInPage.tsx:545",
+  "source": "frontend/src/features/security/SignInPage.tsx:532",
   "section": "use",
   "commonContext": [
    "sign",
@@ -3586,7 +3615,7 @@
    "Require a second factor?",
    "Require it"
   ],
-  "source": "frontend/src/features/security/SignInPage.tsx:891",
+  "source": "frontend/src/features/security/SignInPage.tsx:878",
   "section": "use",
   "commonContext": [
    "sign",
@@ -3601,7 +3630,7 @@
    "Turn local sign-in off?",
    "Turn off"
   ],
-  "source": "frontend/src/features/security/SignInPage.tsx:911",
+  "source": "frontend/src/features/security/SignInPage.tsx:898",
   "section": "use",
   "commonContext": [
    "sign",
@@ -3628,8 +3657,7 @@
   "kind": "screen",
   "key": "confirm:AccountPage.tsx:Sign out everywhere",
   "labels": [
-   "Sign out everywhere",
-   "Sign out everywhere?"
+   "Sign out everywhere"
   ],
   "source": "frontend/src/features/settings/AccountPage.tsx:368",
   "section": "use",
@@ -3644,7 +3672,7 @@
   "labels": [
    "Block"
   ],
-  "source": "frontend/src/features/settings/AgentAccessPage.tsx:397",
+  "source": "frontend/src/features/settings/AgentAccessPage.tsx:388",
   "section": "administer",
   "commonContext": [
    "agent",
@@ -3659,7 +3687,7 @@
    "Remove the mail settings?",
    "Remove them"
   ],
-  "source": "frontend/src/features/settings/MailPage.tsx:506",
+  "source": "frontend/src/features/settings/MailPage.tsx:507",
   "section": "administer",
   "commonContext": [
    "mail",
@@ -3673,7 +3701,7 @@
    "Stop sending",
    "Stop sending this message?"
   ],
-  "source": "frontend/src/features/settings/MailPage.tsx:1004",
+  "source": "frontend/src/features/settings/MailPage.tsx:1005",
   "section": "administer",
   "commonContext": [
    "mail",
@@ -3716,7 +3744,7 @@
    "Delete this webhook?",
    "Delete webhook"
   ],
-  "source": "frontend/src/features/settings/WebhooksPage.tsx:776",
+  "source": "frontend/src/features/settings/WebhooksPage.tsx:758",
   "section": "integrate",
   "commonContext": [
    "webhooks",
@@ -3748,7 +3776,7 @@
    "Publish this change set?",
    "publish"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:1112",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:1134",
   "section": "use",
   "commonContext": [
    "change",
@@ -3775,7 +3803,7 @@
    "Retire",
    "Retire workspace"
   ],
-  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:726",
+  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:710",
   "section": "use",
   "commonContext": [
    "workspace",
@@ -3789,7 +3817,7 @@
    "Delete",
    "Delete workspace"
   ],
-  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:744",
+  "source": "frontend/src/features/workspaces/WorkspaceAdmin.tsx:728",
   "section": "use",
   "commonContext": [
    "workspace",

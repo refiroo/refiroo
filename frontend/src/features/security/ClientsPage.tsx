@@ -10,37 +10,25 @@
 import { useEffect, useRef, useState } from "react";
 import { errorMessage, isVersionConflict } from "@/api/errors";
 import { security } from "@/api/securityClient";
-import { plural } from "@/lib/count";
 import { formatServerDate, formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
 import type { Hue } from "@/model/hues";
 import type { Client, ClientWithSecret, RouteState, SettingsRoute } from "@/types";
 import { ActorName } from "@/ui/ActorName";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { EntityListPage } from "@/ui/EntityListPage";
 import { CopyValue } from "@/ui/CopyValue";
 import { FormField } from "@/ui/FormField";
-import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
+import { ActionNotices } from "@/ui/ActionNotices";
 import { Notice } from "@/ui/Notice";
+import { changedWhileOpen, useGuardedWrite } from "@/ui/useGuardedWrite";
 import { RotateOverlapDialog } from "@/ui/RotateOverlapDialog";
 import { RouteLink } from "@/ui/RouteLink";
-import { SearchField } from "@/ui/SearchField";
-import { EntityList } from "@/ui/EntityList";
 import { SettingsLayout } from "@/ui/SettingsLayout";
-import {
-  FilterChip,
-  hueOf,
-  ItemHeader,
-  LogFoot,
-  NameMark,
-  SettingsEmpty,
-  SettingsGroup,
-  SettingsPanel,
-  SettingsTools,
-} from "@/ui/SettingsParts";
+import { hueOf, ItemHeader, LogFoot, NameMark, SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { ShownOnceDialog } from "@/ui/ShownOnceDialog";
@@ -63,9 +51,6 @@ const CLIENTS: ClientsRoute = { kind: "settings", page: "clients" };
 
 /** A new secret, and whether it came with a new client or replaced earlier ones. */
 export type Made = { client: ClientWithSecret; created: boolean; overlapHours?: number };
-
-/** Clients read in a page of this size. */
-const LIST_PAGE = 50;
 
 export function ClientsPage({ route, onNavigate }: { route: ClientsRoute; onNavigate: (route: RouteState) => void }) {
   const [creating, setCreating] = useState(false);
@@ -112,99 +97,33 @@ function ClientList({
   onNew: () => void;
   onNavigate: (route: RouteState) => void;
 }) {
-  const [search, setSearch] = useState("");
-  const [active, setActive] = useState(true);
-  const [counts, setCounts] = useState<{ active?: number; deactivated?: number }>({});
-  const q = useDebouncedValue(search.trim());
-  const feed = useCursorFeed<Client>(
-    (cursor) => security.clientPage({ q, active, cursor, pageSize: LIST_PAGE }),
-    [q, active],
-  );
-  const head = settingsHead("clients");
-
-  useEffect(() => {
-    let current = true;
-    Promise.all([
-      security.clientPage({ active: true, pageSize: 1, includeTotal: true }),
-      security.clientPage({ active: false, pageSize: 1, includeTotal: true }),
-    ]).then(
-      ([on, off]) => current && setCounts({ active: on.totalCount, deactivated: off.totalCount }),
-      () => undefined,
-    );
-    return () => {
-      current = false;
-    };
-  }, []);
-
-  const total = q ? undefined : active ? counts.active : counts.deactivated;
-  const shown = feed.items.length;
-  const count = total ?? shown;
   return (
-    <SettingsLayout
-      {...head}
+    <EntityListPage<Client>
+      page="clients"
       title="Clients"
       description="The systems that call the API with a client ID and secret, what they may use and when they last obtained a token. A client is deactivated, never deleted, so history keeps its name."
-      actions={
-        <button ref={newButtonRef} className="primary" onClick={onNew}>
-          <Icon name="plus" /> New client
-        </button>
-      }
-    >
-      <SettingsTools
-        count={
-          feed.loading && !shown
-            ? undefined
-            : `${count}${total === undefined && feed.hasMore ? "+" : ""} ${plural(count, "client")}`
-        }
-      >
-        <SearchField label="Search clients" placeholder="Name" value={search} onChange={setSearch} clearOnEscape />
-        <span className="filter-chips" role="group" aria-label="Show">
-          <FilterChip selected={active} onSelect={() => setActive(true)}>
-            Active{counts.active !== undefined && ` · ${counts.active}`}
-          </FilterChip>
-          <FilterChip selected={!active} onSelect={() => setActive(false)}>
-            Deactivated{counts.deactivated !== undefined && ` · ${counts.deactivated}`}
-          </FilterChip>
-        </span>
-      </SettingsTools>
-      <SettingsPanel>
-        <EntityList
-          label="clients"
-          statusTrack="6rem"
-          groups={[
-            {
-              key: "clients",
-              title: active ? "Active clients" : "Deactivated clients",
-              count,
-              loading: feed.loading && !shown,
-              error: feed.error && !shown ? feed.error : undefined,
-              onRetry: feed.retry,
-              onEnd: feed.hasMore ? feed.loadMore : undefined,
-              loadingMore: feed.loading && shown > 0,
-              rows: feed.items.map((client) => ({
-                key: client.id,
-                title: client.name,
-                subtitle: clientUseLine(client),
-                lead: <NameMark name={client.name} />,
-                facts: [{ label: "Access", value: clientAccessLine(client), width: 46 }],
-                pill:
-                  client.kind === "agent" ? (
-                    <StatusPill tone="neutral" marker={false}>
-                      Agent
-                    </StatusPill>
-                  ) : undefined,
-                onOpen: () => onNavigate({ ...CLIENTS, clientId: client.id }),
-              })),
-            },
-          ]}
-          empty={
-            q
-              ? `No ${active ? "active" : "deactivated"} client matches “${q}”.`
-              : `No ${active ? "active" : "deactivated"} clients.`
-          }
-        />
-      </SettingsPanel>
-    </SettingsLayout>
+      noun={{ one: "client", many: "clients" }}
+      searchPlaceholder="Name"
+      states
+      statusTrack="6rem"
+      read={security.clientPage}
+      newLabel="New client"
+      newButtonRef={newButtonRef}
+      onNew={onNew}
+      row={(client) => ({
+        title: client.name,
+        subtitle: clientUseLine(client),
+        lead: <NameMark name={client.name} />,
+        facts: [{ label: "Access", value: clientAccessLine(client), width: 46 }],
+        pill:
+          client.kind === "agent" ? (
+            <StatusPill tone="neutral" marker={false}>
+              Agent
+            </StatusPill>
+          ) : undefined,
+      })}
+      onOpen={(client) => onNavigate({ ...CLIENTS, clientId: client.id })}
+    />
   );
 }
 
@@ -314,9 +233,7 @@ export function NewClientDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending || !name.trim()}>
             {pending ? "Adding…" : kind === "agent" ? "Add agent client" : "Add client"}
           </button>
@@ -339,9 +256,8 @@ function ClientDetail({
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
   const [dialog, setDialog] = useState<"rotate" | "deactivate">();
-  const [pending, setPending] = useState(false);
-  const [actionError, setActionError] = useState("");
-  const [conflict, setConflict] = useState("");
+  const guard = useGuardedWrite();
+  const { pending, error: actionError, setError: setActionError } = guard;
   const rotateRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
   const held = useHeldAnywhere();
@@ -389,25 +305,21 @@ function ClientDetail({
   }
 
   /** A write; a stale version reloads and says so, any other refusal is shown as worded. */
-  async function write(action: () => Promise<void>) {
-    setPending(true);
-    setActionError("");
-    setConflict("");
-    try {
-      await action();
-      setDialog(undefined);
-    } catch (cause) {
-      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
+  function write(action: () => Promise<void>) {
+    return guard.run(
+      async () => {
+        await action();
         setDialog(undefined);
-        const current = await security.client(clientId).catch(() => undefined);
-        if (current) stored(current);
-        setConflict("This client changed while the page was open. It is shown as it is now; choose again.");
-      } else {
-        setActionError(errorMessage(cause));
-      }
-    } finally {
-      setPending(false);
-    }
+      },
+      {
+        onConflict: async () => {
+          setDialog(undefined);
+          const current = await security.client(clientId).catch(() => undefined);
+          if (current) stored(current);
+          return changedWhileOpen("client");
+        },
+      },
+    );
   }
 
   const { capabilities } = useCapabilities();
@@ -522,16 +434,7 @@ function ClientDetail({
         />
       }
     >
-      {conflict && (
-        <Notice tone="warning" title="Not saved" focusOnMount>
-          {conflict}
-        </Notice>
-      )}
-      {actionError && !dialog && (
-        <Notice tone="error" title="The action could not be completed">
-          {actionError}
-        </Notice>
-      )}
+      <ActionNotices guard={guard} hideError={Boolean(dialog)} />
       <Secrets
         client={client}
         hue={head.hue}

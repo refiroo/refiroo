@@ -29,11 +29,15 @@ const lineOf = (node) => node.getSourceFile().getLineAndCharacterOfPosition(node
 const where = (node) => `${rel(node.getSourceFile().fileName)}:${lineOf(node)}`;
 
 // The fixed text in an expression: string literals, and the head of each template literal.
+// The words several places say are one constant each in lib/words.ts (0.17 SR5); a label that names one reads as its text.
+const WORDS = {};
+for (const found of readFileSync(join(SRC, "lib", "words.ts"), "utf8").matchAll(/export const (\w+) = "([^"]+)";/g)) WORDS[found[1]] = found[2];
 function texts(node) {
   const found = [];
   const visit = (n) => {
     if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) found.push(n.text);
     else if (ts.isTemplateExpression(n)) found.push(n.head.text);
+    else if (ts.isIdentifier(n) && WORDS[n.text]) found.push(WORDS[n.text]);
     ts.forEachChild(n, visit);
   };
   if (node) visit(node);
@@ -164,11 +168,13 @@ for (const file of files) {
         source: where(n),
       });
     }
-    if ((ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) && n.tagName.getText() === "ConfirmDialog") {
+    if ((ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) && ["ConfirmDialog", "StalePreviewDialog"].includes(n.tagName.getText())) {
       const get = (name) => {
         const attribute = n.attributes.properties.find((a) => ts.isJsxAttribute(a) && a.name.text === name);
         return attribute?.initializer ? clean(texts(attribute.initializer)) : [];
       };
+      // StalePreviewDialog wraps ConfirmDialog with props, so only its callers carry the literal words.
+      if (n.tagName.getText() === "ConfirmDialog" && where(n).includes("ui/StalePreviewDialog.tsx")) return ts.forEachChild(n, visit);
       confirms.push({ titles: get("title"), confirmLabels: get("confirmLabel"), dismissLabels: get("dismissLabel"), source: where(n) });
     }
     ts.forEachChild(n, visit);

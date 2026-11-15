@@ -9,6 +9,7 @@ import { IconButton } from "@/ui/IconButton";
 import { Icon } from "@/ui/Icon";
 import { outputFor } from "@/features/model-editor/consumer";
 import type { ChoiceOption } from "@/features/model-editor/ChoiceListField";
+import { WRITTEN_BY_HAND } from "@/lib/words";
 
 const split = (pair: string): [string, string] => {
   const at = pair.indexOf("=");
@@ -38,7 +39,7 @@ export function PairsField({
   const choices = (current: string) => {
     const listed: ChoiceOption[] = options.some((option) => option.value === current)
       ? options
-      : [...options, { value: current, label: current, group: "Written by hand" }];
+      : [...options, { value: current, label: current, group: WRITTEN_BY_HAND }];
     return [...new Set(listed.map((option) => option.group ?? ""))].map((group) => {
       const items = listed
         .filter((option) => (option.group ?? "") === group)

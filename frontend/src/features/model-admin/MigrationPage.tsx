@@ -29,7 +29,7 @@ import type {
 import { isResting, useFollowedJob } from "@/state/useFollowedJob";
 import { routePath } from "@/routing/routes";
 import { Trail, TrailLink, crumbs } from "@/ui/Trail";
-import { Modal } from "@/ui/Modal";
+import { StalePreviewDialog } from "@/ui/StalePreviewDialog";
 import { Notice } from "@/ui/Notice";
 import { OutcomeCards } from "@/ui/OutcomeCards";
 import { RouteLink } from "@/ui/RouteLink";
@@ -37,8 +37,9 @@ import { settingsHead } from "@/ui/settingsNavigation";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
 import { useSubjectSeen } from "@/state/useInbox";
-import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "@/ui/MigrationRows";
+import { MIGRATION_OUTCOMES, MigrationRows, outcomeCardsOf } from "@/ui/MigrationRows";
 import { ProposedRows } from "./ProposedRows";
+import { changeSetTitle } from "@/lib/words";
 
 const NOT_KEPT = "";
 
@@ -237,7 +238,7 @@ export function MigrationPage({
           active &&
           setChangeSet({
             id: loaded.id,
-            name: loaded.name || "Untitled change set",
+            name: changeSetTitle(loaded.name),
             version: loaded.version,
             releaseId: loaded.modelReleaseId,
             submitted: loaded.submission?.state === "submitted",
@@ -665,13 +666,7 @@ export function MigrationPage({
             </h2>
             <OutcomeCards
               label="Items by outcome"
-              items={outcomesOf(counts).map((item) => ({
-                key: item.key,
-                count: countOf(counts, item.key),
-                label: item.label,
-                hint: item.hint(version, moving),
-                tone: item.key === "loss" ? "warning" : item.key === "refused" ? "error" : undefined,
-              }))}
+              items={outcomeCardsOf(counts, { version, moving })}
               selected={outcome}
               onSelect={(key) => setOutcome(key as MigrationOutcome)}
             />
@@ -739,41 +734,23 @@ export function MigrationPage({
       )}
       {!job && !error && <Skeleton lines={3} label="Loading the migration" />}
       {stale && (
-        <Modal
-          role="alertdialog"
-          size="confirm"
-          showClose={false}
+        <StalePreviewDialog
           title={
             moving ? `${changeSetName} or ${label} changed after this preview` : `${label} changed after this preview`
           }
-          onClose={closeStale}
-          busy={pending}
-        >
-          <div className="dialog-body">
-            {moving ? (
-              <p>
-                {changeSetName} was edited, or records were saved in {label}, after the preview you reviewed, so it may
-                no longer list everything the move would change. Nothing was moved. Preview again and review it before
-                confirming.
-              </p>
-            ) : (
-              <p>
-                Records were saved in {label}
-                {changeSetId ? `, ${changeSetName} was edited, or a publication was made` : ", or its model changed"},
-                after the preview you reviewed, so it may no longer list everything the migration would change. Nothing
-                was migrated. Preview again and review it before confirming.
-              </p>
-            )}
-            <div className="dialog-actions">
-              <button type="button" className="secondary" onClick={closeStale} disabled={pending}>
-                Close
-              </button>
-              <button type="button" className="primary" onClick={() => void preview(choices)} disabled={pending}>
-                Preview again
-              </button>
-            </div>
-          </div>
-        </Modal>
+          reason={
+            moving
+              ? `${changeSetName} was edited, or records were saved in ${label}, after the preview you reviewed, so it may no longer list everything the move would change.`
+              : `Records were saved in ${label}${changeSetId ? `, ${changeSetName} was edited, or a publication was made` : ", or its model changed"}, after the preview you reviewed, so it may no longer list everything the migration would change.`
+          }
+          past={moving ? "moved" : "migrated"}
+          next="Preview again and review it before confirming."
+          confirmLabel="Preview again"
+          dismissLabel="Close"
+          pending={pending}
+          onCancel={closeStale}
+          onConfirm={() => void preview(choices)}
+        />
       )}
     </SettingsLayout>
   );

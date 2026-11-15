@@ -18,6 +18,7 @@ import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
 import { Icon } from "@/ui/Icon";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
+import { StatusPill } from "@/ui/StatusPill";
 import { DRAG_COLUMN, DRAG_COLUMNS, DRAG_FIELD, DRAG_SHEET } from "./CanvasBoard";
 import { chosenColumns } from "./canvasModel";
 import { addedColumns, readingsOf } from "@/features/model-editor/readings";
@@ -246,7 +247,10 @@ export function WorkbookPane({
       )}
       {sheet && allProposed && (
         <p className="canvas-hint canvas-all-proposed">
-          <span className="canvas-pill canvas-pill-proposed">Proposed</span> Every column is read as proposed.
+          <StatusPill tone="publication" size="small" marker={false}>
+            Proposed
+          </StatusPill>{" "}
+          Every column is read as proposed.
         </p>
       )}
       {sheet && (
@@ -288,7 +292,9 @@ export function WorkbookPane({
                     {(readings.length > 0 || (asProposed && !allProposed)) && (
                       <span className="canvas-column-marks">
                         {asProposed && !allProposed && (
-                          <span className="canvas-pill canvas-pill-proposed">Proposed</span>
+                          <StatusPill tone="publication" size="small" marker={false}>
+                            Proposed
+                          </StatusPill>
                         )}
                         {readings.map((reading) => (
                           <span key={reading.kind} className="canvas-pill canvas-pill-reading">

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
+import { nounOf } from "@/ui/BatchOutcome";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -15,7 +16,7 @@ import { HueTile } from "@/ui/HueTile";
 import { RecordChip } from "@/ui/RecordChip";
 import { objectTypeHue, objectTypeTile, type Hue } from "@/model/hues";
 import { Candidate } from "@/ui/Candidate";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName } from "@/model/fields";
@@ -700,7 +701,7 @@ function MappingActionDialog({
             <ScrollWindow
               list={candidates}
               label={`${targetType.pluralName} to choose from`}
-              noun={[targetType.name.toLowerCase(), targetType.pluralName.toLowerCase()]}
+              noun={nounOf(targetType)}
               pageSize={20}
               rowNavigation={false}
               footer={false}
@@ -781,9 +782,7 @@ function MappingActionDialog({
             </div>
           )}
           <div className="dialog-actions">
-            <button type="button" className="secondary" disabled={saving} onClick={onClose}>
-              Cancel
-            </button>
+            <CancelButton disabled={saving} />
             {nextName && (
               <button
                 type="button"

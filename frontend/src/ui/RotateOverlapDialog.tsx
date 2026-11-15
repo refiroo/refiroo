@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Choice } from "@/ui/Choice";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 
 /**
@@ -68,9 +68,7 @@ export function RotateOverlapDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending}>
             {pending ? pendingLabel : submitLabel}
           </button>

@@ -26,7 +26,7 @@ import {
 } from "@/features/objects/relations/RelationAttributes";
 import type { EngineModel, ObjectItem, RelationItem } from "@/types";
 import { Notice } from "@/ui/Notice";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
 export function RelationFormDialog({
@@ -222,14 +222,7 @@ export function RelationFormDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={() => (!dirty || window.confirm("Discard your unsaved changes?")) && onClose()}
-          >
-            Cancel
-          </button>
+          <CancelButton disabled={busy} />
           <button className="primary" disabled={busy || (!existing && !candidate)}>
             {busy ? "Saving…" : existing ? "Save" : replacing ? "Change" : setting ? "Set" : `Add ${otherName}`}
           </button>

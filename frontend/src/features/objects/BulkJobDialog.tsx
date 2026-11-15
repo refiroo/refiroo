@@ -14,6 +14,7 @@
  * names the record each item is for, so a refused item still opens its record.
  */
 
+import { JobProgress } from "@/ui/JobProgress";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError, isVersionConflict } from "@/api/errors";
@@ -33,7 +34,7 @@ import { useCapabilities } from "@/state/useSystem";
 import { useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { ReadStopped } from "@/lib/readMatching";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
-import type { BatchRequest, Job, JobItemOutcome } from "@/types";
+import type { BatchRequest, EngineModel, Job, JobItemOutcome, ObjectTypeDefinition } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { FormField } from "@/ui/FormField";
 import { Icon, type IconName } from "@/ui/Icon";
@@ -46,6 +47,34 @@ import { useSubjectSeen } from "@/state/useInbox";
 type Step = "form" | "reading" | "sending" | "previewing" | "preview" | "applying" | "result";
 
 export type Policy = "independent" | "atomic";
+
+/** The policies in each verb's words: independent first (D106). */
+const POLICIES = {
+  change: [
+    ["independent", "Change the rest"],
+    ["atomic", "Change none"],
+  ],
+  delete: [
+    ["independent", "Delete the rest"],
+    ["atomic", "Delete none"],
+  ],
+} as const;
+
+/** What the three bulk dialogs are given alike: the type, the selection and how to read and finish. */
+export interface BulkDialogProps {
+  model: EngineModel;
+  objectType: ObjectTypeDefinition;
+  workspaceKey: string;
+  selection: RecordSelection;
+  selected: number;
+  /** Reads every record the list matches, for "all matching" (D102). */
+  readMatching: (
+    signal: AbortSignal,
+    onProgress: (read: number, total: number | undefined) => void,
+  ) => Promise<SelectableRow[]>;
+  onClose: () => void;
+  onOpenRecord: (id: string) => void;
+}
 
 export interface Problem {
   title: string;
@@ -72,7 +101,7 @@ export function BulkJobDialog({
   selection,
   selected,
   workspaceKey,
-  policies,
+  verb,
   policyLabel = "If a record is refused",
   sections,
   applyingHint,
@@ -103,8 +132,8 @@ export function BulkJobDialog({
   selection: RecordSelection;
   selected: number;
   workspaceKey: string;
-  /** The two policies in the action's words: independent first (D106). */
-  policies: readonly [readonly ["independent", string], readonly ["atomic", string]];
+  /** Whose words the two policies use. */
+  verb: keyof typeof POLICIES;
   policyLabel?: string;
   /** The action's own sections of the form; `editable` is off once Preview is pressed. */
   sections: (editable: boolean) => ReactNode;
@@ -448,7 +477,7 @@ export function BulkJobDialog({
                 <Choice
                   name="bulk-policy"
                   value={atomicRefused ? "independent" : policy}
-                  options={atomicRefused ? policies.slice(0, 1) : policies}
+                  options={atomicRefused ? POLICIES[verb].slice(0, 1) : POLICIES[verb]}
                   onChange={setPolicy}
                 />
               )}
@@ -456,13 +485,10 @@ export function BulkJobDialog({
             <p className="bulk-hint">{applyingHint}</p>
           </section>
           {step === "reading" && progress && (
-            <div className="job-progress" role="status">
-              <progress value={progress.total ? progress.read : undefined} max={progress.total} aria-label="Reading" />
-              <span>
-                Reading {count(progress.read)}
-                {progress.total !== undefined && ` of ${count(progress.total)}`} {noun[1]}
-              </span>
-            </div>
+            <JobProgress label="Reading" processed={progress.read} total={progress.total} role="wrapper">
+              Reading {count(progress.read)}
+              {progress.total !== undefined && ` of ${count(progress.total)}`} {noun[1]}
+            </JobProgress>
           )}
           {problem && (
             <Notice tone="error" title={problem.title} focusOnMount>
@@ -504,17 +530,10 @@ export function BulkJobDialog({
           }}
         >
           {(step === "previewing" || (step === "applying" && job && !isFinal(job))) && job && (
-            <div className="job-progress" role="status">
-              <progress
-                value={job.progress.total ? job.progress.processed : undefined}
-                max={job.progress.total ?? undefined}
-                aria-label="Progress"
-              />
-              <span>
-                {step === "previewing" ? "Previewing" : "Applying"}: {count(job.progress.processed)}
-                {job.progress.total !== null && ` of ${count(job.progress.total)}`} {itemNoun[1]}
-              </span>
-            </div>
+            <JobProgress processed={job.progress.processed} total={job.progress.total} role="wrapper">
+              {step === "previewing" ? "Previewing" : "Applying"}: {count(job.progress.processed)}
+              {job.progress.total !== null && ` of ${count(job.progress.total)}`} {itemNoun[1]}
+            </JobProgress>
           )}
           {job && step === "preview" && (
             <>

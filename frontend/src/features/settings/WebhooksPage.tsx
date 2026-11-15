@@ -24,6 +24,7 @@ import type {
   SubscriptionFinding,
 } from "@/types";
 import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
+import { ActionNotices } from "@/ui/ActionNotices";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
@@ -41,6 +42,7 @@ import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
+import { changedWhileOpen, useGuardedWrite } from "@/ui/useGuardedWrite";
 import { Trail } from "@/ui/Trail";
 import { settingsHead } from "@/ui/settingsNavigation";
 import { useCapabilities } from "@/state/useSystem";
@@ -384,9 +386,8 @@ function SubscriptionDetail({
   const [rotating, setRotating] = useState(false);
   const [rotated, setRotated] = useState<{ secret: string; endsAt: string | null }>();
   const [deleting, setDeleting] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [actionError, setActionError] = useState("");
-  const [conflict, setConflict] = useState("");
+  const guard = useGuardedWrite();
+  const { pending, error: actionError, setError: setActionError } = guard;
   const toast = useToast();
   // A webhook's owner links to their Security page for whoever may open it (D353).
   const securityAdmin = useHeldAnywhere()?.some((group) => group.key === "security-admin");
@@ -418,28 +419,21 @@ function SubscriptionDetail({
     toast(text);
   }
 
+  const staleSubscription = async () => {
+    await reload().catch(() => undefined);
+    return changedWhileOpen("subscription");
+  };
+
   /** A write with the version read; a stale one reloads and says so. */
-  async function write(action: () => Promise<void>) {
-    setPending(true);
-    setActionError("");
-    setConflict("");
-    try {
-      await action();
-    } catch (cause) {
-      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
+  function write(action: () => Promise<void>) {
+    return guard.run(action, {
+      onConflict: () => {
         setDeleting(false);
         setResuming(false);
         setRotating(false);
-        await reload().catch(() => undefined);
-        setConflict(
-          "This subscription changed while the page was open. It is shown as it is now; review it and choose again.",
-        );
-      } else {
-        setActionError(errorMessage(cause));
-      }
-    } finally {
-      setPending(false);
-    }
+        return staleSubscription();
+      },
+    });
   }
 
   const head = settingsHead("webhooks");
@@ -570,16 +564,7 @@ function SubscriptionDetail({
 
   const configuration = (
     <div className="webhook-panel">
-      {conflict && (
-        <Notice tone="warning" title="Not saved" focusOnMount>
-          {conflict}
-        </Notice>
-      )}
-      {actionError && !resuming && !deleting && !rotating && (
-        <Notice tone="error" title="The action could not be completed">
-          {actionError}
-        </Notice>
-      )}
+      <ActionNotices guard={guard} hideError={resuming || deleting || rotating} />
       <SettingsGroup
         title="Delivery"
         description={
@@ -726,10 +711,7 @@ function SubscriptionDetail({
           }}
           onConflict={async () => {
             setResuming(false);
-            await reload().catch(() => undefined);
-            setConflict(
-              "This subscription changed while the page was open. It is shown as it is now; review it and choose again.",
-            );
+            guard.setConflict(await staleSubscription());
           }}
         />
       )}

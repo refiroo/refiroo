@@ -8,7 +8,8 @@ import { useState, type FormEvent } from "react";
 import { errorMessage } from "@/api/errors";
 import { createWorkspaceFromDraft, ProblemList, problemsOf } from "@/features/workspaces/NewFromWorkbook";
 import { count } from "@/lib/count";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
+import { NewWorkspaceFields, useNewWorkspaceIdentity } from "@/ui/NewWorkspaceFields";
 import { Notice } from "@/ui/Notice";
 
 export function CreateWorkspaceDialog({
@@ -29,7 +30,8 @@ export function CreateWorkspaceDialog({
   onCreated: (workspaceKey: string) => void;
   onClose: () => void;
 }) {
-  const [name, setName] = useState(initialName);
+  const identity = useNewWorkspaceIdentity(initialName);
+  const name = identity.label;
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [problems, setProblems] = useState<string[]>([]);
@@ -55,21 +57,12 @@ export function CreateWorkspaceDialog({
       eyebrow="New workspace"
       description={`The model on the canvas and ${fileName}, loaded into a workspace of its own.`}
       busy={working}
+      dirty={name !== initialName}
       size="compact"
       onClose={onClose}
     >
       <form className="dialog-body" onSubmit={(event) => void create(event)}>
-        <label>
-          Name
-          <input
-            required
-            autoFocus
-            maxLength={300}
-            value={name}
-            disabled={working}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
+        <NewWorkspaceFields identity={identity} autoFocus withKey={false} disabled={working} />
         {figures && (
           <p className="muted">
             {count(figures.loads)} rows load
@@ -83,9 +76,7 @@ export function CreateWorkspaceDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={working} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={working} />
           <button type="submit" className="primary" disabled={working || !name.trim()}>
             {working ? "Creating…" : "Create workspace"}
           </button>

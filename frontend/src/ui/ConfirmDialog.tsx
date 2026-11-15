@@ -18,7 +18,10 @@ export function ConfirmDialog({
   dismissLabel = "Cancel",
   tone = "danger",
   pending,
+  pendingLabel = "Working…",
   error,
+  secondary,
+  dismissable = true,
   onCancel,
   onConfirm,
 }: {
@@ -30,12 +33,22 @@ export function ConfirmDialog({
   /** `plain` for a step that destroys nothing; the confirming button is then the main button, not red. */
   tone?: "danger" | "plain";
   pending?: boolean;
+  /** What the confirming button says while `pending`; a step that keeps its label while it works names it here. */
+  pendingLabel?: string;
   error?: string;
+  /** A second action beside the confirming one (the stale-preview dialogs: "Open the mapping"). */
+  secondary?: { label: string; onClick: () => void };
+  /**
+   * `false` leaves out the dismiss button: the actions are the only choices, and Escape or a click outside
+   * still calls `onCancel`.
+   */
+  dismissable?: boolean;
   onCancel: () => void;
   /** Without it there is no confirming button: a dialog still reading what it will confirm. */
   onConfirm?: () => void;
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const secondaryRef = useRef<HTMLButtonElement>(null);
   return (
     <Modal
       title={title}
@@ -44,7 +57,7 @@ export function ConfirmDialog({
       showClose={false}
       busy={pending}
       onClose={onCancel}
-      initialFocusRef={cancelRef}
+      initialFocusRef={dismissable ? cancelRef : secondaryRef}
     >
       <div className="dialog-body">
         {children}
@@ -55,12 +68,19 @@ export function ConfirmDialog({
         )}
       </div>
       <div className="dialog-actions">
-        <button ref={cancelRef} className="secondary" disabled={pending} onClick={onCancel}>
-          {dismissLabel}
-        </button>
+        {dismissable && (
+          <button ref={cancelRef} className="secondary" disabled={pending} onClick={onCancel}>
+            {dismissLabel}
+          </button>
+        )}
+        {secondary && (
+          <button ref={secondaryRef} className="secondary" disabled={pending} onClick={secondary.onClick}>
+            {secondary.label}
+          </button>
+        )}
         {onConfirm && (
           <button className={tone === "danger" ? "danger" : "primary"} disabled={pending} onClick={onConfirm}>
-            {pending ? "Working…" : confirmLabel}
+            {pending ? pendingLabel : confirmLabel}
           </button>
         )}
       </div>

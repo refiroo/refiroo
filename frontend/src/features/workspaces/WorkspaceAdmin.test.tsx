@@ -595,7 +595,11 @@ describe("WorkspaceAdmin approval policy (0.12 A3)", () => {
     renderAdmin("retail", { route: { ...LIST, workspaceKey: "retail", workspaceTab: "approval" } });
     fireEvent.click(await screen.findByRole("checkbox", { name: "Changes need approval before they are published" }));
     fireEvent.click(screen.getByRole("button", { name: "Save approval policy" }));
-    expect(await screen.findByText("The policy changed meanwhile. Reload to see it.")).toBeVisible();
+    expect(
+      await screen.findByText(
+        "This policy changed while the page was open. Reload it to see it as it is now; then review it and choose again.",
+      ),
+    ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Save approval policy" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reload the policy" }));
     await screen.findByRole("button", { name: "Save approval policy" });

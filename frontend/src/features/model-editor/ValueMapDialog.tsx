@@ -7,7 +7,7 @@
 import { useState } from "react";
 import type { DraftProfileDocument, ModelDraftOutline, SourceColumn } from "@/types";
 import { IconButton } from "@/ui/IconButton";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { refusalText, type RunStep } from "@/features/model-editor/OperationDialog";
 import { keyFromLabel } from "@/model/outline";
@@ -39,7 +39,7 @@ export function ValueMapDialog({
 }) {
   const maps = profile?.valueMaps ?? {};
   const name = mapName ?? keyFromLabel(header, new Set(Object.keys(maps)));
-  const [entries, setEntries] = useState<Entry[]>(() => {
+  const [initial] = useState<Entry[]>(() => {
     const existing = mapName ? maps[mapName] : undefined;
     if (existing)
       return Object.entries(existing).map(([text, value]) => ({ text, value: value === null ? "" : String(value) }));
@@ -49,6 +49,7 @@ export function ValueMapDialog({
       [];
     return found.length ? found : [{ text: "", value: "" }];
   });
+  const [entries, setEntries] = useState<Entry[]>(initial);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const counts = new Map([
@@ -88,6 +89,7 @@ export function ValueMapDialog({
       eyebrow="Map values"
       description="Text in the file and what it becomes before it is read. Leave “Becomes” empty for no value."
       busy={pending}
+      dirty={JSON.stringify(entries) !== JSON.stringify(initial)}
       size="compact"
       onClose={onClose}
     >
@@ -156,9 +158,7 @@ export function ValueMapDialog({
               Remove the map
             </button>
           )}
-          <button type="button" className="secondary" onClick={onClose} disabled={pending}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button type="submit" className="primary" disabled={pending}>
             {pending ? "Saving…" : "Save"}
           </button>

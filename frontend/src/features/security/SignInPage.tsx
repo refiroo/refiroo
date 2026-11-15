@@ -15,12 +15,13 @@ import { counted } from "@/lib/count";
 import { formatServerDayTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { LocalSignIn, RouteState, SettingsRoute, SignInProvider, SignInProviderCreate } from "@/types";
+import { ActionNotices } from "@/ui/ActionNotices";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { EntityList } from "@/ui/EntityList";
 import { SettingsLayout } from "@/ui/SettingsLayout";
@@ -29,6 +30,7 @@ import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Switch } from "@/ui/Switch";
 import { useToast } from "@/ui/Toast";
+import { changedWhileOpen, useGuardedWrite } from "@/ui/useGuardedWrite";
 import { Trail } from "@/ui/Trail";
 import { settingsHead } from "@/ui/settingsNavigation";
 import { routePath } from "@/routing/routes";
@@ -368,9 +370,7 @@ function NewProviderDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending || !ready}>
             {pending ? "Checking and adding…" : "Add provider"}
           </button>
@@ -394,8 +394,8 @@ function ProviderDetail({
   const [provider, setProvider] = useState<SignInProvider>();
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
-  const [pending, setPending] = useState(false);
-  const [actionError, setActionError] = useState("");
+  const guard = useGuardedWrite();
+  const { pending, error: actionError, setError: setActionError } = guard;
   const [deleting, setDeleting] = useState(false);
   const deleteRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
@@ -415,23 +415,13 @@ function ProviderDetail({
     };
   }, [providerKey, loadToken]);
 
-  async function write(action: () => Promise<void>): Promise<boolean> {
-    setPending(true);
-    setActionError("");
-    try {
-      await action();
-      return true;
-    } catch (cause) {
-      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
+  function write(action: () => Promise<void>): Promise<boolean> {
+    return guard.run(action, {
+      onConflict: () => {
         setLoadToken((token) => token + 1);
-        setActionError("This provider changed while the page was open. It is shown as it is now; try again.");
-      } else {
-        setActionError(errorMessage(cause));
-      }
-      return false;
-    } finally {
-      setPending(false);
-    }
+        return changedWhileOpen("provider");
+      },
+    });
   }
 
   function stored(updated: SignInProvider, text: string) {
@@ -508,11 +498,7 @@ function ProviderDetail({
         />
       }
     >
-      {actionError && (
-        <Notice tone="error" title="Not saved" focusOnMount>
-          {actionError}
-        </Notice>
-      )}
+      <ActionNotices guard={guard} errorTitle="Not saved" focusError />
       <SettingsGroup
         title="Address to register with the provider"
         description="Add it as the redirect address of the application you registered for the engine at the provider."

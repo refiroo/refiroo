@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { Icon, type IconName } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 
 export interface FieldMenuItem {
   key: string;
@@ -38,17 +39,16 @@ export function FieldMenu({
   return (
     <div className="filter-menu" role="group" aria-label={label}>
       {searchable && (
-        <label className="record-checklist-search">
-          <Icon name="search" size={15} />
-          <input
-            type="search"
-            aria-label={label}
-            placeholder={`${label}…`}
-            value={query}
-            autoFocus
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
+        <SearchField
+          className="record-checklist-search"
+          type="search"
+          iconSize={15}
+          label={label}
+          placeholder={`${label}…`}
+          value={query}
+          autoFocus
+          onChange={setQuery}
+        />
       )}
       {groups.map((group) => {
         const inGroup = shown.filter((item) => item.group === group);

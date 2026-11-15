@@ -10,15 +10,18 @@ import { api } from "@/api/client";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
 import { counted, plural } from "@/lib/count";
-import { LeftBehindChangeSets, MigrationReasons, openChangeSets } from "@/ui/ActivationParts";
-import { ImpactSummary } from "@/ui/ImpactSummary";
 import {
   activationRefusal,
+  ActivationVerdict,
   ConsumerContracts,
+  LeftBehindChangeSets,
+  MigrationReasons,
+  openChangeSets,
   ReleaseIdentityFields,
   summarizeChanges,
   useReleaseIdentity,
-} from "@/features/model-editor/InstallDialog";
+} from "@/ui/ActivationParts";
+import { ImpactSummary } from "@/ui/ImpactSummary";
 import { DraftMigrationNotice, proposalOf, useDraftMigration } from "@/features/model-editor/DraftMigration";
 import type { RunStep } from "@/features/model-editor/OperationDialog";
 import { freeKeyOf, setProfileKey, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
@@ -253,7 +256,7 @@ export function ApplyDialog({
                     </p>
                   </>
                 ) : moves ? (
-                  <Notice tone="warning" title="Some records must move first">
+                  <ActivationVerdict>
                     <p>
                       {label}'s data does not fit the changed model as it is.{" "}
                       {canMigrate
@@ -261,7 +264,7 @@ export function ApplyDialog({
                         : "Migrating needs model administration and background jobs, which this deployment does not run."}
                     </p>
                     <MigrationReasons diagnostics={check?.diagnostics ?? []} />
-                  </Notice>
+                  </ActivationVerdict>
                 ) : (
                   <Notice tone="success" title="Your records stay as they are">
                     No record, value or relationship of {label} needs to move.

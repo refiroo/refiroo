@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import { count } from "@/lib/count";
 import type { JoinCandidate } from "@/types/sources";
 import { Frame } from "@/features/model-editor/ReadingAsks";
+import { SearchField } from "@/ui/SearchField";
 
 export interface Choice {
   id: string;
@@ -44,14 +45,15 @@ export function ChooserPopover({
   return (
     <Frame anchor={anchor} title={title} onClose={onClose}>
       <div className="editor-popover-form canvas-chooser">
-        <input
+        <SearchField
           type="search"
+          icon={false}
           autoFocus
-          aria-label={searchLabel}
+          label={searchLabel}
           placeholder={searchLabel}
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
+          onChange={setQuery}
+          onInputKeyDown={(event) => {
             if (event.key === "Enter" && shown.length === 1) {
               event.preventDefault();
               onChoose(shown[0].id);

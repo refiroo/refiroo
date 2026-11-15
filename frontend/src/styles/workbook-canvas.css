@@ -113,10 +113,6 @@
   background: var(--context-change-set-surface, var(--surface-fill));
   color: var(--context-change-set-text, var(--text-primary));
 }
-.canvas-pill-proposed {
-  background: var(--context-publication-surface, var(--surface-fill));
-  color: var(--context-publication-text, var(--text-primary));
-}
 .canvas-notice {
   padding: var(--space-2) var(--space-5) 0;
 }
@@ -1029,8 +1025,19 @@ button.canvas-card-sheets:hover {
 }
 
 /* The small questions at a drop (CanvasAsks): the chooser's search and list. */
-.canvas-chooser input[type="search"] {
+.canvas-chooser .search-box {
   width: 100%;
+  padding: 0 var(--space-3);
+}
+/* The popover form styles every input as a box; the search box is the box here, its input only the text. */
+.canvas-chooser .search-box input:not([type="checkbox"]):not([type="radio"]),
+.canvas-chooser .search-box input:not([type="checkbox"]):not([type="radio"]):focus {
+  min-height: 0;
+  padding: var(--space-2) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .canvas-chooser-list {
   display: grid;

@@ -172,11 +172,7 @@ export function InlineAttributeEditor({
                   .deleteAttribute(object.objectTypeKey, object.id, attribute.key, saved.version)
                   .then(() => api.object(object.objectTypeKey, object.id, object.workspaceKey))
             : undefined;
-      toast(`${attribute.name} saved`, {
-        actions: undo
-          ? [{ label: "Undo", onPress: () => void undo().then(onSaved, () => toast(UNDO_REFUSED, { tone: "info" })) }]
-          : [],
-      });
+      toast.withUndo(`${attribute.name} saved`, undo && (() => undo().then(onSaved)), UNDO_REFUSED);
     } catch (cause) {
       const described = describeError?.(cause);
       const message = described?.message ?? errorMessage(cause);

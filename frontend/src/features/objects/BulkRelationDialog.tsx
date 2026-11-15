@@ -12,10 +12,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { count, counted } from "@/lib/count";
-import type { Noun } from "@/ui/BatchOutcome";
+import { nounOf, type Noun } from "@/ui/BatchOutcome";
 import { useCapabilities } from "@/state/useSystem";
 import { useDataApi } from "@/state/WorkspaceDataContext";
-import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import { candidateHint, candidateScope, ownEndReason } from "@/model/candidates";
 import { bulkRelationChoices, objectTypeFor, type BulkRelationChoice, typeName } from "@/model/lookup";
 import type { EngineModel, ObjectTypeDefinition } from "@/types";
@@ -23,13 +22,8 @@ import { Choice } from "@/ui/Choice";
 import type { IconName } from "@/ui/Icon";
 import { RecordChecklist, type ChecklistRecord } from "@/ui/RecordChecklist";
 import { claimedByPreview, itemCount, relationItems, type RelationChange } from "./bulkRelations";
-import { BulkJobDialog, targetText, type Problem } from "./BulkJobDialog";
+import { BulkJobDialog, targetText, type BulkDialogProps, type Problem } from "./BulkJobDialog";
 import { everyPage } from "@/lib/everyPage";
-
-const POLICIES = [
-  ["independent", "Change the rest"],
-  ["atomic", "Change none"],
-] as const;
 
 const RELATIONSHIPS: Noun = ["relationship", "relationships"];
 
@@ -65,26 +59,14 @@ export function BulkRelationDialog({
   onClose,
   onApplied,
   onOpenRecord,
-}: {
-  model: EngineModel;
-  objectType: ObjectTypeDefinition;
-  workspaceKey: string;
-  selection: RecordSelection;
-  selected: number;
-  /** Reads every record the list matches, for "all matching" (D102). */
-  readMatching: (
-    signal: AbortSignal,
-    onProgress: (read: number, total: number | undefined) => void,
-  ) => Promise<SelectableRow[]>;
-  onClose: () => void;
+}: BulkDialogProps & {
   /** A job that changed relationships ended. */
   onApplied: () => void;
-  onOpenRecord: (id: string) => void;
 }) {
   const { capabilities } = useCapabilities();
   const api = useDataApi();
   const choices = bulkRelationChoices(model, objectType.key);
-  const noun: Noun = [objectType.name.toLowerCase(), objectType.pluralName.toLowerCase()];
+  const noun = nounOf(objectType);
   const [chosen, setChosen] = useState(0);
   const choice = choices[chosen];
   const actions = choice ? actionsOf(choice) : [];
@@ -92,7 +74,7 @@ export function BulkRelationDialog({
   const action = actions.some(([value]) => value === picked) ? picked! : (actions[0]?.[0] ?? "clear");
   const [records, setRecords] = useState<ChecklistRecord[]>([]);
   const other = choice ? objectTypeFor(model, choice.otherObjectTypeKey) : undefined;
-  const otherNoun: Noun = other ? [other.name.toLowerCase(), other.pluralName.toLowerCase()] : ["record", "records"];
+  const otherNoun: Noun = other ? nounOf(other) : ["record", "records"];
 
   // What the selection holds through the relationship (D165): read for Remove and Clear and, for a
   // hand selection, for Add's "already on" marks. The latest reader of all matching, for the effect.
@@ -234,7 +216,7 @@ export function BulkRelationDialog({
       selection={selection}
       selected={selected}
       workspaceKey={workspaceKey}
-      policies={POLICIES}
+      verb="change"
       applyingHint="Nothing is written yet: the preview shows what applying would do, then you apply it."
       canPreview={Boolean(choice)}
       nothing="Nothing to change"

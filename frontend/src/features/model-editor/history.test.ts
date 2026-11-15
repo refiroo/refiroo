@@ -10,7 +10,7 @@ import {
   migrationWords,
   undoable,
 } from "@/features/model-editor/history";
-import { summarizeChanges } from "@/features/model-editor/InstallDialog";
+import { summarizeChanges } from "@/ui/ActivationParts";
 import { nameOf } from "@/model/outline";
 
 const outline = outlineFixture();

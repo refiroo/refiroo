@@ -25,6 +25,7 @@ import { CatalogueWindow } from "@/ui/CatalogueWindow";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
+import { WorkspaceField } from "@/ui/WorkspaceField";
 import { SearchField } from "@/ui/SearchField";
 import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
 import { NoticeButton } from "./InboxPanel";
@@ -220,17 +221,13 @@ export function NotificationsPage({
               ))}
             </select>
           </label>
-          <label className="toolbar-field">
-            Workspace
-            <select value={workspace} onChange={(event) => setWorkspace(event.target.value)}>
-              <option value="">All workspaces</option>
-              {workspaces.map((item) => (
-                <option key={item.key} value={item.key}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <WorkspaceField
+            toolbar
+            items={workspaces}
+            allOption="All workspaces"
+            value={workspace}
+            onChange={setWorkspace}
+          />
           <label className="toolbar-field">
             Show
             <select value={show} onChange={(event) => setShow(event.target.value as Show)}>

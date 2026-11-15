@@ -10,6 +10,7 @@
  * not the whole list, and the rows are memoised, so ticking and saving draw only the rows they touch.
  */
 
+import { nounOf } from "@/ui/BatchOutcome";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage } from "@/api/errors";
 import { RelationGridChangeDialog } from "@/features/objects/RelationGridChangeDialog";
@@ -459,7 +460,7 @@ export function RelationGridView({
           <ScrollWindow
             list={list}
             label={view.name}
-            noun={[fromType.name.toLowerCase(), fromPlural]}
+            noun={nounOf(fromType)}
             pageSize={pageSize}
             onAnchorChange={onAnchorChange}
             className={`table-wrap object-table relation-grid${display.compact ? " density-compact" : ""}`}
@@ -586,8 +587,8 @@ export function RelationGridView({
           applicationKey={application.key}
           viewKey={view.key}
           workspaceKey={workspaceKey}
-          noun={[fromType.name.toLowerCase(), fromPlural]}
-          toNoun={[toType.name.toLowerCase(), toPlural]}
+          noun={nounOf(fromType)}
+          toNoun={nounOf(toType)}
           attributes={settable}
           columns={columns}
           selection={selection.selection}

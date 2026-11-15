@@ -315,6 +315,8 @@ try {
   expect(await heldCell.isChecked(), "the granted cell is ticked");
   expect(await heldCell.isEnabled(), "the granted cell can be unticked");
   expect(!(await dialog.getByText(/Browse/).count()), "no Browse refusal in the dialog");
+  // The grant was edited: Cancel asks before discarding it.
+  mei.once("dialog", (prompt) => prompt.accept());
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await theirs.close();
   checks.push("a person holding only Security administrator is offered the narrowing and the consumer APIs");

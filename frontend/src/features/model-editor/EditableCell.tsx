@@ -5,9 +5,9 @@
  * says (`CellEdit`). A refusal stays in the form with the server's reason (D39).
  */
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { DraftOperation, ModelDraftOutline } from "@/types";
-import { EditInPlaceValue, InlineEditForm, focusValue } from "@/ui/EditInPlace";
+import { EditInPlaceValue, InlineEditForm, useInPlaceEdit } from "@/ui/EditInPlace";
 import { Notice } from "@/ui/Notice";
 import { refusalText, type RunStep } from "@/features/model-editor/OperationDialog";
 
@@ -41,48 +41,23 @@ export function EditableCell({
   /** The value as the cell shows it. */
   children: ReactNode;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const control = useRef<HTMLButtonElement>(null);
-  const wasEditing = useRef(false);
-
-  useEffect(() => {
-    if (wasEditing.current && !editing) requestAnimationFrame(() => focusValue(control.current));
-    wasEditing.current = editing;
-  }, [editing]);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const next = String(new FormData(event.currentTarget).get("value") ?? "").trim();
-    if (next === edit.value) {
-      setEditing(false);
-      return;
-    }
-    if (!edit.options && !next && !edit.optional) {
-      setError(`${edit.label} needs a value.`);
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      await run(edit.operations(next));
-      setEditing(false);
-    } catch (cause) {
-      setError(refusalText(cause, outline));
-    } finally {
-      setSaving(false);
-    }
-  }
+  const editor = useInPlaceEdit({
+    label: edit.label,
+    current: edit.value,
+    required: !edit.options && !edit.optional,
+    save: (next) => run(edit.operations(next)),
+    describe: (cause) => refusalText(cause, outline),
+  });
+  const { editing, saving, error } = editor;
 
   if (!editing)
     return (
       <EditInPlaceValue
-        controlRef={control}
+        controlRef={editor.controlRef}
         layout="row"
         name={edit.label}
         holdsControl={edit.holdsControl}
-        onEdit={() => setEditing(true)}
+        onEdit={editor.open}
       >
         <span className="attribute-value">{children}</span>
       </EditInPlaceValue>
@@ -92,11 +67,8 @@ export function EditableCell({
       <InlineEditForm
         label={`Edit ${edit.label}`}
         saving={saving}
-        onSubmit={submit}
-        onClose={() => {
-          setError("");
-          setEditing(false);
-        }}
+        onSubmit={editor.submit}
+        onClose={editor.close}
         notices={
           error && (
             <Notice tone="error" title="Not saved">

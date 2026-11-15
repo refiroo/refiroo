@@ -163,6 +163,22 @@
   line-height: 1.4;
   white-space: nowrap;
 }
+/* Sizes of the pill kept from its earlier spellings: Home's 22 px role and count pills, the canvas's tags. */
+.status-pill-compact {
+  gap: 6px;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 11px;
+  font-size: var(--fs-12);
+  font-weight: 500;
+  line-height: inherit;
+}
+.status-pill-small {
+  flex: none;
+  padding: 2px 9px;
+  font-size: var(--fs-12);
+  line-height: inherit;
+}
 .status-pill-marker {
   flex: none;
   width: 7px;
@@ -347,6 +363,12 @@
   --pill-surface: var(--status-proposed-surface);
   --pill-text: var(--status-proposed-text);
   --pill-marker: var(--status-proposed-marker);
+}
+/* The quiet fill and secondary text of a count or role that is not a state. */
+.tone-plain {
+  --pill-surface: var(--surface-fill);
+  --pill-text: var(--text-secondary);
+  --pill-marker: var(--text-secondary);
 }
 .tone-draft,
 .tone-neutral {
@@ -3822,6 +3844,8 @@ form .admin-hint {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: auto;
+  min-height: 0;
   height: 32px;
   padding: 0 9px;
   border: 1px solid var(--border-strong);
@@ -3841,6 +3865,8 @@ form .admin-hint {
   box-shadow: none;
 }
 .matrix-cell-filter:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: none;
   outline: 2px solid var(--action);
   outline-offset: 2px;
 }
@@ -5152,29 +5178,33 @@ form.install-dialog .dialog-actions {
   min-width: 0;
 }
 /* Inside a dialog's form the checklist keeps its own layout over the form's labels and fields. */
-.record-checklist-search,
-.dialog form label.record-checklist-search {
-  position: relative;
-  display: block;
-  margin: 0;
-}
-.record-checklist-search .icon {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  color: var(--text-tertiary);
-}
-.record-checklist-search input,
-.dialog form .record-checklist-search input:not([type="checkbox"]):not([type="radio"]) {
-  margin: 0;
-  width: 100%;
+/* The checklist's search box is `ui/SearchField` in its own skin: 36 px, the strong border, the outline of an input. */
+.search-box.record-checklist-search,
+.dialog form label.search-box.record-checklist-search {
+  flex: none;
   box-sizing: border-box;
+  width: 100%;
   min-height: 36px;
-  padding: 0 10px 0 32px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface-raised);
-  color: var(--text-primary);
+  margin: 0;
+  padding: 0 10px 0 9px;
+  border-color: var(--border-strong);
+}
+.search-box.record-checklist-search:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: none;
+  outline: 2px solid var(--action-primary);
+  outline-offset: 1px;
+}
+.search-box.record-checklist-search input,
+.dialog form .search-box.record-checklist-search input:not([type="checkbox"]):not([type="radio"]),
+.dialog form .search-box.record-checklist-search input:not([type="checkbox"]):not([type="radio"]):focus {
+  display: block;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 0;
+  border: 0;
+  box-shadow: none;
+  font-size: inherit;
 }
 .record-checklist-list {
   max-height: 260px;

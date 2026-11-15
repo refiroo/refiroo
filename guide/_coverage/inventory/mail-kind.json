@@ -5,7 +5,7 @@
   "labels": [
    "activation"
   ],
-  "source": "backend/app/engine/mail/templates.py:22",
+  "source": "backend/app/engine/mail/templates.py:23",
   "section": "administer",
   "commonContext": [
    "mail",
@@ -20,7 +20,7 @@
   "labels": [
    "password-reset"
   ],
-  "source": "backend/app/engine/mail/templates.py:23",
+  "source": "backend/app/engine/mail/templates.py:24",
   "section": "administer",
   "commonContext": [
    "mail",
@@ -35,7 +35,7 @@
   "labels": [
    "test"
   ],
-  "source": "backend/app/engine/mail/templates.py:24",
+  "source": "backend/app/engine/mail/templates.py:25",
   "section": "administer",
   "commonContext": [
    "mail",
@@ -50,7 +50,7 @@
   "labels": [
    "notice"
   ],
-  "source": "backend/app/engine/mail/templates.py:25",
+  "source": "backend/app/engine/mail/templates.py:26",
   "section": "administer",
   "commonContext": [
    "mail",
@@ -65,7 +65,7 @@
   "labels": [
    "digest"
   ],
-  "source": "backend/app/engine/mail/templates.py:26",
+  "source": "backend/app/engine/mail/templates.py:27",
   "section": "administer",
   "commonContext": [
    "mail",
@@ -80,7 +80,7 @@
   "labels": [
    "security"
   ],
-  "source": "backend/app/engine/mail/templates.py:27",
+  "source": "backend/app/engine/mail/templates.py:28",
   "section": "administer",
   "commonContext": [
    "mail",

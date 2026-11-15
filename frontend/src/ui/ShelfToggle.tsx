@@ -36,9 +36,7 @@ export function ShelfToggle({
       }
       onClick={() => {
         shelf.toggle(pin);
-        toast(pinned ? `${name} is off your shelf` : `${name} is on your shelf`, {
-          actions: [{ label: "Undo", onPress: () => shelf.toggle(pin) }],
-        });
+        toast.withUndo(pinned ? `${name} is off your shelf` : `${name} is on your shelf`, () => shelf.toggle(pin));
       }}
     >
       <Icon name="pin" size={15} />

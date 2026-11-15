@@ -1,5 +1,6 @@
 import type { ModelChange, ModelCompatibility } from "@/types";
 import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
+import { SettingsTable } from "@/ui/SettingsTable";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
 
 function preview(value: unknown) {
@@ -40,36 +41,24 @@ export function ModelDiff({
         {compatibility && <CompatibilityPill classification={compatibility.classification} />}
       </div>
       {changes.length ? (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Kind</th>
-                <th>Path</th>
-                <th>Before</th>
-                <th>After</th>
-              </tr>
-            </thead>
-            <tbody>
-              {changes.map((change, index) => (
-                <tr key={`${change.kind}:${change.path}:${index}`}>
-                  <td>
-                    <StatusPill tone={CHANGE_TONES[change.kind]}>{change.kind}</StatusPill>
-                  </td>
-                  <td>
-                    <code>{change.path}</code>
-                  </td>
-                  <td>
-                    <code>{preview(change.before)}</code>
-                  </td>
-                  <td>
-                    <code>{preview(change.after)}</code>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <SettingsTable plain label="Semantic changes" columns={["Kind", "Path", "Before", "After"]}>
+          {changes.map((change, index) => (
+            <tr key={`${change.kind}:${change.path}:${index}`}>
+              <td data-label="Kind">
+                <StatusPill tone={CHANGE_TONES[change.kind]}>{change.kind}</StatusPill>
+              </td>
+              <td data-label="Path">
+                <code>{change.path}</code>
+              </td>
+              <td data-label="Before">
+                <code>{preview(change.before)}</code>
+              </td>
+              <td data-label="After">
+                <code>{preview(change.after)}</code>
+              </td>
+            </tr>
+          ))}
+        </SettingsTable>
       ) : (
         <p className="panel-state">{emptyMessage}</p>
       )}

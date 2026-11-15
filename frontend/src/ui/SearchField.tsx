@@ -15,6 +15,8 @@ export function SearchField({
   disabled,
   inputProps,
   onInputKeyDown,
+  icon = true,
+  iconSize,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -35,10 +37,13 @@ export function SearchField({
   inputProps?: InputHTMLAttributes<HTMLInputElement>;
   /** Runs before the box's own keys; a handler that prevents the default keeps them from acting. */
   onInputKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  /** `false` for a box inside a popover that shows no icon (the canvas's chooser). */
+  icon?: boolean;
+  iconSize?: number;
 }) {
   return (
     <label className={className ? `search-box ${className}` : "search-box"}>
-      <Icon name="search" />
+      {icon && <Icon name="search" size={iconSize} />}
       <input
         {...inputProps}
         type={type}

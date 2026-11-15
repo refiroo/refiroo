@@ -22,11 +22,10 @@ import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { attributeName, fieldValue } from "@/model/fields";
 import { attributeTypeFor, objectTypeFor } from "@/model/lookup";
 import { formatValue } from "@/ui/formatValue";
-import { EditInPlaceCell, EditInPlaceValue, focusValue } from "@/ui/EditInPlace";
+import { EditInPlaceCell, EditInPlaceValue, focusValue, useFocusReturn } from "@/ui/EditInPlace";
 import { FlagCell } from "@/ui/FlagCell";
 import { FloatingCellEditor } from "@/ui/FloatingCellEditor";
 import { errorMessage, isVersionConflict } from "@/api/errors";
-import { Notice } from "@/ui/Notice";
 import { useOptionalToast } from "@/ui/Toast";
 import { UNDO_REFUSED } from "@/features/objects/undoText";
 import type {
@@ -150,7 +149,6 @@ export function EditableField({
   const { changeSet, warning } = useWorkspaceData();
   const control = useRef<HTMLButtonElement>(null);
   const cell = useRef<HTMLSpanElement>(null);
-  const wasEditing = useRef(editing);
   const [saved, setSaved] = useState(false);
   const editable = fieldEditing(model, object, field, readOnly);
 
@@ -159,17 +157,9 @@ export function EditableField({
     // Only on mount: the parent asks once, when the value takes the editor's place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => {
-    if (wasEditing.current && !editing)
-      requestAnimationFrame(() =>
-        focusValue(
-          layout === "cell"
-            ? cell.current?.closest("tr")?.querySelector<HTMLElement>("[data-row-focus]")
-            : control.current,
-        ),
-      );
-    wasEditing.current = editing;
-  }, [editing, layout]);
+  useFocusReturn(editing, () =>
+    layout === "cell" ? cell.current?.closest("tr")?.querySelector<HTMLElement>("[data-row-focus]") : control.current,
+  );
 
   if (editing && editable) {
     const editor = (
@@ -296,64 +286,39 @@ function RecordFlagCell({
 }) {
   const api = useDataApi();
   const toast = useOptionalToast();
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [failure, setFailure] = useState<{ message: string; action?: ReactNode }>();
-  useEffect(() => {
-    if (!saved) return;
-    const timer = setTimeout(() => setSaved(false), 2500);
-    return () => clearTimeout(timer);
-  }, [saved]);
-  async function toggle(next: boolean) {
-    setSaving(true);
-    setFailure(undefined);
-    setSaved(false);
-    try {
-      const result = exists
-        ? await api.updateAttribute(object.objectTypeKey, object.id, attribute.key, next, object.version)
-        : await api.createAttribute(object.objectTypeKey, object.id, attribute.key, next, object.version);
-      setSaved(true);
-      onSaved(result);
-      // Undo puts the previous value back against the version this save made; where nothing was set
-      // before, there is nothing to put back.
-      toast(`${attribute.name}: ${next ? "Yes" : "No"}`, {
-        actions: exists
-          ? [
-              {
-                label: "Undo",
-                onPress: () =>
-                  void api
-                    .updateAttribute(object.objectTypeKey, object.id, attribute.key, !next, result.version)
-                    .then(onSaved, () => toast(UNDO_REFUSED, { tone: "info" })),
-              },
-            ]
-          : [],
-      });
-    } catch (cause) {
-      const described = describeError?.(cause);
-      setFailure({ message: described?.message ?? errorMessage(cause), action: described?.action });
-      if (isVersionConflict(cause, ["VERSION_CONFLICT", "CHANGE_SET_VERSION_CONFLICT"]))
-        await onConflict().catch(() => undefined);
-    } finally {
-      setSaving(false);
-    }
-  }
   return (
     <FlagCell
       label={label}
       checked={stored}
-      saving={saving}
-      saved={saved}
-      notice={
-        failure && (
-          <Notice tone="error" title="The value was not saved">
-            {failure.message}
-            {failure.action}
-          </Notice>
-        )
-      }
-      onDismiss={() => setFailure(undefined)}
-      onToggle={(next) => void toggle(next)}
+      failureTitle="The value was not saved"
+      onSave={async (next) => {
+        try {
+          const result = exists
+            ? await api.updateAttribute(object.objectTypeKey, object.id, attribute.key, next, object.version)
+            : await api.createAttribute(object.objectTypeKey, object.id, attribute.key, next, object.version);
+          onSaved(result);
+          // Undo puts the previous value back against the version this save made; where nothing was set
+          // before, there is nothing to put back.
+          toast.withUndo(
+            `${attribute.name}: ${next ? "Yes" : "No"}`,
+            exists
+              ? () =>
+                  api
+                    .updateAttribute(object.objectTypeKey, object.id, attribute.key, !next, result.version)
+                    .then(onSaved)
+              : undefined,
+            UNDO_REFUSED,
+          );
+        } catch (cause) {
+          if (isVersionConflict(cause, ["VERSION_CONFLICT", "CHANGE_SET_VERSION_CONFLICT"]))
+            await onConflict().catch(() => undefined);
+          throw cause;
+        }
+      }}
+      describeFailure={(cause) => {
+        const described = describeError?.(cause);
+        return { message: described?.message ?? errorMessage(cause), action: described?.action };
+      }}
     />
   );
 }

@@ -8,8 +8,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AttributeTypeDefinition } from "@/types";
-import { EditInPlaceCell, InlineEditForm, focusValue } from "@/ui/EditInPlace";
-import { FlagCell } from "@/ui/FlagCell";
+import { EditInPlaceCell, InlineEditForm, useFocusReturn } from "@/ui/EditInPlace";
+import { FlagCellView } from "@/ui/FlagCell";
 import { FloatingCellEditor } from "@/ui/FloatingCellEditor";
 import { formatValue } from "@/ui/formatValue";
 import { RelationAttributes, RelationConflictNotice } from "./RelationAttributes";
@@ -54,13 +54,8 @@ export function RelationValueCell({
     // The parent's callback is only told what changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty]);
-  const wasEditing = useRef(false);
-  useEffect(() => {
-    // A floating editor's cell has no control to return to; the row's own does, as a record's cells do.
-    if (floating && wasEditing.current && !editing)
-      requestAnimationFrame(() => focusValue(row.current?.querySelector<HTMLElement>("[data-row-focus]")));
-    wasEditing.current = editing;
-  }, [editing, floating]);
+  // A floating editor's cell has no control to return to; the row's own does, as a record's cells do.
+  useFocusReturn(editing, () => row.current?.querySelector<HTMLElement>("[data-row-focus]"), floating);
   async function save(form: HTMLFormElement) {
     const result = await edit.saveValue(form, onSaved);
     if (result) {
@@ -72,7 +67,7 @@ export function RelationValueCell({
   if (floating && editable && attribute.valueType === "boolean") {
     const stored = relation.attributes[attribute.key] === true;
     return (
-      <FlagCell
+      <FlagCellView
         label={`${attribute.name} of ${label}`}
         checked={stored}
         saving={edit.saving}

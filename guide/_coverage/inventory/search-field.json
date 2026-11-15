@@ -31,7 +31,7 @@
   "labels": [
    "Find a record in any workspace"
   ],
-  "source": "frontend/src/features/home/HomeSearch.tsx:147",
+  "source": "frontend/src/features/home/HomeSearch.tsx:148",
   "section": "use",
   "commonContext": [
    "home",
@@ -44,7 +44,7 @@
   "labels": [
    "Find any record in any workspace (⌘K)"
   ],
-  "source": "frontend/src/features/home/HomeSearch.tsx:148",
+  "source": "frontend/src/features/home/HomeSearch.tsx:149",
   "section": "use",
   "commonContext": [
    "home",
@@ -57,7 +57,7 @@
   "labels": [
    "Search"
   ],
-  "source": "frontend/src/features/inbox/NotificationsPage.tsx:205",
+  "source": "frontend/src/features/inbox/NotificationsPage.tsx:207",
   "section": "use",
   "commonContext": [
    "notifications",
@@ -70,7 +70,7 @@
   "labels": [
    "Search models"
   ],
-  "source": "frontend/src/features/model-admin/ModelWorkbench.tsx:566",
+  "source": "frontend/src/features/model-admin/ModelWorkbench.tsx:549",
   "section": "use",
   "commonContext": [
    "model",
@@ -83,7 +83,7 @@
   "labels": [
    "Find a target"
   ],
-  "source": "frontend/src/features/model-editor/MoveToDialog.tsx:195",
+  "source": "frontend/src/features/model-editor/MoveToDialog.tsx:192",
   "section": "model",
   "commonContext": [
    "move",
@@ -109,7 +109,7 @@
   "labels": [
    "Find a collection or view"
   ],
-  "source": "frontend/src/features/objects/NavigationGroupPage.tsx:80",
+  "source": "frontend/src/features/objects/NavigationGroupPage.tsx:78",
   "section": "use",
   "commonContext": [
    "navigation",
@@ -136,7 +136,7 @@
   "labels": [
    "Search places"
   ],
-  "source": "frontend/src/features/objects/RelationMatrixCellDialog.tsx:725",
+  "source": "frontend/src/features/objects/RelationMatrixCellDialog.tsx:724",
   "section": "use",
   "commonContext": [
    "relation",
@@ -151,7 +151,7 @@
   "labels": [
    "Search places…"
   ],
-  "source": "frontend/src/features/objects/RelationMatrixCellDialog.tsx:728",
+  "source": "frontend/src/features/objects/RelationMatrixCellDialog.tsx:727",
   "section": "use",
   "commonContext": [
    "relation",
@@ -166,7 +166,7 @@
   "labels": [
    "Search by name…"
   ],
-  "source": "frontend/src/features/objects/RestructuringDialog.tsx:1196",
+  "source": "frontend/src/features/objects/RestructuringDialog.tsx:1189",
   "section": "use",
   "commonContext": [
    "restructuring",
@@ -193,7 +193,7 @@
   "labels": [
    "Find a record"
   ],
-  "source": "frontend/src/features/objects/TreeView.tsx:487",
+  "source": "frontend/src/features/objects/TreeView.tsx:486",
   "section": "use",
   "commonContext": [
    "tree",
@@ -219,7 +219,7 @@
   "labels": [
    "Search related records"
   ],
-  "source": "frontend/src/features/objects/panels/RelationsPanel.tsx:405",
+  "source": "frontend/src/features/objects/panels/RelationsPanel.tsx:414",
   "section": "use",
   "commonContext": [
    "relations",
@@ -245,7 +245,7 @@
   "labels": [
    "Search people"
   ],
-  "source": "frontend/src/features/security/AddMembersDialog.tsx:172",
+  "source": "frontend/src/features/security/AddMembersDialog.tsx:169",
   "section": "use",
   "commonContext": [
    "add",
@@ -259,7 +259,7 @@
   "labels": [
    "Search people by name or e-mail"
   ],
-  "source": "frontend/src/features/security/AddMembersDialog.tsx:173",
+  "source": "frontend/src/features/security/AddMembersDialog.tsx:170",
   "section": "use",
   "commonContext": [
    "add",
@@ -269,37 +269,11 @@
  },
  {
   "kind": "search-field",
-  "key": "search:Search clients",
-  "labels": [
-   "Search clients"
-  ],
-  "source": "frontend/src/features/security/ClientsPage.tsx:159",
-  "section": "use",
-  "commonContext": [
-   "clients",
-   "page"
-  ]
- },
- {
-  "kind": "search-field",
-  "key": "search:Search groups",
-  "labels": [
-   "Search groups"
-  ],
-  "source": "frontend/src/features/security/GroupsPage.tsx:132",
-  "section": "use",
-  "commonContext": [
-   "groups",
-   "page"
-  ]
- },
- {
-  "kind": "search-field",
   "key": "search:Find an object type or attribute",
   "labels": [
    "Find an object type or attribute"
   ],
-  "source": "frontend/src/features/workbook-canvas/CanvasFind.tsx:47",
+  "source": "frontend/src/features/workbook-canvas/CanvasFind.tsx:49",
   "section": "use",
   "commonContext": [
    "canvas",
@@ -312,7 +286,7 @@
   "labels": [
    "Find an object type or attribute (⌘K)"
   ],
-  "source": "frontend/src/features/workbook-canvas/CanvasFind.tsx:48",
+  "source": "frontend/src/features/workbook-canvas/CanvasFind.tsx:50",
   "section": "use",
   "commonContext": [
    "canvas",
@@ -325,7 +299,7 @@
   "labels": [
    "Search workspaces"
   ],
-  "source": "frontend/src/features/workspaces/WorkspaceList.tsx:106",
+  "source": "frontend/src/features/workspaces/WorkspaceList.tsx:105",
   "section": "use",
   "commonContext": [
    "workspace",

@@ -21,26 +21,13 @@ import type { DraftSource } from "@/features/model-editor/useDraftSource";
 import type { SourceDialogs } from "@/features/model-editor/useSourceDialogs";
 import type { CanvasSelection, ConsumerApiTab, EditorSelection, ModelDraftOutline } from "@/types";
 import { EditInPlaceValue } from "@/ui/EditInPlace";
+import { Switch } from "@/ui/Switch";
 import { Tabs } from "@/ui/Tabs";
 import { TextInPlace } from "@/ui/TextInPlace";
 import type { CanvasCard, CanvasField, CanvasLine } from "./canvasModel";
 import { editorSelectionOf, renameFieldOperations, targetOfSelection, type CanvasPick } from "./canvasView";
 
 export type InspectorTab = "inspector" | "navigation" | "views" | "consumer";
-
-/** One flip of a yes or no field of an element, sent through the editor's own operation for it. */
-function Switch({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      className="canvas-switch"
-      onClick={onToggle}
-    />
-  );
-}
 
 /** What a field is, as rows: each one the editor's operation for the field, started where it stands. */
 function FieldPanel({
@@ -113,7 +100,7 @@ function FieldPanel({
         .map(([id, label, on]) => (
           <div key={id} className="canvas-inspect-row">
             <span>{label}</span>
-            <Switch label={label} on={on} onToggle={() => operate(id)} />
+            <Switch variant="canvas" label={label} checked={on} onChange={() => operate(id)} />
           </div>
         ))}
       <div className="canvas-inspect-row">

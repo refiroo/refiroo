@@ -6,11 +6,13 @@
  * version that rests in a state this page no longer draws reads as stopped.
  */
 
+import { ActionNotices } from "@/ui/ActionNotices";
+import { changedWhileOpen, useGuardedWrite } from "@/ui/useGuardedWrite";
+import { JobProgress } from "@/ui/JobProgress";
 import { useEffect, useRef, useState } from "react";
 import { ai } from "@/api/aiClient";
 import { api } from "@/api/client";
 import { workspaceModel } from "@/model/workspaceModels";
-import { errorMessage, isVersionConflict } from "@/api/errors";
 import { useHeldAnywhere, useWorkspacePermissions, holds } from "@/state/permissions";
 import { changeReviewFor, routePath } from "@/routing/routes";
 import type { AiTask, EngineModel, JourneyRef, RouteState } from "@/types";
@@ -35,8 +37,6 @@ import { rememberModelReviewed } from "./AiTaskJourneyBar";
 import { runningText, taskTitle, waitingText, wordsTaskName } from "./aiTaskText";
 import { useAiTask } from "./useAiTask";
 import { useAssistantOffers } from "./useAssistantOffers";
-
-const CONFLICT = "The task changed while you were working, so the page shows its latest state. Check it and try again.";
 
 export function AiTaskPage({
   taskId,
@@ -79,9 +79,8 @@ export function AiTaskPage({
   const [label, setLabel] = useState<string>();
   const [status, setStatus] = useState<string>();
   const offers = useAssistantOffers(task?.workspaceKey, status);
-  const [pending, setPending] = useState(false);
-  const [problem, setProblem] = useState("");
-  const [conflict, setConflict] = useState(false);
+  const guard = useGuardedWrite();
+  const { pending } = guard;
   // The design shows the model's names for types and attributes, never their keys.
   const [model, setModel] = useState<EngineModel>();
 
@@ -133,20 +132,13 @@ export function AiTaskPage({
     />
   );
 
-  async function write(action: () => Promise<AiTask>) {
-    setPending(true);
-    setProblem("");
-    setConflict(false);
-    try {
-      followed.set(await action());
-    } catch (cause) {
-      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
-        setConflict(true);
+  function write(action: () => Promise<AiTask>) {
+    return guard.run(async () => followed.set(await action()), {
+      onConflict: async () => {
         await followed.reload();
-      } else setProblem(errorMessage(cause));
-    } finally {
-      setPending(false);
-    }
+        return changedWhileOpen("task");
+      },
+    });
   }
 
   if (!task) {
@@ -204,24 +196,14 @@ export function AiTaskPage({
       title={taskTitle(task)}
       description={task.words && task.fileName ? `“${task.words}”` : undefined}
     >
-      {conflict && (
-        <Notice tone="warning" focusOnMount>
-          {CONFLICT}
-        </Notice>
-      )}
-      {problem && (
-        <Notice tone="error" title="That did not work" focusOnMount>
-          {problem}
-        </Notice>
-      )}
+      <ActionNotices guard={guard} errorTitle="That did not work" focusError />
       {followed.error && <InlineError message={followed.error} onRetry={followed.retry} />}
       {task.state === "reading" || task.state === "checking" || task.state === "loading" ? (
         <>
           <Section title={task.state === "loading" ? "Loading" : "Working on it"}>
-            <div className="job-progress">
-              <progress aria-label="Progress" />
-              <span role="status">{waitingText(task.ahead) ?? design?.progress?.now ?? runningText(task)}</span>
-            </div>
+            <JobProgress role="text">
+              {waitingText(task.ahead) ?? design?.progress?.now ?? runningText(task)}
+            </JobProgress>
             {design?.progress && <SessionProgress progress={design.progress} />}
             <p className="admin-hint">
               Editing is not possible while this runs. You can leave this page: you are told when the reading is ready.

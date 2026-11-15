@@ -6,10 +6,10 @@
  * with the change (D41).
  */
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { AttributeTypeDefinition, ModelDraftOutline, ObjectTypeAttributeDefinition } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
-import { EditInPlaceValue, InlineEditForm, focusValue } from "@/ui/EditInPlace";
+import { EditInPlaceValue, InlineEditForm, useInPlaceEdit } from "@/ui/EditInPlace";
 import { Notice } from "@/ui/Notice";
 import { refusalText, type StepOutcome } from "@/features/model-editor/OperationDialog";
 
@@ -48,40 +48,13 @@ export function EditableText({
   /** Beside the text (a heading's mark). */
   after?: ReactNode;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const controlRef = useRef<HTMLButtonElement>(null);
-  const wasEditing = useRef(false);
-
-  // Focus returns to the name when its form closes.
-  useEffect(() => {
-    if (wasEditing.current && !editing) requestAnimationFrame(() => focusValue(controlRef.current));
-    wasEditing.current = editing;
-  }, [editing]);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const next = String(new FormData(event.currentTarget).get("value") ?? "").trim();
-    if (next === name) {
-      setEditing(false);
-      return;
-    }
-    if (!next) {
-      setError(`${label} needs a value.`);
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      await onSave(next);
-      setEditing(false);
-    } catch (cause) {
-      setError(refusalText(cause, outline));
-    } finally {
-      setSaving(false);
-    }
-  }
+  const edit = useInPlaceEdit({
+    label,
+    current: name,
+    save: onSave,
+    describe: (cause) => refusalText(cause, outline),
+  });
+  const { editing, saving, error, controlRef } = edit;
 
   if (editing)
     return (
@@ -89,11 +62,8 @@ export function EditableText({
         <InlineEditForm
           label={`Edit ${label}`}
           saving={saving}
-          onSubmit={submit}
-          onClose={() => {
-            setError("");
-            setEditing(false);
-          }}
+          onSubmit={edit.submit}
+          onClose={edit.close}
           notices={
             error && (
               <Notice tone="error" title={`The ${label.toLowerCase()} was not saved`}>
@@ -107,12 +77,7 @@ export function EditableText({
       </div>
     );
   const control = (
-    <EditInPlaceValue
-      controlRef={controlRef}
-      layout={heading ? "title" : "row"}
-      name={label}
-      onEdit={() => setEditing(true)}
-    >
+    <EditInPlaceValue controlRef={controlRef} layout={heading ? "title" : "row"} name={label} onEdit={edit.open}>
       <span className="attribute-value">{name}</span>
     </EditInPlaceValue>
   );

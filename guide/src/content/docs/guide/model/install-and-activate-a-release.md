@@ -86,8 +86,8 @@ passes: another workspace may serve a different release or retain different vers
    published until moved to the new one or discarded. Check **Not changed** for the other workspaces.
 4. If **Your records stay as they are** is shown, confirm **Apply to** the named workspace when ready.
    If **Activation needs a migration** appears, review the steps, destinations, counts and warnings
-   about changed keys and the consumer APIs naming them. **Some records must move first** can
-   appear when the compatibility check finds a migration without a draft proposal.
+   about changed keys and the consumer APIs naming them. The same title appears when the
+   compatibility check finds a migration without a draft proposal.
 5. Choose **Preview what happens to the records…** when a migration is needed. It installs the
    release and opens a migration preview with the draft's choices where available. Inspect
    **What the draft proposes**, the **Proposed** rows and outcomes, including **Created** when
@@ -131,7 +131,7 @@ before editing records. Review any left-behind change sets through the
 | Result | Next action |
 | --- | --- |
 | Compatible with the workspace's data | Review the named workspace and confirm activation when ready. |
-| A migration is needed | From installation, choose **Install … and preview the migration…**; from Apply, **Preview what happens to the records…**. Review proposed destinations, created items, conversions, removals and items to fix before confirming the migration. |
+| Activation needs a migration | From installation, choose **Install … and preview the migration…**; from Apply, **Preview what happens to the records…**. Review proposed destinations, created items, conversions, removals and items to fix before confirming the migration. |
 | A different model | Review this destination carefully; compatibility is checked when activation is attempted. |
 | A consumer API needs a higher contract version | Coordinate the contract change and raise its version in a draft before rechecking. |
 | Could not be checked | Read the failure, correct its cause and check again; it is not a successful compatibility result. |

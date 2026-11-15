@@ -26,6 +26,12 @@ const ITEMS_PAGE = 50;
 export type Noun = readonly [string, string];
 export const ITEMS: Noun = ["item", "items"];
 
+/** A type's records as a noun: its names, in lower case. */
+export const nounOf = ({ name, pluralName }: { name: string; pluralName: string }): Noun => [
+  name.toLowerCase(),
+  pluralName.toLowerCase(),
+];
+
 /** The preview's outcomes are the job's until it is confirmed; then the execution's replace them. */
 export const previewing = (job: Job) => !job.confirmedAt;
 

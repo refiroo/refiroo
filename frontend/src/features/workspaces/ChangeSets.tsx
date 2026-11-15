@@ -11,7 +11,7 @@ import type { ApprovalPolicy, ChangeSet, ChangeSetValidation, ModelReleaseSummar
 import { Notice } from "@/ui/Notice";
 import { StatusPill } from "@/ui/StatusPill";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { ActionMenu } from "@/ui/ActionMenu";
 import { Icon } from "@/ui/Icon";
@@ -22,6 +22,7 @@ import { BelowContextBand } from "@/ui/ContextBandSlot";
 import { principalName } from "@/ui/ActorName";
 import { formatServerAgo } from "@/lib/dates";
 import { Card } from "@/ui/Card";
+import { changeSetTitle } from "@/lib/words";
 
 /** An API message followed by more guidance, so the two read as separate sentences. */
 function asSentence(cause: unknown) {
@@ -78,7 +79,7 @@ export function ChangeSets({
               key={changeSet.id}
               className="change-set-card"
               marker={<span className="context-dot context-dot-change-set" aria-hidden="true" />}
-              title={changeSet.name || "Untitled change set"}
+              title={changeSetTitle(changeSet.name)}
               meta={
                 <>
                   Version {changeSet.version} · {changeSetSource(changeSet)} · Model {changeSet.modelReleaseKey}{" "}
@@ -212,14 +213,7 @@ function CreateChangeSet({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button
-            type="button"
-            className="secondary"
-            disabled={pending}
-            onClick={() => (!(name || selectedRelease) || window.confirm("Discard your unsaved changes?")) && onClose()}
-          >
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending}>
             Start change set
           </button>
@@ -831,7 +825,7 @@ export function ChangeSetActions({
     <>
       <section className="change-set-bar" aria-label="Change set publication">
         <div className="change-set-bar-main">
-          <h2 title={current.name || undefined}>{current.name || "Untitled change set"}</h2>
+          <h2 title={current.name || undefined}>{changeSetTitle(current.name)}</h2>
           {/* The band's one row: the change count, the state, who and when; version and model are under Details. */}
           <span className="change-set-bar-state">
             {changeCount !== undefined && `${counted(changeCount, "change")} · `}
@@ -1030,9 +1024,7 @@ export function ChangeSetActions({
               />
             </label>
             <div className="dialog-actions">
-              <button type="button" className="secondary" disabled={pending} onClick={() => setSubmitting(false)}>
-                Cancel
-              </button>
+              <CancelButton disabled={pending} />
               <button type="submit" className="primary" disabled={pending}>
                 Submit
               </button>
@@ -1074,9 +1066,7 @@ export function ChangeSetActions({
               </Notice>
             )}
             <div className="dialog-actions">
-              <button type="button" className="secondary" disabled={pending} onClick={() => setChangingVersion(false)}>
-                Cancel
-              </button>
+              <CancelButton disabled={pending} />
               <button type="submit" className="primary" disabled={pending || !selectedRelease}>
                 Apply version change
               </button>
@@ -1132,9 +1122,7 @@ export function ChangeSetActions({
             </label>
             {renameError && <Notice tone="error">{renameError}</Notice>}
             <div className="dialog-actions">
-              <button type="button" className="secondary" disabled={pending} onClick={() => setRenaming(undefined)}>
-                Cancel
-              </button>
+              <CancelButton disabled={pending} />
               <button type="submit" className="primary" disabled={pending}>
                 Rename
               </button>

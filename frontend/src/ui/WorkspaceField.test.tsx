@@ -47,4 +47,23 @@ describe("WorkspaceField (0.10 R: the export, import and load dialogs' workspace
     await screen.findByRole("option", { name: "West" });
     expect(screen.getByRole("combobox", { name: "Workspace" })).toHaveValue("");
   });
+
+  it("shows the caller's own list with an All choice that the first workspace never replaces", () => {
+    vi.mocked(api.workspaces).mockClear();
+    const onChange = vi.fn();
+    render(
+      <WorkspaceField
+        toolbar
+        items={[workspace("west"), workspace("east")]}
+        allOption="All workspaces"
+        value=""
+        onChange={onChange}
+      />,
+    );
+    expect(api.workspaces).not.toHaveBeenCalled();
+    expect(screen.getByRole("combobox", { name: "Workspace" })).toHaveValue("");
+    expect(screen.getByRole("option", { name: "All workspaces" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "East" })).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

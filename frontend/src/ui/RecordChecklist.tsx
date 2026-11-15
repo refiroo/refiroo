@@ -14,7 +14,7 @@ import { objectTypeHue } from "@/model/hues";
 import type { CandidateScope } from "@/model/candidates";
 import { typeName } from "@/model/lookup";
 import type { EngineModel } from "@/types";
-import { Icon } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 import { RecordChip } from "@/ui/RecordChip";
 
 export interface ChecklistRecord {
@@ -113,16 +113,15 @@ export function RecordChecklist({
 
   return (
     <div className="record-checklist">
-      <label className="record-checklist-search">
-        <Icon name="search" size={15} />
-        <input
-          type="search"
-          aria-label={`Search ${label.toLowerCase()}`}
-          placeholder={`Search ${label.toLowerCase()}`}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
+      <SearchField
+        className="record-checklist-search"
+        type="search"
+        iconSize={15}
+        label={`Search ${label.toLowerCase()}`}
+        placeholder={`Search ${label.toLowerCase()}`}
+        value={query}
+        onChange={setQuery}
+      />
       <div className="record-checklist-list" role="group" aria-label={label} aria-describedby={`${id}-count`}>
         {groups.map((type) => {
           const inGroup = type ? rows.filter((record) => record.objectTypeKey === type) : rows;

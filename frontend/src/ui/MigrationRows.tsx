@@ -8,6 +8,7 @@ import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeTypeFor, objectTypeFor, relationTypeFor } from "@/model/lookup";
 import type { EngineModel, MigrationCounts, MigrationOutcome, MigrationRow } from "@/types";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
+import type { OutcomeCard } from "@/ui/OutcomeCards";
 
 const ROWS_PAGE = 50;
 
@@ -56,6 +57,21 @@ export function outcomesOf(counts: MigrationCounts) {
 
 /** One outcome's count; zero where the migration does not name it. */
 export const countOf = (counts: MigrationCounts, key: MigrationOutcome) => counts[key] ?? 0;
+
+/**
+ * The cards of a migration's counts: each outcome's label and count, tinted by its tone (removed a warning,
+ * must be fixed an error). The migration page shows each card's hint (it names the release and whether it
+ * is a move); the job's page leaves it out. Each page keeps its own filter and default outcome.
+ */
+export function outcomeCardsOf(counts: MigrationCounts, hint?: { version: string; moving: boolean }): OutcomeCard[] {
+  return outcomesOf(counts).map((item) => ({
+    key: item.key,
+    count: countOf(counts, item.key),
+    label: item.label,
+    hint: hint ? item.hint(hint.version, hint.moving) : undefined,
+    tone: item.key === "loss" ? "warning" : item.key === "refused" ? "error" : undefined,
+  }));
+}
 
 /** A stored value as the rows show it: text quoted, anything else as JSON. */
 function shown(value: unknown): string {

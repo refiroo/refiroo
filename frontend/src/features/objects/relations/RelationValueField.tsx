@@ -34,19 +34,11 @@ export function useRelationValueSave(
     const saved = await edit.save(values);
     if (!saved) return false;
     const earlier = relation.attributes;
-    toast(`${attribute.name} ${next === null ? "removed" : "saved"}`, {
-      actions: [
-        {
-          label: "Undo",
-          onPress: () =>
-            void api
-              .updateRelation(relation.id, { attributes: earlier, expectedVersion: saved.version })
-              .then(changed, () =>
-                toast("Undo was not possible: the relationship changed again in the meantime.", { tone: "info" }),
-              ),
-        },
-      ],
-    });
+    toast.withUndo(
+      `${attribute.name} ${next === null ? "removed" : "saved"}`,
+      () => api.updateRelation(relation.id, { attributes: earlier, expectedVersion: saved.version }).then(changed),
+      "Undo was not possible: the relationship changed again in the meantime.",
+    );
     return "saved";
   }
   return { ...edit, saveValue: save };

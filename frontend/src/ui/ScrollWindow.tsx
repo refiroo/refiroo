@@ -137,7 +137,7 @@ export function ScrollWindow<T>({
   /** Accessible name of the scrolling region. */
   label: string;
   /** Singular and plural noun for the rows, for example ["record", "records"]. */
-  noun: [string, string];
+  noun: readonly [string, string];
   pageSize: number;
   className?: string;
   /** Names the sorted value a "Go to" field seeks by; omitted where the list does not seek. */

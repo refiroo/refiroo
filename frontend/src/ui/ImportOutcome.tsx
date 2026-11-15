@@ -283,7 +283,7 @@ export function ImportReadingSection({ job, onNavigate }: { job: Job; onNavigate
                   ? "—"
                   : where.name
                     ? where.willBeCreated && where.under
-                      ? `will create ${(where.typeName ?? "group").toLowerCase()} “${where.name}” under ${where.under}`
+                      ? `will create ${(where.typeName ?? where.objectTypeKey ?? "group").toLowerCase()} “${where.name}” under ${where.under}`
                       : `${where.name}${where.willBeCreated ? " (will be created)" : ""}`
                     : (where.message ??
                       (where.reason === "several"

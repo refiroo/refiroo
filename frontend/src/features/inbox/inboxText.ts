@@ -3,6 +3,7 @@
 import { KIND } from "@/ui/jobText";
 import { changeReviewFor } from "@/routing/routes";
 import type { Notification, NotificationKind, RouteState } from "@/types";
+import { quoted } from "@/lib/words";
 
 export interface NoticeText {
   title: string;
@@ -21,7 +22,7 @@ export const KIND_LABELS: Record<NotificationKind, string> = {
   "change-set.published": "A change set was published in a workspace you follow",
 };
 
-const quoted = (name: string | undefined) => (name ? `‘${name}’` : "a change set");
+const quotedChangeSet = (name: string | undefined) => quoted(name, "a change set");
 
 /** A job kind as the jobs list names it; one the browser does not know reads as it came. */
 function jobKind(notification: Notification): string {
@@ -36,13 +37,13 @@ export function noticeText(notification: Notification): NoticeText {
   const you = ["Started by you"];
   switch (notification.kind) {
     case "change-set.submitted":
-      return { title: "Waiting for your approval", detail: [quoted(changeSetName), ...from] };
+      return { title: "Waiting for your approval", detail: [quotedChangeSet(changeSetName), ...from] };
     case "change-set.approved":
-      return { title: `Approved: ${quoted(changeSetName)}`, detail: [...(comment ? [comment] : []), ...by] };
+      return { title: `Approved: ${quotedChangeSet(changeSetName)}`, detail: [...(comment ? [comment] : []), ...by] };
     case "change-set.sent-back":
-      return { title: `Sent back: ${quoted(changeSetName)}`, detail: [...(comment ? [comment] : []), ...by] };
+      return { title: `Sent back: ${quotedChangeSet(changeSetName)}`, detail: [...(comment ? [comment] : []), ...by] };
     case "change-set.published":
-      return { title: `Published: ${quoted(changeSetName)}`, detail: [...by] };
+      return { title: `Published: ${quotedChangeSet(changeSetName)}`, detail: [...by] };
     case "job.completed":
       return { title: `${jobKind(notification)} finished`, detail: you };
     case "job.failed":

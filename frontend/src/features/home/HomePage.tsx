@@ -39,6 +39,7 @@ import { principalName } from "@/ui/ActorName";
 import { RouteLink } from "@/ui/RouteLink";
 import { BrandMascot } from "@/ui/ProductMark";
 import { Skeleton } from "@/ui/Skeleton";
+import { StatusPill } from "@/ui/StatusPill";
 import { appPath, openApplication, openIn, openWorkspace, workspacePathOf, type Navigate } from "@/state/openWorkspace";
 import {
   continueLines,
@@ -48,6 +49,7 @@ import {
   type ContinueAddress,
 } from "./continueAddress";
 import { greeting, openLabel, ownLabel, quietNote, roleLine, rolePills, roleSummary, summary } from "./homeText";
+import { changeSetTitle } from "@/lib/words";
 
 export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate: Navigate }) {
   const me = useMe();
@@ -99,9 +101,9 @@ export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate
                 <HomeSearch workspaces={workspaces} onNavigate={onNavigate} />
                 <p className="account-pills">
                   {rolePills(grants, workspaces).map((pill) => (
-                    <span key={pill} className="account-pill">
+                    <StatusPill key={pill} tone="plain" size="compact" marker={false}>
                       {pill}
-                    </span>
+                    </StatusPill>
                   ))}
                 </p>
               </section>
@@ -265,7 +267,11 @@ function WorkspaceCard({
             <RouteLink className="home-card-link" href={workspacePath} onNavigate={openThis}>
               {workspace.label}
             </RouteLink>
-            {workspace.isDefault && <span className="account-pill">Default</span>}
+            {workspace.isDefault && (
+              <StatusPill tone="plain" size="compact" marker={false}>
+                Default
+              </StatusPill>
+            )}
           </h3>
         </div>
         <FollowToggle workspace={workspace} />
@@ -319,10 +325,9 @@ function WorkspaceCard({
         </div>
       ) : (
         <div className="home-quiet">
-          <span className="account-pill success">
-            <span className="account-dot" aria-hidden="true" />
+          <StatusPill tone="success" size="compact">
             Nothing open here
-          </span>
+          </StatusPill>
           {note && <span className="account-muted">{note}</span>}
         </div>
       )}
@@ -434,7 +439,7 @@ export function WaitingApprovals({
             return (
               <li key={item.id} className="account-row">
                 <span className="account-row-text">
-                  <span className="account-row-title">{item.changeSetName || "Untitled change set"}</span>
+                  <span className="account-row-title">{changeSetTitle(item.changeSetName)}</span>
                   <span className="account-muted">
                     {labels.get(item.workspaceKey) ?? item.workspaceKey} · Submitted by{" "}
                     {item.submitter ? principalName(item.submitter) : "an unknown person"}
@@ -445,7 +450,7 @@ export function WaitingApprovals({
                   <button
                     type="button"
                     className="secondary"
-                    aria-label={`Review ${item.changeSetName || "Untitled change set"}`}
+                    aria-label={`Review ${changeSetTitle(item.changeSetName)}`}
                     onClick={() => onNavigate(changeReviewFor(application, item.workspaceKey, item.changeSetId))}
                   >
                     Review
@@ -506,7 +511,7 @@ function OwnChangeSets({ workspaces, onNavigate }: { workspaces: OwnWorkspace[];
         <ul className="account-list">
           {items.map((item) => {
             const application = firstApplication.get(item.workspaceKey);
-            const name = item.name || "Untitled change set";
+            const name = changeSetTitle(item.name);
             const where = [item.workspaceLabel, models.get(item.workspaceKey)].filter(Boolean).join(" · ");
             const body = (
               <>
@@ -517,7 +522,9 @@ function OwnChangeSets({ workspaces, onNavigate }: { workspaces: OwnWorkspace[];
                   <span className="account-row-title">{name}</span>
                   <span className="account-muted">{where}</span>
                 </span>
-                <span className="account-pill warning">{counted(item.changeCount, "change")}</span>
+                <StatusPill tone="warning" size="compact" marker={false}>
+                  {counted(item.changeCount, "change")}
+                </StatusPill>
                 <span className="account-muted home-change-set-when">{formatServerAgo(item.updatedAt)}</span>
               </>
             );

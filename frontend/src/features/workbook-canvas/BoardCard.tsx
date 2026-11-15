@@ -14,6 +14,7 @@ import { count } from "@/lib/count";
 import type { ModelDraftOutline } from "@/types/modelAdmin";
 import type { ActionMenuItem } from "@/ui/ActionMenu";
 import { Icon } from "@/ui/Icon";
+import { StatusPill } from "@/ui/StatusPill";
 import { TextInPlace } from "@/ui/TextInPlace";
 import type { CanvasCard, CanvasField, Position } from "./canvasModel";
 import { CARD_WIDTH } from "./canvasModel";
@@ -480,7 +481,9 @@ function BoardCardView({
               <span className="canvas-card-sheets">no sheet loads it</span>
             )}
             {card.proposed ? (
-              <span className="canvas-pill canvas-pill-proposed">Proposed</span>
+              <StatusPill tone="publication" size="small" marker={false}>
+                Proposed
+              </StatusPill>
             ) : (
               mark && <MarkPill mark={mark} />
             )}

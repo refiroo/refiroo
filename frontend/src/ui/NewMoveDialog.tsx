@@ -14,7 +14,7 @@ import { everyPage } from "@/lib/everyPage";
 import { WorkspaceField } from "@/ui/WorkspaceField";
 import type { ModelMappingSummary, Workspace } from "@/types";
 import { FormField } from "@/ui/FormField";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { allWorkspaces } from "@/api/allWorkspaces";
 
@@ -133,7 +133,7 @@ export function NewMoveDialog({
   }
 
   return (
-    <Modal title="New copy or move" onClose={onClose} busy={Boolean(busy)} size="wide">
+    <Modal title="New copy or move" onClose={onClose} busy={Boolean(busy)} dirty={Boolean(name)} size="wide">
       <form
         className="dialog-body"
         onSubmit={(event) => {
@@ -206,9 +206,7 @@ export function NewMoveDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" onClick={onClose} disabled={Boolean(busy)}>
-            Cancel
-          </button>
+          <CancelButton disabled={Boolean(busy)} />
           <button type="submit" className="primary" disabled={Boolean(busy) || !from || !to || !newName}>
             Open the editor
           </button>

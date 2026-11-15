@@ -8,9 +8,8 @@
 
 import { useState } from "react";
 import { counted } from "@/lib/count";
-import type { Noun } from "@/ui/BatchOutcome";
-import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
-import type { EngineModel, Job, ObjectTypeDefinition } from "@/types";
+import { nounOf } from "@/ui/BatchOutcome";
+import type { Job } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
 import { Choice } from "@/ui/Choice";
@@ -18,7 +17,7 @@ import { ControlPopover } from "@/ui/ControlPopover";
 import { FieldMenu } from "@/ui/FieldMenu";
 import { Icon, type IconName } from "@/ui/Icon";
 import { bulkFields, bulkItems, versionsAfter, type FieldChange, type FieldMode } from "./bulkChange";
-import { BulkJobDialog, targetText, type Problem } from "./BulkJobDialog";
+import { BulkJobDialog, targetText, type BulkDialogProps, type Problem } from "./BulkJobDialog";
 
 /** A field's kind as the menu shows it. */
 function kindOf(valueType: string): [IconName, string] {
@@ -27,11 +26,6 @@ function kindOf(valueType: string): [IconName, string] {
   if (valueType === "date" || valueType === "dateTime") return ["calendar", "Date"];
   return ["type", "Text"];
 }
-
-const POLICIES = [
-  ["independent", "Change the rest"],
-  ["atomic", "Change none"],
-] as const;
 
 export function BulkChangeDialog({
   model,
@@ -43,24 +37,12 @@ export function BulkChangeDialog({
   onClose,
   onApplied,
   onOpenRecord,
-}: {
-  model: EngineModel;
-  objectType: ObjectTypeDefinition;
-  workspaceKey: string;
-  selection: RecordSelection;
-  selected: number;
-  /** Reads every record the list matches, for "all matching" (D102). */
-  readMatching: (
-    signal: AbortSignal,
-    onProgress: (read: number, total: number | undefined) => void,
-  ) => Promise<SelectableRow[]>;
-  onClose: () => void;
+}: BulkDialogProps & {
   /** A job that changed records ended: the versions it left on them (D118). */
   onApplied: (job: Job, versions: Map<string, number>) => void;
-  onOpenRecord: (id: string) => void;
 }) {
   const fields = bulkFields(model, objectType);
-  const noun: Noun = [objectType.name.toLowerCase(), objectType.pluralName.toLowerCase()];
+  const noun = nounOf(objectType);
   const [modes, setModes] = useState<Record<string, FieldMode>>({});
   // The fields being changed, in the order they were added; the others keep their values.
   const [added, setAdded] = useState<string[]>([]);
@@ -107,7 +89,7 @@ export function BulkChangeDialog({
       selection={selection}
       selected={selected}
       workspaceKey={workspaceKey}
-      policies={POLICIES}
+      verb="change"
       applyingHint="Nothing is written yet: the preview shows what applying would do, then you apply it."
       canPreview={fields.length > 0}
       nothing="Nothing to change"

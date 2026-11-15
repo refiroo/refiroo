@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { errorMessage } from "@/api/errors";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { PrincipalPicker, type PickedPrincipal } from "./PrincipalPicker";
 
@@ -9,14 +9,25 @@ export function PickDialog({
   title,
   label,
   kinds,
+  exclude,
+  preview,
   confirmLabel,
+  pendingLabel = "Adding…",
+  errorTitle = "Not added",
   onClose,
   onPicked,
 }: {
   title: string;
   label: string;
   kinds: readonly ("user" | "group")[];
-  confirmLabel: string;
+  /** A person or group not offered: the one a link moves from. */
+  exclude?: string;
+  /** A sentence under the picker once one is picked, saying what the action will do. */
+  preview?: (picked: PickedPrincipal) => ReactNode;
+  /** The action's button; a function reads the pick (empty until one is made). */
+  confirmLabel: string | ((picked?: PickedPrincipal) => string);
+  pendingLabel?: string;
+  errorTitle?: string;
   onClose: () => void;
   onPicked: (picked: PickedPrincipal) => Promise<void>;
 }) {
@@ -38,18 +49,17 @@ export function PickDialog({
           });
         }}
       >
-        <PrincipalPicker label={label} kinds={kinds} onPick={setPicked} />
+        <PrincipalPicker label={label} kinds={kinds} exclude={exclude} onPick={setPicked} />
+        {picked && preview && <p>{preview(picked)}</p>}
         {error && (
-          <Notice tone="error" title="Not added">
+          <Notice tone="error" title={errorTitle}>
             {error}
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending || !picked}>
-            {pending ? "Adding…" : confirmLabel}
+            {pending ? pendingLabel : typeof confirmLabel === "function" ? confirmLabel(picked) : confirmLabel}
           </button>
         </div>
       </form>

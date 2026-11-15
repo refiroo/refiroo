@@ -13,7 +13,7 @@ import { counted } from "@/lib/count";
 import type { DraftOperation, ProfileSource, SourceBlock, SourceRectangle } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
 import { CellGrid } from "@/features/model-editor/CellGrid";
@@ -250,9 +250,7 @@ export function AdjustListDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" onClick={onClose} disabled={pending}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button type="submit" className="primary" disabled={pending || Boolean(wrong) || (mode === "load" && empty)}>
             {pending ? (mode === "adjust" ? "Applying…" : "Loading…") : mode === "adjust" ? "Save" : "Load as a list"}
           </button>

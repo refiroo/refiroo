@@ -24,7 +24,8 @@ import type { RouteState } from "@/types";
 import { Disclosure } from "@/ui/Disclosure";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
+import { NewWorkspaceFields, useNewWorkspaceIdentity } from "@/ui/NewWorkspaceFields";
 import { Notice } from "@/ui/Notice";
 
 /** The problems an install refusal lists: a model's diagnostics, or a profile's problems. */
@@ -74,7 +75,8 @@ export function NewFromWorkbook({
   onOtherWays: () => void;
 }) {
   const [file, setFile] = useState<File>();
-  const [name, setName] = useState("");
+  const identity = useNewWorkspaceIdentity();
+  const name = identity.label;
   const [stage, setStage] = useState("");
   const [looked, setLooked] = useState<LookedAt>();
   const [working, setWorking] = useState(false);
@@ -133,6 +135,7 @@ export function NewFromWorkbook({
         eyebrow="New workspace"
         description="Drop a workbook and name the workspace. refiroo reads it and shows what it found before anything is created."
         busy={working}
+        dirty={Boolean(file || name)}
         onClose={onClose}
       >
         <form
@@ -150,21 +153,12 @@ export function NewFromWorkbook({
                 disabled={working}
                 onFile={(chosen) => {
                   setFile(chosen);
-                  if (chosen && !name.trim()) setName(workspaceNameOfFile(chosen.name));
+                  if (chosen && !name.trim()) identity.changeLabel(workspaceNameOfFile(chosen.name));
                 }}
               />
             )}
           </FormField>
-          <label>
-            Name
-            <input
-              required
-              maxLength={300}
-              value={name}
-              disabled={working}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
+          <NewWorkspaceFields identity={identity} withKey={false} disabled={working} />
           {working && <p role="status">{stage || "Working"}…</p>}
           {error && (
             <Notice tone="error" title="Not read">
@@ -183,9 +177,7 @@ export function NewFromWorkbook({
             </Disclosure>
           </div>
           <div className="dialog-actions">
-            <button type="button" className="secondary" disabled={working} onClick={onClose}>
-              Cancel
-            </button>
+            <CancelButton disabled={working} />
             <button type="submit" className="primary" disabled={working || !file || !name.trim()}>
               {working ? "Reading…" : "Read the workbook"}
             </button>
@@ -201,6 +193,7 @@ export function NewFromWorkbook({
       eyebrow="New workspace"
       description={`${name.trim()} · ${file?.name ?? "the workbook"}`}
       busy={working}
+      dirty={Boolean(file || name)}
       onClose={() => void discard()}
     >
       <div className="dialog-body fw-body">
@@ -253,9 +246,7 @@ export function NewFromWorkbook({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={working} onClick={() => void discard()}>
-            Cancel
-          </button>
+          <CancelButton disabled={working} />
           <button
             type="button"
             className={ready ? "secondary" : "primary"}

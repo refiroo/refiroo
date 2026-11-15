@@ -8,9 +8,12 @@ import type { ReactNode } from "react";
 export function SettingsTable({
   label,
   columns,
+  plain = false,
   children,
 }: {
   label: string;
+  /** Keeps a plain table's desktop look (14 px, secondary text, one line a cell); only the phone stacking is the settings table's. */
+  plain?: boolean;
   /**
    * Column names; one given as `{ hidden }` is named for assistive technology only (a row's
    * actions); one given as `{ key, content }` holds a control, such as the checkbox that selects
@@ -21,7 +24,12 @@ export function SettingsTable({
   children: ReactNode;
 }) {
   return (
-    <div className="table-wrap settings-table" role="group" aria-label={label} tabIndex={0}>
+    <div
+      className={plain ? "table-wrap settings-table settings-table-plain" : "table-wrap settings-table"}
+      role="group"
+      aria-label={label}
+      tabIndex={0}
+    >
       <table>
         <thead>
           <tr>

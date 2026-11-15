@@ -131,9 +131,13 @@ describe("NewFromWorkbook", () => {
     expect(props.onOtherWays).toHaveBeenCalled();
     props.onClose.mockClear();
     await readTheWorkbook();
+    // The workbook and the name were given: Cancel asks before the draft is removed.
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(confirm).toHaveBeenCalledWith("Discard your unsaved changes?");
     await waitFor(() => expect(props.onClose).toHaveBeenCalled());
     expect(removed).toHaveBeenCalledWith("d1", 7);
+    confirm.mockRestore();
   });
 
   it("with no list found says so, makes Adjust the one way on and does not show Create workspace", async () => {

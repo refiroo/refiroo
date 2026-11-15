@@ -4,6 +4,7 @@
  * operation the relationship does not have is not shown (a containment has only its menu).
  */
 
+import { Switch } from "@/ui/Switch";
 import { useEffect, useRef } from "react";
 import { OperationsMenu, type OnOperation } from "@/features/model-editor/OperationsMenu";
 import {
@@ -107,13 +108,11 @@ export function LinePopover({
       {offered.has("relation-required") && (
         <div className="canvas-line-row">
           <span id={`canvas-line-required`}>Required</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={relation?.required ?? false}
-            aria-labelledby={`canvas-line-required`}
-            className="canvas-switch"
-            onClick={() => send("relation-required")}
+          <Switch
+            variant="canvas"
+            labelledBy="canvas-line-required"
+            checked={relation?.required ?? false}
+            onChange={() => send("relation-required")}
           />
         </div>
       )}

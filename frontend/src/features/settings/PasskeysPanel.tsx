@@ -15,7 +15,7 @@ import type { Passkey } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { SettingRow, SettingsEmpty, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
 import { TextInPlace } from "@/ui/TextInPlace";
@@ -130,7 +130,14 @@ function RemoveDialog({
   }
 
   return (
-    <Modal title={`Remove ${passkey.name}?`} eyebrow="You" size="compact" busy={pending} onClose={onClose}>
+    <Modal
+      title={`Remove ${passkey.name}?`}
+      eyebrow="You"
+      size="compact"
+      busy={pending}
+      dirty={Boolean(proof)}
+      onClose={onClose}
+    >
       <form noValidate onSubmit={(event) => void submit(event)}>
         <p>
           You can no longer sign in with {passkey.name}. Remove the passkey from your device or password manager as
@@ -150,9 +157,7 @@ function RemoveDialog({
           )}
         </FormField>
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="danger" disabled={pending || !proof}>
             {pending ? "Removing…" : "Remove passkey"}
           </button>

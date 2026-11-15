@@ -6,11 +6,10 @@
 
 import type { ChangeEntry, ChangeEntryKind, ChangePeriod, HeldAnywhere, RouteState } from "@/types";
 import { changeReviewFor } from "@/routing/routes";
+import { quoted } from "@/lib/words";
 
 // Shared with every timeline grouped by day (`ui/Timeline`, 0.12 RH1).
 export { byDay, dayLabel } from "@/lib/dates";
-
-const quoted = (name: string | null | undefined, fallback: string) => (name ? `“${name}”` : fallback);
 
 function recordName(entry: ChangeEntry) {
   if (entry.subject.name) return entry.subject.name;

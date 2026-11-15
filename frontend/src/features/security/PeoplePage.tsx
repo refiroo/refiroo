@@ -11,10 +11,8 @@ import { useEffect, useRef, useState } from "react";
 import { errorMessage, invalidFields, isApiError, isVersionConflict } from "@/api/errors";
 import { mail } from "@/api/mailClient";
 import { security } from "@/api/securityClient";
-import { plural } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
 import type { Hue } from "@/model/hues";
 import type {
@@ -28,18 +26,17 @@ import type {
   UserRole,
 } from "@/types";
 import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
+import { ActionNotices } from "@/ui/ActionNotices";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
-import { EntityList } from "@/ui/EntityList";
+import { EntityListPage } from "@/ui/EntityListPage";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
-import { SearchField } from "@/ui/SearchField";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import {
-  FilterChip,
   hueOf,
   ItemHeader,
   NameMark,
@@ -48,13 +45,13 @@ import {
   SettingsGroup,
   SettingsPanel,
   SettingsTile,
-  SettingsTools,
 } from "@/ui/SettingsParts";
 import { ShownOnceDialog } from "@/ui/ShownOnceDialog";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Switch } from "@/ui/Switch";
 import { useToast } from "@/ui/Toast";
+import { changedWhileOpen, useGuardedWrite } from "@/ui/useGuardedWrite";
 import { Trail } from "@/ui/Trail";
 import { readsChanges } from "@/ui/changeText";
 import { settingsHead } from "@/ui/settingsNavigation";
@@ -62,9 +59,9 @@ import { GrantsSection } from "./GrantsSection";
 import { useHeldAnywhere } from "@/state/permissions";
 import { PickDialog } from "./PickDialog";
 import { RecentActivity } from "./RecentActivity";
-import { PrincipalPicker, type PickedPrincipal } from "./PrincipalPicker";
 import { RoleKeyChip } from "./RoleChip";
 import { identityNames, linkSentence, unlinkSentence, personSignInLine } from "./securityText";
+import { EVERY_WORKSPACE, SIGN_OUT_EVERYWHERE } from "@/lib/words";
 
 type PeopleRoute = Extract<SettingsRoute, { page: "people" }>;
 
@@ -84,12 +81,9 @@ async function makeLink(user: Pick<User, "id" | "email">, send = false): Promise
   }
 }
 
-/** People read in a page of this size. */
-const LIST_PAGE = 50;
-
 /** Where a role applies, for the chip's tooltip. */
 const roleWhere = (role: UserRole) =>
-  role.instance ? "Every workspace" : role.workspaces.map((workspace) => workspace.label).join(", ");
+  role.instance ? EVERY_WORKSPACE : role.workspaces.map((workspace) => workspace.label).join(", ");
 
 /** A person's roles in the list: a few coloured chips, then how many more. */
 function RoleChips({ roles }: { roles: readonly UserRole[] }) {
@@ -187,103 +181,32 @@ function PeopleList({
   onNew: () => void;
   onNavigate: (route: RouteState) => void;
 }) {
-  const [search, setSearch] = useState("");
-  const [active, setActive] = useState(true);
-  const [counts, setCounts] = useState<{ active?: number; deactivated?: number }>({});
-  const q = useDebouncedValue(search.trim());
-  const feed = useCursorFeed<User>((cursor) => security.users({ q, active, cursor, pageSize: LIST_PAGE }), [q, active]);
-
-  useEffect(() => {
-    let current = true;
-    Promise.all([
-      security.users({ active: true, pageSize: 1, includeTotal: true }),
-      security.users({ active: false, pageSize: 1, includeTotal: true }),
-    ]).then(
-      ([on, off]) => current && setCounts({ active: on.totalCount, deactivated: off.totalCount }),
-      () => undefined,
-    );
-    return () => {
-      current = false;
-    };
-  }, []);
-
-  const total = q ? undefined : active ? counts.active : counts.deactivated;
-  const shown = feed.items.length;
-  const count = total ?? shown;
   return (
-    <SettingsLayout
-      {...settingsHead("people")}
+    <EntityListPage<User>
+      page="people"
       title="People"
       description="The people who sign in, the roles they hold and the groups they are in. A person is deactivated, never deleted, so their history keeps their name."
-      actions={
-        localOn && (
-          <button ref={newButtonRef} className="primary" onClick={onNew}>
-            <Icon name="plus" /> New person
-          </button>
-        )
-      }
-    >
-      <SettingsTools
-        count={
-          feed.loading && !shown
-            ? undefined
-            : `${count}${total === undefined && feed.hasMore ? "+" : ""} ${plural(count, "person", "people")}`
-        }
-      >
-        <SearchField
-          label="Search people"
-          placeholder="Name or e-mail"
-          value={search}
-          onChange={setSearch}
-          clearOnEscape
-        />
-        <span className="filter-chips" role="group" aria-label="Show">
-          <FilterChip selected={active} onSelect={() => setActive(true)}>
-            Active{counts.active !== undefined && ` · ${counts.active}`}
-          </FilterChip>
-          <FilterChip selected={!active} onSelect={() => setActive(false)}>
-            Deactivated{counts.deactivated !== undefined && ` · ${counts.deactivated}`}
-          </FilterChip>
-        </span>
-      </SettingsTools>
-      <SettingsPanel>
-        <EntityList
-          label="people"
-          statusTrack="0px"
-          groups={[
-            {
-              key: "people",
-              title: active ? "Active people" : "Deactivated people",
-              count,
-              loading: feed.loading && !shown,
-              error: feed.error && !shown ? feed.error : undefined,
-              onRetry: feed.retry,
-              onEnd: feed.hasMore ? feed.loadMore : undefined,
-              loadingMore: feed.loading && shown > 0,
-              rows: feed.items.map((user) => ({
-                key: user.id,
-                title: user.name,
-                subtitle: user.email ?? "No e-mail address",
-                lead: <NameMark name={user.name} />,
-                facts: [
-                  { label: "Roles", value: <RoleChips roles={user.roles} />, width: 38 },
-                  {
-                    label: "Last signed in",
-                    value: user.lastSignInAt ? formatServerDayTime(user.lastSignInAt) : "Never",
-                  },
-                ],
-                onOpen: () => onNavigate({ ...PEOPLE, userId: user.id }),
-              })),
-            },
-          ]}
-          empty={
-            q
-              ? `No ${active ? "active" : "deactivated"} person matches “${q}”.`
-              : `No ${active ? "active" : "deactivated"} people.`
-          }
-        />
-      </SettingsPanel>
-    </SettingsLayout>
+      noun={{ one: "person", many: "people" }}
+      searchPlaceholder="Name or e-mail"
+      states
+      read={security.users}
+      newLabel={localOn ? "New person" : undefined}
+      newButtonRef={newButtonRef}
+      onNew={onNew}
+      row={(user) => ({
+        title: user.name,
+        subtitle: user.email ?? "No e-mail address",
+        lead: <NameMark name={user.name} />,
+        facts: [
+          { label: "Roles", value: <RoleChips roles={user.roles} />, width: 38 },
+          {
+            label: "Last signed in",
+            value: user.lastSignInAt ? formatServerDayTime(user.lastSignInAt) : "Never",
+          },
+        ],
+      })}
+      onOpen={(user) => onNavigate({ ...PEOPLE, userId: user.id })}
+    />
   );
 }
 
@@ -482,9 +405,7 @@ function NewPersonDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending || !email.trim() || !name.trim()}>
             {pending ? "Adding…" : "Add person"}
           </button>
@@ -516,9 +437,8 @@ function PersonDetail({
   const [confirming, setConfirming] = useState<"deactivate" | "sign-out" | "keep" | "remove-factor">();
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState<SignInProviderRef>();
-  const [pending, setPending] = useState(false);
-  const [actionError, setActionError] = useState("");
-  const [conflict, setConflict] = useState("");
+  const guard = useGuardedWrite();
+  const { pending, error: actionError, setError: setActionError } = guard;
   const editRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
   const held = useHeldAnywhere();
@@ -541,41 +461,25 @@ function PersonDetail({
 
   function stored(updated: User, text: string, undo?: () => Promise<void>) {
     setUser(updated);
-    toast(
-      text,
-      undo
-        ? {
-            actions: [
-              {
-                label: "Undo",
-                onPress: () => void write(undo),
-              },
-            ],
-          }
-        : undefined,
-    );
+    toast.withUndo(text, undo && (() => write(undo)));
   }
 
   /** A write; a stale version reloads and says so, any other refusal is shown as worded. */
-  async function write(action: () => Promise<void>) {
-    setPending(true);
-    setActionError("");
-    setConflict("");
-    try {
-      await action();
-      setConfirming(undefined);
-    } catch (cause) {
-      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
+  function write(action: () => Promise<void>) {
+    return guard.run(
+      async () => {
+        await action();
         setConfirming(undefined);
-        const current = await security.user(userId).catch(() => undefined);
-        if (current) setUser(current);
-        setConflict("This person changed while the page was open. They are shown as they are now; choose again.");
-      } else {
-        setActionError(errorMessage(cause));
-      }
-    } finally {
-      setPending(false);
-    }
+      },
+      {
+        onConflict: async () => {
+          setConfirming(undefined);
+          const current = await security.user(userId).catch(() => undefined);
+          if (current) setUser(current);
+          return changedWhileOpen("person", { they: true });
+        },
+      },
+    );
   }
 
   const trail = <Trail back={{ label: "People", onClick: () => onNavigate(PEOPLE), href: routePath(PEOPLE) }} />;
@@ -631,7 +535,7 @@ function PersonDetail({
       ? [
           {
             id: "sign-out",
-            label: "Sign out everywhere",
+            label: SIGN_OUT_EVERYWHERE,
             disabled: pending,
             onAction: () => setConfirming("sign-out"),
           } satisfies ActionMenuItem,
@@ -696,16 +600,7 @@ function PersonDetail({
         />
       }
     >
-      {conflict && (
-        <Notice tone="warning" title="Not saved" focusOnMount>
-          {conflict}
-        </Notice>
-      )}
-      {actionError && !confirming && !unlinking && (
-        <Notice tone="error" title="The action could not be completed">
-          {actionError}
-        </Notice>
-      )}
+      <ActionNotices guard={guard} hideError={Boolean(confirming || unlinking)} />
       <SettingsGroup
         title="Sign-in"
         description="How this person proves who they are. Their own choices are on their Account page."
@@ -921,7 +816,7 @@ function PersonDetail({
       {confirming === "sign-out" && (
         <ConfirmDialog
           title={`Sign ${user.name} out everywhere?`}
-          confirmLabel="Sign out everywhere"
+          confirmLabel={SIGN_OUT_EVERYWHERE}
           pending={pending}
           error={actionError}
           onCancel={() => {
@@ -952,54 +847,22 @@ function LinkIdentityDialog({
   onClose: () => void;
   onLinked: (target: User) => void;
 }) {
-  const [picked, setPicked] = useState<PickedPrincipal>();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-
-  async function link(target: PickedPrincipal) {
-    setPending(true);
-    setError("");
-    try {
-      const current = await security.user(target.id);
-      onLinked(await security.linkIdentity(target.id, { expectedVersion: current.version, fromUserId: user.id }));
-    } catch (cause) {
-      setError(errorMessage(cause));
-      setPending(false);
-    }
-  }
-
   return (
-    <Modal
+    <PickDialog
       title="Link this sign-in to an existing person"
-      eyebrow="People and access"
-      size="compact"
-      busy={pending}
+      label="Person"
+      kinds={["user"]}
+      exclude={user.id}
+      preview={(picked) => linkSentence(user, picked.name)}
+      confirmLabel={(picked) => (picked ? `Link to ${picked.name}` : "Link")}
+      pendingLabel="Linking…"
+      errorTitle="Not linked"
       onClose={onClose}
-    >
-      <form
-        className="grant-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (picked) void link(picked);
-        }}
-      >
-        <PrincipalPicker label="Person" kinds={["user"]} exclude={user.id} onPick={setPicked} />
-        {picked && <p>{linkSentence(user, picked.name)}</p>}
-        {error && (
-          <Notice tone="error" title="Not linked">
-            {error}
-          </Notice>
-        )}
-        <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
-          <button className="primary" disabled={pending || !picked}>
-            {pending ? "Linking…" : picked ? `Link to ${picked.name}` : "Link"}
-          </button>
-        </div>
-      </form>
-    </Modal>
+      onPicked={async (target) => {
+        const current = await security.user(target.id);
+        onLinked(await security.linkIdentity(target.id, { expectedVersion: current.version, fromUserId: user.id }));
+      }}
+    />
   );
 }
 
@@ -1183,9 +1046,7 @@ function EditPersonDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending || !changed || !name.trim()}>
             {pending ? "Saving…" : restoring ? "Restore" : "Save"}
           </button>

@@ -5,6 +5,7 @@
  * applied (so nothing changed meanwhile can make them stale) and offers Stop.
  */
 
+import { JobProgress } from "@/ui/JobProgress";
 import { Notice } from "@/ui/Notice";
 
 export type ProposingPhase = "profiling" | "reading" | "applying";
@@ -43,7 +44,7 @@ export function ProposingProgress({
       }
     >
       <p className="proposing-phase">{phaseText(phase)}</p>
-      <progress aria-label="Proposing" className="proposing-progress" />
+      <JobProgress label="Proposing" className="proposing-progress" />
       <p className="muted">Editing is paused until the proposals are applied, so nothing you change is lost.</p>
     </Notice>
   );

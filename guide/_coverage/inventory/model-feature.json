@@ -5,7 +5,7 @@
   "labels": [
    "applications"
   ],
-  "source": "backend/app/models/schema.py:988 (EngineModel)",
+  "source": "backend/app/models/schema.py:992 (EngineModel)",
   "section": "model",
   "commonContext": [
    "model"
@@ -1499,7 +1499,7 @@
   "labels": [
    "attributeTypes"
   ],
-  "source": "backend/app/models/schema.py:984 (EngineModel)",
+  "source": "backend/app/models/schema.py:988 (EngineModel)",
   "section": "model",
   "commonContext": [
    "model"
@@ -1659,7 +1659,7 @@
   "labels": [
    "consumerApis"
   ],
-  "source": "backend/app/models/schema.py:990 (EngineModel)",
+  "source": "backend/app/models/schema.py:994 (EngineModel)",
   "section": "model",
   "commonContext": [
    "model"
@@ -1675,7 +1675,7 @@
   "labels": [
    "contractVersion"
   ],
-  "source": "backend/app/models/schema.py:955 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:959 (ConsumerApiDocument)",
   "section": "model",
   "commonContext": [
    "consumerApis",
@@ -1691,7 +1691,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:958 (ConsumerApiDocument)",
   "section": "model",
   "context": [
    "consumerApis",
@@ -1713,7 +1713,7 @@
   "labels": [
    "earlierVersions"
   ],
-  "source": "backend/app/models/schema.py:964 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:968 (ConsumerApiDocument)",
   "section": "model",
   "commonContext": [
    "consumerApis",
@@ -1729,7 +1729,7 @@
   "labels": [
    "contractVersion"
   ],
-  "source": "backend/app/models/schema.py:932 (ConsumerApiEarlierVersion)",
+  "source": "backend/app/models/schema.py:936 (ConsumerApiEarlierVersion)",
   "section": "model",
   "commonContext": [
    "earlierVersions",
@@ -1745,7 +1745,7 @@
   "labels": [
    "deprecated"
   ],
-  "source": "backend/app/models/schema.py:933 (ConsumerApiEarlierVersion)",
+  "source": "backend/app/models/schema.py:937 (ConsumerApiEarlierVersion)",
   "section": "model",
   "commonContext": [
    "earlierVersions",
@@ -1762,7 +1762,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (ConsumerApiEarlierVersion)",
+  "source": "backend/app/models/schema.py:958 (ConsumerApiEarlierVersion)",
   "section": "model",
   "context": [
    "earlierVersions",
@@ -1784,7 +1784,7 @@
   "labels": [
    "exposes"
   ],
-  "source": "backend/app/models/schema.py:935 (ConsumerApiEarlierVersion)",
+  "source": "backend/app/models/schema.py:939 (ConsumerApiEarlierVersion)",
   "section": "model",
   "commonContext": [
    "earlierVersions",
@@ -1800,7 +1800,7 @@
   "labels": [
    "filters"
   ],
-  "source": "backend/app/models/schema.py:939 (ConsumerApiEarlierVersion)",
+  "source": "backend/app/models/schema.py:943 (ConsumerApiEarlierVersion)",
   "section": "model",
   "commonContext": [
    "earlierVersions",
@@ -1816,7 +1816,7 @@
   "labels": [
    "byType"
   ],
-  "source": "backend/app/models/schema.py:902 (FilterSpec)",
+  "source": "backend/app/models/schema.py:906 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -1833,7 +1833,7 @@
   "labels": [
    "crosswalk"
   ],
-  "source": "backend/app/models/schema.py:910 (FilterSpec)",
+  "source": "backend/app/models/schema.py:914 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -1849,7 +1849,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (FilterSpec)",
+  "source": "backend/app/models/schema.py:958 (FilterSpec)",
   "section": "model",
   "context": [
    "filters",
@@ -1871,7 +1871,7 @@
   "labels": [
    "keepOnlyMatching"
   ],
-  "source": "backend/app/models/schema.py:908 (FilterSpec)",
+  "source": "backend/app/models/schema.py:912 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -1887,7 +1887,7 @@
   "labels": [
    "linkedTo"
   ],
-  "source": "backend/app/models/schema.py:904 (FilterSpec)",
+  "source": "backend/app/models/schema.py:908 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -1904,7 +1904,7 @@
   "labels": [
    "matchOn"
   ],
-  "source": "backend/app/models/schema.py:907 (FilterSpec)",
+  "source": "backend/app/models/schema.py:911 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -1921,7 +1921,7 @@
   "labels": [
    "onRelated"
   ],
-  "source": "backend/app/models/schema.py:906 (FilterSpec)",
+  "source": "backend/app/models/schema.py:910 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -1938,7 +1938,7 @@
   "labels": [
    "scoreOnlyMatching"
   ],
-  "source": "backend/app/models/schema.py:909 (FilterSpec)",
+  "source": "backend/app/models/schema.py:913 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -1954,7 +1954,7 @@
   "labels": [
    "through"
   ],
-  "source": "backend/app/models/schema.py:905 (FilterSpec)",
+  "source": "backend/app/models/schema.py:909 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -1971,7 +1971,7 @@
   "labels": [
    "under"
   ],
-  "source": "backend/app/models/schema.py:903 (FilterSpec)",
+  "source": "backend/app/models/schema.py:907 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -1988,7 +1988,7 @@
   "labels": [
    "object"
   ],
-  "source": "backend/app/models/schema.py:937 (ConsumerApiEarlierVersion)",
+  "source": "backend/app/models/schema.py:941 (ConsumerApiEarlierVersion)",
   "section": "model",
   "commonContext": [
    "earlierVersions",
@@ -2004,7 +2004,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:835 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:839 (ObjectSpec)",
   "section": "model",
   "context": [
    "object",
@@ -2025,7 +2025,7 @@
   "labels": [
    "default"
   ],
-  "source": "backend/app/models/schema.py:796 (FieldSpec)",
+  "source": "backend/app/models/schema.py:800 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -2042,7 +2042,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (FieldSpec)",
+  "source": "backend/app/models/schema.py:958 (FieldSpec)",
   "section": "model",
   "context": [
    "fields",
@@ -2064,7 +2064,7 @@
   "labels": [
    "from"
   ],
-  "source": "backend/app/models/schema.py:790 (FieldSpec)",
+  "source": "backend/app/models/schema.py:794 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -2082,7 +2082,7 @@
   "labels": [
    "role"
   ],
-  "source": "backend/app/models/schema.py:797 (FieldSpec)",
+  "source": "backend/app/models/schema.py:801 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -2099,7 +2099,7 @@
   "labels": [
    "hierarchy"
   ],
-  "source": "backend/app/models/schema.py:838 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:842 (ObjectSpec)",
   "section": "model",
   "commonContext": [
    "object",
@@ -2117,7 +2117,7 @@
   "labels": [
    "parent"
   ],
-  "source": "backend/app/models/schema.py:836 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:840 (ObjectSpec)",
   "section": "model",
   "commonContext": [
    "object",
@@ -2135,7 +2135,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:830 (ParentSpec)",
+  "source": "backend/app/models/schema.py:834 (ParentSpec)",
   "section": "model",
   "context": [
    "parent",
@@ -2157,7 +2157,7 @@
   "labels": [
    "default"
   ],
-  "source": "backend/app/models/schema.py:796 (FieldSpec)",
+  "source": "backend/app/models/schema.py:800 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -2174,7 +2174,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (FieldSpec)",
+  "source": "backend/app/models/schema.py:958 (FieldSpec)",
   "section": "model",
   "context": [
    "fields",
@@ -2196,7 +2196,7 @@
   "labels": [
    "from"
   ],
-  "source": "backend/app/models/schema.py:790 (FieldSpec)",
+  "source": "backend/app/models/schema.py:794 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -2214,7 +2214,7 @@
   "labels": [
    "role"
   ],
-  "source": "backend/app/models/schema.py:797 (FieldSpec)",
+  "source": "backend/app/models/schema.py:801 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -2231,7 +2231,7 @@
   "labels": [
    "output"
   ],
-  "source": "backend/app/models/schema.py:828 (ParentSpec)",
+  "source": "backend/app/models/schema.py:832 (ParentSpec)",
   "section": "model",
   "commonContext": [
    "parent",
@@ -2247,7 +2247,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:831 (ParentSpec)",
+  "source": "backend/app/models/schema.py:835 (ParentSpec)",
   "section": "model",
   "commonContext": [
    "parent",
@@ -2263,7 +2263,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:958 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -2285,7 +2285,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:819 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:823 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -2306,7 +2306,7 @@
   "labels": [
    "served"
   ],
-  "source": "backend/app/models/schema.py:820 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:824 (RelatedSpec)",
   "section": "model",
   "commonContext": [
    "related",
@@ -2322,7 +2322,7 @@
   "labels": [
    "via"
   ],
-  "source": "backend/app/models/schema.py:818 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:822 (RelatedSpec)",
   "section": "model",
   "commonContext": [
    "related",
@@ -2338,7 +2338,7 @@
   "labels": [
    "path"
   ],
-  "source": "backend/app/models/schema.py:837 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:841 (ObjectSpec)",
   "section": "model",
   "commonContext": [
    "object",
@@ -2356,7 +2356,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:839 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:843 (ObjectSpec)",
   "section": "model",
   "commonContext": [
    "object",
@@ -2372,7 +2372,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:958 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -2394,7 +2394,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:819 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:823 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -2415,7 +2415,7 @@
   "labels": [
    "served"
   ],
-  "source": "backend/app/models/schema.py:820 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:824 (RelatedSpec)",
   "section": "model",
   "commonContext": [
    "related",
@@ -2431,7 +2431,7 @@
   "labels": [
    "via"
   ],
-  "source": "backend/app/models/schema.py:818 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:822 (RelatedSpec)",
   "section": "model",
   "commonContext": [
    "related",
@@ -2447,7 +2447,7 @@
   "labels": [
    "operations"
   ],
-  "source": "backend/app/models/schema.py:938 (ConsumerApiEarlierVersion)",
+  "source": "backend/app/models/schema.py:942 (ConsumerApiEarlierVersion)",
   "section": "model",
   "commonContext": [
    "earlierVersions",
@@ -2463,7 +2463,7 @@
   "labels": [
    "events"
   ],
-  "source": "backend/app/models/schema.py:895 (Operations)",
+  "source": "backend/app/models/schema.py:899 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -2480,7 +2480,7 @@
   "labels": [
    "custom"
   ],
-  "source": "backend/app/models/schema.py:887 (EventsOperation)",
+  "source": "backend/app/models/schema.py:891 (EventsOperation)",
   "section": "model",
   "commonContext": [
    "events",
@@ -2496,7 +2496,7 @@
   "labels": [
    "changes"
   ],
-  "source": "backend/app/models/schema.py:881 (EventSpec)",
+  "source": "backend/app/models/schema.py:885 (EventSpec)",
   "section": "model",
   "commonContext": [
    "custom",
@@ -2512,7 +2512,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:879 (EventSpec)",
+  "source": "backend/app/models/schema.py:883 (EventSpec)",
   "section": "model",
   "context": [
    "custom",
@@ -2533,7 +2533,7 @@
   "labels": [
    "objectTypes"
   ],
-  "source": "backend/app/models/schema.py:880 (EventSpec)",
+  "source": "backend/app/models/schema.py:884 (EventSpec)",
   "section": "model",
   "commonContext": [
    "custom",
@@ -2549,7 +2549,7 @@
   "labels": [
    "watch"
   ],
-  "source": "backend/app/models/schema.py:882 (EventSpec)",
+  "source": "backend/app/models/schema.py:886 (EventSpec)",
   "section": "model",
   "commonContext": [
    "custom",
@@ -2566,7 +2566,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:872 (EventWatch)",
+  "source": "backend/app/models/schema.py:876 (EventWatch)",
   "section": "model",
   "context": [
    "watch",
@@ -2587,7 +2587,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:873 (EventWatch)",
+  "source": "backend/app/models/schema.py:877 (EventWatch)",
   "section": "model",
   "commonContext": [
    "watch",
@@ -2603,7 +2603,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (EventsOperation)",
+  "source": "backend/app/models/schema.py:958 (EventsOperation)",
   "section": "model",
   "context": [
    "events",
@@ -2625,7 +2625,7 @@
   "labels": [
    "perType"
   ],
-  "source": "backend/app/models/schema.py:886 (EventsOperation)",
+  "source": "backend/app/models/schema.py:890 (EventsOperation)",
   "section": "model",
   "commonContext": [
    "events",
@@ -2641,7 +2641,7 @@
   "labels": [
    "lists"
   ],
-  "source": "backend/app/models/schema.py:894 (Operations)",
+  "source": "backend/app/models/schema.py:898 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -2658,7 +2658,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (ListSpec)",
+  "source": "backend/app/models/schema.py:958 (ListSpec)",
   "section": "model",
   "context": [
    "lists",
@@ -2680,7 +2680,7 @@
   "labels": [
    "of"
   ],
-  "source": "backend/app/models/schema.py:864 (ListSpec)",
+  "source": "backend/app/models/schema.py:868 (ListSpec)",
   "section": "model",
   "commonContext": [
    "lists",
@@ -2696,7 +2696,7 @@
   "labels": [
    "sortBy"
   ],
-  "source": "backend/app/models/schema.py:866 (ListSpec)",
+  "source": "backend/app/models/schema.py:870 (ListSpec)",
   "section": "model",
   "commonContext": [
    "lists",
@@ -2713,7 +2713,7 @@
   "labels": [
    "within"
   ],
-  "source": "backend/app/models/schema.py:865 (ListSpec)",
+  "source": "backend/app/models/schema.py:869 (ListSpec)",
   "section": "model",
   "commonContext": [
    "lists",
@@ -2730,7 +2730,7 @@
   "labels": [
    "filter"
   ],
-  "source": "backend/app/models/schema.py:859 (Within)",
+  "source": "backend/app/models/schema.py:863 (Within)",
   "section": "model",
   "commonContext": [
    "within",
@@ -2746,7 +2746,7 @@
   "labels": [
    "types"
   ],
-  "source": "backend/app/models/schema.py:860 (Within)",
+  "source": "backend/app/models/schema.py:864 (Within)",
   "section": "model",
   "commonContext": [
    "within",
@@ -2763,7 +2763,7 @@
   "labels": [
    "objects"
   ],
-  "source": "backend/app/models/schema.py:891 (Operations)",
+  "source": "backend/app/models/schema.py:895 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -2780,7 +2780,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (Operation)",
+  "source": "backend/app/models/schema.py:958 (Operation)",
   "section": "model",
   "context": [
    "objects",
@@ -2802,7 +2802,7 @@
   "labels": [
    "resolve"
   ],
-  "source": "backend/app/models/schema.py:893 (Operations)",
+  "source": "backend/app/models/schema.py:897 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -2819,7 +2819,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (Operation)",
+  "source": "backend/app/models/schema.py:958 (Operation)",
   "section": "model",
   "context": [
    "resolve",
@@ -2841,7 +2841,7 @@
   "labels": [
    "xref"
   ],
-  "source": "backend/app/models/schema.py:892 (Operations)",
+  "source": "backend/app/models/schema.py:896 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -2858,7 +2858,7 @@
   "labels": [
    "alsoMatchThrough"
   ],
-  "source": "backend/app/models/schema.py:855 (XrefOperation)",
+  "source": "backend/app/models/schema.py:859 (XrefOperation)",
   "section": "model",
   "commonContext": [
    "xref",
@@ -2874,7 +2874,7 @@
   "labels": [
    "firstOf"
   ],
-  "source": "backend/app/models/schema.py:844 (AlsoMatchThrough)",
+  "source": "backend/app/models/schema.py:848 (AlsoMatchThrough)",
   "section": "model",
   "commonContext": [
    "alsoMatchThrough",
@@ -2890,7 +2890,7 @@
   "labels": [
    "contains"
   ],
-  "source": "backend/app/models/schema.py:597 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:601 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "firstOf",
@@ -2907,7 +2907,7 @@
   "labels": [
    "exact"
   ],
-  "source": "backend/app/models/schema.py:596 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:600 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "firstOf",
@@ -2924,7 +2924,7 @@
   "labels": [
    "field"
   ],
-  "source": "backend/app/models/schema.py:595 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:599 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "firstOf",
@@ -2940,7 +2940,7 @@
   "labels": [
    "preferTypes"
   ],
-  "source": "backend/app/models/schema.py:845 (AlsoMatchThrough)",
+  "source": "backend/app/models/schema.py:849 (AlsoMatchThrough)",
   "section": "model",
   "commonContext": [
    "alsoMatchThrough",
@@ -2956,7 +2956,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:843 (AlsoMatchThrough)",
+  "source": "backend/app/models/schema.py:847 (AlsoMatchThrough)",
   "section": "model",
   "commonContext": [
    "alsoMatchThrough",
@@ -2972,7 +2972,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (XrefOperation)",
+  "source": "backend/app/models/schema.py:958 (XrefOperation)",
   "section": "model",
   "context": [
    "xref",
@@ -2994,7 +2994,7 @@
   "labels": [
    "matchOn"
   ],
-  "source": "backend/app/models/schema.py:854 (XrefOperation)",
+  "source": "backend/app/models/schema.py:858 (XrefOperation)",
   "section": "model",
   "commonContext": [
    "xref",
@@ -3011,7 +3011,7 @@
   "labels": [
    "contains"
   ],
-  "source": "backend/app/models/schema.py:597 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:601 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "matchOn",
@@ -3028,7 +3028,7 @@
   "labels": [
    "exact"
   ],
-  "source": "backend/app/models/schema.py:596 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:600 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "matchOn",
@@ -3045,7 +3045,7 @@
   "labels": [
    "field"
   ],
-  "source": "backend/app/models/schema.py:595 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:599 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "matchOn",
@@ -3061,7 +3061,7 @@
   "labels": [
    "publicNames"
   ],
-  "source": "backend/app/models/schema.py:936 (ConsumerApiEarlierVersion)",
+  "source": "backend/app/models/schema.py:940 (ConsumerApiEarlierVersion)",
   "section": "model",
   "commonContext": [
    "earlierVersions",
@@ -3077,7 +3077,7 @@
   "labels": [
    "sunset"
   ],
-  "source": "backend/app/models/schema.py:934 (ConsumerApiEarlierVersion)",
+  "source": "backend/app/models/schema.py:938 (ConsumerApiEarlierVersion)",
   "section": "model",
   "commonContext": [
    "earlierVersions",
@@ -3094,7 +3094,7 @@
   "labels": [
    "exposes"
   ],
-  "source": "backend/app/models/schema.py:956 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:960 (ConsumerApiDocument)",
   "section": "model",
   "commonContext": [
    "consumerApis",
@@ -3110,7 +3110,7 @@
   "labels": [
    "filters"
   ],
-  "source": "backend/app/models/schema.py:960 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:964 (ConsumerApiDocument)",
   "section": "model",
   "commonContext": [
    "consumerApis",
@@ -3126,7 +3126,7 @@
   "labels": [
    "byType"
   ],
-  "source": "backend/app/models/schema.py:902 (FilterSpec)",
+  "source": "backend/app/models/schema.py:906 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -3143,7 +3143,7 @@
   "labels": [
    "crosswalk"
   ],
-  "source": "backend/app/models/schema.py:910 (FilterSpec)",
+  "source": "backend/app/models/schema.py:914 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -3159,7 +3159,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (FilterSpec)",
+  "source": "backend/app/models/schema.py:958 (FilterSpec)",
   "section": "model",
   "context": [
    "filters",
@@ -3181,7 +3181,7 @@
   "labels": [
    "keepOnlyMatching"
   ],
-  "source": "backend/app/models/schema.py:908 (FilterSpec)",
+  "source": "backend/app/models/schema.py:912 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -3197,7 +3197,7 @@
   "labels": [
    "linkedTo"
   ],
-  "source": "backend/app/models/schema.py:904 (FilterSpec)",
+  "source": "backend/app/models/schema.py:908 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -3214,7 +3214,7 @@
   "labels": [
    "matchOn"
   ],
-  "source": "backend/app/models/schema.py:907 (FilterSpec)",
+  "source": "backend/app/models/schema.py:911 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -3231,7 +3231,7 @@
   "labels": [
    "onRelated"
   ],
-  "source": "backend/app/models/schema.py:906 (FilterSpec)",
+  "source": "backend/app/models/schema.py:910 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -3248,7 +3248,7 @@
   "labels": [
    "scoreOnlyMatching"
   ],
-  "source": "backend/app/models/schema.py:909 (FilterSpec)",
+  "source": "backend/app/models/schema.py:913 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -3264,7 +3264,7 @@
   "labels": [
    "through"
   ],
-  "source": "backend/app/models/schema.py:905 (FilterSpec)",
+  "source": "backend/app/models/schema.py:909 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -3281,7 +3281,7 @@
   "labels": [
    "under"
   ],
-  "source": "backend/app/models/schema.py:903 (FilterSpec)",
+  "source": "backend/app/models/schema.py:907 (FilterSpec)",
   "section": "model",
   "commonContext": [
    "filters",
@@ -3298,7 +3298,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:952 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:956 (ConsumerApiDocument)",
   "section": "model",
   "context": [
    "consumerApis",
@@ -3319,7 +3319,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:953 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:957 (ConsumerApiDocument)",
   "section": "model",
   "context": [
    "consumerApis",
@@ -3340,7 +3340,7 @@
   "labels": [
    "object"
   ],
-  "source": "backend/app/models/schema.py:958 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:962 (ConsumerApiDocument)",
   "section": "model",
   "commonContext": [
    "consumerApis",
@@ -3356,7 +3356,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:835 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:839 (ObjectSpec)",
   "section": "model",
   "context": [
    "object",
@@ -3377,7 +3377,7 @@
   "labels": [
    "default"
   ],
-  "source": "backend/app/models/schema.py:796 (FieldSpec)",
+  "source": "backend/app/models/schema.py:800 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -3394,7 +3394,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (FieldSpec)",
+  "source": "backend/app/models/schema.py:958 (FieldSpec)",
   "section": "model",
   "context": [
    "fields",
@@ -3416,7 +3416,7 @@
   "labels": [
    "from"
   ],
-  "source": "backend/app/models/schema.py:790 (FieldSpec)",
+  "source": "backend/app/models/schema.py:794 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -3434,7 +3434,7 @@
   "labels": [
    "role"
   ],
-  "source": "backend/app/models/schema.py:797 (FieldSpec)",
+  "source": "backend/app/models/schema.py:801 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -3451,7 +3451,7 @@
   "labels": [
    "hierarchy"
   ],
-  "source": "backend/app/models/schema.py:838 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:842 (ObjectSpec)",
   "section": "model",
   "commonContext": [
    "object",
@@ -3469,7 +3469,7 @@
   "labels": [
    "parent"
   ],
-  "source": "backend/app/models/schema.py:836 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:840 (ObjectSpec)",
   "section": "model",
   "commonContext": [
    "object",
@@ -3487,7 +3487,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:830 (ParentSpec)",
+  "source": "backend/app/models/schema.py:834 (ParentSpec)",
   "section": "model",
   "context": [
    "parent",
@@ -3509,7 +3509,7 @@
   "labels": [
    "default"
   ],
-  "source": "backend/app/models/schema.py:796 (FieldSpec)",
+  "source": "backend/app/models/schema.py:800 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -3526,7 +3526,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (FieldSpec)",
+  "source": "backend/app/models/schema.py:958 (FieldSpec)",
   "section": "model",
   "context": [
    "fields",
@@ -3548,7 +3548,7 @@
   "labels": [
    "from"
   ],
-  "source": "backend/app/models/schema.py:790 (FieldSpec)",
+  "source": "backend/app/models/schema.py:794 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -3566,7 +3566,7 @@
   "labels": [
    "role"
   ],
-  "source": "backend/app/models/schema.py:797 (FieldSpec)",
+  "source": "backend/app/models/schema.py:801 (FieldSpec)",
   "section": "model",
   "commonContext": [
    "fields",
@@ -3583,7 +3583,7 @@
   "labels": [
    "output"
   ],
-  "source": "backend/app/models/schema.py:828 (ParentSpec)",
+  "source": "backend/app/models/schema.py:832 (ParentSpec)",
   "section": "model",
   "commonContext": [
    "parent",
@@ -3599,7 +3599,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:831 (ParentSpec)",
+  "source": "backend/app/models/schema.py:835 (ParentSpec)",
   "section": "model",
   "commonContext": [
    "parent",
@@ -3615,7 +3615,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:958 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -3637,7 +3637,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:819 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:823 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -3658,7 +3658,7 @@
   "labels": [
    "served"
   ],
-  "source": "backend/app/models/schema.py:820 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:824 (RelatedSpec)",
   "section": "model",
   "commonContext": [
    "related",
@@ -3674,7 +3674,7 @@
   "labels": [
    "via"
   ],
-  "source": "backend/app/models/schema.py:818 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:822 (RelatedSpec)",
   "section": "model",
   "commonContext": [
    "related",
@@ -3690,7 +3690,7 @@
   "labels": [
    "path"
   ],
-  "source": "backend/app/models/schema.py:837 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:841 (ObjectSpec)",
   "section": "model",
   "commonContext": [
    "object",
@@ -3708,7 +3708,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:839 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:843 (ObjectSpec)",
   "section": "model",
   "commonContext": [
    "object",
@@ -3724,7 +3724,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:958 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -3746,7 +3746,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:819 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:823 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -3767,7 +3767,7 @@
   "labels": [
    "served"
   ],
-  "source": "backend/app/models/schema.py:820 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:824 (RelatedSpec)",
   "section": "model",
   "commonContext": [
    "related",
@@ -3783,7 +3783,7 @@
   "labels": [
    "via"
   ],
-  "source": "backend/app/models/schema.py:818 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:822 (RelatedSpec)",
   "section": "model",
   "commonContext": [
    "related",
@@ -3799,7 +3799,7 @@
   "labels": [
    "operations"
   ],
-  "source": "backend/app/models/schema.py:959 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:963 (ConsumerApiDocument)",
   "section": "model",
   "commonContext": [
    "consumerApis",
@@ -3815,7 +3815,7 @@
   "labels": [
    "events"
   ],
-  "source": "backend/app/models/schema.py:895 (Operations)",
+  "source": "backend/app/models/schema.py:899 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -3832,7 +3832,7 @@
   "labels": [
    "custom"
   ],
-  "source": "backend/app/models/schema.py:887 (EventsOperation)",
+  "source": "backend/app/models/schema.py:891 (EventsOperation)",
   "section": "model",
   "commonContext": [
    "events",
@@ -3848,7 +3848,7 @@
   "labels": [
    "changes"
   ],
-  "source": "backend/app/models/schema.py:881 (EventSpec)",
+  "source": "backend/app/models/schema.py:885 (EventSpec)",
   "section": "model",
   "commonContext": [
    "custom",
@@ -3864,7 +3864,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:879 (EventSpec)",
+  "source": "backend/app/models/schema.py:883 (EventSpec)",
   "section": "model",
   "context": [
    "custom",
@@ -3885,7 +3885,7 @@
   "labels": [
    "objectTypes"
   ],
-  "source": "backend/app/models/schema.py:880 (EventSpec)",
+  "source": "backend/app/models/schema.py:884 (EventSpec)",
   "section": "model",
   "commonContext": [
    "custom",
@@ -3901,7 +3901,7 @@
   "labels": [
    "watch"
   ],
-  "source": "backend/app/models/schema.py:882 (EventSpec)",
+  "source": "backend/app/models/schema.py:886 (EventSpec)",
   "section": "model",
   "commonContext": [
    "custom",
@@ -3918,7 +3918,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:872 (EventWatch)",
+  "source": "backend/app/models/schema.py:876 (EventWatch)",
   "section": "model",
   "context": [
    "watch",
@@ -3939,7 +3939,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:873 (EventWatch)",
+  "source": "backend/app/models/schema.py:877 (EventWatch)",
   "section": "model",
   "commonContext": [
    "watch",
@@ -3955,7 +3955,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (EventsOperation)",
+  "source": "backend/app/models/schema.py:958 (EventsOperation)",
   "section": "model",
   "context": [
    "events",
@@ -3977,7 +3977,7 @@
   "labels": [
    "perType"
   ],
-  "source": "backend/app/models/schema.py:886 (EventsOperation)",
+  "source": "backend/app/models/schema.py:890 (EventsOperation)",
   "section": "model",
   "commonContext": [
    "events",
@@ -3993,7 +3993,7 @@
   "labels": [
    "lists"
   ],
-  "source": "backend/app/models/schema.py:894 (Operations)",
+  "source": "backend/app/models/schema.py:898 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -4010,7 +4010,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (ListSpec)",
+  "source": "backend/app/models/schema.py:958 (ListSpec)",
   "section": "model",
   "context": [
    "lists",
@@ -4032,7 +4032,7 @@
   "labels": [
    "of"
   ],
-  "source": "backend/app/models/schema.py:864 (ListSpec)",
+  "source": "backend/app/models/schema.py:868 (ListSpec)",
   "section": "model",
   "commonContext": [
    "lists",
@@ -4048,7 +4048,7 @@
   "labels": [
    "sortBy"
   ],
-  "source": "backend/app/models/schema.py:866 (ListSpec)",
+  "source": "backend/app/models/schema.py:870 (ListSpec)",
   "section": "model",
   "commonContext": [
    "lists",
@@ -4065,7 +4065,7 @@
   "labels": [
    "within"
   ],
-  "source": "backend/app/models/schema.py:865 (ListSpec)",
+  "source": "backend/app/models/schema.py:869 (ListSpec)",
   "section": "model",
   "commonContext": [
    "lists",
@@ -4082,7 +4082,7 @@
   "labels": [
    "filter"
   ],
-  "source": "backend/app/models/schema.py:859 (Within)",
+  "source": "backend/app/models/schema.py:863 (Within)",
   "section": "model",
   "commonContext": [
    "within",
@@ -4098,7 +4098,7 @@
   "labels": [
    "types"
   ],
-  "source": "backend/app/models/schema.py:860 (Within)",
+  "source": "backend/app/models/schema.py:864 (Within)",
   "section": "model",
   "commonContext": [
    "within",
@@ -4115,7 +4115,7 @@
   "labels": [
    "objects"
   ],
-  "source": "backend/app/models/schema.py:891 (Operations)",
+  "source": "backend/app/models/schema.py:895 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -4132,7 +4132,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (Operation)",
+  "source": "backend/app/models/schema.py:958 (Operation)",
   "section": "model",
   "context": [
    "objects",
@@ -4154,7 +4154,7 @@
   "labels": [
    "resolve"
   ],
-  "source": "backend/app/models/schema.py:893 (Operations)",
+  "source": "backend/app/models/schema.py:897 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -4171,7 +4171,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (Operation)",
+  "source": "backend/app/models/schema.py:958 (Operation)",
   "section": "model",
   "context": [
    "resolve",
@@ -4193,7 +4193,7 @@
   "labels": [
    "xref"
   ],
-  "source": "backend/app/models/schema.py:892 (Operations)",
+  "source": "backend/app/models/schema.py:896 (Operations)",
   "section": "model",
   "commonContext": [
    "operations",
@@ -4210,7 +4210,7 @@
   "labels": [
    "alsoMatchThrough"
   ],
-  "source": "backend/app/models/schema.py:855 (XrefOperation)",
+  "source": "backend/app/models/schema.py:859 (XrefOperation)",
   "section": "model",
   "commonContext": [
    "xref",
@@ -4226,7 +4226,7 @@
   "labels": [
    "firstOf"
   ],
-  "source": "backend/app/models/schema.py:844 (AlsoMatchThrough)",
+  "source": "backend/app/models/schema.py:848 (AlsoMatchThrough)",
   "section": "model",
   "commonContext": [
    "alsoMatchThrough",
@@ -4242,7 +4242,7 @@
   "labels": [
    "contains"
   ],
-  "source": "backend/app/models/schema.py:597 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:601 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "firstOf",
@@ -4259,7 +4259,7 @@
   "labels": [
    "exact"
   ],
-  "source": "backend/app/models/schema.py:596 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:600 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "firstOf",
@@ -4276,7 +4276,7 @@
   "labels": [
    "field"
   ],
-  "source": "backend/app/models/schema.py:595 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:599 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "firstOf",
@@ -4292,7 +4292,7 @@
   "labels": [
    "preferTypes"
   ],
-  "source": "backend/app/models/schema.py:845 (AlsoMatchThrough)",
+  "source": "backend/app/models/schema.py:849 (AlsoMatchThrough)",
   "section": "model",
   "commonContext": [
    "alsoMatchThrough",
@@ -4308,7 +4308,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:843 (AlsoMatchThrough)",
+  "source": "backend/app/models/schema.py:847 (AlsoMatchThrough)",
   "section": "model",
   "commonContext": [
    "alsoMatchThrough",
@@ -4324,7 +4324,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:954 (XrefOperation)",
+  "source": "backend/app/models/schema.py:958 (XrefOperation)",
   "section": "model",
   "context": [
    "xref",
@@ -4346,7 +4346,7 @@
   "labels": [
    "matchOn"
   ],
-  "source": "backend/app/models/schema.py:854 (XrefOperation)",
+  "source": "backend/app/models/schema.py:858 (XrefOperation)",
   "section": "model",
   "commonContext": [
    "xref",
@@ -4363,7 +4363,7 @@
   "labels": [
    "contains"
   ],
-  "source": "backend/app/models/schema.py:597 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:601 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "matchOn",
@@ -4380,7 +4380,7 @@
   "labels": [
    "exact"
   ],
-  "source": "backend/app/models/schema.py:596 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:600 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "matchOn",
@@ -4397,7 +4397,7 @@
   "labels": [
    "field"
   ],
-  "source": "backend/app/models/schema.py:595 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:599 (ConsumerMatchRule)",
   "section": "model",
   "commonContext": [
    "matchOn",
@@ -4413,7 +4413,7 @@
   "labels": [
    "publicNames"
   ],
-  "source": "backend/app/models/schema.py:957 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:961 (ConsumerApiDocument)",
   "section": "model",
   "commonContext": [
    "consumerApis",
@@ -4429,7 +4429,7 @@
   "labels": [
    "objectTypeRelations"
   ],
-  "source": "backend/app/models/schema.py:987 (EngineModel)",
+  "source": "backend/app/models/schema.py:991 (EngineModel)",
   "section": "model",
   "commonContext": [
    "model"
@@ -4711,7 +4711,7 @@
   "labels": [
    "objectTypes"
   ],
-  "source": "backend/app/models/schema.py:985 (EngineModel)",
+  "source": "backend/app/models/schema.py:989 (EngineModel)",
   "section": "model",
   "commonContext": [
    "model"
@@ -5038,7 +5038,7 @@
   "labels": [
    "product"
   ],
-  "source": "backend/app/models/schema.py:983 (EngineModel)",
+  "source": "backend/app/models/schema.py:987 (EngineModel)",
   "section": "model",
   "commonContext": [
    "model"
@@ -5053,7 +5053,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:969 (ProductDefinition)",
+  "source": "backend/app/models/schema.py:973 (ProductDefinition)",
   "section": "model",
   "context": [
    "product",
@@ -5075,7 +5075,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:968 (ProductDefinition)",
+  "source": "backend/app/models/schema.py:972 (ProductDefinition)",
   "section": "model",
   "context": [
    "product",
@@ -5096,7 +5096,7 @@
   "labels": [
    "relationTypes"
   ],
-  "source": "backend/app/models/schema.py:986 (EngineModel)",
+  "source": "backend/app/models/schema.py:990 (EngineModel)",
   "section": "model",
   "commonContext": [
    "model"
@@ -5217,7 +5217,7 @@
   "labels": [
    "release"
   ],
-  "source": "backend/app/models/schema.py:982 (EngineModel)",
+  "source": "backend/app/models/schema.py:986 (EngineModel)",
   "section": "model",
   "commonContext": [
    "model"
@@ -5232,7 +5232,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:973 (ModelReleaseDefinition)",
+  "source": "backend/app/models/schema.py:977 (ModelReleaseDefinition)",
   "section": "model",
   "context": [
    "release",
@@ -5253,7 +5253,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:974 (ModelReleaseDefinition)",
+  "source": "backend/app/models/schema.py:978 (ModelReleaseDefinition)",
   "section": "model",
   "context": [
    "release",
@@ -5274,7 +5274,7 @@
   "labels": [
    "version"
   ],
-  "source": "backend/app/models/schema.py:975 (ModelReleaseDefinition)",
+  "source": "backend/app/models/schema.py:979 (ModelReleaseDefinition)",
   "section": "model",
   "commonContext": [
    "release",
@@ -5290,7 +5290,7 @@
   "labels": [
    "schemaVersion"
   ],
-  "source": "backend/app/models/schema.py:981 (EngineModel)",
+  "source": "backend/app/models/schema.py:985 (EngineModel)",
   "section": "model",
   "commonContext": [
    "model"

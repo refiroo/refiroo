@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { count } from "@/lib/count";
-import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "@/ui/MigrationRows";
+import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomeCardsOf, outcomesOf } from "@/ui/MigrationRows";
 import type { EngineModel, Job, MigrationOutcome as Outcome, MigrationSummary } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { OutcomeCards } from "@/ui/OutcomeCards";
@@ -50,15 +50,7 @@ export function MigrationOutcome({ job, summary, model }: { job: Job; summary: M
     <>
       <Section title="What happened">
         <p className="job-sentence">{sentence}</p>
-        <OutcomeCards
-          label="What the migration did"
-          items={outcomesOf(counts).map((item) => ({
-            key: item.key,
-            count: countOf(counts, item.key),
-            label: item.label,
-            tone: item.key === "refused" ? "error" : item.key === "loss" ? "warning" : undefined,
-          }))}
-        />
+        <OutcomeCards label="What the migration did" items={outcomeCardsOf(counts)} />
       </Section>
       <Section title="The items">
         <div className="job-filters">

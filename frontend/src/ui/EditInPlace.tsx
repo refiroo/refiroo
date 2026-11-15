@@ -16,6 +16,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
+import { errorMessage } from "@/api/errors";
 import { readEditHint } from "@/lib/editHint";
 import { Icon } from "@/ui/Icon";
 import { editIconsRoom } from "@/ui/chipFit";
@@ -187,6 +188,91 @@ export function EditInPlaceCell({
  */
 export function focusValue(target: HTMLElement | null | undefined) {
   if (!document.activeElement || document.activeElement === document.body) target?.focus();
+}
+
+/**
+ * Focus returns to the value when its field closes (SR5): on the next frame, so the closing form is gone, and
+ * through `focusValue`. `target` says where, read when the field closes (a floating cell's row control, a title);
+ * `enabled` false leaves the focus alone.
+ */
+export function useFocusReturn(editing: boolean, target: () => HTMLElement | null | undefined, enabled = true) {
+  const wasEditing = useRef(editing);
+  const where = useRef(target);
+  useEffect(() => {
+    where.current = target;
+  });
+  useEffect(() => {
+    if (enabled && wasEditing.current && !editing) requestAnimationFrame(() => focusValue(where.current()));
+    wasEditing.current = editing;
+  }, [editing, enabled]);
+}
+
+/**
+ * The controller of a text edited in place (SR5, F1): its form's open state, `saving` and the refusal that stays
+ * under the field, and focus back on the value when the form closes. `submit` reads the form's `value`: the same
+ * text closes it, an empty one that `required` refuses says "{label} needs a value.", anything else is saved by
+ * `save`, and a refusal is worded by `describe`. The field closes when the save is done; `onSaved` hears what
+ * `save` returned (a toast with Undo). A caller keeps its own control, words and notice title.
+ */
+export function useInPlaceEdit<T = void>({
+  label,
+  current,
+  required = true,
+  save,
+  describe = errorMessage,
+  onSaved,
+}: {
+  /** What is edited, for the refusal of an empty value. */
+  label: string;
+  /** The value as it stands: left as it is, nothing is saved. */
+  current: string;
+  required?: boolean;
+  save: (next: string) => Promise<T>;
+  describe?: (cause: unknown) => string;
+  onSaved?: (result: T) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const controlRef = useRef<HTMLButtonElement>(null);
+  useFocusReturn(editing, () => controlRef.current);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const next = String(new FormData(event.currentTarget).get("value") ?? "").trim();
+    if (next === current) {
+      setEditing(false);
+      return;
+    }
+    if (!next && required) {
+      setError(`${label} needs a value.`);
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const result = await save(next);
+      setEditing(false);
+      onSaved?.(result);
+    } catch (cause) {
+      setError(describe(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+  return {
+    editing,
+    open: () => setEditing(true),
+    /** Closes the field and forgets the refusal. */
+    close: () => {
+      setError("");
+      setEditing(false);
+    },
+    saving,
+    error,
+    controlRef,
+    submit,
+  };
 }
 
 /** What the field's controls hold now, to tell a changed input from an untouched one. */

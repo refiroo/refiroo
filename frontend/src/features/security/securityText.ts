@@ -18,6 +18,7 @@ import type {
   User,
   UserRole,
 } from "@/types";
+import { EVERY_WORKSPACE } from "@/lib/words";
 
 /** "Data steward · Herbarium; Reader · Field stations", "Security administrator", "No roles yet". */
 export function userRoleLine(roles: readonly UserRole[]): string {
@@ -139,7 +140,7 @@ export function grantHeld(grant: Grant): string {
 
 /** Where a grant applies: "Every workspace", or the workspace's label (its key when not known). */
 export function grantWhere(grant: Grant, labels: ReadonlyMap<string, string>): string {
-  if (grant.scope.instance) return "Every workspace";
+  if (grant.scope.instance) return EVERY_WORKSPACE;
   const key = grant.scope.workspaceKey ?? "";
   return labels.get(key) ?? key;
 }

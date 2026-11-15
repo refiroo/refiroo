@@ -15,30 +15,21 @@ import { security } from "@/api/securityClient";
 import { counted, plural } from "@/lib/count";
 import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
 import type { Hue } from "@/model/hues";
 import type { Group, GroupMember, RouteState, SettingsRoute, SignInProvider } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { EntityListPage } from "@/ui/EntityListPage";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { useGuardedWrite } from "@/ui/useGuardedWrite";
 import { RouteLink } from "@/ui/RouteLink";
-import { SearchField } from "@/ui/SearchField";
-import { EntityList } from "@/ui/EntityList";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
-import {
-  ItemHeader,
-  LogFoot,
-  SettingsEmpty,
-  SettingsGroup,
-  SettingsPanel,
-  SettingsTile,
-  SettingsTools,
-} from "@/ui/SettingsParts";
+import { ItemHeader, LogFoot, SettingsEmpty, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
@@ -58,9 +49,6 @@ const members = (count: number) => `${counted(count, "member")}`;
 /** A group's count: a provider group's are only those seen at a sign-in (D364). */
 const memberLine = (group: Group) =>
   group.source ? (group.members ? `${group.members} seen` : "Nobody seen yet") : members(group.members);
-
-/** Groups read in a page of this size. */
-const LIST_PAGE = 50;
 
 export function GroupsPage({ route, onNavigate }: { route: GroupsRoute; onNavigate: (route: RouteState) => void }) {
   const [creating, setCreating] = useState(false);
@@ -109,58 +97,29 @@ function GroupList({
   onNew: () => void;
   onNavigate: (route: RouteState) => void;
 }) {
-  const [search, setSearch] = useState("");
-  const q = useDebouncedValue(search.trim());
-  const feed = useCursorFeed<Group>((cursor) => security.groups({ q, cursor, pageSize: LIST_PAGE }), [q]);
-  const head = settingsHead("groups");
-  const shown = feed.items.length;
+  const hue = settingsHead("groups").hue;
   return (
-    <SettingsLayout
-      {...head}
+    <EntityListPage<Group>
+      page="groups"
       title="Groups"
       description="People grouped to hold roles together: a role granted to a group applies to every member, and stops applying when they leave it."
-      actions={
-        <button ref={newButtonRef} className="primary" onClick={onNew}>
-          <Icon name="plus" /> New group
-        </button>
-      }
-    >
-      <SettingsTools
-        count={feed.loading && !shown ? undefined : `${shown}${feed.hasMore ? "+" : ""} ${plural(shown, "group")}`}
-      >
-        <SearchField label="Search groups" placeholder="Group name" value={search} onChange={setSearch} clearOnEscape />
-      </SettingsTools>
-      <SettingsPanel>
-        <EntityList
-          label="groups"
-          statusTrack="0px"
-          groups={[
-            {
-              key: "groups",
-              title: "Groups",
-              count: `${shown}${feed.hasMore ? "+" : ""}`,
-              loading: feed.loading && !shown,
-              error: feed.error && !shown ? feed.error : undefined,
-              onRetry: feed.retry,
-              onEnd: feed.hasMore ? feed.loadMore : undefined,
-              loadingMore: feed.loading && shown > 0,
-              rows: feed.items.map((group) => ({
-                key: group.id,
-                title: group.name,
-                subtitle: group.description ?? "",
-                lead: <SettingsTile icon="users" hue={head.hue} />,
-                facts: [
-                  { label: "Members", value: memberLine(group) },
-                  { label: "From", value: group.source ? group.source.provider.name : "Added here" },
-                ],
-                onOpen: () => onNavigate({ ...GROUPS, groupId: group.id }),
-              })),
-            },
-          ]}
-          empty={q ? `No group matches “${q}”.` : "No groups yet."}
-        />
-      </SettingsPanel>
-    </SettingsLayout>
+      noun={{ one: "group", many: "groups" }}
+      searchPlaceholder="Group name"
+      read={security.groups}
+      newLabel="New group"
+      newButtonRef={newButtonRef}
+      onNew={onNew}
+      row={(group) => ({
+        title: group.name,
+        subtitle: group.description ?? "",
+        lead: <SettingsTile icon="users" hue={hue} />,
+        facts: [
+          { label: "Members", value: memberLine(group) },
+          { label: "From", value: group.source ? group.source.provider.name : "Added here" },
+        ],
+      })}
+      onOpen={(group) => onNavigate({ ...GROUPS, groupId: group.id })}
+    />
   );
 }
 
@@ -177,8 +136,8 @@ function GroupDetail({
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
   const [deleting, setDeleting] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
+  const guard = useGuardedWrite();
+  const { pending, error: deleteError, setError: setDeleteError } = guard;
 
   useEffect(() => {
     let current = true;
@@ -195,17 +154,12 @@ function GroupDetail({
     };
   }, [groupId, loadToken]);
 
-  async function remove() {
+  function remove() {
     if (!group) return;
-    setPending(true);
-    setDeleteError("");
-    try {
+    return guard.run(async () => {
       await security.deleteGroup(group.id);
       onDeleted(group);
-    } catch (cause) {
-      setDeleteError(errorMessage(cause));
-      setPending(false);
-    }
+    }, {});
   }
 
   /** A name or description changed in place: a stale version reloads the group and says so; Undo puts the old text back. */
@@ -678,9 +632,7 @@ function GroupDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending || !name.trim() || (fromProvider && !claimValue.trim())}>
             {pending ? "Adding…" : "Add group"}
           </button>

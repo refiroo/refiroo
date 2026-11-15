@@ -10,7 +10,7 @@ import { ActionMenu } from "@/ui/ActionMenu";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { PageHeader } from "@/ui/PageHeader";
 import { RuledList, RuledListItem } from "@/ui/RuledList";
@@ -252,9 +252,7 @@ function CreateChangeSetFromPublication({
         </label>
         {error && <Notice tone="error">{error}</Notice>}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending}>
             Start change set
           </button>

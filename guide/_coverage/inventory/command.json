@@ -136,7 +136,7 @@
   "labels": [
    "--unused"
   ],
-  "source": "backend/app/cli/model_release_prune.py:22",
+  "source": "backend/app/cli/model_release_prune.py:24",
   "section": "run",
   "context": [
    "model_release_prune",
@@ -150,7 +150,7 @@
   "labels": [
    "--dry-run"
   ],
-  "source": "backend/app/cli/model_release_prune.py:27",
+  "source": "backend/app/cli/model_release_prune.py:29",
   "section": "run",
   "context": [
    "model_release_prune",

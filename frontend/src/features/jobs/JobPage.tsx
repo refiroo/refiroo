@@ -15,6 +15,7 @@
  * belongs to and links to it where the caller can open it (`JobProduced`).
  */
 
+import { JobProgress } from "@/ui/JobProgress";
 import { count } from "@/lib/count";
 import { countedType, relationTypeFor, typeName } from "@/model/lookup";
 import { useWorkspaceModel } from "@/model/workspaceModels";
@@ -421,14 +422,11 @@ function ProgressLine({
         ? STAGES.previewing
         : undefined;
   return (
-    <div className="job-progress">
-      <progress value={total ? processed : undefined} max={total ?? undefined} aria-label="Progress" />
-      <span>
-        {step && `${step}: `}
-        {count(processed)}
-        {total !== null && ` of ${count(total)}`} {unit}
-      </span>
-    </div>
+    <JobProgress processed={processed} total={total}>
+      {step && `${step}: `}
+      {count(processed)}
+      {total !== null && ` of ${count(total)}`} {unit}
+    </JobProgress>
   );
 }
 

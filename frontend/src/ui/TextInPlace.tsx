@@ -5,9 +5,9 @@
  * puts the old value back, offers Undo. A refusal, and a required text left empty, stay under the field.
  */
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { errorMessage } from "@/api/errors";
-import { EditInPlaceValue, InlineEditForm, focusValue } from "@/ui/EditInPlace";
+import { EditInPlaceValue, InlineEditForm, useInPlaceEdit } from "@/ui/EditInPlace";
 import { Notice } from "@/ui/Notice";
 import { useToast } from "@/ui/Toast";
 
@@ -41,59 +41,19 @@ export function TextInPlace({
   /** The value as it reads (default: the text). */
   children?: ReactNode;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const controlRef = useRef<HTMLButtonElement>(null);
-  const wasEditing = useRef(false);
   const toast = useToast();
-
-  // Focus returns to the value when its field closes.
-  useEffect(() => {
-    if (wasEditing.current && !editing) requestAnimationFrame(() => focusValue(controlRef.current));
-    wasEditing.current = editing;
-  }, [editing]);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const next = String(new FormData(event.currentTarget).get("value") ?? "").trim();
-    if (next === value) {
-      setEditing(false);
-      return;
-    }
-    if (!next && !optional) {
-      setError(`${label} needs a value.`);
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      const undo = await onSave(next);
-      setEditing(false);
+  const edit = useInPlaceEdit({
+    label,
+    current: value,
+    required: !optional,
+    save: onSave,
+    // A save that hands back nothing to undo shows no confirmation; `false` is said elsewhere.
+    onSaved: (undo) => {
       if (undo === false) return;
-      toast(
-        savedText,
-        undo
-          ? {
-              actions: [
-                {
-                  label: "Undo",
-                  onPress: () =>
-                    void undo().then(
-                      () => toast("Change undone."),
-                      (cause) => toast(`Not undone: ${errorMessage(cause)}`, { tone: "info" }),
-                    ),
-                },
-              ],
-            }
-          : undefined,
-      );
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setSaving(false);
-    }
-  }
+      toast.withUndo(savedText, undo || undefined, (cause) => `Not undone: ${errorMessage(cause)}`, "Change undone.");
+    },
+  });
+  const { editing, saving, error, controlRef } = edit;
 
   const shown = children ?? <span className="attribute-value">{value}</span>;
   const Heading = headingLevel === 1 ? "h1" : "h2";
@@ -111,11 +71,8 @@ export function TextInPlace({
       <InlineEditForm
         label={`Edit ${label}`}
         saving={saving}
-        onSubmit={(event) => void submit(event)}
-        onClose={() => {
-          setError("");
-          setEditing(false);
-        }}
+        onSubmit={(event) => void edit.submit(event)}
+        onClose={edit.close}
         notices={
           error && (
             <Notice tone="error" title="Not saved">
@@ -137,7 +94,7 @@ export function TextInPlace({
       name={label}
       empty={optional && !value}
       disabled={disabled}
-      onEdit={() => setEditing(true)}
+      onEdit={edit.open}
     >
       {shown}
     </EditInPlaceValue>,

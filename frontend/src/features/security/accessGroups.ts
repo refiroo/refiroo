@@ -6,6 +6,7 @@
 
 import type { Grant } from "@/types";
 import { grantHeld, grantNarrowing } from "./securityText";
+import { EVERY_WORKSPACE } from "@/lib/words";
 
 export interface AccessRow {
   /** Kind and id: unique per principal. */
@@ -46,7 +47,7 @@ export function groupByPlace(grants: readonly Grant[], labels: ReadonlyMap<strin
   const rows = new Map<string, PlaceRow>();
   for (const grant of grants) {
     const key = grant.scope.instance ? "instance" : (grant.scope.workspaceKey ?? "");
-    const label = grant.scope.instance ? "Every workspace" : (labels.get(key) ?? key);
+    const label = grant.scope.instance ? EVERY_WORKSPACE : (labels.get(key) ?? key);
     const row = rows.get(key) ?? { key, label, instance: grant.scope.instance, grants: [] };
     row.grants.push(grant);
     rows.set(key, row);

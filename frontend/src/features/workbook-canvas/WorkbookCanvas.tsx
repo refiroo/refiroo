@@ -290,7 +290,7 @@ export function WorkbookCanvas({
         );
         // A step held back because the draft moved on is the editing hook's to say, with its two buttons.
         if (outcome === "stale") return false;
-        toast(said, { actions: [{ label: "Undo", onPress: undoOf(made) }] });
+        toast.withUndo(said, undoOf(made));
         return true;
       } catch (cause) {
         setNotice({ tone: "error", text: refusalText(cause, outline) });
@@ -488,7 +488,7 @@ export function WorkbookCanvas({
       setPanel({ show: added.id === "add-attribute-type" ? "attributeType" : "relationType", key: made });
       setTab("inspector");
     }
-    toast(`${name} added`, { actions: [{ label: "Undo", onPress: undoOf(lastStep.current) }] });
+    toast.withUndo(`${name} added`, undoOf(lastStep.current));
   }, [outline, toast, undoOf]);
 
   if (steps.loadError) return <Notice tone="error">{steps.loadError}</Notice>;

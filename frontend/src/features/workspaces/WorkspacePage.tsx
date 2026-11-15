@@ -47,6 +47,7 @@ import { RouteLink } from "@/ui/RouteLink";
 import { Skeleton } from "@/ui/Skeleton";
 import { WorkspaceTile } from "@/ui/WorkspaceTile";
 import { everyPage } from "@/lib/everyPage";
+import { changeSetTitle } from "@/lib/words";
 
 type Navigate = (route: RouteState) => void;
 
@@ -584,7 +585,7 @@ function WaitingList({
         <>
           <ul className="ws-rows">
             {state.items.slice(0, WAITING_SHOWN).map((item) => {
-              const name = item.name || "Untitled change set";
+              const name = changeSetTitle(item.name);
               const waits = item.submission?.state === "submitted";
               return (
                 <li key={item.id} className="ws-row">

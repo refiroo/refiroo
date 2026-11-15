@@ -11,7 +11,7 @@
   "kind": "build-arg",
   "key": "ASSISTANT_USERS",
   "labels": [],
-  "source": "backend/Dockerfile:51",
+  "source": "backend/Dockerfile:57",
   "section": "run",
   "summary": "Docker build argument, default 8"
  },
@@ -19,7 +19,7 @@
   "kind": "build-arg",
   "key": "REFIROO_BUILD_COMMIT",
   "labels": [],
-  "source": "backend/Dockerfile:92",
+  "source": "backend/Dockerfile:98",
   "section": "run",
   "summary": "Docker build argument, default empty"
  },
@@ -27,7 +27,7 @@
   "kind": "build-arg",
   "key": "REFIROO_BUILD_TAG",
   "labels": [],
-  "source": "backend/Dockerfile:93",
+  "source": "backend/Dockerfile:99",
   "section": "run",
   "summary": "Docker build argument, default empty"
  }

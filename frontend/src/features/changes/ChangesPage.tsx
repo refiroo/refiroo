@@ -40,6 +40,7 @@ import {
 import { Skeleton } from "@/ui/Skeleton";
 import { Timeline } from "@/ui/Timeline";
 import { Trail } from "@/ui/Trail";
+import { WorkspaceField } from "@/ui/WorkspaceField";
 import {
   KIND_LABELS,
   PERIOD_LABELS,
@@ -146,20 +147,13 @@ export function ChangesPage({
             description="Each line opens what it changed while that exists. The marker's colour is the kind of change."
             tools={
               <div className="changes-filters" role="group" aria-label="Filter the changes">
-                <label className="toolbar-field">
-                  Workspace
-                  <select
-                    value={route.inWorkspace ?? ""}
-                    onChange={(event) => filter({ inWorkspace: event.target.value || undefined })}
-                  >
-                    <option value="">All workspaces</option>
-                    {workspaces.map((workspace) => (
-                      <option key={workspace.key} value={workspace.key}>
-                        {workspace.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <WorkspaceField
+                  toolbar
+                  items={workspaces}
+                  allOption="All workspaces"
+                  value={route.inWorkspace ?? ""}
+                  onChange={(key) => filter({ inWorkspace: key || undefined })}
+                />
                 <label className="toolbar-field">
                   What
                   <select

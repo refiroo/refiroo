@@ -1,7 +1,37 @@
-import { useCallback, useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect } from "react";
 import type { ReactNode, RefObject } from "react";
 import { Dialog, Heading, Modal as AriaModal, ModalOverlay } from "react-aria-components";
+import { confirmDiscard as askDiscard } from "@/lib/confirmDiscard";
 import { Icon, type IconName } from "@/ui/Icon";
+
+const ModalClose = createContext<(() => void) | undefined>(undefined);
+
+/**
+ * The close a dialog's own buttons use: it asks "Discard your unsaved changes?" while the dialog is
+ * dirty and does nothing while it is busy, as the corner button and Escape do. Outside a modal it
+ * is undefined.
+ */
+export function useModalClose() {
+  return useContext(ModalClose);
+}
+
+/** A dialog's Cancel: the modal's `requestClose`, so a dialog with input asks before it discards. */
+export function CancelButton({
+  disabled = false,
+  className = "secondary",
+  children = "Cancel",
+}: {
+  disabled?: boolean;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const requestClose = useModalClose();
+  return (
+    <button type="button" className={className} disabled={disabled} onClick={requestClose}>
+      {children}
+    </button>
+  );
+}
 
 /**
  * RDM's dialog contract. React Aria owns the portal, focus scope, outside interaction and Escape;
@@ -22,7 +52,7 @@ export function Modal({
   showClose = true,
   initialFocusRef,
   dirty = false,
-  confirmDiscard = () => window.confirm("Discard your unsaved changes?"),
+  confirmDiscard = askDiscard,
 }: {
   title: string;
   /** Small label above the title, naming the action rather than its subject. */
@@ -95,7 +125,7 @@ export function Modal({
               </button>
             )}
           </div>
-          {children}
+          <ModalClose.Provider value={requestClose}>{children}</ModalClose.Provider>
         </Dialog>
       </AriaModal>
     </ModalOverlay>

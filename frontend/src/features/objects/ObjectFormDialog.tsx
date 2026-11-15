@@ -13,7 +13,7 @@ import type {
 } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { CurrentObjectContent } from "@/features/objects/CurrentObjectContent";
 import { parentObjectTypeKeys } from "@/model/placements";
@@ -571,14 +571,7 @@ export function ObjectFormDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button
-            type="button"
-            className="secondary"
-            disabled={saving}
-            onClick={() => (!dirty || window.confirm("Discard your unsaved changes?")) && onClose()}
-          >
-            Cancel
-          </button>
+          <CancelButton disabled={saving} />
           <button className="primary" disabled={saving || noPermittedParent}>
             {saving ? "Saving…" : object ? "Save" : `Add ${objectType.name}`}
           </button>

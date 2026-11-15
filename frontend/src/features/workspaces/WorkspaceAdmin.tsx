@@ -10,6 +10,7 @@
  * each workspace; this screen does not list them.
  */
 
+import { useFlashSaved } from "@/ui/useFlashSaved";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { security } from "@/api/securityClient";
@@ -41,6 +42,7 @@ import { installedReleases, ModelChoice, NewWorkspaceFields, useNewWorkspaceIden
 import { NewFromWorkbookAction } from "@/features/workspaces/NewFromWorkbookAction";
 import { workspaceModelLabel } from "@/ui/WorkspaceSelector";
 import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
+import { ActionNotices } from "@/ui/ActionNotices";
 import { WorkspaceList, resetWorkspaceListCacheForTests } from "@/features/workspaces/WorkspaceList";
 import { Trail } from "@/ui/Trail";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
@@ -53,7 +55,7 @@ import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { NewMoveDialog } from "@/ui/NewMoveDialog";
 import { moveAbility } from "@/lib/moveAbility";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
@@ -62,6 +64,7 @@ import { settingsHead } from "@/ui/settingsNavigation";
 import { StatusPill } from "@/ui/StatusPill";
 import { TextInPlace } from "@/ui/TextInPlace";
 import { useToast } from "@/ui/Toast";
+import { changedWhileOpen, useGuardedWrite } from "@/ui/useGuardedWrite";
 
 type WorkspacesRoute = Extract<SettingsRoute, { page: "workspaces" }>;
 
@@ -372,9 +375,8 @@ function WorkspaceDetail({
   const [retiring, setRetiring] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [moving, setMoving] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [actionError, setActionError] = useState("");
-  const [conflict, setConflict] = useState("");
+  const guard = useGuardedWrite();
+  const { pending, error: actionError, setError: setActionError } = guard;
   const toast = useToast();
 
   useEffect(() => {
@@ -435,94 +437,84 @@ function WorkspaceDetail({
     }
   }
 
-  async function setStatus(status: Workspace["status"]) {
-    if (!workspace) return;
-    setPending(true);
-    setActionError("");
-    setConflict("");
-    try {
-      const updated = await api.updateWorkspace(workspace.key, { expectedVersion: workspace.version, status });
-      setRetiring(false);
-      stored(
-        updated,
-        status === "retired" ? "Workspace retired. Its data and history remain readable." : "Workspace reactivated.",
-      );
-    } catch (cause) {
-      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
+  /** Where this workspace now stands, said after a stale version. */
+  const staleWorkspace = async () => {
+    const current = await reloadWorkspace().catch(() => workspace);
+    return changedWhileOpen("workspace", { now: `It is now “${current?.label}” and ${current?.status}.` });
+  };
+
+  function setStatus(status: Workspace["status"]) {
+    if (!workspace) return Promise.resolve(false);
+    return guard.run(
+      async () => {
+        const updated = await api.updateWorkspace(workspace.key, { expectedVersion: workspace.version, status });
         setRetiring(false);
-        const current = await reloadWorkspace().catch(() => workspace);
-        setConflict(
-          `This workspace changed while the page was open. It is now “${current.label}” and ${current.status}. Review it and choose again.`,
+        stored(
+          updated,
+          status === "retired" ? "Workspace retired. Its data and history remain readable." : "Workspace reactivated.",
         );
-      } else if (isApiError(cause, "DEFAULT_WORKSPACE_CANNOT_BE_RETIRED")) {
-        await reloadRuntime().catch(() => undefined);
-        setActionError(errorMessage(cause));
-      } else {
-        setActionError(errorMessage(cause));
-      }
-    } finally {
-      setPending(false);
-    }
+      },
+      {
+        onConflict: () => {
+          setRetiring(false);
+          return staleWorkspace();
+        },
+        onRefused: async (cause) => {
+          if (isApiError(cause, "DEFAULT_WORKSPACE_CANNOT_BE_RETIRED")) await reloadRuntime().catch(() => undefined);
+        },
+      },
+    );
   }
 
-  async function makeDefault() {
-    if (!workspace) return;
-    setPending(true);
-    setActionError("");
-    setConflict("");
-    try {
-      const state = await api.setDefaultWorkspace(workspace.key, runtime.version);
-      onRuntimeChanged(state);
-      toast(`${workspace.label} is now the default workspace.`);
-      // The default cannot be deleted; reread why rather than deciding it here.
-      await reloadWorkspace().catch(() => undefined);
-    } catch (cause) {
-      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
-        const state = await reloadRuntime().catch(() => runtime);
-        setConflict(
-          `The default workspace changed to “${state.defaultWorkspaceKey}” while the page was open. Review it and choose again.`,
-        );
-      } else {
-        if (isApiError(cause, "WORKSPACE_RETIRED")) await reloadWorkspace().catch(() => undefined);
-        setActionError(errorMessage(cause));
-      }
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function remove() {
-    if (!workspace) return;
-    setPending(true);
-    setActionError("");
-    setConflict("");
-    try {
-      await api.deleteWorkspace(workspace.key, workspace.version);
-      setDeleting(false);
-      onDeleted(workspace);
-    } catch (cause) {
-      if (isVersionConflict(cause, ["VERSION_CONFLICT"])) {
-        setDeleting(false);
-        const current = await reloadWorkspace().catch(() => workspace);
-        setConflict(
-          `This workspace changed while the page was open. It is now “${current.label}” and ${current.status}. Review it and choose again.`,
-        );
-      } else if (
-        isApiError(cause, "WORKSPACE_IS_DEFAULT") ||
-        isApiError(cause, "WORKSPACE_HAS_PUBLICATIONS") ||
-        isApiError(cause, "WORKSPACE_NOT_EMPTY")
-      ) {
-        // Something was added since the page loaded: show the refusal and the reason it now has.
-        setDeleting(false);
-        if (isApiError(cause, "WORKSPACE_IS_DEFAULT")) await reloadRuntime().catch(() => undefined);
+  function makeDefault() {
+    if (!workspace) return Promise.resolve(false);
+    return guard.run(
+      async () => {
+        const state = await api.setDefaultWorkspace(workspace.key, runtime.version);
+        onRuntimeChanged(state);
+        toast(`${workspace.label} is now the default workspace.`);
+        // The default cannot be deleted; reread why rather than deciding it here.
         await reloadWorkspace().catch(() => undefined);
-        setActionError(errorMessage(cause));
-      } else {
-        setActionError(errorMessage(cause));
-      }
-    } finally {
-      setPending(false);
-    }
+      },
+      {
+        onConflict: async () => {
+          const state = await reloadRuntime().catch(() => runtime);
+          return `The default workspace changed to “${state.defaultWorkspaceKey}” while the page was open. Review it and choose again.`;
+        },
+        onRefused: async (cause) => {
+          if (isApiError(cause, "WORKSPACE_RETIRED")) await reloadWorkspace().catch(() => undefined);
+        },
+      },
+    );
+  }
+
+  function remove() {
+    if (!workspace) return Promise.resolve(false);
+    return guard.run(
+      async () => {
+        await api.deleteWorkspace(workspace.key, workspace.version);
+        setDeleting(false);
+        onDeleted(workspace);
+      },
+      {
+        onConflict: () => {
+          setDeleting(false);
+          return staleWorkspace();
+        },
+        onRefused: async (cause) => {
+          if (
+            isApiError(cause, "WORKSPACE_IS_DEFAULT") ||
+            isApiError(cause, "WORKSPACE_HAS_PUBLICATIONS") ||
+            isApiError(cause, "WORKSPACE_NOT_EMPTY")
+          ) {
+            // Something was added since the page loaded: show the refusal and the reason it now has.
+            setDeleting(false);
+            if (isApiError(cause, "WORKSPACE_IS_DEFAULT")) await reloadRuntime().catch(() => undefined);
+            await reloadWorkspace().catch(() => undefined);
+          }
+        },
+      },
+    );
   }
 
   const head = settingsHead("workspaces");
@@ -696,16 +688,7 @@ function WorkspaceDetail({
         />
       }
     >
-      {conflict && (
-        <Notice tone="warning" title="Not saved" focusOnMount>
-          {conflict}
-        </Notice>
-      )}
-      {actionError && !retiring && !deleting && (
-        <Notice tone="error" title="The action could not be completed">
-          {actionError}
-        </Notice>
-      )}
+      <ActionNotices guard={guard} hideError={retiring || deleting} />
       <Tabs
         label="Workspace"
         tabs={tabs}
@@ -939,7 +922,7 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
   const [secondPerson, setSecondPerson] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState("");
+  const { saved, flash: flashSaved, clear: clearSaved } = useFlashSaved<string>();
   const [pending, setPending] = useState(false);
   const [reloads, setReloads] = useState(0);
   const [conflict, setConflict] = useState(false);
@@ -962,17 +945,12 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
     };
   }, [workspaceKey, reloads]);
   // A confirmation is news for a moment: tabs stay mounted (keepVisited), so it must go by itself.
-  useEffect(() => {
-    if (!saved) return;
-    const timer = window.setTimeout(() => setSaved(""), 4000);
-    return () => window.clearTimeout(timer);
-  }, [saved]);
   async function save() {
     if (!policy) return;
     setPending(true);
     setError("");
     setConflict(false);
-    setSaved("");
+    clearSaved();
     try {
       const updated = await api.setApprovalPolicy(workspaceKey, {
         requireApproval,
@@ -982,12 +960,12 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
       setPolicy(updated);
       setRequireApproval(updated.requireApproval);
       setSecondPerson(updated.secondPerson);
-      setSaved("Approval policy saved.");
+      flashSaved("Approval policy saved.");
     } catch (cause) {
       setConflict(isVersionConflict(cause, ["VERSION_CONFLICT"]));
       setError(
         isVersionConflict(cause, ["VERSION_CONFLICT"])
-          ? "The policy changed meanwhile. Reload to see it."
+          ? changedWhileOpen("policy", { reload: true })
           : errorMessage(cause),
       );
     } finally {
@@ -1053,7 +1031,7 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
                   type="checkbox"
                   checked={requireApproval}
                   onChange={(event) => {
-                    setSaved("");
+                    clearSaved();
                     setRequireApproval(event.target.checked);
                     if (!event.target.checked) setSecondPerson(false);
                   }}
@@ -1066,7 +1044,7 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
                   checked={secondPerson}
                   disabled={!requireApproval}
                   onChange={(event) => {
-                    setSaved("");
+                    clearSaved();
                     setSecondPerson(event.target.checked);
                   }}
                 />
@@ -1180,7 +1158,7 @@ function CreateWorkspaceDialog({
           void create();
         }}
       >
-        <NewWorkspaceFields identity={identity} autoFocus />
+        <NewWorkspaceFields identity={identity} autoFocus disabled={pending} />
         <ModelChoice
           defaultWorkspace={defaultWorkspace}
           releases={releases}
@@ -1193,9 +1171,7 @@ function CreateWorkspaceDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className="primary" disabled={pending || !identity.complete}>
             {pending ? "Adding…" : "Add workspace"}
           </button>

@@ -221,7 +221,7 @@ describe("Opening a notice from a digest's link (0.16 AO3, AO-D36)", () => {
       unreadCount: 1,
     });
     renderPage("n3");
-    expect(await screen.findByText("Published: ‘Spring update’")).toBeInTheDocument();
+    expect(await screen.findByText("Published: “Spring update”")).toBeInTheDocument();
     await waitFor(() => expect(api.markNotificationsRead).toHaveBeenCalledWith({ ids: ["n3"] }));
     await waitFor(() =>
       expect(onNavigate).toHaveBeenCalledWith(

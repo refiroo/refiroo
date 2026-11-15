@@ -16,7 +16,7 @@ be usable on this instance. See [Releases](/docs/model/releases/) and [Migration
    | Result | What to do |
    | --- | --- |
    | Compatible with the workspace's data | No record, value or relationship needs migration. Review the destination before activating. |
-   | A migration is needed | The same model's definitions require data changes. Use the offered migration preview. |
+   | Activation needs a migration | The same model's definitions require data changes. Use the offered migration preview. |
    | A different model | The different model does not fit the data unchanged. Review its reasons and the migration preview where available. |
    | A consumer API needs a higher contract version | Correct or version the named contract in a draft before activating. |
    | Could not be checked | Correct the stated failure and check again. This is not a compatible result. |

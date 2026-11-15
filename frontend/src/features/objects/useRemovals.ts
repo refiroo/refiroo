@@ -28,22 +28,16 @@ export function useRemovals() {
         return;
       }
       changed();
-      toast(`${what} removed`, {
-        actions: [
-          {
-            label: "Undo",
-            onPress: () =>
-              void api
-                .createRelation({
-                  relationTypeKey: relation.relationTypeKey,
-                  fromObjectId: relation.fromObjectId,
-                  toObjectId: relation.toObjectId,
-                  attributes: relation.attributes,
-                })
-                .then(changed, (cause) => toast(errorMessage(cause), { tone: "info" })),
-          },
-        ],
-      });
+      toast.withUndo(`${what} removed`, () =>
+        api
+          .createRelation({
+            relationTypeKey: relation.relationTypeKey,
+            fromObjectId: relation.fromObjectId,
+            toObjectId: relation.toObjectId,
+            attributes: relation.attributes,
+          })
+          .then(changed),
+      );
     },
     [api, toast],
   );
@@ -57,28 +51,17 @@ export function useRemovals() {
       const previous = object.attributes.find((item) => item.attributeTypeKey === attribute.key);
       await api.deleteAttribute(object.objectTypeKey, object.id, attribute.key, object.version);
       await changed();
-      toast(`${attribute.name} removed`, {
-        actions: previous
-          ? [
-              {
-                label: "Undo",
-                onPress: () =>
-                  void api
-                    .object(object.objectTypeKey, object.id, object.workspaceKey)
-                    .then((fresh) =>
-                      api.createAttribute(
-                        object.objectTypeKey,
-                        object.id,
-                        attribute.key,
-                        previous.value,
-                        fresh.version,
-                      ),
-                    )
-                    .then(changed, (cause) => toast(errorMessage(cause), { tone: "info" })),
-              },
-            ]
-          : [],
-      });
+      toast.withUndo(
+        `${attribute.name} removed`,
+        previous &&
+          (() =>
+            api
+              .object(object.objectTypeKey, object.id, object.workspaceKey)
+              .then((fresh) =>
+                api.createAttribute(object.objectTypeKey, object.id, attribute.key, previous.value, fresh.version),
+              )
+              .then(changed)),
+      );
     },
     [api, toast],
   );

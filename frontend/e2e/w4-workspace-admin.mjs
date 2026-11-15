@@ -121,6 +121,8 @@ try {
   await createDialog.getByRole("button", { name: "Add workspace" }).click();
   await createDialog.getByText("Workspace 'central-europe' already exists").waitFor();
   await shot("w4-create-duplicate-wide");
+  // The name was typed: Cancel asks before discarding it.
+  page.once("dialog", (prompt) => prompt.accept());
   await createDialog.getByRole("button", { name: "Cancel" }).click();
   await createDialog.waitFor({ state: "detached" });
   checks.push("duplicate key is refused in the dialog and keeps the entered name");

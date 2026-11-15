@@ -14,7 +14,7 @@ import type { MySecondFactor, SecondFactorEnrolment } from "@/types";
 import { CopyValue } from "@/ui/CopyValue";
 import { FormField } from "@/ui/FormField";
 import { InlineError } from "@/ui/InlineError";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { StatusPill } from "@/ui/StatusPill";
@@ -312,7 +312,7 @@ function CodeDialog({
   }
 
   return (
-    <Modal title={title} eyebrow="You" size="compact" busy={pending} onClose={onClose}>
+    <Modal title={title} eyebrow="You" size="compact" busy={pending} dirty={Boolean(code)} onClose={onClose}>
       <form noValidate onSubmit={(event) => void submit(event)}>
         <p>{help}</p>
         <FormField label="Code from the app, or a recovery code" error={problem || undefined}>
@@ -331,9 +331,7 @@ function CodeDialog({
           )}
         </FormField>
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button className={danger ? "danger" : "primary"} disabled={pending || !code.trim()}>
             {pending ? "Working…" : confirmLabel}
           </button>

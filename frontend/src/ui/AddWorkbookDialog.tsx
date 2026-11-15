@@ -13,7 +13,7 @@ import type { SourceFile, SourceFileUpload } from "@/types";
 import { WorkspaceField } from "@/ui/WorkspaceField";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 
 /** The files a workbook is uploaded from. */
@@ -69,6 +69,7 @@ export function AddWorkbookDialog({
       }
       size="compact"
       busy={pending}
+      dirty={Boolean(file)}
       onClose={onClose}
     >
       <form
@@ -93,9 +94,7 @@ export function AddWorkbookDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" onClick={onClose} disabled={pending}>
-            Cancel
-          </button>
+          <CancelButton disabled={pending} />
           <button type="submit" className="primary" disabled={pending || !file}>
             {pending ? "Uploading…" : "Upload"}
           </button>

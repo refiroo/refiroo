@@ -160,7 +160,7 @@ describe("The assistant task page (0.16 AP6a, AP10)", () => {
     open();
     await screen.findByRole("heading", { name: "What the load would do" });
     fireEvent.click(screen.getByRole("button", { name: "Activate the model and load" }));
-    expect(await screen.findByText(/The task changed while you were working/)).toBeInTheDocument();
+    expect(await screen.findByText(/This task changed while the page was open/)).toBeInTheDocument();
     expect(vi.mocked(ai.task).mock.calls.length).toBeGreaterThan(1);
   });
 

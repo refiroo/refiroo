@@ -19,6 +19,7 @@ import type { Grant } from "@/types";
 import { Icon } from "@/ui/Icon";
 import { RouteLink } from "@/ui/RouteLink";
 import { WorkspaceTile } from "@/ui/WorkspaceTile";
+import { EVERY_WORKSPACE } from "@/lib/words";
 
 /** What a grant's application link needs: its hue (`model/hues`), where it opens and its record types. */
 export interface AppInfo {
@@ -191,7 +192,7 @@ export function placeRows(
   const rows = [...byPlace].map(([key, held]) => ({
     key: key || "instance",
     workspaceKey: key || null,
-    title: key ? (labels.get(key) ?? key) : "Every workspace",
+    title: key ? (labels.get(key) ?? key) : EVERY_WORKSPACE,
     entries: roleEntries(held, groups),
   }));
   rows.sort(

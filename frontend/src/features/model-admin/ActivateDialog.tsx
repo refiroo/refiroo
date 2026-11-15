@@ -11,12 +11,17 @@ import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
-import { activationRefusal } from "@/features/model-editor/InstallDialog";
 import { counted } from "@/lib/count";
 import { newestFirst } from "@/model/newestFirst";
 import { workspaceModelLabel } from "@/ui/WorkspaceSelector";
 import { ImpactSummary } from "@/ui/ImpactSummary";
-import { LeftBehindChangeSets, MigrationReasons, openChangeSets } from "@/ui/ActivationParts";
+import {
+  activationRefusal,
+  ActivationVerdict,
+  LeftBehindChangeSets,
+  MigrationReasons,
+  openChangeSets,
+} from "@/ui/ActivationParts";
 import { releasesByModel } from "@/features/model-admin/modelLines";
 import type { ChangeSet, ModelReleaseDiff, ModelReleaseSummary, Workspace, WorkspaceModelActivation } from "@/types";
 import { Modal } from "@/ui/Modal";
@@ -281,7 +286,7 @@ export function ActivateDialog({
                 No record, value or relationship of {workspace.label} needs a migration.
               </Notice>
             ) : (
-              <Notice tone="warning" title={sameModel ? "A migration is needed" : "A different model"}>
+              <ActivationVerdict title={sameModel ? undefined : "A different model"}>
                 <p>
                   {workspace.label}'s data does not fit {release.name} {release.version} as it is, so it cannot be
                   activated there.{" "}
@@ -290,7 +295,7 @@ export function ActivateDialog({
                     : "Migrating needs model administration and background jobs, which this deployment does not run."}
                 </p>
                 <MigrationReasons diagnostics={compatibility?.diagnostics ?? []} />
-              </Notice>
+              </ActivationVerdict>
             )}
             {contractsBreak && (
               <Notice tone="warning" title="A consumer API needs a higher contract version">

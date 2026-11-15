@@ -18,7 +18,7 @@ import { errorMessage } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import type { ActionGroup, Grant, GrantCreate, GrantOptions, Role, Workspace } from "@/types";
 import { Choice } from "@/ui/Choice";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { MultiSelect } from "@/ui/MultiSelect";
 import { Notice } from "@/ui/Notice";
 import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
@@ -627,9 +627,9 @@ export function GrantDialog({
             </Notice>
           )}
           <div className="dialog-actions">
-            <button type="button" className="secondary" disabled={pending} onClick={finish}>
+            <CancelButton disabled={pending}>
               {made.added.length || made.removed.length ? "Close" : "Cancel"}
-            </button>
+            </CancelButton>
             <button className="primary" disabled={pending || !changed}>
               {editing
                 ? pending

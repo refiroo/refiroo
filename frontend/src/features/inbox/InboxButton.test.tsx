@@ -127,10 +127,10 @@ describe("Inbox (0.12 A2)", () => {
     const panel = await screen.findByRole("dialog", { name: /^Inbox/ });
     expect(within(panel).getByRole("heading", { name: /^Unread/ })).toBeInTheDocument();
     expect(await within(panel).findByText("Waiting for your approval")).toBeInTheDocument();
-    expect(within(panel).getByText(/‘Spring update’ · From Bea Costa/)).toBeInTheDocument();
-    expect(within(panel).getByText("Sent back: ‘Autumn fixes’")).toBeInTheDocument();
+    expect(within(panel).getByText(/“Spring update” · From Bea Costa/)).toBeInTheDocument();
+    expect(within(panel).getByText("Sent back: “Autumn fixes”")).toBeInTheDocument();
     expect(within(panel).getByText(/Check the codes/)).toBeInTheDocument();
-    expect(within(panel).getByText("Approved: ‘Old set’")).toBeInTheDocument();
+    expect(within(panel).getByText("Approved: “Old set”")).toBeInTheDocument();
     expect(within(panel).getByText("Import failed")).toBeInTheDocument();
     expect(within(panel).getByText(/Started by you/)).toBeInTheDocument();
     // Unread is said in words as well as by the dot.

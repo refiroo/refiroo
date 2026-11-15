@@ -176,8 +176,7 @@ describe("ApplyDialog", () => {
   it("installs and starts the preview when records must move, activating nothing", async () => {
     vi.mocked(api.startWorkspaceMigration).mockResolvedValue({ id: "job" } as never);
     const { onMigrationStarted } = open(compiled("migration_required"), true, emptyMigration);
-    await screen.findByText("Activation needs a migration");
-    fireEvent.click(screen.getByRole("button", { name: "Preview what happens to the records…" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Preview what happens to the records…" }));
     await waitFor(() => expect(onMigrationStarted).toHaveBeenCalledWith("job"));
     expect(api.startWorkspaceMigration).toHaveBeenCalledWith("north", {
       targetReleaseId: "r2",
@@ -195,7 +194,7 @@ describe("ApplyDialog", () => {
     let read: (value: DraftMigration) => void = () => undefined;
     open(compiled("migration_required"));
     vi.mocked(api.modelDraftMigration).mockReturnValue(new Promise((resolve) => (read = resolve)));
-    await screen.findByText("Some records must move first");
+    await screen.findByText("Activation needs a migration");
     expect(screen.queryByRole("button", { name: "Preview what happens to the records…" })).toBeNull();
     read(emptyMigration);
     expect(await screen.findByRole("button", { name: "Preview what happens to the records…" })).toBeInTheDocument();
@@ -249,8 +248,8 @@ describe("ApplyDialog", () => {
       },
     } as unknown as DraftMigration;
     const { onMigrationStarted } = open(compiled("migration_required"), true, derived);
-    await screen.findByText("Activation needs a migration");
-    expect(screen.getByText(/Thing: moves to app, its records become top-level records/)).toBeInTheDocument();
+    // The title shows while the migration is still being read (one verdict for both), so wait for what it reads.
+    expect(await screen.findByText(/Thing: moves to app, its records become top-level records/)).toBeInTheDocument();
     expect(screen.getByText("3,214")).toBeInTheDocument();
     expect(screen.getByText(/Integrations naming/)).toHaveTextContent("Consumer APIs naming it: Ledger");
     fireEvent.click(screen.getByRole("button", { name: "Preview what happens to the records…" }));

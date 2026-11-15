@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { errorMessage } from "@/api/errors";
 import { Icon } from "@/ui/Icon";
 import { DownloadLink } from "@/ui/DownloadLink";
 import { RouteLink } from "@/ui/RouteLink";
@@ -23,6 +24,48 @@ type ToastTone = "success" | "info";
 
 type ShowToast = (message: string, options?: { actions?: ToastAction[]; tone?: ToastTone }) => void;
 
+/** What an Undo that could not be done says: a sentence, or one made from the refusal. */
+type UndoRefusal = string | ((cause: unknown) => string);
+
+/**
+ * `show`, and `withUndo` (SR5): a confirmation with an Undo that runs `undo` (nothing to offer when it is
+ * `undefined`). A refused Undo says `refused` (the refusal's own words by default) as news that is not a success; a
+ * done one says `undone` when a caller gives it.
+ */
+export type Toaster = ShowToast & {
+  withUndo: (message: string, undo: (() => unknown) | undefined, refused?: UndoRefusal, undone?: string) => void;
+};
+
+function toasterOf(show: ShowToast): Toaster {
+  const toaster = (message: string, options?: Parameters<ShowToast>[1]) => show(message, options);
+  toaster.withUndo = (
+    message: string,
+    undo: (() => unknown) | undefined,
+    refused: UndoRefusal = errorMessage,
+    undone?: string,
+  ) =>
+    show(
+      message,
+      undo
+        ? {
+            actions: [
+              {
+                label: "Undo",
+                onPress: () =>
+                  void Promise.resolve()
+                    .then(undo)
+                    .then(
+                      () => undone && show(undone),
+                      (cause) => show(typeof refused === "function" ? refused(cause) : refused, { tone: "info" }),
+                    ),
+              },
+            ],
+          }
+        : undefined,
+    );
+  return toaster;
+}
+
 interface ShownToast {
   id: number;
   message: string;
@@ -30,7 +73,10 @@ interface ShownToast {
   tone: ToastTone;
 }
 
-const ToastContext = createContext<ShowToast | undefined>(undefined);
+/** The last toast's id; ids only tell toasts apart. */
+let sequence = 0;
+
+const ToastContext = createContext<Toaster | undefined>(undefined);
 
 /**
  * Confirmations of a completed action, in one polite live region at the page's corner (Track U
@@ -40,18 +86,18 @@ const ToastContext = createContext<ShowToast | undefined>(undefined);
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ShownToast[]>([]);
-  const sequence = useRef(0);
   const show = useCallback<ShowToast>((message, options) => {
-    sequence.current += 1;
-    const id = sequence.current;
+    sequence += 1;
+    const id = sequence;
     setToasts((items) => [
       ...items,
       { id, message, actions: options?.actions ?? [], tone: options?.tone ?? "success" },
     ]);
   }, []);
   const dismiss = useCallback((id: number) => setToasts((items) => items.filter((item) => item.id !== id)), []);
+  const toaster = useMemo(() => toasterOf(show), [show]);
   return (
-    <ToastContext.Provider value={show}>
+    <ToastContext.Provider value={toaster}>
       {children}
       <div className="toast-region" role="status" aria-live="polite">
         {toasts.map((toast) => (
@@ -134,18 +180,18 @@ function ToastItem({ toast, onDismiss }: { toast: ShownToast; onDismiss: () => v
 }
 
 /** Shows a confirmation; needs a `ToastProvider` above. */
-export function useToast(): ShowToast {
+export function useToast(): Toaster {
   const show = useContext(ToastContext);
   if (!show) throw new Error("useToast needs a ToastProvider");
   return show;
 }
 
-const NO_TOAST: ShowToast = () => undefined;
+const NO_TOAST = toasterOf(() => undefined);
 
 /**
  * Shows a confirmation where a `ToastProvider` is above, and nothing where none is: for a control that is
  * drawn inside and outside the application frame (a field that offers Undo after it saves, 0.17 UX1).
  */
-export function useOptionalToast(): ShowToast {
+export function useOptionalToast(): Toaster {
   return useContext(ToastContext) ?? NO_TOAST;
 }

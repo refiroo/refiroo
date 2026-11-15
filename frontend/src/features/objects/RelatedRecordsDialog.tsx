@@ -14,7 +14,7 @@ import { useDataApi, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { candidateHint, candidateScope } from "@/model/candidates";
 import type { RelatedCellEdit } from "@/model/lookup";
 import type { EngineModel, ObjectItem } from "@/types";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RecordChecklist, type ChecklistRecord } from "@/ui/RecordChecklist";
 import { checklistChange, relationItems } from "./bulkRelations";
@@ -164,14 +164,7 @@ export function RelatedRecordsDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button
-            type="button"
-            className="secondary"
-            disabled={saving}
-            onClick={() => (!changes || window.confirm("Discard your unsaved changes?")) && onClose()}
-          >
-            Cancel
-          </button>
+          <CancelButton disabled={saving} />
           <button className="primary" disabled={saving || !changes}>
             {saving ? "Applying…" : "Apply"}
           </button>

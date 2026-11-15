@@ -8,9 +8,10 @@
  * sideways inside its container, the name and the actions keeping their place.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { attributeTypeFor } from "@/model/lookup";
 import { StatusPill } from "@/ui/StatusPill";
+import { useFlashSaved } from "@/ui/useFlashSaved";
 import { EditableField } from "@/features/objects/EditableField";
 import { RelationValueCell } from "@/features/objects/relations/RelationValueCell";
 import { RELATION_ATTRIBUTES_LABEL } from "@/features/objects/relations/RelationAttributes";
@@ -127,12 +128,7 @@ export function RelationMatrixCellTable({
   const [open, setOpen] = useState<{ id: string; field: string; changed: boolean }>();
   const [confirming, setConfirming] = useState<string>();
   // The relationship value saved last, for a yes/no cell's "Saved" (its cell is drawn anew by the save).
-  const [savedValue, setSavedValue] = useState<string>();
-  useEffect(() => {
-    if (!savedValue) return;
-    const timer = setTimeout(() => setSavedValue(undefined), 2500);
-    return () => clearTimeout(timer);
-  }, [savedValue]);
+  const { saved: savedValue, flash: flashSaved } = useFlashSaved<string>();
   const dirtyValues = useRef(new Set<string>());
   const dataFields = fields.filter((field) => field !== "name");
   const shown = records.filter((record) => recordMatches(record, filter));
@@ -340,7 +336,7 @@ export function RelationMatrixCellTable({
                       workspaceKey={workspaceKey}
                       saved={savedValue === `${record.relationId}:${attribute.key}`}
                       onSaved={() => {
-                        setSavedValue(`${record.relationId}:${attribute.key}`);
+                        flashSaved(`${record.relationId}:${attribute.key}`);
                         void onRefresh();
                       }}
                       floating

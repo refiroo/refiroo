@@ -223,16 +223,15 @@ export function RelationMatrixCellDialog({
             <>
               <span className="dialog-actions-spacer" />
               {!empty && (
-                <label className="matrix-cell-filter">
-                  <Icon name="search" size={14} />
-                  <input
-                    type="search"
-                    aria-label={`Filter ${cellType.pluralName.toLowerCase()}`}
-                    placeholder={`Filter ${cellType.pluralName.toLowerCase()}`}
-                    value={filter}
-                    onChange={(event) => setFilter(event.target.value)}
-                  />
-                </label>
+                <SearchField
+                  type="search"
+                  className="matrix-cell-filter"
+                  iconSize={14}
+                  label={`Filter ${cellType.pluralName.toLowerCase()}`}
+                  placeholder={`Filter ${cellType.pluralName.toLowerCase()}`}
+                  value={filter}
+                  onChange={setFilter}
+                />
               )}
               {!actions.length
                 ? !empty && <span className="muted">Read-only here</span>

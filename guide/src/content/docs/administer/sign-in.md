@@ -212,7 +212,7 @@ The following messages call for different corrections:
 | --- | --- |
 | Local sign-in stays on until an enabled sign-in provider has signed someone in, so nobody is locked out | Enable the provider and complete a successful sign-in before trying again. |
 | Local sign-in is off and this is the last person who keeps it; turn local sign-in on, or let someone else keep it first | Prepare another recovery account or turn local sign-in on before removing this route. |
-| This provider changed while the page was open. It is shown as it is now; try again. | Review the refreshed provider before applying your change. |
+| This provider changed while the page was open. It is shown as it is now; review it and choose again. | Review the refreshed provider before applying your change. |
 | Another sign-in provider has this key | Open the existing provider or choose a distinct key for a different registration. |
 
 A provider's **Disabled** state is reversible with **Enable**. Deleting an unused provider

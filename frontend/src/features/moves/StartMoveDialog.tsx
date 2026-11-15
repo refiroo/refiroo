@@ -9,7 +9,7 @@ import { useState } from "react";
 import { count, counted } from "@/lib/count";
 import type { MoveSummary } from "@/types";
 import { FormField } from "@/ui/FormField";
-import { Modal } from "@/ui/Modal";
+import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { figuresOf } from "@/model/moveRun";
 
@@ -30,7 +30,8 @@ export function StartMoveDialog({
   onClose: () => void;
   onConfirm: (changeSetName: string) => void;
 }) {
-  const [name, setName] = useState(`${summary.mode === "move" ? "Move" : "Copy"} from ${sourceLabel}`);
+  const suggested = `${summary.mode === "move" ? "Move" : "Copy"} from ${sourceLabel}`;
+  const [name, setName] = useState(suggested);
   const figures = figuresOf(summary);
   const moving = summary.mode === "move";
   const records = figures.create + figures.update;
@@ -40,6 +41,7 @@ export function StartMoveDialog({
       title={`${moving ? "Move" : "Copy"} ${counted(records, "record")} into workspace ${targetLabel}`}
       onClose={onClose}
       busy={busy}
+      dirty={name !== suggested}
     >
       <form
         className="dialog-body"
@@ -79,9 +81,7 @@ export function StartMoveDialog({
           </Notice>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" onClick={onClose} disabled={busy}>
-            Cancel
-          </button>
+          <CancelButton disabled={busy} />
           <button type="submit" className="primary" disabled={busy}>
             {busy ? "Starting…" : moving ? "Start the move" : "Start the copy"}
           </button>

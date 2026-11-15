@@ -719,6 +719,26 @@ read is `state/cachedRead` (the signed-in person, the system's static parts); pe
 stored preferences `lib/localPreference`, value coercion `lib/coerce`, the nearest scrolling ancestor
 `lib/scrollAncestor`, newest release first `model/newestFirst`. A second copy of any of these is a defect.
 
+**One component for each element (0.17 SR5).** A write with its conflict and error notices is `ui/useGuardedWrite`
+and `ui/ActionNotices` (the wording is SR-D2's); discarding unsaved input is `lib/confirmDiscard` through `Modal`'s
+`requestClose` and `CancelButton`; the activation verdict's migration block is `ui/ActivationParts`
+(`ActivationVerdict`); a job's progress is `ui/JobProgress`; a saved flash is `ui/useFlashSaved` with `ui/FlagCell`
+(Undo is `toast.withUndo`); an edit in place is `ui/EditInPlace` (`useInPlaceEdit`, `useFocusReturn`); the list of
+active and deactivated entities is `ui/EntityListPage`; a new workspace's fields are `ui/NewWorkspaceFields`; a
+workspace choice is `ui/WorkspaceField`; a person picker is `security/PickDialog`; a search box is `ui/SearchField`
+(the checklists and the filter menu included); a preview gone out of date is `ui/StalePreviewDialog` over
+`ui/ConfirmDialog` (a second action, and `dismissable={false}` for a dialog whose actions are its only choices); a
+migration's outcome cards are `ui/MigrationRows` `outcomeCardsOf`; a count or role pill is `ui/StatusPill` (sizes
+`compact` and `small`, tone `plain`); a ruled table of a settings page is `ui/SettingsTable`; bulk dialogs take
+their policy by verb from `BulkJobDialog`; repeated words are `lib/words`. A second copy of any of these is a defect.
+
+SR2 moved parts several features show (`NewMoveDialog`, `AddWorkbookDialog`, `JobNotifications`, `ImportOutcome`,
+`MigrationRows`, `OutcomeCards`, `MoveRowsTable`) into `ui/`, and SR5 added `ActivationParts`, `EntityListPage`
+and `JobProgress`. They **stay in `ui/`**: ADR-046 already names `ui/` as the home of "the parts several features
+show" (this section's table), `ui/` imports only `state`, `lib`, `model`, `api`, `types` and `routing` (the lint
+rule that holds it passes with each of them there), and a part with two or more features as users has no feature
+to own it. No new layer is needed. ADR-023's "generic wrappers" describes what `ui/` began as, not a limit on it.
+
 A part used by several features lives in the lowest layer its own imports allow; a part that is one
 feature's own and shown by another stays where it is, as a **deliberate edge**. The deliberate edges
 are `workbook-canvas` to `model-editor` (the canvas is a second view of the model editor) and to

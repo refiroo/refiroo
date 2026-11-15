@@ -31,7 +31,7 @@ import {
   LoadStep,
   stepState,
 } from "@/ui/ChangeSetLoad";
-import { activationRefusal, ReleaseIdentityFields, useReleaseIdentity } from "@/features/model-editor/InstallDialog";
+import { activationRefusal, ReleaseIdentityFields, useReleaseIdentity } from "@/ui/ActivationParts";
 import type { RunStep } from "@/features/model-editor/OperationDialog";
 import { dryRunLabel } from "@/features/model-editor/DryRunPanel";
 

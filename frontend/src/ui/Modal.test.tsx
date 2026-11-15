@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Modal } from "./Modal";
+import { CancelButton, Modal } from "./Modal";
 
 function openFrom(ui: React.ReactElement) {
   const trigger = document.createElement("button");
@@ -125,6 +125,32 @@ describe("Modal", () => {
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.keyDown(dialog, { key: "Escape", code: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CancelButton", () => {
+  it("asks the one discard question while the dialog is dirty, and not while it is clean", () => {
+    const onClose = vi.fn();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const { rerender } = render(
+      <Modal title="Typed" dirty onClose={onClose}>
+        <CancelButton />
+      </Modal>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(confirm).toHaveBeenCalledWith("Discard your unsaved changes?");
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    rerender(
+      <Modal title="Typed" onClose={onClose}>
+        <CancelButton />
+      </Modal>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(2);
+    confirm.mockRestore();
   });
 });
 
