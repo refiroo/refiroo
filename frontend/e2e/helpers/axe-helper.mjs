@@ -20,18 +20,29 @@ import AxeBuilder from "@axe-core/playwright";
  * @returns {Promise<{violations: object[], allowed: object[]}>}
  */
 export async function runAxe(page, allowlist = [], pageName) {
-  // A dialog fades in: read the colours once every animation and transition has finished.
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
-        .map((animation) => animation.finished.catch(() => undefined)),
-    ),
-  );
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
-    .analyze();
+  // A dialog fades in and a button's colours ease over 120 ms: axe reads the colours in the frame it samples, so a
+  // transition that starts while it runs (a state arriving late on a loaded machine) is read half way and fails
+  // contrast. The scan reads the settled colours: every animation and transition is switched off for its duration,
+  // so each style is its final one at once, and the page is left as it was.
+  const frozen = await page.addStyleTag({
+    content: "*, *::before, *::after { animation: none !important; transition: none !important; }",
+  });
+  let results;
+  try {
+    await page.evaluate(() =>
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+          .map((animation) => animation.finished.catch(() => undefined)),
+      ),
+    );
+    results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
+      .analyze();
+  } finally {
+    await frozen.evaluate((style) => style.remove()).catch(() => undefined);
+  }
   return partitionViolations(results.violations, allowlist, pageName);
 }
 
@@ -97,6 +108,8 @@ export function formatViolations(violations) {
       lines.push(`    Element: ${node.html.slice(0, 120)}`);
       lines.push(`    Target: ${JSON.stringify(node.target)}`);
       if (node.failureSummary) lines.push(`    ${node.failureSummary.split("\n")[0]}`);
+      // What axe measured (the ratio and both colours for contrast), so a failure says what it saw.
+      for (const check of [...node.any, ...node.all, ...node.none]) lines.push(`      ${check.message}`);
     }
     if (v.nodes.length > 3) lines.push(`    ... and ${v.nodes.length - 3} more`);
     lines.push("");

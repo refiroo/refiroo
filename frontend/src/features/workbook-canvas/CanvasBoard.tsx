@@ -684,6 +684,7 @@ export function CanvasBoard({
                 if (!line || !path) return null;
                 return (
                   <div
+                    key={line.id}
                     className="canvas-line-popover-anchor"
                     style={{
                       left: path.mid.x,

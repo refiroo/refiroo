@@ -46,9 +46,14 @@ export function useGuardedWrite() {
         await action();
         return true;
       } catch (cause) {
-        if (onConflict && isVersionConflict(cause, ["VERSION_CONFLICT"])) setConflict(await onConflict());
-        else {
-          await onRefused?.(cause);
+        // a handler that throws must not leave the person without a message
+        try {
+          if (onConflict && isVersionConflict(cause, ["VERSION_CONFLICT"])) setConflict(await onConflict());
+          else {
+            await onRefused?.(cause);
+            setError(errorMessage(cause));
+          }
+        } catch {
           setError(errorMessage(cause));
         }
         return false;

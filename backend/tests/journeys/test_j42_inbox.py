@@ -537,6 +537,62 @@ def test_the_inbox_stream_reads_a_burst_in_bounded_pages_and_loses_none(world, s
         assert len(found) == 2
 
 
+@pytest.mark.journey("J42.5")
+def test_the_inbox_stream_sends_a_notice_that_commits_long_after_a_later_one(
+    world, served, monkeypatch
+):  # noqa: F811
+    """Given the stream open and a transaction that made a notice for the caller and has not
+    committed. When a later notice commits and the stream sends it, and then, a good while after,
+    the first transaction commits, then the stream sends that notice too, once (R172-F9): the
+    lookback is the start of the oldest transaction in flight, taken from the database, not a
+    minute of the application's clock."""
+    from app.engine.notifications import inbox
+    from app.management.routers import notifications as routes
+
+    # The earlier lookback of a minute, made short: the notice below commits after it.
+    monkeypatch.setattr(routes, "RECENT_SECONDS", 0.5, raising=False)
+    stream = _Inbox(served)
+    actors = _actors(world, contributor="contributor")
+    ok(_submit(actors["contributor"], _proposal(world, actors["contributor"], "First")), 201)
+    stream.wait_for("notification", lambda body: body["kind"] == "change-set.submitted")
+    with world.api.client.app.state.session_factory() as session:
+        owner = ("client", _inbox_owner(session))
+    factory = world.api.client.app.state.session_factory
+
+    def notice(session, subject):
+        inbox.notify(
+            session,
+            [owner],
+            kind="change-set.submitted",
+            workspace_key=W1,
+            subject_kind="change-set",
+            subject_id=subject,
+            details={"changeSetName": subject},
+        )
+
+    slow = factory()
+    try:
+        notice(slow, "late-one")
+        slow.flush()
+        with factory() as quick:
+            notice(quick, "early-one")
+            quick.commit()
+        stream.wait_for(
+            "notification", lambda body: body["details"].get("changeSetName") == "early-one"
+        )
+        time.sleep(1.5)
+        slow.commit()
+    finally:
+        slow.close()
+    stream.wait_for("notification", lambda body: body["details"].get("changeSetName") == "late-one")
+    names = [
+        body["details"].get("changeSetName")
+        for name, body in stream.events
+        if name == "notification"
+    ]
+    assert names.count("late-one") == names.count("early-one") == 1
+
+
 def _inbox_owner(session) -> int:
     """The row ID of the client the harness token belongs to."""
     from sqlalchemy import text

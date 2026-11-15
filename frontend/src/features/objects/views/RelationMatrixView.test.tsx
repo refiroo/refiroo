@@ -787,6 +787,24 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
   });
 
+  it("names the scope record generically when the refusal does not say its type", async () => {
+    vi.mocked(api.updateAttribute).mockRejectedValue(
+      new ApiError(409, "DUPLICATE_RELATION_SCOPE", "A related object already exists for this ancestor scope", {
+        conflictingObjectId: "n7",
+        ancestorObjectId: "elsewhere",
+      }),
+    );
+    renderMatrix(notesView);
+    await findLoadedGrid();
+    fireEvent.click(gridCell("Connections", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
+    const form = within(dialog).getByRole("form", { name: "Edit Code" });
+    fireEvent.change(within(form).getByRole("textbox", { name: "Code" }), { target: { value: "CL-EA-2" } });
+    await act(async () => fireEvent.keyDown(within(form).getByRole("textbox", { name: "Code" }), { key: "Enter" }));
+    expect(await within(dialog).findByText(/under the same record where Active is Yes/)).toBeInTheDocument();
+  });
+
   it("flips a yes/no relationship value with one click against the relationship's version, and says Saved", async () => {
     vi.mocked(api.updateRelation).mockResolvedValue({ id: "rel-n5", version: 2, attributes: {} } as never);
     // This binding also carries a yes/no value here; the other cases keep their one number.

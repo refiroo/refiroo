@@ -243,13 +243,11 @@ describe("relationships table (0.13 RV)", () => {
     const bar = screen.getByRole("form", { name: "Change the ticked relationships" });
     fireEvent.change(within(bar).getByPlaceholderText("Value"), { target: { value: "5" } });
     const refuse = (code: string, message: string) =>
-      vi
-        .mocked(api.updateRelationBatch)
-        .mockRejectedValueOnce(
-          new ApiError(409, "RELATION_BATCH_REFUSED", "refused", {
-            items: [{ index: 0, relationId: "r1", code, message }],
-          }),
-        );
+      vi.mocked(api.updateRelationBatch).mockRejectedValueOnce(
+        new ApiError(409, "RELATION_BATCH_REFUSED", "refused", {
+          items: [{ index: 0, relationId: "r1", code, message }],
+        }),
+      );
     const set = () => act(async () => fireEvent.click(within(bar).getByRole("button", { name: "Set Weight to 5" })));
     // A message that says "changed" but is another refusal does not read the rows again.
     const reads = vi.mocked(api.relationTable).mock.calls.length;

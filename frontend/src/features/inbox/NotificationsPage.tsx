@@ -195,7 +195,7 @@ export function NotificationsPage({
             <p>
               {unreadCount} unread
               {total !== null && !narrowed && ` · ${total} in the last 90 days`}
-              {total !== null && narrowed && ` · ${counted(total, "matches", "match")}`}
+              {total !== null && narrowed && ` · ${counted(total, "match", "matches")}`}
             </p>
           </div>
           <RouteLink href={routePath(MAIL_SETTINGS)} onNavigate={() => onNavigate(MAIL_SETTINGS)}>

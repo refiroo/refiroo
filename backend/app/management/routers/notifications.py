@@ -2,9 +2,8 @@
 decisions on their requests and jobs they started that finished. For anyone signed in, a client
 included; the live stream is read with ``fetch`` and the ``Authorization`` header (D247)."""
 
-import time
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request
@@ -35,10 +34,6 @@ from ..schemas.notifications import (
 )
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["notifications"])
-
-# How long a sent notice is remembered, and how far back a read looks for one that committed late.
-RECENT_SECONDS = 60.0
-
 
 def _owner(principal: CurrentPrincipal) -> Ref:
     return (principal.kind, principal.row_id)
@@ -241,39 +236,35 @@ async def my_notification_events(
     the count after every change. Nothing is polled: the database tells the engine of each notice
     (like the job stream, D58). A comment line every 15 s keeps an idle stream open."""
     owner = _owner(principal)
-    connected = datetime.now(UTC)
-    subscription, (seen, count) = await sse.subscribe(
+    subscription, (seen, count, bound) = await sse.subscribe(
         request, inbox.principal_key(owner), _position, owner
     )
 
-    # The notices sent, by when: a notice made by a transaction that commits late has a lower ID
-    # than one already sent, so each read also lists the notices of the last minute and drops the
-    # ones it sent (the ID alone would skip it).
-    sent: dict[int, float] = {}
+    # The notices sent, with when each was made. A notice made by a transaction that commits late
+    # has a lower ID than one already sent, so each read also lists the notices made since the
+    # lookback bound the database gave at the read before (the start of the oldest transaction then
+    # in flight, ``inbox.lookback_bound``), and drops the ones it sent. A sent notice made before
+    # that bound is never listed again, so it is forgotten.
+    sent: dict[int, datetime] = {}
 
     async def stream() -> AsyncIterator[str]:
-        nonlocal seen, count, sent
+        nonlocal seen, count, sent, bound
         yield sse.frame("unread", {"unreadCount": count})
         while True:
             if not await sse.woken(subscription):
                 yield sse.KEEP_ALIVE
                 continue
             while True:
-                clock = time.monotonic()
-                sent = {key: at for key, at in sent.items() if clock - at < RECENT_SECONDS}
-                fetched, current = await run_in_threadpool(
-                    _changes,
-                    request,
-                    owner,
-                    seen,
-                    max(connected, datetime.now(UTC) - timedelta(seconds=RECENT_SECONDS)),
-                    frozenset(sent),
+                fetched, current, later = await run_in_threadpool(
+                    _changes, request, owner, seen, bound, frozenset(sent)
                 )
+                bound = later
                 new = [notice for notice in fetched if notice["sequenceId"] not in sent]
                 for notice in new:
                     seen = max(seen, notice["sequenceId"])
-                    sent[notice["sequenceId"]] = clock
+                    sent[notice["sequenceId"]] = notice["madeAt"]
                     yield sse.frame("notification", notice["body"])
+                sent = {key: made for key, made in sent.items() if made >= bound}
                 if new or current != count:
                     count = current
                     yield sse.frame("unread", {"unreadCount": count})
@@ -297,24 +288,29 @@ def get_my_notification(
     return present.notification_response(found)
 
 
-def _position(request: Request, owner: Ref) -> tuple[int, int]:
-    """The newest notice's sequence ID and the unread count: where the stream begins."""
+def _position(request: Request, owner: Ref) -> tuple[int, int, datetime]:
+    """The newest notice's sequence ID, the unread count and the lookback bound: where the stream
+    begins. The bound is taken first, so a notice a transaction now in flight makes is found."""
     with request.app.state.session_factory() as session:
-        return inbox.newest_id(session, owner), inbox.unread_count(session, owner)
+        bound = inbox.lookback_bound(session)
+        return inbox.newest_id(session, owner), inbox.unread_count(session, owner), bound
 
 
 def _changes(
     request: Request, owner: Ref, seen: int, recent_since: datetime, known: frozenset[int]
-) -> tuple[list[dict], int]:
-    """The notices after ``seen`` and those created since ``recent_since`` (each with its sequence
-    ID) and the unread count now. A stream
-    outlives any one request session, so each read opens a short session of its own."""
+) -> tuple[list[dict], int, datetime]:
+    """The notices after ``seen`` and those made since ``recent_since`` (each with its sequence ID
+    and when it was made), the unread count now, and the lookback bound for the next read, taken
+    before this one (``inbox.lookback_bound``). A stream outlives any one request session, so each
+    read opens a short session of its own."""
     with request.app.state.session_factory() as session:
+        later = inbox.lookback_bound(session)
         new = [
             {
                 "sequenceId": item.sequence_id,
+                "madeAt": item.created_at,
                 "body": present.notification_response(item).model_dump(mode="json"),
             }
             for item in inbox.after(session, owner, seen, recent_since=recent_since, known=known)
         ]
-        return new, inbox.unread_count(session, owner)
+        return new, inbox.unread_count(session, owner), later

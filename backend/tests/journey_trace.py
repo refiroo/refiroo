@@ -50,6 +50,13 @@ _EXECUTED = """
     JOIN file ON file.id = line_bits.file_id
     WHERE context.context != ''
 """
+_IMPORTED = """
+    SELECT DISTINCT file.path
+    FROM line_bits
+    JOIN context ON context.id = line_bits.context_id
+    JOIN file ON file.id = line_bits.file_id
+    WHERE context.context = ''
+"""
 _COLLECT = """
 import json, sys, pytest
 
@@ -125,17 +132,24 @@ def reach_map(starting: list[str]) -> dict[str, list[str]]:
     recorded data. A module that starts the service as a process of its own, or holds only
     ``budget`` tests, executes no app code in a recording: it is listed with none."""
     reached: dict[str, set[str]] = {module: set() for module in starting}
-    for test, files in executed_files().items():
+    executed = executed_files()
+    for test, files in executed.items():
         module = test.split("::", 1)[0]
         if module in reached:
             reached[module].update(files)
+    # Code that runs only at import (the declarations: schemas, constants) has no test context; every
+    # test module that starts the application imports it, so each reaches it (R172-F5).
+    import_only = import_time_files() - set().union(*executed.values(), set())
+    for files in reached.values():
+        files.update(import_only)
     return {module: sorted(files) for module, files in sorted(reached.items())}
 
 
 def map_problems(mapping: dict[str, list[str]], starting: set[str]) -> list[str]:
-    """What is wrong with ``mapping``: an app module or a test module that no longer exists, or a
-    test module that starts the application (``starting``) and is missing from it (checked by
-    ``tests/unit/harness/test_journey_trace.py``)."""
+    """What is wrong with ``mapping``: an app module or a test module that no longer exists, a test
+    module that starts the application (``starting``) and is missing from it, or an app module (the
+    command line tools aside) that is in no entry, which an edit to it would select no test for
+    (checked by ``tests/unit/harness/test_journey_trace.py``)."""
     found = [
         f"{test} reaches {module}, which no longer exists"
         for test, modules in mapping.items()
@@ -146,6 +160,12 @@ def map_problems(mapping: dict[str, list[str]], starting: set[str]) -> list[str]
         f"{test} no longer exists" for test in mapping if not (layout.BACKEND / test).is_file()
     ]
     found += [f"{test} is missing from the map" for test in sorted(starting - set(mapping))]
+    listed = {module for modules in mapping.values() for module in modules}
+    found += [
+        f"{module} is in no entry of the map"
+        for module in sorted(app_modules() - listed)
+        if not module.startswith("app/cli/")
+    ]
     return found
 
 
@@ -170,6 +190,23 @@ def executed_files() -> dict[str, set[str]]:
         if filename.startswith("app/") and "/migrations/" not in filename:
             executed[test].add(filename)
     return executed
+
+
+def import_time_files() -> set[str]:
+    """The app modules that executed lines outside any test (context ``''``: at import)."""
+    if not DATA.exists():
+        raise SystemExit(f"No coverage data at {DATA}. Record it: {COMMAND}, then run this again.")
+    with sqlite3.connect(DATA) as connection:
+        rows = connection.execute(_IMPORTED).fetchall()
+    found: set[str] = set()
+    for (path,) in rows:
+        try:
+            filename = Path(path).resolve().relative_to(layout.BACKEND).as_posix()
+        except ValueError:
+            continue
+        if filename.startswith("app/") and "/migrations/" not in filename:
+            found.add(filename)
+    return found
 
 
 def journey_tests() -> dict[str, list[str]]:

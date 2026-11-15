@@ -22,6 +22,17 @@ export const SHARED_LAYERS = [
 /** A change here changes how every screen looks: every accessibility and visual scenario is selected. */
 export const EVERY_PICTURE = ["src/styles", "src/styles.css"];
 
+/**
+ * The shell's frame, which every picture shows: a change to one of these files itself (not to a file they
+ * import) selects every accessibility and visual scenario, like `EVERY_PICTURE`.
+ */
+export const FRAME_FILES = [
+  "src/app/AppShell.tsx",
+  "src/app/ShellFrame.tsx",
+  "src/app/TopBar.tsx",
+  "src/app/DataContextBand.tsx",
+];
+
 const F = (name) => `src/features/${name}`;
 const [
   OBJECTS,

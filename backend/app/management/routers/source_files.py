@@ -22,6 +22,7 @@ from ...engine.sources.store import (
     store_source_file,
 )
 from ...engine.sources.store import source_file_page as read_source_files
+from ...engine.tasks.store import own_drafts_only
 from ...engine.workspaces.catalogue import load_workspace
 from ...errors import api_error
 from ...models.database import Job
@@ -32,6 +33,7 @@ from ..access import (
     AuthorizedRoute,
     CurrentPermissions,
     forbidden,
+    own_draft_only,
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
@@ -76,6 +78,7 @@ def create_source_file(
     request: Request,
     session: DbSession,
     permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
     file: Annotated[UploadFile, File(description="The XLSX workbook or CSV file")],
     payload: Annotated[
         Json[SourceFileRequest],
@@ -94,6 +97,7 @@ def create_source_file(
     ``IMPORT_MAX_BYTES``, ``422 UNSUPPORTED_FILE_FORMAT`` for a file that is neither XLSX nor CSV,
     ``404`` for an unknown owner or workspace.
     """
+    own_draft_only(session, principal, payload.owner.draftId)
     # A profile is instance-wide but its file is not: the upload needs Bulk where it is made, so it
     # supersedes no other workspace's file (0.12 E1, C2). A draft's file stays with Bulk anywhere.
     if payload.owner.profileKey is not None and not permissions.allows(
@@ -126,8 +130,11 @@ def list_source_files(
 ) -> SourceFilePage:
     """Source files, newest first: a draft's, a profile's, or all; a profile's only where the
     caller may use them (D295)."""
+    own_draft_only(session, principal, draft_id)
+    own = own_drafts_only(session, principal.row_id) if principal.kind == "client" else None
     page = read_source_files(
         session,
+        own_drafts=own,
         draft_public_id=draft_id,
         profile_key=profile_key,
         page=paging,
@@ -145,7 +152,9 @@ def get_source_file(
     permissions: CurrentPermissions,
     principal: CurrentPrincipal,
 ) -> SourceFileResponse:
-    return source_file_response(session, usable_source_file(session, source_file_id, permissions, principal))
+    return source_file_response(
+        session, usable_source_file(session, source_file_id, permissions, principal)
+    )
 
 
 @write_router.delete("/source-files/{source_file_id}", status_code=204)

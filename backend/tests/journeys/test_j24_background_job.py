@@ -271,6 +271,9 @@ def test_the_worker_waits_while_the_database_is_unreachable(world, monkeypatch, 
     line a reminder interval;
     it logs the recovery, and the job resumes and completes with every item applied once."""
     monkeypatch.setattr(worker_module, "RETRY_SECONDS", 0.05)
+    # The sweep's failure is part of the outage until the sweep works again (R172-F27), so its retry
+    # is short here, as the retry of the job loop is.
+    monkeypatch.setattr(worker_module, "SWEEP_RETRY_SECONDS", 0.2)
     monkeypatch.setattr(outage_module, "REMINDER_SECONDS", 0.3)
     job = _submit(world, _items(world, 20))
     worker = _worker("survivor")

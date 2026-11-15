@@ -706,3 +706,59 @@ def test_a_relation_type_mapping_onto_a_type_that_already_links_the_records_is_r
     for type_key in (k.cites, also):
         kept = ok(world.api.get(f"/relations/{relations[type_key]['id']}", workspaceKey=key))
         assert kept["relationTypeKey"] == type_key
+
+
+@pytest.mark.journey("J37")
+@pytest.mark.structures(*BOTH)
+def test_a_chain_of_relation_type_mappings_onto_crowded_types_is_refused_edge_by_edge(world):
+    """Given a probe citing an R under three relation types, and a release mapping the second onto
+    the first and the third onto the second (R172-F26). When previewed, then the preview completes
+    and refuses both the second and the third relationship as DUPLICATE_EDGE, each kept under its
+    own relation type, instead of failing with MIGRATION_FAILED."""
+    k = _probe(world)
+    second_key, third_key = f"{k.cites}-second", f"{k.cites}-third"
+    model = _x1(world)
+    for extra in (second_key, third_key):
+        model["relationTypes"].append(
+            {"key": extra, "reverseKey": f"{extra}--rev", "name": extra, "reverseName": extra}
+        )
+        model["objectTypeRelations"].append(
+            {
+                "relationTypeKey": extra,
+                "fromObjectTypeKey": k.kind,
+                "toObjectTypeKey": world.key("R"),
+                "cardinality": "many-to-many",
+            }
+        )
+    model["release"]["version"] += "-chain"
+    key = _on(world, world.install(model, name="Probe")["id"])
+    probe = _probe_record(world, key, "citing probe")
+    record = world.made("R", "cited record", workspace=key)
+    relations = {}
+    for type_key in (k.cites, second_key, third_key):
+        body = {
+            "relationTypeKey": type_key,
+            "fromObjectId": probe["id"],
+            "toObjectId": record["id"],
+            "attributes": {},
+        }
+        relations[type_key] = ok(world.api.post("/relations", body), 201)
+
+    target_model = copy.deepcopy(model)
+    target_model["release"]["version"] += "-next"
+    target = world.install(target_model, name="Probe")
+    job = _previewed(
+        world,
+        key,
+        target["id"],
+        relationTypeMappings=[
+            {"fromRelationTypeKey": second_key, "toRelationTypeKey": k.cites},
+            {"fromRelationTypeKey": third_key, "toRelationTypeKey": second_key},
+        ],
+    )
+    assert job["state"] == "awaiting_confirmation", job
+    rows = _rows(world, job["id"], status="refused")
+    assert sorted((row["code"], row["relationId"]) for row in rows) == sorted(
+        ("DUPLICATE_EDGE", relations[type_key]["id"]) for type_key in (second_key, third_key)
+    )
+    refused(_confirm(world, job, acceptLoss=True), 409, "MIGRATION_HAS_REFUSALS")

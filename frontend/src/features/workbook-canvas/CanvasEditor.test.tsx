@@ -522,3 +522,14 @@ describe("every kind of target has its menu on the page (canvasSurfaces)", () =>
     expect(await screen.findByRole("button", { name: "Add a consumer API" })).toBeTruthy();
   });
 });
+
+describe("a second line's popover", () => {
+  it("takes focus when another line is opened while one is open", async () => {
+    renderCanvas({ selection: { show: "canvas", element: "line", key: "relates:stores:shelf:bin" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Rule of: Area contains Shelf/ }));
+    await screen.findByRole("dialog", { name: /Rule of Area contains Shelf/ });
+    fireEvent.click(await screen.findByRole("button", { name: /Rule of: Shelf Stores Bin/ }));
+    const popover = await screen.findByRole("dialog", { name: /Rule of Shelf Stores Bin/ });
+    expect(popover.contains(document.activeElement)).toBe(true);
+  });
+});

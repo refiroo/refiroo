@@ -5,7 +5,7 @@ runs, and checking for a cancel between steps:
 
 - **read**: profile the workbook and read it by the rules (``reading.py``). A saved profile that
   still fits takes the engine's path with no AI (``design_job.py``); otherwise a session starts
-  (``agent.py``).
+  (``agent/``).
 - **design**: a session's next turn, or a saved layout's accepted file going to its dry run.
 - the worker records that dry run and calls :func:`checked`.
 """

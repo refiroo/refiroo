@@ -43,3 +43,36 @@ describe("useGuardedWrite", () => {
     expect(result.current.pending).toBe(false);
   });
 });
+
+describe("useGuardedWrite handlers that throw", () => {
+  it("still says the refusal when onRefused or onConflict throws", async () => {
+    const { result } = renderHook(() => useGuardedWrite());
+    await act(() =>
+      result.current.run(
+        async () => {
+          throw new Error("Refused");
+        },
+        {
+          onRefused: () => {
+            throw new Error("reload failed");
+          },
+        },
+      ),
+    );
+    expect(result.current.error).toBe("Refused");
+    await act(() =>
+      result.current.run(
+        async () => {
+          throw new ApiError(409, "VERSION_CONFLICT", "stale");
+        },
+        {
+          onConflict: async () => {
+            throw new Error("reload failed");
+          },
+        },
+      ),
+    );
+    expect(result.current.error).toBe("stale");
+    expect(result.current.pending).toBe(false);
+  });
+});

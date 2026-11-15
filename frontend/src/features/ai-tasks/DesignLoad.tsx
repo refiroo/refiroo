@@ -128,7 +128,7 @@ export function DesignLoad({
               className={`load-type${expanded ? " is-open" : ""}`}
               tabIndex={0}
               aria-expanded={type.examples.length > 0 ? expanded : undefined}
-              aria-label={`${label}: ${counted(type.new, "new record")}, ${counted(type.matched, "matched")}`}
+              aria-label={`${label}: ${counted(type.new, "new record")}, ${counted(type.matched, "matched", "matched")}`}
               onClick={() => type.examples.length > 0 && toggle(type.objectTypeKey)}
               onKeyDown={(event) => {
                 if (type.examples.length === 0 || (event.key !== "Enter" && event.key !== " ")) return;

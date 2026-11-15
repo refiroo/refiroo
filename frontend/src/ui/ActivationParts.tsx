@@ -18,8 +18,6 @@ export function openChangeSets(workspaceKey: string): Promise<ChangeSet[]> {
   return everyPage((cursor) => api.changeSets(workspaceKey, cursor));
 }
 
-/** The candidate releases by model, the workspace's own model first, each newest first (M6). */
-
 /** The workspace's open change sets that stay on the release it runs now (D26). */
 export function LeftBehindChangeSets({
   workspaceLabel,

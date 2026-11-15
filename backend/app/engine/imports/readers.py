@@ -127,10 +127,13 @@ class XlsxFile:
                 f"The file is not an XLSX workbook that can be read ({type(error).__name__})"
             ) from None
         self.sheet_names = list(self._book.sheetnames)
+        # Read once, here: ``reset_dimensions`` (every read of a sheet) clears the width a sheet
+        # declares, so a later ``table`` of the same sheet would see none.
+        self._declared = {name: self._book[name].max_column for name in self.sheet_names}
 
     def table(self, sheet: str | None, area: Area) -> Table | None:
         name = sheet if sheet is not None else self.sheet_names[0]
-        declared = self._book[name].max_column
+        declared = self._declared[name]
         rows = _guarded(self._rows(name, area))
         try:
             header = list(next(rows))

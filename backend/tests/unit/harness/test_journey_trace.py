@@ -34,3 +34,26 @@ def test_a_journey_and_an_api_module_start_the_application_a_pure_unit_test_does
     assert "tests/journeys/test_j02_correct.py" in starting
     assert "tests/test_api.py" in starting
     assert "tests/unit/engine/records/test_values.py" not in starting
+
+
+def test_an_app_module_in_no_entry_is_a_problem_the_command_line_tools_aside():
+    present = sorted(layout.JOURNEYS.glob("test_*.py"))
+    name = present[0].relative_to(layout.BACKEND).as_posix()
+    kept = {name: ["app/main.py"]}
+    found = journey_trace.map_problems(kept, {name})
+    assert "app/engine/identity/lookup.py is in no entry of the map" in found
+    assert not [problem for problem in found if "app/cli/" in problem]
+    everything = sorted(journey_trace.app_modules())
+    assert journey_trace.map_problems({name: everything}, {name}) == []
+
+
+def test_code_that_runs_only_at_import_is_reached_by_every_test_module_that_starts_the_app(
+    monkeypatch,
+):
+    monkeypatch.setattr(journey_trace, "executed_files", lambda: {"tests/a.py::t": {"app/x.py"}})
+    monkeypatch.setattr(journey_trace, "import_time_files", lambda: {"app/x.py", "app/schemas.py"})
+    mapping = journey_trace.reach_map(["tests/a.py", "tests/b.py"])
+    assert mapping == {
+        "tests/a.py": ["app/schemas.py", "app/x.py"],
+        "tests/b.py": ["app/schemas.py"],
+    }

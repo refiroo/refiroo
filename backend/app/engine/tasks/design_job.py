@@ -1,6 +1,6 @@
 """A task's way through the engine, beside the session (Product 0.16 AP8).
 
-A session (``agent.py``) does its own designing and loading through the API. What is here is what
+A session (``agent/``) does its own designing and loading through the API. What is here is what
 surrounds it: its next turn, the person's answers and acceptance, and the saved layout's path: a
 file a saved profile still fits gets the engine's own proposal, no AI, and after the person accepts
 one dry run of every row and the import into a new change set.

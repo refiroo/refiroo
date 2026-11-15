@@ -15,7 +15,10 @@
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
+# The terms file lives in the main checkout's .dev/, which a linked worktree does not have.
+main_root="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
 terms_file="${PRIVATE_TERMS_FILE:-$root/.dev/private-terms.txt}"
+[ -f "$terms_file" ] || terms_file="${PRIVATE_TERMS_FILE:-$main_root/.dev/private-terms.txt}"
 if [ ! -f "$terms_file" ]; then
   echo "check-private-terms: $terms_file not found; skipping the check." >&2
   exit 0

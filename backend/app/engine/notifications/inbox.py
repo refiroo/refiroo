@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
 
-from sqlalchemy import and_, delete, func, insert, or_, select, update
+from sqlalchemy import and_, delete, func, insert, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -56,8 +56,9 @@ def notify(
     subject_id: str,
     details: dict[str, Any],
 ) -> int:
-    """Put one notice in each recipient's inbox, in the caller's transaction; how many."""
-    now = datetime.now(UTC)
+    """Put one notice in each recipient's inbox, in the caller's transaction; how many. A notice is
+    made at the database's time for the transaction (``now()``, as the jobs trigger makes it), never
+    the application's clock: the stream's lookback (``lookback_bound``) relies on it."""
     rows = [
         {
             "id": str(uuid4()),
@@ -68,12 +69,11 @@ def notify(
             "subject_kind": subject_kind,
             "subject_id": subject_id,
             "details": details,
-            "created_at": now,
         }
         for principal, row_id in dict.fromkeys(recipients)
     ]
     if rows:
-        session.execute(insert(Notification), rows)
+        session.execute(insert(Notification).values(created_at=func.now()), rows)
     return len(rows)
 
 
@@ -238,6 +238,21 @@ def expire(session: Session, now: datetime) -> int:
 CATCH_UP_LIMIT = 200
 
 
+def lookback_bound(session: Session) -> datetime:
+    """The start of the oldest transaction in flight now under the engine's role, else the
+    database's time: a notice not yet visible to a reader is made by a transaction that has not
+    committed, and is created at that transaction's start or later (``notify`` and the triggers
+    make it at ``now()``), so it is created at or after this bound. A stream reads with the bound
+    of its previous read, so a notice committed late is found whatever the time between."""
+    return session.execute(
+        text(
+            "SELECT coalesce(min(xact_start), now()) FROM pg_stat_activity "
+            "WHERE datname = current_database() AND usename = current_user "
+            "AND xact_start IS NOT NULL"
+        )
+    ).scalar_one()
+
+
 def after(
     session: Session,
     found: Ref,
@@ -250,8 +265,8 @@ def after(
     """The principal's notices made after ``sequence_id``, oldest first, at most ``limit``
     (``CATCH_UP_LIMIT``) of them (the stream's read). Sequence IDs are given when a notice is
     inserted and a notice shows at its commit, so one may appear after a later one was read; with
-    ``recent_since`` the notices created since then are listed too, whatever their ID, except those
-    in ``known`` (the ones the caller has sent)."""
+    ``recent_since`` (``lookback_bound``, as of the read before) the notices created since then are
+    listed too, whatever their ID, except those in ``known`` (the ones the caller has sent)."""
     after_id = Notification.sequence_id > sequence_id
     late = (
         None

@@ -1,19 +1,18 @@
 # Project status
 
-## Unreleased after 0.17.1 — internal work (2026-11-13 and 2026-11-14)
+## 0.17.2 — released 2026-11-15
 
-Five internal packages since `v0.17.1`, none changing the application's behaviour, API or database
-([CHANGELOG](../CHANGELOG.md) "Unreleased"). **SR1:** `engine/tasks/agent.py` is now the package
-`engine/tasks/agent/` (`sandbox`, `files`, `words`, `run`, `outcome`). **SR2:** the frontend's features import
-shared state from one layer (`src/state/`, with parts several features show in `src/ui/`, `src/lib/` and
-`src/model/`), a lint rule (ADR-046) keeps features from importing each other beyond a short list of deliberate
-edges, and two import cycles are gone. **TS2:** test runs side by side on one server (databases named with a run
-ID, a volume seed cloned only when no live run holds one, the shared server stopped by the last run using it,
-`python -m tests.clean_copy` for a package's final checks). **TS3:** browser runners in lanes
-(`npm run test:lanes`), port reservation, and a backend selection holding journey or assistant tests runs with
-`-n 4` then its `-m serial` part. **TS4:** `python -m tests.affected` selects tests by what they import, with the
-checked reach map `backend/tests/reach_map.json` and each test's recorded duration giving the selection's expected
-time; `pytest-testmon` is removed. The next release is 0.15 (the interface language), the last before 1.0.
+Internal work and fixes after 0.17.1, reviewed as a release
+([R record](BASE_0_17_IMPLEMENTATION_PLAN.md#r-0172-review-and-release), [CHANGELOG \[0.17.2\]](../CHANGELOG.md)).
+**SR1** splits the assistant task into the package `engine/tasks/agent/`; **SR2** gives the frontend a shared
+state layer and an import rule (ADR-046); **SR3–SR6** leave one version of each backend step, frontend helper and
+loader, component and stylesheet rule (one API change: every stale-version write is `409 VERSION_CONFLICT`; one
+migration drops an unused database role); **FX1, FX2** fix the defects of the code reviews and of a full read of
+the large modules; **TS1–TS5** run tests side by side on one server, browser runners in lanes, select backend
+tests by what they import and browser checks by what a diff touches. The release review found 36 defects
+(R172-F1 to F36), all fixed; the heaviest: a workbook sheet declaring more columns than its header read
+columns from the wrong place on a second read, and the test selection missed tests a change needed. The next
+release is 0.15 (the interface language), the last before 1.0.
 
 ## 0.17.1 — released 2026-11-13
 

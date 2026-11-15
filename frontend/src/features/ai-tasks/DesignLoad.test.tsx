@@ -109,7 +109,7 @@ describe("DesignLoad", () => {
     expect(within(figures).getByText("existing records matched")).toBeInTheDocument();
     expect(within(figures).getByText("rows read from 2 sheets")).toBeInTheDocument();
     const table = within(card).getByRole("group", { name: "What the load does to each type" });
-    expect(within(table).getByRole("row", { name: /Country: 0 new records, 237 matched/ })).toBeInTheDocument();
+    expect(within(table).getByRole("row", { name: /Country: 0 new records, 237 matched$/ })).toBeInTheDocument();
     expect(within(table).getByText("ISO country")).toBeInTheDocument();
     expect(within(card).getByText("One name twice in one type")).toBeInTheDocument();
     expect(

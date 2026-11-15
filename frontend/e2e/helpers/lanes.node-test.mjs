@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -123,6 +123,23 @@ test("a reservation is exclusive, ends with its owner, and is taken over when th
     assert.equal(reserve(41001, directory), true);
     writeFileSync(resolve(directory, "41002"), "999999999");
     assert.equal(reserve(41002, directory), true);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a reservation file that is still empty is held, and one that stays empty is taken over", () => {
+  const directory = mkdtempSync(resolve(tmpdir(), "rdm-ports-test-"));
+  try {
+    // its owner is between creating the file and writing its process number: the port is not taken
+    writeFileSync(resolve(directory, "41003"), "");
+    assert.equal(reserve(41003, directory), false);
+    assert.equal(readFileSync(resolve(directory, "41003"), "utf8"), "");
+    // an empty file nobody fills is stale once it is old enough
+    writeFileSync(resolve(directory, "41004"), "");
+    const old = new Date(Date.now() - 60_000);
+    utimesSync(resolve(directory, "41004"), old, old);
+    assert.equal(reserve(41004, directory), true);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

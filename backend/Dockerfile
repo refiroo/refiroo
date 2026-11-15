@@ -74,7 +74,7 @@ COPY --chown=root:root --chmod=0755 backend/refiroo-session-reset /usr/local/bin
 # The engine's user may run the Claude Code binary and that script as a user of the pool and nothing else;
 # the environment is reset and only what the engine passes is kept (HOME is the session user's own).
 # The names in `env_keep` are the engine's own list (`PASSED_NAMES`, `LC_*` and `BEDROCK_NAMES` in
-# backend/app/engine/tasks/agent.py), which a unit test holds equal to this line. Mode 0440 as sudo requires.
+# backend/app/engine/tasks/agent/sandbox.py), which a unit test holds equal to this line. Mode 0440 as sudo requires.
 RUN users="$(getent passwd | cut -d: -f1 | grep -E '^assistant-[0-9]+$' | paste -sd, - | sed 's/,/, /g')" \
     && test -n "$users" \
     && printf '%s\n' \

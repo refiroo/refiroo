@@ -67,7 +67,7 @@ explains this review.
 ![Workbook proposal showing what the load does, its results by type and its notes before acceptance](/docs/screens/use-assistant-proposal.png)
 
 *Above: the workbook proposal for the Graubünden reference data, showing What the load does
-and the table of results by type. Below it, Questions marks the assumed answer, and the acceptance
+and the table of results by type. Below it, notes name the names used twice in one type, and the acceptance
 bar explains that the checked records go into a new change set. Nothing is loaded or published yet.*
 
 A words-only proposal that says **No change to the model.** uses **Accept**. It has no model

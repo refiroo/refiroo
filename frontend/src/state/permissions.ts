@@ -8,7 +8,7 @@
  * avoids offering what the engine would refuse; the engine decides.
  */
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { api } from "@/api/client";
 import { onForbidden } from "@/api/forbidden";
 import type { HeldAnywhere, MyPermissions } from "@/types";
@@ -46,6 +46,11 @@ function ensure<T>(entry: Entry<T>, read: () => Promise<T>): Promise<T> {
       changed();
     },
     () => {
+      // a failed read is not kept: the next `ensure` reads again, and the entry says only that it failed
+      if (entry.pending === pending) {
+        entry.requested = false;
+        entry.pending = undefined;
+      }
       entry.failed = true;
       changed();
     },
@@ -55,8 +60,12 @@ function ensure<T>(entry: Entry<T>, read: () => Promise<T>): Promise<T> {
 
 /** Read every permission again on its next use; what is shown stays until the new answer. */
 export function forgetPermissions() {
-  for (const entry of byWorkspace.values()) entry.requested = false;
+  for (const entry of byWorkspace.values()) {
+    entry.requested = false;
+    entry.failed = false;
+  }
   anywhere.requested = false;
+  anywhere.failed = false;
   changed();
 }
 
@@ -82,8 +91,13 @@ function entryFor(key: string) {
 export function useWorkspacePermissions(workspaceKey?: string): MyPermissions | undefined {
   const version = useSyncExternalStore(subscribe, () => generation);
   const key = workspaceKey ?? "";
+  const attempted = useRef<string | undefined>(undefined);
   useEffect(() => {
-    void ensure(entryFor(key), () => api.myPermissions(workspaceKey)).catch(() => undefined);
+    const entry = entryFor(key);
+    // this hook's own read failed: it is not repeated on every change, only when the entry is forgotten
+    if (entry.failed && attempted.current === key) return;
+    attempted.current = key;
+    void ensure(entry, () => api.myPermissions(workspaceKey)).catch(() => undefined);
   }, [key, workspaceKey, version]);
   return byWorkspace.get(key)?.value;
 }
@@ -111,7 +125,10 @@ export function usePermissionsFailed(workspaceKey?: string): boolean {
 /** Every group the person holds anywhere; `undefined` while it loads, `[]` when it cannot be read. */
 export function useHeldAnywhere(): HeldAnywhere[] | undefined {
   const version = useSyncExternalStore(subscribe, () => generation);
+  const attempted = useRef(false);
   useEffect(() => {
+    if (anywhere.failed && attempted.current) return;
+    attempted.current = true;
     void fetchHeldAnywhere().catch(() => undefined);
   }, [version]);
   return anywhere.failed && !anywhere.value ? [] : anywhere.value;

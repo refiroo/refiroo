@@ -71,7 +71,7 @@ cells hold no value; they do not by themselves mean a row was skipped.
 ![Workbook proposal showing the checked load summary, results by type, notes on names used twice and acceptance controls](/docs/screens/use-assistant-proposal.png)
 
 *Above: the workbook proposal for the Graubünden reference data, scrolled to What the load does
-and its results by type. Questions shows the assistant’s assumed answer and the other choices.
+and its results by type, with notes on names used twice in one type.
 Accept and load to change set is available; nothing has been installed or loaded.*
 
 **Questions** shows the answers the assistant assumed, only for what a person decides. Keep every choice and the answers are recorded without another turn; change a choice and use **Answer and

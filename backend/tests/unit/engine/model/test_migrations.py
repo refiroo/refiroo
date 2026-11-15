@@ -532,3 +532,20 @@ def test_what_would_stop_a_publication_becomes_refused_items_naming_their_subjec
         ("relation:r2", "CARDINALITY_EXCEEDED"),
         ("object:o3", "IDENTITY_COLLISION"),
     ]
+
+
+def test_a_refusal_without_a_record_is_stored_with_no_id_not_an_empty_one():
+    """R172-F25: the workspace migration and the change set move both unnest these columns."""
+    from app.engine.model.migrations import refusal_columns
+
+    columns = refusal_columns(
+        [
+            ("", "RULE", "", "A rule of the model"),
+            ("object:", "RULE", "", "Another"),
+            ("relation:", "RULE", "", "A relationship"),
+            ("object:o1", "RULE", "p", "A record"),
+            ("relation:r1", "RULE", "", "A relationship of a record"),
+        ]
+    )
+    assert columns["ids"] == [None, None, None, "o1", None]
+    assert columns["relations"] == [None, None, None, None, "r1"]

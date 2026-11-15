@@ -626,9 +626,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `MODEL_RELEASE_VERSION_CONFLICT` and the mapping replacement's `MAPPING_VERSION_CONFLICT` become
     # `VERSION_CONFLICT` (their reference entries go; the read's `MAPPING_VERSION_CONFLICT` stays), and
     # `VERSION_CONFLICT` states `details.currentVersion` for each.
+    # Re-baselined for R172-F24 (descriptions only): the reference error lines of the routes that name
+    # a draft or its source file (403 FORBIDDEN, 409 AI_TASK_DRAFT_HELD for an assistant's session).
+    # Re-baselined for 0.17.2: info.version only (the hash with 0.17.1 is the one above).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "111d3d4b43bc1bc9ebc54fa496eb15bf9f87b273878030b97b311c4fae59a4fa"
+        "dcdb8d264f50ef411a3552ddba31d2695c58a3f4cf014d332fbd64fcb8f248b1"
     )
 
 

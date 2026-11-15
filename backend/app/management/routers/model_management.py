@@ -53,7 +53,7 @@ from ...engine.model.releases import (
 )
 from ...engine.sources import draft_profile
 from ...engine.sources.inference import run as inference
-from ...engine.tasks.store import own_drafts_only, refuse_draft_not_its_own
+from ...engine.tasks.store import own_drafts_only
 from ...engine.workspaces.catalogue import load_workspace
 from ...errors import api_error
 from ...models.database import ModelDraft, ModelDraftOperation
@@ -64,6 +64,7 @@ from ..access import (
     AuthorizedRoute,
     CurrentPermissions,
     forbidden,
+    own_draft_only,
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession, DefaultModelSnapshot
@@ -249,6 +250,7 @@ def start_workspace_migration(
     request: Request,
     session: DbSession,
     permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
 ) -> JobResponse:
     """Preview a migration of the workspace's data to an installed release (0.11 V1).
 
@@ -273,6 +275,7 @@ def start_workspace_migration(
     Refused before a job exists: ``404 CHANGE_SET_NOT_FOUND`` (not a change set of this
     workspace), ``409 CHANGE_SET_VERSION_CONFLICT``, ``422 MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE``,
     and ``422 MIGRATION_TARGET_IS_CURRENT`` for a change set on the workspace's own release."""
+    own_draft_only(session, principal, payload.draftId)
     try:
         job = submit_migration(
             session,
@@ -322,9 +325,8 @@ def open_workspace_model_draft(
     `201` with a new one. Applying it is the draft's `installation`, then the workspace's
     `model/activation` or `model/migrations`. `404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`."""
     draft, created = workspace_draft(session, workspace_key)
-    if principal.kind == "client":
-        # An assistant's session is not given a draft that is not its own (403 FORBIDDEN).
-        refuse_draft_not_its_own(session, draft.public_id, principal.row_id)
+    # An assistant's session is not given a draft that is not its own (403 FORBIDDEN).
+    own_draft_only(session, principal, draft.public_id)
     session.commit()
     if created:
         response.status_code = status.HTTP_201_CREATED

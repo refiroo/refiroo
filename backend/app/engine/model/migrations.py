@@ -699,6 +699,11 @@ CREATE TEMPORARY TABLE migration_new_relations (
 
 _VALUE = value_json_sql("a")
 
+
+class _Repeated(str):
+    """A statement of ``_FILL`` that runs again until it changes no row."""
+
+
 _FILL = (
     # Every record of the workspace with its fate: its new type and application, or why it is
     # lost; a type the current model no longer lists anywhere is lost as a removed type.
@@ -753,8 +758,10 @@ _FILL = (
     """,
     # A relationship mapped onto a relation type that already links the same two records (or that
     # another mapped relationship reaches) would break the one-edge rule: it is refused in the plan
-    # as DUPLICATE_EDGE and stays under its own relation type, so the preview still runs.
-    """
+    # as DUPLICATE_EDGE and stays under its own relation type, so the preview still runs. A relationship
+    # kept under its own type crowds the one mapped onto that type (a chain Y; X to Y; W to X), so the
+    # statement runs again until it refuses no more (R172-F26).
+    _Repeated("""
     WITH crowded AS (
         SELECT target_relation_type_key AS relation_type_key, from_object_id, to_object_id
         FROM migration_relations WHERE lost_code IS NULL
@@ -766,7 +773,7 @@ _FILL = (
     WHERE m.lost_code IS NULL AND m.target_relation_type_key <> m.relation_type_key
         AND c.relation_type_key = m.target_relation_type_key
         AND c.from_object_id = m.from_object_id AND c.to_object_id = m.to_object_id
-    """,
+    """),
     # Each value of a staying record: carried as it is, converted, carried to another attribute,
     # or lost because it has no place or does not convert (D69).
     f"""
@@ -1525,7 +1532,14 @@ class _Migration:
         load_plan(session, self.current, self.target, Mappings.of(self.job.parameters))
         session.execute(text(_TABLES))
         for statement in _FILL:
-            session.execute(text(statement), {"workspace": self.workspace_key})
+            parameters = {"workspace": self.workspace_key}
+            if isinstance(statement, _Repeated):
+                # Each pass sends at least one more relationship back to its own type: bounded by
+                # the relationships there are.
+                while session.execute(text(statement), parameters).rowcount:
+                    pass
+            else:
+                session.execute(text(statement), parameters)
         # The tables were just filled: PostgreSQL plans the joins over them from their statistics,
         # not from a guess (0.10 R, R-F19).
         session.execute(
@@ -2214,12 +2228,14 @@ def refusal_columns(refused: list[tuple[str, str, str, str]]) -> dict[str, list[
     no path column, leaves ``paths`` out."""
     ids, codes, paths, messages = (list(column) for column in zip(*refused, strict=True))
     return {
+        # A refusal without a record is stored with no ID, never an empty one (R172-F25).
         "ids": [
-            item.removeprefix("object:") if not item.startswith("relation:") else None
+            (item.removeprefix("object:") or None) if not item.startswith("relation:") else None
             for item in ids
         ],
         "relations": [
-            item.removeprefix("relation:") if item.startswith("relation:") else None for item in ids
+            (item.removeprefix("relation:") or None) if item.startswith("relation:") else None
+            for item in ids
         ],
         "codes": codes,
         "paths": [path or None for path in paths],

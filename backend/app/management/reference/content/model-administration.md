@@ -61,6 +61,8 @@ Starts a migration of a workspace's data to another installed release and answer
 ### Errors
 
 - 403 FORBIDDEN: needs Model release here; with `changeSetId`, also Publish here
+- 403 FORBIDDEN: `draftId` is not the session's draft
+- 409 AI_TASK_DRAFT_HELD: `draftId` is a draft another task holds
 - 404 WORKSPACE_NOT_FOUND: no workspace has this key
 - 404 MODEL_RELEASE_NOT_FOUND: the target names no installed release
 - 404 CHANGE_SET_NOT_FOUND: the change set is not one of this workspace

@@ -164,7 +164,7 @@ export function ancestorTypeKeys(
   const pending = [...(objectTypeOf(outline, key)?.parents ?? [])];
   while (pending.length) {
     const next = pending.shift()!;
-    if (found.includes(next)) continue;
+    if (skip(next)) continue;
     found.push(next);
     pending.push(...(objectTypeOf(outline, next)?.parents ?? []));
   }

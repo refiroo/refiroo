@@ -99,6 +99,8 @@ def test_no_run_stops_a_server_another_run_still_uses(tmp_path, monkeypatch):
     monkeypatch.setattr(postgres_server, "STARTED_MARK", root / "started-by-harness")
     monkeypatch.setattr(postgres_server, "SOCKET_DIRECTORY", root)
     monkeypatch.setattr(postgres_server, "PORT", 55499)
+    # This run's own registration is not the one released (R172-F7).
+    monkeypatch.setattr(postgres_server, "_USE", {"connection": None})
     monkeypatch.setitem(postgres_server.SETTINGS, "unix_socket_directories", f"'{root}'")
     monkeypatch.setitem(postgres_server.SETTINGS, "port", "55499")
     monkeypatch.setattr(postgres_server, "guard", lambda *_: None)
@@ -130,7 +132,12 @@ def test_no_run_stops_a_server_another_run_still_uses(tmp_path, monkeypatch):
 def test_start_and_stop_wait_for_each_other(tmp_path, monkeypatch):
     import threading
 
+    # Nothing of the shared server is touched: stop() reads these (R172-F6).
     monkeypatch.setattr(postgres_server, "SOCKET_DIRECTORY", tmp_path)
+    monkeypatch.setattr(postgres_server, "DATA", tmp_path / "data")
+    monkeypatch.setattr(postgres_server, "STARTED_MARK", tmp_path / "started-by-harness")
+    monkeypatch.setattr(postgres_server, "PORT", 55498)
+    monkeypatch.setattr(postgres_server, "_USE", {"connection": None})
     finished = threading.Event()
 
     def stopping():

@@ -129,6 +129,25 @@ def test_a_workbook_declaring_a_wrong_dimension_is_read_whole_and_padded(tmp_pat
     workbook.close()
 
 
+def test_a_sheet_declaring_more_columns_than_its_header_keeps_that_width_on_every_read(tmp_path):
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Data"
+    sheet.append(["A", "B"])
+    sheet.append(["1", "2", None, "4"])
+    path = tmp_path / "book.source"
+    book.save(path)
+    _with_dimension(path, "A1:D2")
+    workbook = XlsxFile(path)
+    first = workbook.table("Data", Area())
+    second = workbook.table("Data", Area())
+    # A profile run reads each sheet twice; the second read still sees the declared width, so the
+    # columns a reading adds land where the plan of the first read put them.
+    assert first.header == second.header == ["A", "B", None, None]
+    assert _rows(first) == _rows(second) == [(2, ["1", "2", None, "4"])]
+    workbook.close()
+
+
 def test_a_workbook_part_that_is_not_xml_is_refused_not_a_server_error(tmp_path):
     import zipfile
 

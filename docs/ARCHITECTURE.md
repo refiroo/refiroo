@@ -697,7 +697,7 @@ through one accessible wrapper. This boundary permits a future behaviour-provide
 altering the application model or feature contracts. The module layout, as it was built, is in
 [FRONTEND_STRUCTURE_REFACTOR.md](FRONTEND_STRUCTURE_REFACTOR.md).
 
-**Import tiers (ADR-046).** `src/` has nine layers, and a layer imports only those below it:
+**Import tiers (ADR-046).** `src/` has nine layers; each imports what its row names (the lint rule enforces the `features` and `state` rows):
 
 | Layer | Holds | Imports |
 |---|---|---|
@@ -706,7 +706,7 @@ altering the application model or feature contracts. The module layout, as it wa
 | `state` | app-wide state and hooks that know no single feature: the workspace data context, permissions, system capabilities, the signed-in person (`useMe`), the followed job, the inbox, the workspace AI offer, opening a workspace | `api`, `lib`, `model`, `types`, `routing`, `state` |
 | `ui` | the RDM-owned components, and the parts several features show (the job outcomes, the workspace field, the change title) | `state`, `lib`, `model`, `api`, `types`, `routing` |
 | `lib`, `model` | browser helpers; pure functions over the model and the contracts | `api`, `types` (`model` also `lib`, and `ui` for icon names only) |
-| `api`, `types`, `routing` | the HTTP client, the contracts, the route table | each other as the contracts need |
+| `api`, `types`, `routing` | the HTTP client, the contracts, the route table | each other, and `model` and `lib` as the contracts need |
 
 **One version of each helper and loader (0.17 SR4).** Following a job is `state/useFollowedJob` (a seeded
 job, streamed-only callbacks, filters, "done" as a parameter, polls as options); every list of pages is

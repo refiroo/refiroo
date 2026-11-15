@@ -126,7 +126,7 @@ export function RelationMatrixCellDialog({
     const scope =
       details.ancestorObjectId === column.id
         ? `in ${columnLabel(column)}`
-        : `under the same ${typeName(model, details.ancestorObjectTypeKey, { lower: true })}`;
+        : `under the same ${typeName(model, details.ancestorObjectTypeKey, { lower: true }) || "record"}`;
     const condition = binding.conditionText ? ` where ${binding.conditionText}` : "";
     return `${row.row.name} already has a ${cellType.name.toLowerCase()} ${scope}${condition}, and only one may count there.`;
   }

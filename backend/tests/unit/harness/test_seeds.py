@@ -39,6 +39,14 @@ def test_a_starting_run_drops_only_the_clones_of_runs_that_ended():
             seeds.drop(database)
 
 
+def _only_these_holders(monkeypatch, *databases):
+    """The volume clones the wait sees: the test's own, whatever other runs hold on the server."""
+    real = run_ids.volume_holders
+    monkeypatch.setattr(
+        run_ids, "volume_holders", lambda names: real([n for n in names if n in databases])
+    )
+
+
 def test_a_volume_clone_waits_while_another_live_run_holds_one(monkeypatch):
     import pytest
 
@@ -53,6 +61,7 @@ def test_a_volume_clone_waits_while_another_live_run_holds_one(monkeypatch):
     with seeds.admin() as server:
         for database in (live, dead):
             server.execute(text(f'CREATE DATABASE "{database}" TEMPLATE template0'))
+    _only_these_holders(monkeypatch, live, dead)  # other runs' volume clones are not this test's
     try:
         with seeds.admin() as server, pytest.raises(TimeoutError, match="p1_"):
             seeds._wait_for_volume(server)
@@ -89,3 +98,55 @@ def test_a_browser_runners_clone_command_calls_the_seed_clone_as_it_is_defined()
     for call in calls:
         assert {keyword.arg for keyword in call.keywords} <= accepted
         assert len(call.args) <= len(accepted)
+
+
+def test_a_holder_of_the_same_run_is_waited_for_without_the_bound(monkeypatch):
+    import threading
+    import time
+
+    monkeypatch.setattr(seeds, "VOLUME_WAIT_SECONDS", 0.3)
+    monkeypatch.setattr(seeds, "VOLUME_POLL_SECONDS", 0.1)
+    own = run_ids.name(
+        "r", run_ids.current(), "v_"
+    )  # another worker of this run: not this process's
+    with seeds.admin() as server:
+        server.execute(text(f'CREATE DATABASE "{own}" TEMPLATE template0'))
+    _only_these_holders(monkeypatch, own)
+    threading.Timer(1.0, seeds.drop, args=(own,)).start()  # its module ends, after the bound
+    try:
+        started = time.monotonic()
+        with seeds.admin() as server:
+            seeds._wait_for_volume(server)
+            server.execute(
+                text("SELECT pg_advisory_unlock(hashtext(:n))"), {"n": seeds.VOLUME_LOCK}
+            )
+        assert time.monotonic() - started > 0.5
+    finally:
+        seeds.drop(own)
+
+
+def test_runs_whose_seed_inputs_differ_keep_a_template_each(monkeypatch):
+    name = "f8-check"
+    inputs = ["first"]
+    monkeypatch.setitem(
+        seeds.SEEDS, name, seeds.Seed(name, lambda _url: {"built": True}, lambda: list(inputs))
+    )
+    first = seeds.template_name(name)
+    try:
+        seeds.ensure(name)
+        inputs[:] = ["second"]  # another run, with other inputs, uses the same seed name
+        second = seeds.template_name(name)
+        assert second != first
+        seeds.ensure(name)
+        assert _exists(first) and _exists(second)
+        inputs[:] = ["first"]  # the first run's template is still current: reused, not rebuilt
+        before = len(seeds.ACTIVITY)
+        seeds.ensure(name)
+        assert seeds.ACTIVITY[before:] == [(name, "reused", 0.0)]
+        assert seeds.status(name)[0] == "current"
+    finally:
+        with seeds.admin() as server:
+            for database in (first, second):
+                seeds._drop_template(server, database)
+        with seeds._catalogue() as catalogue:
+            catalogue.execute(text("DELETE FROM seed_builds WHERE name = :n"), {"n": name})

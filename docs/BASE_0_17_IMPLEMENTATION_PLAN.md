@@ -84,7 +84,7 @@ corrects that result, and the way to import when no provider is configured.
 | [TS3](#ts3-waiting-tests-and-browser-runners-in-parallel) | TS2 | Selections with journey or assistant tests run on workers; browser runners and gates run in lanes **Delivered 2026-11-13** |
 | [TS4](#ts4-tests-chosen-by-what-they-import-with-their-expected-time) | — | The tests a change needs, chosen from what each test imports; every run records durations and states a selection's expected time first **Delivered 2026-11-14** |
 | [TS5](#ts5-fixed-waits-out-of-the-slowest-tests) | TS4 | The slowest tests wait for the event they need instead of sleeping and polling **Delivered 2026-11-14** |
-| [R 0.17.2](#r-0172-review-and-release) | FX1, FX2, SR1–SR6, TS1–TS5 | Full review since `v0.17.1`, the gates, the release |
+| [R 0.17.2](#r-0172-review-and-release) | FX1, FX2, SR1–SR6, TS1–TS5 | Full review since the released 0.17.1, the gates, the release. **Released 2026-11-15** ([record](#r-0172-review-and-release)) |
 
 **Order of 0.17.x** (proposed 2026-11-13): TS2, TS4, TS1, FX1, FX2, SR3, SR4, SR5, SR6, TS3, TS5, R 0.17.2, one
 package per session, each committed before the next starts. The three testing packages come first because every
@@ -2556,6 +2556,55 @@ sections that describe them updated (EXECUTION_GUIDE.md, TEST_HARNESS_PLAN.md ce
 
 Full review of every change since `v0.17.1`; the checks of the changed layers and both gates; version 0.17.2 in
 the places 0.17.1 changed; CHANGELOG [0.17.2] and a PROJECT_STATUS entry; the R record here.
+
+### R record (2026-11-15)
+
+**Review.** Every change since the released 0.17.1. The public `v0.17.1` tag (the repository's first public
+commit) already holds two commits made after that release (SR1 and SR2 with the removal of the example
+model's names, and a docs commit), so the review covered `history/v0.17.1..history/main` as well as
+`v0.17.1..HEAD` (17 commits). Six reviewers by area: the engine; the rest of the backend, the test harness and
+migration `20261204_01`; the frontend's shared layers; the frontend's features; browser tooling, guide, docs
+and scripts; the two folded-in commits. 34 findings, then two from the browser block and one met on the way:
+R172-F1 to F37, all fixed (CHANGELOG [0.17.2]). The heaviest: an XLSX sheet declaring more columns than its
+header lost that width after its first read, so a profile with readings put values in the wrong columns
+(F22, from FX2; a journey through the API fails without the fix); `test:changed` did not follow one feature's
+files into another feature and the shell frame selected 5 of 15 scenario groups (F1, F2); 37 app modules
+were in no entry of the backend reach map, so changing them selected no tests (F5; the map check now fails on
+such a module, and the map was re-recorded); an assistant session could store or read source files on
+another's draft named in a request body (F24). F23 (the recheck after an attribute patch or delete) has no
+test: no current rule shows the old behaviour through the API. Migration `20261204_01`: no defect.
+
+**Decided without the user** (recorded for review): F3, `test:changed` fails on an unowned `src/` path and
+lists backend paths as a note (`browser_seeds.py` selects every runner); F9, the inbox stream's lookback is the
+start of the oldest transaction in flight; F13, a volume clone held by the same run is waited for without the
+bound; F35, a record page leaves focus in a popover the reader opened while it loaded.
+
+**What ran.**
+- **Backend:** the full suite (`-n 6`, then `serial`): 9,176 passed, 1 failed (the reach map check F5 adds,
+  passing after the re-record) in 28 min 55 s, over the 11-minute ceiling (0.17.0: 23 min 44 s), on a laptop
+  another project's full suite had just loaded; serial 7 passed. Reported, not rerun. The reach map
+  re-recorded (`python -m tests.journey_trace --record --all`, 239 modules, 44 min 25 s; 2 of 3,603 failed in
+  the recording run and their module passed alone, 22); its check passes. After the version: the contract and
+  version tests (102). Ruff on changed files.
+- **Frontend:** format, lint (0 errors, 12 warnings as before), build, Vitest 2,238 in 249 files, gate helpers
+  26.
+- **Browser:** all 87 runners and both gates in 3 lanes (`test:lanes -- all`, 2,630 s): 86 passed, 3 failed.
+  `authoring-a4b-preview-layout` and one accessibility scenario passed alone; the first was a product race
+  (F35, a record page took focus from an open popover when its record arrived), the second is taken as a
+  colour transition scanned mid-way (F36, the scan now runs with transitions off and prints axe's ratio).
+  The visual gate's one difference was F14's new phone baseline, recorded in a worktree that renders text
+  differently; looked at and re-recorded here. After F35/F36: the runner alone and in 3 lanes beside two editor
+  runners, and the "model editor" accessibility scenarios, passed.
+- **Upgrade** from 0.17.1: bootstrap at 0.17.1, upgrade in 0.74 s, every table's row count unchanged, the role
+  dropped; schema equal to a clean bootstrap; `kill -9` at six moments left the old or the new revision and a
+  retry succeeded; a forced failure kept the previous revision; a copy of the development database set back a
+  revision started and upgraded (`/health` 200). Its log names a bootstrap conflict on the development
+  database's own `rdm-starter@0.10.1` (installed before 0.13's commit; the released file is unchanged since).
+- **Guide:** `npm run verify`: 259 pages, inventory, coverage, 77,222 links. Private terms: clean.
+- **Full-size budgets:** not measured.
+
+**Version.** 0.17.2 in the six places 0.17.1 changed; the OpenAPI lock re-baselined for `info.version` only
+(checked: the document with 0.17.1 hashes to the previous lock).
 
 ## Exit gate
 

@@ -389,6 +389,36 @@ def test_a_sweep_that_keeps_failing_does_not_stop_the_jobs(seeded, monkeypatch):
     assert len(sweeps) >= 2
 
 
+@pytest.mark.serial
+def test_a_sweep_that_keeps_failing_is_one_outage_not_one_error_a_round(
+    seeded, monkeypatch, caplog
+):
+    """R172-F27: a run that works between two failed sweeps did not end the sweep's outage, so
+    every retry logged a full error again and the health state flipped."""
+    sweeps = []
+
+    def failing(self, now=None):
+        sweeps.append(1)
+        raise RuntimeError("simulated sweep defect")
+
+    monkeypatch.setattr(JobWorker, "sweep", failing)
+    # Passes between two sweeps, as in service (the idle wait is shorter than the sweep's retry).
+    monkeypatch.setattr(worker_module, "SWEEP_RETRY_SECONDS", 0.2)
+    monkeypatch.setattr(worker_module, "IDLE_SECONDS", 0.02)
+    running = worker("worker-sweep-outage")
+    with caplog.at_level("INFO", logger=worker_module.logger.name):
+        running.start()
+        try:
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and len(sweeps) < 4:
+                time.sleep(0.05)
+        finally:
+            running.stop(timeout=2)
+    assert len(sweeps) >= 4
+    errors = [record for record in caplog.records if record.levelname == "ERROR"]
+    assert len(errors) == 1, [record.getMessage() for record in errors]
+
+
 def test_an_export_that_cannot_be_completed_fails_after_a_bounded_number_of_attempts(
     seeded, monkeypatch, tmp_path
 ):

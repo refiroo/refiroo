@@ -456,6 +456,13 @@ def forbidden(action: str, groups: tuple[str, ...], workspace_key: str | None) -
     )
 
 
+def own_draft_only(session: Session, principal: Principal, draft_public_id: str | None) -> None:
+    """A session uses only its own drafts, wherever a request names one: in its path, its body, its
+    query or the owner of a stored file (R172-F24). Any other caller is not asked."""
+    if draft_public_id is not None and principal.kind == "client":
+        refuse_draft_not_its_own(session, draft_public_id, principal.row_id)
+
+
 def caller_permissions(principal: Principal, session: Session) -> Permissions:
     return permissions_of(session, principal.kind, principal.row_id, principal.generation)
 
@@ -504,8 +511,8 @@ def _allowed(
             {"action": action.key, "groups": list(check.groups)},
         )
     draft_id = request.path_params.get("draft_id")
-    if draft_id is not None and principal.kind == "client":
-        refuse_draft_not_its_own(session, draft_id, principal.row_id)
+    if draft_id is not None:
+        own_draft_only(session, principal, draft_id)
     if not check.groups:
         return permissions
     if check.anywhere:

@@ -347,6 +347,14 @@ try {
     await shown(page.getByRole("heading", { name: "Domain 00" }));
     await capture(page, `narrow-record-detail-domain-${scheme}`, output);
   }
+  // A filled matrix cell's dialog at phone width: its filter stays beside the dialog's other controls (R172-F14).
+  await page.emulateMedia({ colorScheme: "light" });
+  await openTranslationMatrix(page, uiUrl);
+  await page.mouse.move(0, 0);
+  await openTranslationCell(page, "cs");
+  await capture(page, "narrow-relation-matrix-cell-light", output);
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "detached" });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ colorScheme: "light" });
 

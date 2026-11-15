@@ -236,3 +236,8 @@ def test_code_and_data_together_run_both():
 
 def test_documentation_and_frontend_select_nothing_here():
     assert affected.commands(["docs/TODO.md", "frontend/src/app/App.tsx", "README.md"]) == []
+
+
+def test_the_files_conftest_loads_select_everything_like_conftest():
+    for path in ("backend/tests/run_ids.py", "backend/tests/durations.py"):
+        assert affected.rule_for(path).selects == affected.FULL

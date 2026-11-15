@@ -213,9 +213,7 @@ def upload_format(upload: Upload) -> str:
 def load_source_file(session: Session, source_file_id: str) -> SourceFile:
     source = session.scalar(select(SourceFile).where(SourceFile.public_id == source_file_id))
     if source is None:
-        raise api_error(
-            404, "SOURCE_FILE_NOT_FOUND", f"Source file '{source_file_id}' not found"
-        )
+        raise api_error(404, "SOURCE_FILE_NOT_FOUND", f"Source file '{source_file_id}' not found")
     return source
 
 
@@ -227,13 +225,22 @@ def source_file_page(
     page: PageRequest,
     page_size: int,
     visible: Any = None,
+    own_drafts: Any = None,
 ) -> Page[SourceFile]:
     """An owner's source files, newest first; every file without an owner named. ``visible``
-    narrows the profiles' files to those the caller may use (0.12 Z2, D295)."""
+    narrows the profiles' files to those the caller may use (0.12 Z2, D295); ``own_drafts`` (a condition
+    on drafts, ``own_drafts_only``) leaves a session the files of its own drafts alone (R172-F24)."""
     # A task's file is read through its task (0.16 AP6a), not as a source file.
     statement = select(SourceFile).where(SourceFile.task_id.is_(None))
     if visible is not None:
         statement = statement.where(or_(SourceFile.profile_key.is_(None), visible))
+    if own_drafts is not None:
+        statement = statement.where(
+            or_(
+                SourceFile.draft_id.is_(None),
+                SourceFile.draft_id.in_(select(ModelDraft.id).where(own_drafts)),
+            )
+        )
     if draft_public_id is not None:
         statement = statement.join(ModelDraft, ModelDraft.id == SourceFile.draft_id).where(
             ModelDraft.public_id == draft_public_id
@@ -290,9 +297,7 @@ def _require_version(source: SourceFile, expected_version: int) -> None:
 def profile_state(session: Session, source: SourceFile) -> dict[str, object]:
     """Where the file's profile stands: ``completed`` once its sheets are stored; otherwise its
     job's state (``queued``, ``running``, ``failed``, ``cancelled``), with the job's error."""
-    ready = session.scalar(
-        select(exists().where(SourceFileSheet.source_file_id == source.id))
-    )
+    ready = session.scalar(select(exists().where(SourceFileSheet.source_file_id == source.id)))
     state: dict[str, object] = {"jobId": source.profile_job_id}
     if ready:
         return {"state": "completed", **state}

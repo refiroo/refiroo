@@ -266,7 +266,9 @@ npm --prefix frontend run test:changed -- <commit>          # the same, run in l
 
 `e2e/manifest.mjs` names the source paths each browser runner and each group of accessibility and visual
 scenarios covers; a change in `src/ui`, `src/state`, `src/lib` or `src/model` (and `api`, `routing`, `types`,
-`app`) selects the entries of every file that imports it, read from the imports. `test:changed` lists
+`app`) selects the entries of every file that imports it, read from the imports; a feature file also selects
+the other features that import it, and the shell's frame files select every scenario. A changed `src/` file
+no entry covers fails the command. `test:changed` lists
 what the diff since `<commit>` (the working tree included) selects and runs it with `test:lanes`; the two
 gates run only the selected groups (`--scenario`). A package that changes a screen is finished only when
 that screen's runners and accessibility scenarios pass and its changed screenshots are looked at and

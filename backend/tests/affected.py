@@ -96,6 +96,8 @@ RULES: tuple[Rule, ...] = (
     Rule("backend/tests/postgres_server.py", FULL, "the test server runs before the tests"),
     Rule("backend/tests/volume_fixture.py", FULL, "the volume seeds run before the tests"),
     Rule("backend/tests/conftest.py", FULL, "the harness runs around every test"),
+    Rule("backend/tests/run_ids.py", FULL, "conftest.py loads it: it runs around every test"),
+    Rule("backend/tests/durations.py", FULL, "conftest.py loads it: it runs around every test"),
     Rule("backend/tests/layout.py", FULL, "the layout rules run at collection"),
     Rule("backend/pyproject.toml", FULL, "dependencies and pytest settings"),
     Rule(
@@ -399,7 +401,13 @@ def expected_time(estimated: Estimate, serial_part: bool) -> list[str]:
 
 def main() -> None:
     since = sys.argv[1] if len(sys.argv) > 1 else None
-    paths = changed(since)
+    if since in ("-h", "--help"):
+        print(__doc__)
+        return
+    try:
+        paths = changed(since)
+    except subprocess.CalledProcessError:
+        sys.exit(f"tests.affected: {since!r} is not a commit git knows (usage: --help)")
     for path in paths:
         rule = rule_for(path)
         print(f"{path}: {rule.selects or 'nothing'} ({rule.why})")

@@ -1016,16 +1016,19 @@ class JobWorker:
         # Only the batch worker sweeps; the export worker's next sweep never comes.
         next_sweep = 0.0 if self.sweeps else float("inf")
         outage = OutageLog(logger, "The job worker", RETRY_SECONDS)
+        # Kept across passes: a pass that does not sweep, or a job that ran, does not end an outage
+        # of the sweep (R172-F27).
+        sweep_failing = False
         while not self._stopping.is_set():
             worked, wait = False, IDLE_SECONDS
-            swept = True
             if self.sweeps and time.monotonic() >= next_sweep:
                 # The sweep has a try of its own: one that keeps failing must not stop the jobs.
                 try:
                     self.sweep()
+                    sweep_failing = False
                     next_sweep = time.monotonic() + SWEEP_SECONDS
                 except Exception as exc:  # noqa: BLE001 - logged by OutageLog
-                    swept = False
+                    sweep_failing = True
                     next_sweep = time.monotonic() + SWEEP_RETRY_SECONDS
                     outage.failed(exc)
             try:
@@ -1033,7 +1036,7 @@ class JobWorker:
                 if not worked and self._leased_elsewhere_until is not None:
                     expires_in = as_utc(self._leased_elsewhere_until) - datetime.now(UTC)
                     wait = min(IDLE_SECONDS, max(0.1, expires_in.total_seconds()))
-                if swept:
+                if not sweep_failing:
                     outage.succeeded()
             except Exception as exc:  # noqa: BLE001 - every failure is logged by OutageLog
                 outage.failed(exc)

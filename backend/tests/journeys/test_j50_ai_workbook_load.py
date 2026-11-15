@@ -558,11 +558,16 @@ if config.get("api"):
         return sent.json()
     def follow(job):
         # The job's event stream: it sends the job at each change, so the wait ends when it does.
+        # timeout=120 is per read and the stream keeps alive, so the whole wait has a deadline too.
+        deadline, last = time.monotonic() + 120, None
         with httpx.stream("GET", base + "/jobs/" + job + "/events", headers=head, timeout=120) as sent:
             for line in sent.iter_lines():
-                if line.startswith("data:") and json.loads(line[5:])["state"] in (
-                        "completed", "failed", "cancelled", "expired"):
-                    return
+                if line.startswith("data:"):
+                    last = json.loads(line[5:])["state"]
+                    if last in ("completed", "failed", "cancelled", "expired"):
+                        return
+                if time.monotonic() > deadline:
+                    raise SystemExit("job " + job + " still " + str(last) + " after 120 s")
     def until(path, done, job=None):
         if job:
             follow(job)
@@ -1264,6 +1269,28 @@ def test_two_tasks_at_once_each_have_a_client_of_their_own_and_reach_only_their_
     # The draft rule (FX2): B's own draft is B's; a person's is neither's; the one the task holds is
     # the task's, whoever made it, and no other session's.
     refused(a.api.get(f"/model-drafts/{draft['id']}"), 403, "FORBIDDEN")
+    assert b.api.get(f"/model-drafts/{draft['id']}").status_code == 200
+    # The same rule on every route that names a draft or reaches its file (R172-F24): the upload
+    # naming it, the list of its files, and the file by its ID and its profile.
+    file_id = upload.json()["id"]
+    foreign = a.api.client.post(
+        "/api/v1/source-files",
+        files={"file": ("ledgers.xlsx", one.book(), XLSX)},
+        data={
+            "request": json.dumps(
+                {"owner": {"draftId": draft["id"]}, "workspaceKey": one.workspace}
+            )
+        },
+    )
+    assert foreign.status_code == 403, foreign.text
+    assert foreign.json()["error"]["code"] == "FORBIDDEN"
+    refused(a.api.get("/source-files", draftId=draft["id"]), 403, "FORBIDDEN")
+    refused(a.api.get(f"/source-files/{file_id}"), 403, "FORBIDDEN")
+    refused(a.api.get(f"/source-files/{file_id}/profile/sheets"), 403, "FORBIDDEN")
+    assert file_id not in {item["id"] for item in _all(a, "/source-files")}
+    assert file_id in {item["id"] for item in _all(b, "/source-files")}
+    assert b.api.get(f"/source-files/{file_id}").status_code == 200
+    assert b.api.get("/source-files", draftId=draft["id"]).status_code == 200
     assert b.api.get(f"/model-drafts/{draft['id']}").status_code == 200
     person = ok(world.api.post("/model-drafts", {"name": "A person's", "model": {}}), 201)
     refused(a.api.get(f"/model-drafts/{person['id']}"), 403, "FORBIDDEN")

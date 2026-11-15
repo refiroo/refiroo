@@ -233,7 +233,8 @@ export function ObjectDetail({
     if (loading || initialAction || followed) return;
     // A record chosen in the navigation rail leaves focus there, so the reader goes on browsing.
     if (focusInNavigationRail()) titleRef.current?.scrollIntoView?.({ block: "nearest" });
-    else titleRef.current?.focus();
+    // A popover the reader opened while the record loaded keeps its focus: moving it closes the popover.
+    else if (!document.activeElement?.closest(".popover")) titleRef.current?.focus();
   }, [loading, objectId, inspector, initialAction, followed]);
 
   if (loading) return <div className="page-loading">Loading record…</div>;

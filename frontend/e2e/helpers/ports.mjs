@@ -3,7 +3,7 @@
 // handed the same one. A port is therefore reserved before it is used: a file named for it, created
 // exclusively, in one folder every runner shares, holding the owner's process number. A reservation ends
 // with its owner's process; a reservation whose owner has ended is taken over.
-import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync, statSync, writeSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -23,6 +23,38 @@ export function alive(pid) {
   }
 }
 
+// A reservation file exists for a moment before its owner's process number is written into it: an empty
+// or unreadable file is a reservation being made, so it is waited for, and given up as stale only when it
+// has stayed empty for STALE_AFTER_MS.
+const EMPTY_WAIT_MS = 1000;
+const STALE_AFTER_MS = 5000;
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+/** The process number in `file`: a number, "empty" while it is being written, or "gone" when it was removed. */
+function ownerOf(file) {
+  const waitUntil = Date.now() + EMPTY_WAIT_MS;
+  for (;;) {
+    let text;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") return "gone";
+      throw error;
+    }
+    const owner = Number.parseInt(text, 10);
+    if (Number.isFinite(owner)) return owner;
+    if (Date.now() >= waitUntil) {
+      try {
+        if (Date.now() - statSync(file).mtimeMs < STALE_AFTER_MS) return "empty";
+      } catch {
+        return "gone";
+      }
+      return "stale";
+    }
+    sleep(10);
+  }
+}
+
 function release() {
   for (const port of held) rmSync(resolve(RESERVATIONS, String(port)), { force: true });
   held.clear();
@@ -32,7 +64,7 @@ function release() {
 export function reserve(port, directory = RESERVATIONS) {
   mkdirSync(directory, { recursive: true });
   const file = resolve(directory, String(port));
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const handle = openSync(file, "wx");
       writeSync(handle, String(process.pid));
@@ -47,9 +79,11 @@ export function reserve(port, directory = RESERVATIONS) {
       return true;
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
-      const owner = Number.parseInt(readFileSync(file, "utf8"), 10);
-      if (owner === process.pid || (Number.isFinite(owner) && alive(owner))) return false;
-      rmSync(file, { force: true }); // its owner has ended
+      const owner = ownerOf(file);
+      if (owner === "gone") continue; // released meanwhile: take it
+      if (owner === "empty") return false; // still being made by another process
+      if (owner !== "stale" && (owner === process.pid || alive(owner))) return false;
+      rmSync(file, { force: true }); // its owner has ended, or it never got its process number
     }
   }
   return false;

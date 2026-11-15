@@ -44,12 +44,17 @@ if "accepted" not in prompt:
     checking = api("POST", "/model-drafts/" + config["draft"] + "/dry-run",
         json={"workspaceKey": config["workspace"], "items": config["items"]})
     # The job's event stream sends it at each change: the wait ends when the check does.
+    # timeout=120 is per read and the stream keeps alive, so the whole wait has a deadline too.
+    deadline, last = time.monotonic() + 120, None
     with httpx.stream("GET", base + "/jobs/" + checking["jobId"] + "/events", headers=head,
                       timeout=120) as sent:
         for line in sent.iter_lines():
-            if line.startswith("data:") and json.loads(line[5:])["state"] in (
-                    "completed", "failed", "cancelled", "expired"):
-                break
+            if line.startswith("data:"):
+                last = json.loads(line[5:])["state"]
+                if last in ("completed", "failed", "cancelled", "expired"):
+                    break
+            if time.monotonic() > deadline:
+                raise SystemExit("job " + checking["jobId"] + " still " + str(last) + " after 120 s")
     for _ in range(300):
         found = api("GET", "/model-drafts/" + config["draft"] + "/dry-run")
         if found["state"] != "checking":

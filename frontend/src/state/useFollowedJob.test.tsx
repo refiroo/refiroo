@@ -83,4 +83,15 @@ describe("useFollowedJob", () => {
     expect(api.job).not.toHaveBeenCalled();
     expect(result.current.done).toBe(false);
   });
+
+  it("clears the error of the previous job when the id changes", async () => {
+    vi.mocked(api.job)
+      .mockRejectedValueOnce(new Error("Not found"))
+      .mockResolvedValueOnce(job("running", { id: "j2" }));
+    const { result, rerender } = renderHook(({ id }) => useFollowedJob(id), { initialProps: { id: "j1" } });
+    await waitFor(() => expect(result.current.error).toBe("Not found"));
+    rerender({ id: "j2" });
+    await waitFor(() => expect(result.current.job?.id).toBe("j2"));
+    expect(result.current.error).toBe("");
+  });
 });

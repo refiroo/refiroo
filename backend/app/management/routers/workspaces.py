@@ -33,6 +33,7 @@ from ..access import (
     AuthorizedRoute,
     CurrentPermissions,
     forbidden,
+    own_draft_only,
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
@@ -279,6 +280,7 @@ def post_workspace_from_workbook(
     request: Request,
     session: DbSession,
     permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
 ) -> JSONResponse:
     """Create a workspace from the model draft a workbook made, and load the workbook.
 
@@ -300,6 +302,7 @@ def post_workspace_from_workbook(
         raise forbidden("model.install", ("model-release", "model-install"), None)
     if not permissions.allows("bulk", None):
         raise forbidden("bulk.write", ("bulk",), None)
+    own_draft_only(session, principal, payload.draftId)
     limits = request.app.state.batch_limits
     try:
         created = create_from_workbook(

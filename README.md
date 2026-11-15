@@ -17,7 +17,7 @@ Model-driven, API-first, open source — every feature, no paid edition.
 
 <p align="center">
 <a href="LICENSE"><img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-7b8ff7"></a>
-<a href="CHANGELOG.md"><img alt="Version 0.17.1" src="https://img.shields.io/badge/version-0.17.1-8ee3c0"></a>
+<a href="CHANGELOG.md"><img alt="Version 0.17.2" src="https://img.shields.io/badge/version-0.17.2-8ee3c0"></a>
 <a href="https://claude.com/product/claude-code"><img alt="Built with Claude Code" src="https://img.shields.io/badge/built%20with-Claude%20Code-ff8a6b"></a>
 <a href="https://openai.com/codex/"><img alt="Built with ChatGPT Codex" src="https://img.shields.io/badge/built%20with-ChatGPT%20Codex-7b8ff7"></a>
 </p>
@@ -250,7 +250,7 @@ once ([mkcert](https://github.com/FiloSottile/mkcert) needed) and add `--network
 
 ## Where it stands
 
-refiroo is **0.17.1** (2026-11-13) and before 1.0. It runs with several processes and servers, has
+refiroo is **0.17.2** (2026-11-15) and before 1.0. It runs with several processes and servers, has
 rehearsed backups, and has been measured at about 110,000 records in one workspace with most reads
 within 100 ms. Since 0.12 the APIs, webhooks and sign-in change only by adding: anything replaced keeps
 working for at least 12 months and two minor releases ([compatibility](docs/COMPATIBILITY.md)). There

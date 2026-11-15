@@ -515,6 +515,101 @@ def test_a_wide_sheet_is_read_as_rows_and_repeats_from_the_saved_profile(world):
     assert len(_names(world, workspace, "term")) == 9
 
 
+def _declaring(content: bytes, reference: str) -> bytes:
+    """The workbook with its first sheet declaring ``reference`` as its dimension, as a file does
+    that has a formatted cell further right than any value."""
+    import re
+    import zipfile
+
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(content)) as old, zipfile.ZipFile(out, "w") as new:
+        for item in old.infolist():
+            data = old.read(item.filename)
+            if item.filename == "xl/worksheets/sheet1.xml":
+                data = re.sub(
+                    rb'<dimension ref="[^"]*"', f'<dimension ref="{reference}"'.encode(), data
+                )
+            new.writestr(item, data)
+    return out.getvalue()
+
+
+@pytest.mark.journey("J58.2")
+@pytest.mark.structures(*BOTH)
+def test_a_sheet_declaring_more_columns_than_its_header_fills_loads_every_value_where_it_is(world):
+    """R172-F22. Given the sheet of codes declaring eight columns while its header ends at the
+    fourth, with the language columns read as rows. When the draft is checked and loaded, and the
+    saved profile loads a next file of the same shape, then every filled cell becomes a record
+    with its own text and language, none lost or read from another column."""
+    wide = lambda rows: _declaring(_book(Terms=rows), "A1:H4")
+    draft = _draft(world, wide(TERMS))
+    key = _profile_key(world, draft)
+    _drop(
+        world,
+        draft,
+        {"kind": "addApplication", "key": "words", "name": "Words"},
+        {
+            "kind": "addObjectType",
+            "applicationKey": "words",
+            "key": "term",
+            "name": "Term",
+            "parent": None,
+        },
+        {"kind": "addAttributeType", "key": "code", "name": "Code"},
+        {"kind": "addAttributeType", "key": "language", "name": "Language"},
+        {"kind": "attachAttribute", "objectType": "term", "attributeType": "code"},
+        {"kind": "attachAttribute", "objectType": "term", "attributeType": "language"},
+        {
+            "kind": "addSource",
+            "id": "terms",
+            "sheet": "Terms",
+            "applicationKey": "words",
+            "objectType": "term",
+            "key": {"field": "name"},
+        },
+        {
+            "kind": "mapColumn",
+            "source": "terms",
+            "column": "Code",
+            "binding": {"attributeTypeKey": "code"},
+        },
+        {
+            "kind": "setUnpivot",
+            "source": "terms",
+            "columns": ["EN", "DE", "FR"],
+            "nameColumn": "Language",
+            "valueColumn": "Text",
+        },
+        {
+            "kind": "mapColumn",
+            "source": "terms",
+            "column": "Language",
+            "binding": {"attributeTypeKey": "language"},
+        },
+        {"kind": "mapColumn", "source": "terms", "column": "Text", "binding": {"field": "name"}},
+    )
+    checked = _check(world, draft)["summary"]
+    assert (checked["rows"]["total"], checked["sources"][0]["records"]["created"]) == (3, 7)
+    answer, _ = _load(world, draft, "Wide words")
+    workspace = answer["workspace"]["key"]
+    assert _names(world, workspace, "term") == [
+        "eins",
+        "one",
+        "three",
+        "trois",
+        "two",
+        "un",
+        "zwei",
+    ]
+    more = [*TERMS, ["a4", "four", "vier", None]]
+    done = _again(world, workspace, key, _declaring(_book(Terms=more), "A1:H5"))
+    assert (done["state"], done["counts"]["rejected"], done["counts"]["created"]) == (
+        "completed",
+        0,
+        2,
+    ), done["counts"]
+    assert _names(world, workspace, "term")[:2] == ["eins", "four"]
+
+
 GROUPED = [
     ["Item", "Shelf", "Quantity"],
     ["Fruit", None, None],

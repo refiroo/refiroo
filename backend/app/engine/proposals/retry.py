@@ -3,8 +3,8 @@
 Both HTTP adapters send through ``post_with_retry``. A passing failure (overloaded, rate-limited, a
 server that failed for a moment, a connection that did not open) is sent again after a wait: the
 provider's ``retry-after`` when it names one, else a delay that doubles. A request that timed out is
-never sent again: the provider may still be answering it, and a long answer sent twice is charged
-twice. A wait longer than ``MAX_WAIT_SECONDS`` is not waited for; the answer that asked for it is
+never sent again, unless it was the connection that timed out (nothing was sent): the provider may
+still be answering it, and a long answer sent twice is charged twice. A wait longer than ``MAX_WAIT_SECONDS`` is not waited for; the answer that asked for it is
 returned and the call fails as rate-limited.
 """
 
@@ -38,6 +38,12 @@ def post_with_retry(
         last = attempt + 1 == ATTEMPTS
         try:
             response = client.post(url, json=body, headers=headers)
+        except httpx.ConnectTimeout as exc:
+            # The connection never opened, so nothing was sent: sent again like a refused one.
+            if last:
+                raise ProviderError("unreachable", unreachable) from exc
+            _sleep(wait_seconds(None, attempt))
+            continue
         except httpx.TimeoutException as exc:
             raise ProviderError(
                 "unreachable", "The provider did not answer in time (AI_TIMEOUT_SECONDS)"
@@ -68,6 +74,9 @@ def wait_seconds(retry_after: str | None, attempt: int) -> float:
             except TypeError, ValueError:
                 moment = None
             if moment is not None:
+                if moment.tzinfo is None:
+                    # ``-0000`` names a date with no zone: UTC, as the HTTP date format says.
+                    moment = moment.replace(tzinfo=UTC)
                 return max(0.0, (moment - datetime.now(UTC)).total_seconds())
     return FIRST_WAIT_SECONDS * 2**attempt
 

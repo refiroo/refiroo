@@ -8,11 +8,11 @@
 // need Docker (HEAVY) are listed and not run; name them to run them.
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
-import { SCENARIOS } from "./manifest.mjs";
-import { changedSince, importGraph, select } from "./helpers/changed.mjs";
+import { RUNNERS, SCENARIOS } from "./manifest.mjs";
+import { backendChangedSince, backendEffect, changedSince, importGraph, select } from "./helpers/changed.mjs";
 import { HEAVY } from "./helpers/lanes.mjs";
 
-const frontend = resolve(import.meta.dirname, "..");
+const frontend = process.env.RDM_FRONTEND_ROOT ?? resolve(import.meta.dirname, "..");
 const argv = process.argv.slice(2);
 let commit;
 let list = false;
@@ -31,8 +31,10 @@ if (!commit) {
 
 const changed = changedSince(commit, frontend);
 const chosen = select(changed, { graph: importGraph(frontend) });
-const runners = chosen.runners.filter((name) => !HEAVY.has(name));
-const heavy = chosen.runners.filter((name) => HEAVY.has(name));
+const backend = backendEffect(backendChangedSince(commit, frontend));
+const selected = backend.everyRunner ? Object.keys(RUNNERS).sort() : chosen.runners;
+const runners = selected.filter((name) => !HEAVY.has(name));
+const heavy = selected.filter((name) => HEAVY.has(name));
 const everyGroup = chosen.groups.length === SCENARIOS.length;
 
 console.log(`${changed.length} paths changed since ${commit}.`);
@@ -41,16 +43,21 @@ if (heavy.length) console.log(`Not run, they need Docker (name them to run): ${h
 console.log(
   `Accessibility and visual scenarios (${chosen.groups.length} of ${SCENARIOS.length} groups): ${chosen.groups.join("; ") || "none"}`,
 );
-if (chosen.unowned.length)
-  console.log(
-    `Changed paths of src/ that no manifest entry covers, so nothing runs for them (add the screen that shows them to e2e/manifest.mjs), ${chosen.unowned.length}: ${chosen.unowned.slice(0, 20).join(" ")}${chosen.unowned.length > 20 ? " ..." : ""}`,
+if (backend.everyRunner) console.log("backend/tests/browser_seeds.py changed: every runner is selected.");
+if (backend.others.length) console.log(`backend changes: no runner selected by them (${backend.others.length} paths).`);
+if (chosen.unowned.length) {
+  console.error(
+    `FAILED: changed paths of src/ that no manifest entry covers, so nothing would run for them (add the screen that shows them to e2e/manifest.mjs), ${chosen.unowned.length}: ${chosen.unowned.slice(0, 20).join(" ")}${chosen.unowned.length > 20 ? " ..." : ""}`,
   );
+  process.exitCode = 1;
+}
 console.log(
   "Guide pictures are not run: retake the ones whose control, field order or label changed (EXECUTION_GUIDE).",
 );
 
 const gates = chosen.groups.length ? ["a11y", "visual"] : [];
 const names = [...runners, ...gates];
+if (chosen.unowned.length) process.exit(1);
 if (list || !names.length) process.exit(0);
 
 const args = [

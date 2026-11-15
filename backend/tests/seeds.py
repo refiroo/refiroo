@@ -38,6 +38,7 @@ import postgres_server
 import run_ids
 from sqlalchemy import URL, create_engine, text
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
@@ -116,9 +117,10 @@ def _catalogue() -> Iterator[Connection]:
         with engine.connect() as connection:
             connection.execute(
                 text(
-                    "CREATE TABLE IF NOT EXISTS seeds (name text PRIMARY KEY, fingerprint text "
+                    "CREATE TABLE IF NOT EXISTS seed_builds (name text NOT NULL, fingerprint text "
                     "NOT NULL, payload jsonb NOT NULL, built_at timestamptz NOT NULL, "
-                    "build_seconds double precision NOT NULL)"
+                    "build_seconds double precision NOT NULL, used_at timestamptz NOT NULL, "
+                    "PRIMARY KEY (name, fingerprint))"
                 )
             )
             yield connection
@@ -140,8 +142,16 @@ def _create(server: Connection, database: str, template: str) -> None:
     server.execute(text(f'CREATE DATABASE "{database}" TEMPLATE "{template}" STRATEGY FILE_COPY'))
 
 
-def template_name(name: str) -> str:
+def _legacy_template_name(name: str) -> str:
+    """The template's name before there was one per fingerprint (R172-F8); dropped when found."""
     return PREFIX + name.replace("-", "_").replace(".", "_")
+
+
+def template_name(name: str, fingerprint_of: str | None = None) -> str:
+    """The template database of seed ``name`` at a fingerprint (its current one by default): one
+    template per fingerprint, so side-by-side runs whose seed inputs differ never rebuild each
+    other's (R172-F8)."""
+    return f"{_legacy_template_name(name)}_{(fingerprint_of or fingerprint(name))[:10]}"
 
 
 # --- Using a seed --------------------------------------------------------------------------------
@@ -149,17 +159,43 @@ def template_name(name: str) -> str:
 
 def status(name: str) -> tuple[str, dict[str, Any] | None]:
     """``current``, ``stale`` or ``missing``, with the stored row when there is one."""
+    expected = fingerprint(name)
     with _catalogue() as catalogue:
         row = catalogue.execute(
-            text("SELECT fingerprint, payload, built_at, build_seconds FROM seeds WHERE name = :n"),
-            {"n": name},
+            text(
+                "SELECT fingerprint, payload, built_at, build_seconds FROM seed_builds "
+                "WHERE name = :n AND fingerprint = :f"
+            ),
+            {"n": name, "f": expected},
         ).one_or_none()
+        if row is None:
+            # Built at another fingerprint (an older one, or another run's): stale, with its row.
+            row = catalogue.execute(
+                text(
+                    "SELECT fingerprint, payload, built_at, build_seconds FROM seed_builds "
+                    "WHERE name = :n ORDER BY built_at DESC LIMIT 1"
+                ),
+                {"n": name},
+            ).one_or_none()
     with admin() as server:
-        present = _database_exists(server, template_name(name))
+        present = row is not None and _database_exists(server, template_name(name, row.fingerprint))
     if row is None or not present:
         return "missing", None
-    stored = dict(row._mapping)
-    return ("current" if row.fingerprint == fingerprint(name) else "stale"), stored
+    return ("current" if row.fingerprint == expected else "stale"), dict(row._mapping)
+
+
+@contextmanager
+def _seed_lock(name: str) -> Iterator[Connection]:
+    """The catalogue connection holding the advisory lock of seed ``name`` at its current
+    fingerprint: one builder, cloner or cleaner of that template at a time (the lock is per database,
+    so it is taken on the catalogue connection every user of it uses)."""
+    key = template_name(name)
+    with _catalogue() as catalogue:
+        catalogue.execute(text("SELECT pg_advisory_lock(hashtext(:n))"), {"n": key})
+        try:
+            yield catalogue
+        finally:
+            catalogue.execute(text("SELECT pg_advisory_unlock(hashtext(:n))"), {"n": key})
 
 
 def ensure(name: str) -> dict[str, Any]:
@@ -167,63 +203,113 @@ def ensure(name: str) -> dict[str, Any]:
     seed = SEEDS[name]
     if seed.base is not None:
         ensure(seed.base)
+    with _seed_lock(name) as catalogue:
+        return _ensure_locked(catalogue, name)
+
+
+def _ensure_locked(catalogue: Connection, name: str, record: bool = True) -> dict[str, Any]:
+    """:func:`ensure` for a caller holding the seed's lock (``record``: it counts in the summary)."""
+    seed = SEEDS[name]
     expected = fingerprint(name)
-    with _catalogue() as catalogue:
-        # One builder at a time per seed, should two runs ever share the server.
-        catalogue.execute(text("SELECT pg_advisory_lock(hashtext(:n))"), {"n": name})
-        try:
-            row = catalogue.execute(
-                text("SELECT fingerprint, payload, built_at FROM seeds WHERE name = :n"),
-                {"n": name},
-            ).one_or_none()
-            # A base rebuilt with the same inputs holds new content (a schema seed's harness client
-            # is made anew), so a seed built on it before is stale too (found in 0.12 HM1).
-            base_built = (
-                catalogue.execute(
-                    text("SELECT built_at FROM seeds WHERE name = :n"), {"n": seed.base}
-                ).scalar_one_or_none()
-                if seed.base is not None
-                else None
-            )
-            with admin() as server:
-                present = _database_exists(server, template_name(name))
-            fresh = base_built is None or (row is not None and row.built_at >= base_built)
-            if row is not None and present and row.fingerprint == expected and fresh:
-                ACTIVITY.append((name, "reused", 0.0))
-                return row.payload
-            started = time.perf_counter()
-            payload = _build(seed)
-            seconds = time.perf_counter() - started
+    target = template_name(name, expected)
+    row = catalogue.execute(
+        text("SELECT payload, built_at FROM seed_builds WHERE name = :n AND fingerprint = :f"),
+        {"n": name, "f": expected},
+    ).one_or_none()
+    # A base rebuilt with the same inputs holds new content (a schema seed's harness client
+    # is made anew), so a seed built on it before is stale too (found in 0.12 HM1).
+    base_built = (
+        catalogue.execute(
+            text("SELECT built_at FROM seed_builds WHERE name = :n AND fingerprint = :f"),
+            {"n": seed.base, "f": fingerprint(seed.base)},
+        ).scalar_one_or_none()
+        if seed.base is not None
+        else None
+    )
+    with admin() as server:
+        present = _database_exists(server, target)
+    fresh = base_built is None or (row is not None and row.built_at >= base_built)
+    if row is not None and present and fresh:
+        catalogue.execute(
+            text("UPDATE seed_builds SET used_at = now() WHERE name = :n AND fingerprint = :f"),
+            {"n": name, "f": expected},
+        )
+        if record:
+            ACTIVITY.append((name, "reused", 0.0))
+        return row.payload
+    started = time.perf_counter()
+    payload = _build(seed, expected)
+    seconds = time.perf_counter() - started
+    catalogue.execute(
+        text(
+            "INSERT INTO seed_builds VALUES (:n, :f, CAST(:p AS jsonb), :at, :s, :at) ON CONFLICT "
+            "(name, fingerprint) DO UPDATE SET payload = excluded.payload, built_at = "
+            "excluded.built_at, build_seconds = excluded.build_seconds, used_at = excluded.used_at"
+        ),
+        {"n": name, "f": expected, "p": json.dumps(payload), "at": datetime.now(UTC), "s": seconds},
+    )
+    _drop_old_templates(catalogue, name, expected)
+    if record:
+        ACTIVITY.append((name, "built", seconds))
+    return payload
+
+
+# Another fingerprint's template is kept while a run may still be cloning it, and dropped after this
+# many seconds unused: a run whose inputs differ calls ``ensure`` on each clone, which builds its own
+# again, so dropping one too early costs a rebuild and nothing else.
+OLD_TEMPLATE_SECONDS = 3600
+
+
+def _drop_template(server: Connection, database: str) -> None:
+    if _database_exists(server, database):
+        server.execute(text(f'ALTER DATABASE "{database}" IS_TEMPLATE false'))
+        _drop(server, database)
+
+
+def _try_drop_template(server: Connection, database: str) -> bool:
+    try:
+        _drop_template(server, database)
+    except DBAPIError:
+        return False
+    return True
+
+
+def _drop_old_templates(catalogue: Connection, name: str, keep: str) -> None:
+    """Drop the templates of ``name`` at other fingerprints that no run has used for
+    ``OLD_TEMPLATE_SECONDS`` (those of runs that ended), and the one named before there was one per
+    fingerprint. The caller holds the lock of the template it keeps, not of these: a drop of one a
+    run is cloning right then fails, and is left for the next build."""
+    old = (
+        catalogue.execute(
+            text(
+                "SELECT fingerprint FROM seed_builds WHERE name = :n AND fingerprint != :f "
+                "AND used_at < now() - make_interval(secs => :s)"
+            ),
+            {"n": name, "f": keep, "s": OLD_TEMPLATE_SECONDS},
+        )
+        .scalars()
+        .all()
+    )
+    with admin() as server:
+        for fingerprint_of in old:
+            if not _try_drop_template(server, template_name(name, fingerprint_of)):
+                continue  # in use right now; the next build retries
             catalogue.execute(
-                text(
-                    "INSERT INTO seeds VALUES (:n, :f, CAST(:p AS jsonb), :at, :s) ON CONFLICT "
-                    "(name) DO UPDATE SET fingerprint = excluded.fingerprint, payload = "
-                    "excluded.payload, built_at = excluded.built_at, build_seconds = "
-                    "excluded.build_seconds"
-                ),
-                {
-                    "n": name,
-                    "f": expected,
-                    "p": json.dumps(payload),
-                    "at": datetime.now(UTC),
-                    "s": seconds,
-                },
+                text("DELETE FROM seed_builds WHERE name = :n AND fingerprint = :f"),
+                {"n": name, "f": fingerprint_of},
             )
-            ACTIVITY.append((name, "built", seconds))
-            return payload
-        finally:
-            catalogue.execute(text("SELECT pg_advisory_unlock(hashtext(:n))"), {"n": name})
+        _try_drop_template(server, _legacy_template_name(name))
 
 
-def _build(seed: Seed) -> dict[str, Any]:
-    target = template_name(seed.name)
+def _build(seed: Seed, expected: str) -> dict[str, Any]:
+    target = template_name(seed.name, expected)
     building = target + "__build"
     with admin() as server:
         _drop(server, building)
         if seed.base is None:
             server.execute(text(f'CREATE DATABASE "{building}" TEMPLATE template0'))
         else:
-            _create(server, building, template_name(seed.base))
+            _create(server, building, template_name(seed.base, fingerprint(seed.base)))
     try:
         payload = seed.build(postgres_server.url(building))
     except BaseException:
@@ -231,9 +317,7 @@ def _build(seed: Seed) -> dict[str, Any]:
             _drop(server, building)
         raise
     with admin() as server:
-        if _database_exists(server, target):
-            server.execute(text(f'ALTER DATABASE "{target}" IS_TEMPLATE false'))
-            _drop(server, target)
+        _drop_template(server, target)
         server.execute(text(f'ALTER DATABASE "{building}" RENAME TO "{target}"'))
         server.execute(text(f'ALTER DATABASE "{target}" IS_TEMPLATE true'))
     return payload
@@ -254,7 +338,8 @@ def _is_volume(name: str) -> bool:
 
 
 def _wait_for_volume(server: Connection) -> None:
-    """Return holding the volume lock on ``server`` once no other live run holds a volume clone."""
+    """Return holding the volume lock on ``server`` once no other live run holds a volume clone.
+    Another run's holder is waited for ``VOLUME_WAIT_SECONDS``; a holder of this run, as long as it holds."""
     deadline = time.monotonic() + VOLUME_WAIT_SECONDS
     told = False
     while True:
@@ -267,7 +352,11 @@ def _wait_for_volume(server: Connection) -> None:
         if not holders or _VOLUME_HELD:
             return
         server.execute(text("SELECT pg_advisory_unlock(hashtext(:n))"), {"n": VOLUME_LOCK})
-        if time.monotonic() > deadline:
+        # A holder of this same run (another ``-n`` worker's module-scoped clone) ends with its
+        # module, so it is waited for without the bound; the bound is for another run's holder.
+        foreign = [h for h in holders if run_ids.run_of(h) != run_ids.current()]
+        if foreign and time.monotonic() > deadline:
+            holders = foreign
             raise TimeoutError(
                 f"A volume seed clone of run {run_ids.run_of(holders[0])} still exists after "
                 f"{VOLUME_WAIT_SECONDS} s; only one volume copy exists at a time."
@@ -296,7 +385,11 @@ def clone(name: str, database: str | None = None) -> URL:
             _wait_for_volume(server)
         try:
             _drop(server, database)
-            _create(server, database, template_name(name))
+            # Under the seed's lock (the template is current and not being rebuilt or dropped while
+            # it is copied), taken after the volume lock so a wait for it never holds this one (F8).
+            with _seed_lock(name) as catalogue:
+                _ensure_locked(catalogue, name, record=False)
+                _create(server, database, template_name(name))
             if volume:
                 _VOLUME_HELD.add(database)
         finally:

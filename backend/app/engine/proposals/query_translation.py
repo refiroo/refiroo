@@ -48,7 +48,7 @@ from .context import Policy
 from .provider import ProposalRequest
 from .registry import AiConfiguration
 
-PROMPT_VERSION = "query-translation/2"
+PROMPT_VERSION = "query-translation/3"
 # The longest question the route takes.
 MAX_QUESTION = 500
 # Stamps every record carries, offered on a live list without being declared (AG-D33).

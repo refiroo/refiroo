@@ -14,6 +14,8 @@ Stores a workbook or CSV file for a model draft or an import profile and queues 
 ### Errors
 
 - 403 FORBIDDEN: needs Bulk and import, for a profile's file in the workspace
+- 403 FORBIDDEN: `owner.draftId` is not the session's draft
+- 409 AI_TASK_DRAFT_HELD: `owner.draftId` is a draft another task holds
 - 404 WORKSPACE_NOT_FOUND: `workspaceKey` names no workspace
 - 404 MODEL_DRAFT_NOT_FOUND: `owner.draftId` names no draft
 - 404 IMPORT_PROFILE_NOT_FOUND: `owner.profileKey` names no profile
@@ -37,6 +39,8 @@ Lists stored files, newest first: all of them, a draft's, or a profile's. A prof
 ### Errors
 
 - 403 FORBIDDEN: needs Bulk and import in some workspace
+- 403 FORBIDDEN: `draftId` is not the session's draft
+- 409 AI_TASK_DRAFT_HELD: `draftId` is a draft another task holds
 - 422 REQUEST_VALIDATION_ERROR: a parameter is invalid
 - 422 INVALID_CURSOR: the cursor belongs to other filters or another list
 - 422 CONFLICTING_PAGE_PARAMETERS: more than one way to select a page
@@ -54,7 +58,8 @@ Reads a stored file with the state of its profile. Follow `profile.jobId` until 
 
 ### Errors
 
-- 403 FORBIDDEN: the file is a profile's and the caller may not use it
+- 403 FORBIDDEN: a profile's file you may not use, or a foreign draft's
+- 409 AI_TASK_DRAFT_HELD: the file belongs to a draft another task holds
 - 404 SOURCE_FILE_NOT_FOUND: no source file has this ID
 
 ## DELETE /api/v1/source-files/{source_file_id}
@@ -70,7 +75,8 @@ Deletes the file with its staged cells and profile, at `expectedVersion`. Jobs s
 
 ### Errors
 
-- 403 FORBIDDEN: the file is a profile's and the caller may not use it
+- 403 FORBIDDEN: a profile's file you may not use, or a foreign draft's
+- 409 AI_TASK_DRAFT_HELD: the file belongs to a draft another task holds
 - 404 SOURCE_FILE_NOT_FOUND: no source file has this ID
 - 409 VERSION_CONFLICT: `expectedVersion` is not current
 - 422 REQUEST_VALIDATION_ERROR: `expectedVersion` is missing
@@ -88,7 +94,8 @@ Lists the file's sheets in workbook order, each with its blocks: runs of columns
 
 ### Errors
 
-- 403 FORBIDDEN: the file is a profile's and the caller may not use it
+- 403 FORBIDDEN: a profile's file you may not use, or a foreign draft's
+- 409 AI_TASK_DRAFT_HELD: the file belongs to a draft another task holds
 - 404 SOURCE_FILE_NOT_FOUND: no source file has this ID
 - 409 SOURCE_FILE_PROFILE_NOT_READY: the profile is not stored yet
 - 422 REQUEST_VALIDATION_ERROR: a parameter is invalid
@@ -110,7 +117,8 @@ Lists a sheet's columns, block by block and in column order, with what helps to 
 
 ### Errors
 
-- 403 FORBIDDEN: the file is a profile's and the caller may not use it
+- 403 FORBIDDEN: a profile's file you may not use, or a foreign draft's
+- 409 AI_TASK_DRAFT_HELD: the file belongs to a draft another task holds
 - 404 SOURCE_FILE_NOT_FOUND: no source file has this ID
 - 404 SOURCE_SHEET_NOT_FOUND: the file has no such sheet
 - 409 SOURCE_FILE_PROFILE_NOT_READY: the profile is not stored yet
@@ -133,7 +141,8 @@ Lists the rows of a rectangle that hold a cell, in row order, each cell as an im
 
 ### Errors
 
-- 403 FORBIDDEN: the file is a profile's and the caller may not use it
+- 403 FORBIDDEN: a profile's file you may not use, or a foreign draft's
+- 409 AI_TASK_DRAFT_HELD: the file belongs to a draft another task holds
 - 404 SOURCE_FILE_NOT_FOUND: no source file has this ID
 - 404 SOURCE_SHEET_NOT_FOUND: the file has no such sheet
 - 409 SOURCE_FILE_PROFILE_NOT_READY: the profile is not stored yet

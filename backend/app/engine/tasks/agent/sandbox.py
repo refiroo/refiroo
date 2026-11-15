@@ -433,7 +433,7 @@ def safeguards(url: str, folder: Path) -> list[str]:
 
 # Of the server's environment, only what Claude Code itself needs, by name: never its database or
 # secrets (0.17 RF5). The same names, with ``LC_*`` and the Bedrock names, are the sudoers rule's
-# ``env_keep`` in ``backend/Dockerfile``; ``tests/unit/engine/tasks/test_agent.py`` holds the two equal.
+# ``env_keep`` in ``backend/Dockerfile``; ``tests/unit/engine/tasks/agent/test_sandbox.py`` holds the two equal.
 PASSED_NAMES = (
     "REFIROO_TOKEN",
     "LANG",

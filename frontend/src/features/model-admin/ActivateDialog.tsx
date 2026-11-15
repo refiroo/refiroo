@@ -35,6 +35,7 @@ type Check =
   | { key: string; state: "ready"; diff: ModelReleaseDiff; leftBehind: ChangeSet[] }
   | { key: string; state: "error"; message: string };
 
+/** The candidate releases by model, the workspace's own model first, each newest first (M6). */
 function groupedCandidates(candidates: ModelReleaseSummary[], ownModelKey: string | undefined) {
   const models = releasesByModel(candidates);
   return [

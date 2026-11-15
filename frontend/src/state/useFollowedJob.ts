@@ -72,7 +72,9 @@ export interface FollowedJob {
 export function useFollowedJob(jobId: string | undefined, options: FollowOptions = {}): FollowedJob {
   const keep = options.keep !== false;
   const [job, setJob] = useState<Job | undefined>(options.seed);
-  const [error, setError] = useState("");
+  // the failed read is kept with the id it was for, so another id starts without it
+  const [failure, setFailure] = useState<{ id: string; message: string }>();
+  const error = failure && failure.id === jobId ? failure.message : "";
   const [attempt, setAttempt] = useState(0);
   const latest = useRef(options);
   useEffect(() => {
@@ -90,7 +92,7 @@ export function useFollowedJob(jobId: string | undefined, options: FollowOptions
     let active = true;
     api.job(jobId).then(
       (loaded) => active && setJob(loaded),
-      (cause) => active && setError(errorMessage(cause)),
+      (cause) => active && setFailure({ id: jobId, message: errorMessage(cause) }),
     );
     return () => {
       active = false;
@@ -131,7 +133,7 @@ export function useFollowedJob(jobId: string | undefined, options: FollowOptions
     setJob,
     error,
     reload: () => {
-      setError("");
+      setFailure(undefined);
       setAttempt((value) => value + 1);
     },
     done,

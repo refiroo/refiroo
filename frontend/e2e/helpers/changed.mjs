@@ -5,7 +5,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
-import { EVERY_PICTURE, RUNNERS, SCENARIOS, SHARED_LAYERS } from "../manifest.mjs";
+import { EVERY_PICTURE, FRAME_FILES, RUNNERS, SCENARIOS, SHARED_LAYERS } from "../manifest.mjs";
 import { catalogue } from "./lanes.mjs";
 import { groupOf } from "./scenarios.mjs";
 
@@ -52,12 +52,15 @@ export function importGraph(root) {
 }
 
 const under = (path, base) => path === base || path.startsWith(`${base}/`);
+/** The feature folder a file lies in (`src/features/<name>`), or undefined. */
+const featureOf = (path) => /^src\/features\/[^/]+/.exec(path)?.[0];
 const isShared = (path, shared) => shared.some((layer) => under(path, layer));
 
 /**
- * Every file whose behaviour includes `changed`'s: the file itself and, for a file in a shared layer, the
- * files importing it, through other shared files (a file outside the layers is reached but not followed).
- * Files under `e2e/` follow every importer.
+ * Every file whose behaviour includes `changed`'s: the file itself, the files importing it when it lies in a
+ * shared layer, and, when it lies in a feature folder, the importers outside that folder (another feature
+ * showing it, e.g. a dialog of one feature opened from another). Any other file outside the layers is
+ * reached but not followed. Files under `e2e/` follow every importer.
  */
 export function reached(changed, graph, shared = SHARED_LAYERS) {
   const importers = new Map();
@@ -67,9 +70,12 @@ export function reached(changed, graph, shared = SHARED_LAYERS) {
   const queue = [changed];
   while (queue.length) {
     const file = queue.pop();
-    if (file.startsWith("src/") && !isShared(file, shared)) continue;
+    const own = featureOf(file);
+    if (file.startsWith("src/") && !isShared(file, shared) && !own) continue;
     for (const importer of importers.get(file) ?? []) {
       if (seen.has(importer)) continue;
+      // a feature's file is followed out only into other features, never into the shell that mounts it
+      if (own && !isShared(file, shared) && (!featureOf(importer) || featureOf(importer) === own)) continue;
       seen.add(importer);
       queue.push(importer);
     }
@@ -92,6 +98,7 @@ export function select(
     runners = RUNNERS,
     scenarios = SCENARIOS,
     everyPicture = EVERY_PICTURE,
+    frame = FRAME_FILES,
     shared = SHARED_LAYERS,
     gates = ["a11y", "visual"],
   },
@@ -107,8 +114,12 @@ export function select(
     for (const [name, paths] of Object.entries(runners))
       if (touches(files, [...paths, `e2e/${name}.mjs`])) hit.runners.push(name);
     for (const entry of scenarios) if (touches(files, entry.paths)) hit.groups.push(entry.group);
-    // a change to how everything looks, or to a gate or a helper the gates import, selects every scenario
-    if (touches(files, everyPicture) || Object.values(gateFiles).some((gate) => files.has(gate)))
+    // a change to how everything looks (the styles, the shell's frame files), or to a gate or a helper the gates import, selects every scenario
+    if (
+      touches(files, everyPicture) ||
+      frame.includes(file) ||
+      Object.values(gateFiles).some((gate) => files.has(gate))
+    )
       hit.groups.push(...scenarios.map((entry) => entry.group));
     // a baseline picture changed by hand selects its own scenario
     const picture = /^e2e\/baselines\/(.+)\.png$/.exec(file);
@@ -135,6 +146,28 @@ export function changedSince(commit, cwd) {
   ]);
   // a deleted file selects nothing: whatever imported it changed too
   return [...files].filter((file) => existsSync(resolve(cwd, file)));
+}
+
+/** The paths under `backend/` that differ from `commit` in the working tree and still exist, relative to the repository root. */
+export function backendChangedSince(commit, cwd) {
+  const run = (...args) =>
+    execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
+      .split("\n")
+      .filter(Boolean);
+  const root = run("rev-parse", "--show-toplevel")[0];
+  const files = new Set([
+    ...run("diff", "--name-only", commit, "--", ":/backend"),
+    ...run("ls-files", "--others", "--exclude-standard", "--full-name", ":/backend"),
+  ]);
+  return [...files].filter((file) => existsSync(resolve(root, file)));
+}
+
+/** The seeds the runners share: a change to them can change every screen's data, so every runner is selected. */
+export const BROWSER_SEEDS = "backend/tests/browser_seeds.py";
+
+/** What changed backend paths mean for the browser runners: every runner (the shared seeds), or a note only. */
+export function backendEffect(paths) {
+  return { everyRunner: paths.includes(BROWSER_SEEDS), others: paths.filter((path) => path !== BROWSER_SEEDS) };
 }
 
 /** The runners of the catalogue the manifest has no entry for, and the entries naming no runner. */

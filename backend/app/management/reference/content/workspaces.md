@@ -56,7 +56,7 @@ Turns a workbook's model draft into a running workspace in one step: the draft i
 
 ### Errors
 
-- 403 FORBIDDEN: a group is missing; `details.groups` names it
+- 403 FORBIDDEN: a group is missing (`details.groups`); or the draft is not the session's
 - 404 MODEL_DRAFT_NOT_FOUND: no draft has this ID
 - 405 HTTP_ERROR: workspace administration, model administration or integration jobs are switched off
 - 409 VERSION_CONFLICT: the draft changed, or the same request was sent twice

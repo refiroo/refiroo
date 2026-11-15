@@ -29,8 +29,10 @@ instead.
 
 Databases come from **seeds built once and reused** (`tests/seeds.py`): template databases on that
 server with a fingerprint of what built them (the migrations; for the volume fixture also the volume
-model, the fixture code it calls and the shape). A matching seed is reused; a changed input rebuilds
-that seed once, and the next run reuses it. Tests get clones (`CREATE DATABASE … TEMPLATE`, about
+model, the fixture code it calls and the shape). A matching seed is reused; a changed input builds
+that seed once (the template is named per fingerprint, `seed_<name>_<fingerprint>`, so runs whose
+inputs differ never rebuild each other's; other fingerprints unused for an hour are dropped), and
+the next run reuses it. Tests get clones (`CREATE DATABASE … TEMPLATE`, about
 90 ms): the session database the modules importing `app.main.app` share, each `migrated_database()`
 and each `volume_fixture.volume_app(directory, shape)`. The end of a run names every seed it used as
 `reused` or `built`, with the build time.
@@ -46,11 +48,12 @@ process number and the time the process started (`tests/run_ids.py`); a `-n` run
 controller's ID. A starting run drops the clones of runs whose process has ended and never those of a
 run still alive, so a reused process number is not mistaken for a live run. A browser runner's clones
 use the same scheme (`r_p<pid>_<start>_…`, owned by the runner that started `browser_seeds.py`). Seeds
-rebuild under their advisory lock, one builder at a time. A test cloning a **volume seed** (up to 3.9 GB)
+build and clone under their advisory lock, one at a time. A test cloning a **volume seed** (up to 3.9 GB)
 is made only when no volume clone of a live run exists (under a short advisory lock; the clone's
 name, `…_v_…`, says it is one and whose; an ended run's clone is dropped, so it counts as free), so
-two copies never exist together; a waiting run retries for up to 30 minutes and names the run it
-waits for. The rule is the same for a browser runner's volume clone, which outlives the command that
+two copies never exist together; a waiting run retries for up to 30 minutes for another run's clone
+(for a clone of its own run, another `-n` worker's, as long as it is held: it ends with its module)
+and names the run it waits for. The rule is the same for a browser runner's volume clone, which outlives the command that
 made it. The server stays up while any run uses it: starting and stopping it are one at a time (a file
 lock in the data folder), a start registers its use before it lets go, and the last run to end stops a
 server the harness started.
@@ -185,8 +188,9 @@ cd backend && .venv/bin/python -m tests.affected                   # what the ch
   journeys and older modules alike). A selection holding such a module runs on four workers. The map is recorded with Coverage.py, one context per test, on the C
   tracer (`COVERAGE_CORE=ctrace`, set by the recording run only: Python 3.14's default
   `sys.monitoring` core lost the code that runs in the TestClient's request threads). A harness
-  test fails when the map names an app module or test module that no longer exists or lacks a
-  test module that starts the application, and says the command that regenerates it. A module
+  test fails when the map names an app module or test module that no longer exists, lacks a
+  test module that starts the application or lacks an app module (the command line tools aside;
+  code that runs only at import counts as reached by every such test module), and says the command that regenerates it. A module
   that starts the service as a process of its own, or holds only `budget` tests, is listed with no
   code and an app change does not select it (`tests.affected` says so). With no map every module
   that starts the application is selected. A data file under `app/` or
@@ -484,12 +488,17 @@ npm run test:changed -- <commit> --update-baselines --changed-only   # re-record
   `src/routing`, `src/types` and the shell `src/app`) are not named by entries. A change in one selects the
   entries of every file that imports it, directly or through other shared files, read from the imports of
   `src/` (`helpers/changed.mjs`, `importGraph` and `reached`), so no list of importers is kept. A change in
-  any other path selects the entries naming it. A style (`src/styles*`) selects every scenario. A changed
+  a feature file also selects the entries of the other features that import it (a dialog of one feature
+  opened from another), but not the shell that mounts the features. A change in any other path selects the
+  entries naming it. A style (`src/styles*`) and the shell's frame files (`FRAME_FILES`: `AppShell`,
+  `ShellFrame`, `TopBar`, `DataContextBand`, which every picture shows) select every scenario. A changed
   file under `e2e/` selects the runners and gates importing it, and a changed baseline its own scenario.
   Test files select nothing here (Vitest owns them).
 - **Not run:** the two Docker runners (`i3-real-provider`, `dp3-deployment`) are listed and run only when
-  named; a changed `src/` file that no entry covers is printed, because nothing would run for it: add the
-  screen that shows it to the manifest.
+  named. A changed `src/` file that no entry covers fails the command (exit code 1, the files named),
+  because nothing would run for it: add the screen that shows it to the manifest. A changed
+  `backend/tests/browser_seeds.py` selects every runner; other changed `backend/` paths are listed as a
+  note ("backend changes: no runner selected by them").
 - **The gates run only the selected scenarios:** `--scenario <group>,<group>` (the manifest's group names;
   `test:lanes` passes it to `a11y` and `visual`, `test:changed` computes it) makes a gate scan and compare
   only those groups' scenarios. A scenario no group names fails the gate, so a new scenario cannot be left

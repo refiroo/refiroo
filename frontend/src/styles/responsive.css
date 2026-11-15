@@ -186,6 +186,11 @@
     width: 100%;
     max-width: none;
   }
+  /* the filter of a matrix cell's dialog sits beside its other controls */
+  .search-box.matrix-cell-filter {
+    flex: none;
+    width: auto;
+  }
   .segmented {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -282,6 +282,28 @@ def recheck_incoming_relations(
         )
 
 
+def recheck_edited_incoming_relations(
+    model: Any, lookup: ChangeSetLookup, row: ChangeSetObject
+) -> None:
+    """``recheck_incoming_relations`` for a record edited in place (an attribute patch or delete):
+    the record is laid over the lookup first, as an object update does, so the relations into it
+    are checked against its attributes after the edit, not before."""
+    batch = ChangeSetBatchLookup(lookup)
+    with batch.deciding():
+        batch.lay(
+            Record(
+                object_id=row.object_id,
+                application_key=row.application_key,
+                object_type_key=row.object_type_key,
+                parent_object_id=row.parent_object_id,
+                name=row.name,
+                version=row.version,
+                attributes=dict(row.attributes or {}),
+            )
+        )
+        recheck_incoming_relations(model, batch, row.object_id, row.object_type_key)
+
+
 def update_change_set_object(
     session: Session,
     change_set_id: str,
@@ -862,7 +884,7 @@ def patch_change_set_attribute(
     writes.claim(expected_change_set_version)
     row.attributes = {**(row.attributes or {}), **normalized}
     rules.unique_values(lookup, model, row.object_id, row.attributes)
-    recheck_incoming_relations(model, lookup, row.object_id, row.object_type_key)
+    recheck_edited_incoming_relations(model, lookup, row)
     row.version += 1
     record_audit_event(
         session,
@@ -917,7 +939,7 @@ def delete_change_set_attribute(
     validate_object_attribute_rules(object_type, remaining)
     writes.claim(expected_change_set_version)
     row.attributes = remaining
-    recheck_incoming_relations(model, lookup, row.object_id, row.object_type_key)
+    recheck_edited_incoming_relations(model, lookup, row)
     row.version += 1
     record_audit_event(
         session,

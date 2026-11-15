@@ -93,6 +93,26 @@ def test_a_timed_out_request_is_never_sent_again(adapter, waits):
 
 
 @pytest.mark.parametrize("adapter", [0, 1])
+def test_a_connection_that_timed_out_before_anything_was_sent_is_sent_again(adapter, waits):
+    seen = []
+    ok = (CLAUDE_OK, OPENAI_OK)[adapter]
+    provider = _providers(httpx.ConnectTimeout("no answer"), ok, seen=seen)[adapter]
+    assert provider.propose(REQUEST).data == {"ready": True}
+    assert len(seen) == 2 and waits == [1.0]
+
+
+def test_a_retry_after_date_without_a_zone_is_read_as_utc():
+    from datetime import UTC, datetime, timedelta
+    from email.utils import format_datetime
+
+    later = datetime.now(UTC) + timedelta(seconds=20)
+    # ``-0000`` is the HTTP way to name a date whose zone is unknown; it parses naive.
+    header = format_datetime(later.replace(tzinfo=None), usegmt=False)
+    assert header.endswith("-0000")
+    assert 15 < retry.wait_seconds(header, 0) <= 20
+
+
+@pytest.mark.parametrize("adapter", [0, 1])
 def test_a_connection_that_never_opened_is_sent_again_and_then_named(adapter, waits):
     seen = []
     errors = [httpx.ConnectError("refused")] * 3

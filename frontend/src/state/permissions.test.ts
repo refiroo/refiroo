@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "@/api/client";
 import { permissionsFixture } from "@/test/permissions";
-import { holds, recordWrites } from "./permissions";
+import { fetchPermissions, holds, recordWrites, resetPermissionsForTests } from "./permissions";
+
+vi.mock("@/api/client", async (load) => ({
+  ...(await load<typeof import("@/api/client")>()),
+  api: { myPermissions: vi.fn(), myActionGroups: vi.fn() },
+}));
 
 const ref = (applicationKey: string, objectTypeKey: string) => ({ applicationKey, objectTypeKey });
 
@@ -60,5 +66,24 @@ describe("holds", () => {
     expect(holds(reader, "publish")).toBe(false);
     expect(holds(undefined, "browse")).toBe(false);
     expect(holds(undefined, "publish")).toBe(false);
+  });
+});
+
+describe("fetchPermissions", () => {
+  beforeEach(() => {
+    resetPermissionsForTests();
+    vi.clearAllMocks();
+  });
+
+  it("does not keep a failed read: the next call reads again", async () => {
+    vi.mocked(api.myPermissions)
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(permissionsFixture("w", ["browse"]));
+    await expect(fetchPermissions("w")).rejects.toThrow("offline");
+    const permissions = await fetchPermissions("w");
+    expect(holds(permissions, "browse")).toBe(true);
+    // a kept answer is not read a third time
+    await fetchPermissions("w");
+    expect(api.myPermissions).toHaveBeenCalledTimes(2);
   });
 });

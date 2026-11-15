@@ -7832,7 +7832,10 @@ There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `pla
   request names the version it read. `phase` while a job runs: `profiling`, `reading`, `designing`,
   `checking`; else `null`. A failed job ends the task (`failed`, its reason in `notes`); a stopped one returns it to where the person can go on. `canTell`: whether the person may tell the assistant something now (`/model`, `/retry` with words): the assistant is on, and the task is `checked`, `failed` or `stopped`, or `loaded` with a session that lives. A session lives from the first turn until the change set is published or discarded, the migration confirmed, or the task discarded or expired; the task read notices a publication (`result.published`, `result.publicationId`) or a discard and ends it (a change set discarded elsewhere ends the task `cancelled`).
 - `draftId`: the task's draft of the workspace's model, opened in the model editor. A session reads and writes
-  only a draft it made or the one its task holds: another task's draft is `409 AI_TASK_DRAFT_HELD`
+  only a draft it made or the one its task holds, on every route that names a draft in its path, body or query
+  (`POST /source-files` with `owner.draftId`, `GET /source-files?draftId=`, `POST /workspaces/from-workbook`,
+  `POST /workspaces/{key}/model/migrations` with `draftId`) or reaches a draft's source file by ID, and `GET /source-files`
+  without `draftId` lists its own drafts' files only: another task's draft is `409 AI_TASK_DRAFT_HELD`
   (`details.draftId`), a person's or any other not its own is `403 FORBIDDEN` (`details.draftId`), and a proposal
   that names a draft that is not its own fails the task. A person may edit
   the task's draft; the session rereads it before it goes on.
