@@ -257,13 +257,22 @@ refused, with the port named, when another process holds it (none needs one toda
 runner's temporary files (its evidence folders) go to a folder of its own that is removed when it passes and
 kept, named in the summary, when it fails or with `--keep`; the output folder (`--out DIR`) holds the logs.
 
-## When to run comprehensive gates
+## What a diff touches (TS1)
 
-Run the complete accessibility and visual gates at build acceptance (WP-9 for Base 0.7).
-During implementation packages, add scenarios for new controls and use focused interaction,
-accessibility and screenshot checks on changed surfaces. Do not rerun every core page after each
-edit or package. Review intentional baseline changes and record which scenarios were exercised;
-comprehensive coverage remains pending until the build gates run. Follow
+```sh
+npm --prefix frontend run test:changed -- <commit> --list   # the runners and scenario groups the diff selects
+npm --prefix frontend run test:changed -- <commit>          # the same, run in lanes
+```
+
+`e2e/manifest.mjs` names the source paths each browser runner and each group of accessibility and visual
+scenarios covers; a change in `src/ui`, `src/state`, `src/lib` or `src/model` (and `api`, `routing`, `types`,
+`app`) selects the entries of every file that imports it, read from the imports. `test:changed` lists
+what the diff since `<commit>` (the working tree included) selects and runs it with `test:lanes`; the two
+gates run only the selected groups (`--scenario`). A package that changes a screen is finished only when
+that screen's runners and accessibility scenarios pass and its changed screenshots are looked at and
+re-recorded. `npm run test:gate-helpers` fails when the manifest names a missing path or lacks an entry for
+a runner or scenario. The complete gates still run at build acceptance. Details:
+[execution guide](../../docs/testing/EXECUTION_GUIDE.md), "what a diff touches". Follow
 [AGENTS.md](../../AGENTS.md#work-package-validation) for validation scope and reruns.
 
 ## Planned 0.7 scenario extensions

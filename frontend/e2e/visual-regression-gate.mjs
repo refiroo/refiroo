@@ -5,6 +5,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { compareScreenshot } from "./helpers/visual-regression.mjs";
+import { scenarioFilter } from "./helpers/scenarios.mjs";
 import {
   expandChangeReviewRow,
   holdTreeDrag,
@@ -35,6 +36,9 @@ import { visitSecuritySurfaces } from "./helpers/security-surfaces.mjs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
+// `--scenario group,group` (e2e/manifest.mjs) compares only those groups' screenshots (TS1).
+const scenarios = scenarioFilter();
+
 let harness;
 const checks = [];
 const failures = [];
@@ -48,6 +52,7 @@ async function shown(locator) {
 }
 
 async function capture(page, name, outputDir, mask = []) {
+  if (!scenarios.selected(name)) return { passed: true, skipped: true };
   // A record heading can appear while its independently fetched panels still load.
   // A signed-in page keeps the inbox's event stream open (Home, 0.12 A2), so the network never idles there.
   await page.waitForLoadState("networkidle", { timeout: 2500 }).catch(() => undefined);

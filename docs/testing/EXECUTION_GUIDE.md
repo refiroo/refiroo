@@ -406,6 +406,8 @@ seed clone adds about 0.5 s). Pick by surface:
 | `e2e/authoring-r-acceptance.mjs` (`test:browser:authoring-r`) | Base 0.10 R: US-P09 and US-P10 composed by keyboard alone (D149) on both designer models, the renamed example at 1440px and generated-b at 390px, each on two fresh databases: W1 as a new application, a proposed type renamed, loaded and published; W1′ through the saved profile, its rename accepted and its new column ignored, a review of only its differences; W2 as a new application, then W1 as additions to it, its missing values created on load. On failure it keeps the server log, the stored profiles, the recent jobs and the database's activity. About 3 min 15 s. `R_ONLY=renamed-example` or `generated-b`, `R_WALKS=flat` or `described` |
 | `e2e/authoring-a8-lists.mjs` (`test:browser:authoring-a8`) | Base 0.10 A8b a sheet laid out for reading in the editor (J34.10) on both designer models, W3 proposed as a new application on one and as additions to the model on the other: the source pane's lists under their titles with their statuses, a list opened and a column's Map to… by keyboard alone; a proposed list's cells and Proposed because; Adjust list… by keyboard (the header moved shows where columns go; the last row two up, the pane's range and the dry run following); Don't load this list and Undo; Load as a list… on the dropped list, the free field saying there is nothing to load; 390px; axe on a list's centre and the adjust dialog. About 25 s. `A8_ONLY=renamed-example` or `generated-b` |
 | `e2e/lanes.mjs` (`test:lanes`) | TS3 the command that runs a list of runners and gates in lanes with one summary (see "runners and gates in lanes"); not a runner itself |
+| `e2e/manifest.mjs` | TS1 the source paths each browser runner, accessibility scenario group and visual scenario group covers, and the shared layers; read by `test:changed` and checked by `test:gate-helpers`; not a runner itself |
+| `e2e/changed.mjs` (`test:changed`) | TS1 the command that lists and runs the runners and scenarios a diff touches (see "what a diff touches"); not a runner itself |
 | `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
 | `e2e/accessibility-gate.mjs --only guide` (`node e2e/accessibility-gate.mjs --only guide`, after `npm run build` in `guide/`) | 0.13 DOC1: the guide the engine serves at `/docs`, reached through the one-address harness: its first page and the search dialog, light and dark, at 1440px and 390px, axe on each; every request the page made went to the page's own origin. Not part of the full gate's run |
 | `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
@@ -457,6 +459,50 @@ npm run test:lanes -- --list
 Set `PLAYWRIGHT_EXECUTABLE_PATH` to use an installed Chrome ([e2e README](../../frontend/e2e/README.md)).
 `npm run test:gate-helpers` fails when an `e2e/*.mjs` module is not named in this table (and holds the
 lane tests: lane count, catalogue, resources, port reservation).
+
+### Browser: what a diff touches, and what a package leaves passing (TS1)
+
+A package that changes a screen is finished only when that screen's checks pass: its **browser runners**,
+its **accessibility scenarios**, its **changed screenshots** looked at and re-recorded, and its **guide
+pictures** retaken by the rule below. "Runner not written" and "screenshots open" are not a delivered state,
+and the delivery record lists what ran. The session that delivers a day's last package runs the command
+since the day's first commit, so what a day missed shows the next morning and not at the release.
+
+```sh
+cd frontend
+npm run test:changed -- <commit> --list    # what changed since the commit selects; runs nothing
+npm run test:changed -- <commit>           # the same, run in lanes (test:lanes)
+npm run test:changed -- <commit> --update-baselines --changed-only   # re-record the changed pictures
+```
+
+- **The manifest** (`e2e/manifest.mjs`) names, for each browser runner (`RUNNERS`) and each group of
+  accessibility and visual scenarios (`SCENARIOS`), the source paths of the screens it covers, relative to
+  `frontend/`, using the paths as they are now (`src/features/<feature>`, `src/app`). A scenario's name is
+  read without its theme (a leading `dark-`, a trailing `-light` or `-dark`) and matched against its group's
+  `names` (`*` is any text), so both gates and both themes of a screen are selected together.
+- **Shared layers** (`SHARED_LAYERS`: `src/ui`, `src/state`, `src/lib`, `src/model`, and with them `src/api`,
+  `src/routing`, `src/types` and the shell `src/app`) are not named by entries. A change in one selects the
+  entries of every file that imports it, directly or through other shared files, read from the imports of
+  `src/` (`helpers/changed.mjs`, `importGraph` and `reached`), so no list of importers is kept. A change in
+  any other path selects the entries naming it. A style (`src/styles*`) selects every scenario. A changed
+  file under `e2e/` selects the runners and gates importing it, and a changed baseline its own scenario.
+  Test files select nothing here (Vitest owns them).
+- **Not run:** the two Docker runners (`i3-real-provider`, `dp3-deployment`) are listed and run only when
+  named; a changed `src/` file that no entry covers is printed, because nothing would run for it: add the
+  screen that shows it to the manifest.
+- **The gates run only the selected scenarios:** `--scenario <group>,<group>` (the manifest's group names;
+  `test:lanes` passes it to `a11y` and `visual`, `test:changed` computes it) makes a gate scan and compare
+  only those groups' scenarios. A scenario no group names fails the gate, so a new scenario cannot be left
+  out of the mapping. The gate still walks to each screen; the saving is the scans and comparisons.
+- **Checked** by `npm run test:gate-helpers` (`helpers/manifest.node-test.mjs`): an entry naming a missing
+  path, a runner without an entry (or an entry without a runner), and a baseline or a scenario the gates
+  name that no group matches, each fail.
+- **Changed screenshots:** a failing scenario's `-actual.png` and diff are looked at, and what changed is said
+  (the control, the spacing, the label), before the baseline is re-recorded with `--update-baselines
+  --changed-only`; a difference nobody can explain is a defect, not a baseline.
+- **Guide pictures** are not run. They are retaken when the reader's view changes: a new control, a
+  changed field order or a changed label means a new picture; a spacing change or a shift of a few pixels
+  means none (the rule is in AGENTS.md, Definition of done).
 
 ## 2. Changed boundary → selected checks
 
@@ -534,7 +580,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `src/features/security/*Page.tsx`, `GrantDialog.tsx`, `GrantsSection.tsx`, `RecentActivity.tsx`, `securityText.ts`, `src/api/securityClient.ts` (0.12 SP1, SP2, I3: the Security pages) | `src/features/security`, `vitest related` | `test:browser:security` (people, groups, roles, Access, the grant dialog), `test:browser:clients` (clients, signing keys, consumer API grants), `test:browser:sign-in-providers` (Sign-in, provider groups, the people page's sign-in line; 0.12 I3); `test:browser:webhooks` when a webhook's owner line changes; `test:browser:sign-in` when `sign_in_pages.py` or `routers/oauth.py` changes |
 | `src/model/*` | `--project unit`, `src/model` | `vitest related` when a read's result shape changes |
 | `src/model/placements.ts`, `src/test/placements.ts`, `src/test/starterPlacements.json` | `vitest related` | every tree runner (`test:browser:s6`, `test:browser`, `test:browser:b3`, `b4`, `c4`) and `wp9-authoring.mjs` (parent types in the object form); regenerate the starter fixture from `backend/tests` with `test_model_placements.write()` when the starter model's containment changes |
-| `src/ui/*` shared components | `vitest related` | `test:a11y`/`test:visual` scenario for the changed control only when focus, semantics or tokens change; full gates at WP-9 |
+| `src/ui/*` shared components | `vitest related` | `npm run test:changed` selects the runners and the accessibility and visual scenarios of every feature importing the changed file (TS1); the full gates at WP-9 |
 | `src/features/objects/MappingGridView.tsx` and its `views/` host | `vitest related` (3 files) | `wp14-contextual-browser.mjs`, `wp13c-ui-states.mjs` |
 | `src/features/objects/RelationMatrix*.tsx`, `relationMatrixStates.tsx` | `views/RelationMatrixView.test`, `vitest related` | `test:browser:a4`; `test:browser:a5` for the cell dialog, create, link or publishing paths; the `relation-matrix*` a11y and visual scenarios when the grid or dialog renders differently |
 | `src/features/objects/TreeView.tsx`, `TreeMoveDialog.tsx`, `useTreeDrag.ts`, `RestructuringDialog.tsx`; `src/model/treeDrop.ts`, `src/model/restructuring.ts` | `views/TreeView.test`, `RestructuringDialog.test`, `model/treeDrop.test`, `model/restructuring.test`, `vitest related` | `test:browser:b3`, `test:browser:b4`, `test:browser:c4` (restructuring, or a change-set path of Move to… or the drag) and `test:browser:c5` (the milestone journey); the `tree-lens`, `tree-drag-*` and `tree-move-dialog` a11y and visual scenarios when the tree, a drag or the move dialog renders differently, and `tree-move-type-change` and `restructuring-*` (C5) when Move to…'s type-change marks, the preview or a restructuring dialog render differently; with `RecordTree.tsx`, also the `RecordTree` row's runners |
@@ -563,7 +609,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `ui/ObjectTable.tsx`'s `renderCell`, `features/objects/useCellEditing.tsx`, `RelatedRecordsDialog.tsx`, `RemoveValueDialog.tsx`, `DeleteRelationDialog.tsx` and `model/lookup.relatedCellEdit` (0.10 A9) | `EditableField.test`, `relatedCellEdit.test`, `bulkRelations.test`, `vitest related` | `test:browser:authoring-a9`; `test:browser:ua8` when the details panel's remove or the relationship panel's delete changes |
 | `ui/EditInPlace.tsx` (the record fields' and the model editor's in-place editing; in a table its buttons only in the active row, 0.11 X6, `DataTable.test`), `ui/RelatedRecordChips.tsx` and `ui/chipFit.ts` (relation cells; also `test:browser:k5`), `ui/CellReveal.tsx` and `ui/DataTable.tsx`'s `whole` (0.10 A4a) | `CellReveal.test`, `EditableField.test`, `InlineAttributeEditor.test`, `vitest related` | `test:browser:ua8` (record fields in place), `test:browser:s5` and `test:browser` (lists), `test:browser:authoring-a4a` |
 | `src/lib/gridNavigation.ts` (0.10 A4a) | `vitest related` | `test:browser:a4` (the relation matrix lens) and `test:browser:authoring-a4a` (the model's matrix) |
-| `src/styles*`, theme tokens | none at T1 | focused a11y/visual scenarios for affected pages, plus dark variants |
+| `src/styles*`, theme tokens | none at T1 | every accessibility and visual scenario (`test:changed` selects them all, TS1), light and dark |
 
 ### Worked traces (representative change per layer)
 
@@ -593,6 +639,9 @@ A changed user-visible surface additionally follows [UI acceptance](UI_ACCEPTANC
 reference pattern, complete its state inventory row, run the runner that covers its user-critical
 states and inspect the changed screenshots at 1440px and 390px. Report functional, accessibility and
 visual evidence separately.
+Since TS1 the package also leaves the screen's checks passing: `npm run test:changed -- <commit>` runs
+the runners, accessibility scenarios and visual scenarios the diff touches, changed screenshots are
+looked at and re-recorded, and the guide pictures follow the retake rule (see "what a diff touches").
 
 ## 3. WP-9 comprehensive command set
 

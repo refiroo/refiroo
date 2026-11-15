@@ -290,9 +290,26 @@ with engine.begin() as connection:
       target.getByText(/just now|\d+ (second|minute|hour|day|week|month)s? ago|\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2}/),
       target.getByText(/^[0-9a-f]{8}(-|…)/),
       target.getByText(/127\.0\.0\.1:\d+|localhost:\d+/),
+      target.locator(".sign-in-build"),
       target.locator("h1").filter({ hasText: /^Good (morning|afternoon|evening)/ }),
       target.locator(".account-muted, .settings-note, small").filter({ hasText: /\d/ }),
     ];
+
+    // A column of a table is as wide as its widest text, and "11 minutes ago" is narrower than "10 minutes ago"
+    // in a proportional font: a mask covers a value but not the layout it moves, so the screens that show a
+    // time, an age or the build shifted by a pixel from run to run (the mail list, the activity list). Every
+    // digit of a time or an age becomes 0 and the build line's version too, so the widths are the same each run.
+    const settleTimes = (target) =>
+      target.evaluate(() => {
+        const timePattern = /just now|\d+ (second|minute|hour|day|week|month)s? ago|\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2}/g;
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const inBuild = node.parentElement?.closest(".sign-in-build");
+          const text = node.nodeValue ?? "";
+          const next = inBuild ? text.replace(/\d/g, "0") : text.replace(timePattern, (hit) => hit.replace(/\d/g, "0"));
+          if (next !== text) node.nodeValue = next;
+        }
+      });
 
     // A signed-out screen in a context of its own, at the viewport and scheme asked for.
     const signedOut = async (state, goto) => {
@@ -507,6 +524,7 @@ with engine.begin() as connection:
           if (width < 600 && !phone) continue;
           await closeOverlays(page);
           const opened = (await openSurface(state)) ?? { page };
+          await settleTimes(opened.page);
           await opened.page.mouse.move(0, 0);
           await visit({
             page: opened.page,

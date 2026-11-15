@@ -263,6 +263,14 @@ describe it), and no branch was added for a starter application or object-type k
 For startup or migration changes, completion additionally requires the startup and interrupted-
 migration checks in the error-handling section above; a green unit suite alone is not sufficient.
 
+A package that changes a screen is finished only when that screen's browser runners pass, its
+accessibility scenarios pass, its changed screenshots have been looked at and re-recorded, and its
+guide pictures follow the retake rule: a new control, a changed field order or a changed label means a
+new picture; a spacing change or a shift of a few pixels means none. "Runner not written" and
+"screenshots open" are not a delivered state, and the delivery record lists what ran. Which runners and
+scenarios a change touches is `npm run test:changed -- <commit>` (see the execution guide, "what a
+diff touches"). The session that delivers a day's last package runs it since the day's first commit.
+
 ### Work-package validation
 
 Keep validation proportional to the changed behavior. Choose the smallest existing tests that
@@ -290,9 +298,13 @@ guide.
 - UI changes: follow [UI acceptance](docs/testing/UI_ACCEPTANCE.md). Name the reference pattern the
   surface reuses, add or complete its state-inventory row (applicable states or a reason each is
   inapplicable), and exercise its user-critical states in a real-backend browser runner with at least
-  two object types or model configurations, keyboard operation and 390px width. Inspect the changed
-  screenshots against the reference; add or update scenarios and baselines only for changed surfaces.
-  Reserve the comprehensive accessibility and visual runners for build acceptance.
+  two object types or model configurations, keyboard operation and 390px width. Then run
+  `npm run test:changed -- <commit>` for the package's diff: the runners, accessibility scenarios and
+  visual scenarios of the screens it changed run in lanes and pass. Look at the changed screenshots
+  against the reference and say what changed before re-recording them (`--update-baselines
+  --changed-only`); add or update scenarios and baselines for changed surfaces, and write a runner
+  for a new one. Retake guide pictures by the rule in Definition of done. The complete accessibility
+  and visual gates stay with build acceptance.
 - Startup or migration code: retain the focused bootstrap, upgrade, restart, interrupted-migration,
   lifespan and final smoke checks required above. Concurrency and security changes likewise require
   focused checks at the real affected boundary; do not defer these checks to the end of the build.
@@ -323,9 +335,10 @@ affects theme tokens or a new surface. Do not update baselines merely to hide an
 
 ### Execution discipline
 
-- Run comprehensive suites (the full `pytest` and `npm run test` suites, `test:a11y`,
-  `test:visual`, every browser runner) only at build acceptance, never in a work package. Only an
-  explicit user request overrides this.
+- Run comprehensive suites (the full `pytest` and `npm run test` suites, the whole of `test:a11y` and
+  `test:visual`, every browser runner) only at build acceptance, never in a work package. A package
+  runs the runners and scenarios of the screens it changed (`test:changed`); only an explicit user
+  request widens that.
 - A concrete uncovered risk adds the specific module or test case that exercises it, named with
   the risk before it runs; it never widens a check to a whole suite or to groups the execution
   guide does not select for the changed boundary.

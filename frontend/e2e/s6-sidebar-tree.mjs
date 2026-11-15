@@ -109,7 +109,11 @@ let harness = await bootHarness({
 try {
   const { page, uiUrl, api } = harness;
   // Browse records is folded until opened (0.17 SH1); these runs browse the tree, so it starts open.
-  await page.context().addInitScript(() => { try { localStorage.setItem("rdm:navigation:browse-records:v1", "true"); } catch {} });
+  await page.context().addInitScript(() => {
+    try {
+      localStorage.setItem("rdm:navigation:browse-records:v1", "true");
+    } catch {}
+  });
   const base = `${uiUrl}/apps/vol-catalogue`;
   const read = (type, id) => api(`/objects/${type}/${id}?workspaceKey=vol-workspace`);
   const heavy = await read("vol-group", dataset.heavy_group_id);
@@ -203,6 +207,12 @@ try {
       // scrolled past: step by less than the viewport, give each page time to arrive, read each step.
       await page.mouse.wheel(0, 500);
       await page.waitForTimeout(200);
+      // The next page arrives when the group's end has come into view; a step made before it has arrived
+      // scrolls past the group (the window then drops its row), so wait until nothing is loading. A fixed
+      // pause is not enough on a loaded machine (the 0.17 TS1 run: a 280 s seed wait, then this step timed out).
+      await page.waitForFunction(() => !document.querySelector(".workspace-sidebar .tree-flat-loading"), undefined, {
+        timeout: 60000,
+      });
       rows = await windowRows(itemsGroup);
       most = Math.max(most, rows.count);
     }
@@ -350,7 +360,11 @@ harness = await bootHarness();
 try {
   const { page, uiUrl, records } = harness;
   // Browse records is folded until opened (0.17 SH1); these runs browse the tree, so it starts open.
-  await page.context().addInitScript(() => { try { localStorage.setItem("rdm:navigation:browse-records:v1", "true"); } catch {} });
+  await page.context().addInitScript(() => {
+    try {
+      localStorage.setItem("rdm:navigation:browse-records:v1", "true");
+    } catch {}
+  });
   const domain = records.domain[0];
   const system = records.system[0];
 

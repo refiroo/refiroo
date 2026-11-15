@@ -43,7 +43,7 @@ export function catalogue(packageJson, fixedPorts = FIXED_PORTS) {
   const runners = [];
   for (const [script, command] of Object.entries(packageJson.scripts)) {
     const match = /^node e2e\/([\w.-]+\.mjs)$/.exec(command);
-    if (!match || !script.startsWith("test:") || /(gate|lanes)\.mjs$/.test(match[1])) continue;
+    if (!match || !script.startsWith("test:") || /(-gate|^lanes|^changed)\.mjs$/.test(match[1])) continue;
     const name = match[1].replace(/\.mjs$/, "");
     runners.push({ name, script, file: match[1], args: [], weight: 1, notInAll: HEAVY.has(name) });
   }

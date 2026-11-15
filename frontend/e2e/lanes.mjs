@@ -1,6 +1,6 @@
 // Browser runners, the accessibility gate and the visual gate in lanes (TS3).
 //
-//   npm --prefix frontend run test:lanes -- <runner>... | all [--lanes N] [--out DIR] [--update-baselines [--changed-only]] [--keep]
+//   npm --prefix frontend run test:lanes -- <runner>... | all [--lanes N] [--out DIR] [--update-baselines [--changed-only]] [--scenario GROUP,GROUP] [--keep]
 //   npm --prefix frontend run test:lanes -- --list
 //
 // Each lane runs one runner at a time as a process of its own; the runner starts its own backend on a
@@ -53,6 +53,7 @@ function parse(argv) {
     const arg = argv[at];
     if (arg === "--lanes") options.lanes = argv[++at];
     else if (arg === "--out") options.out = argv[++at];
+    else if (arg === "--scenario") options.scenario = argv[++at];
     else if (arg === "--update-baselines") options.updateBaselines = true;
     else if (arg === "--changed-only") options.changedOnly = true;
     else if (arg === "--list") options.show = true;
@@ -149,11 +150,16 @@ if (options.show) {
 }
 if (!options.list.length) {
   console.error(
-    "Name the runners to run, or `all`: test:lanes -- <runner>... | all [--lanes N] [--out DIR] [--update-baselines [--changed-only]] [--keep]",
+    "Name the runners to run, or `all`: test:lanes -- <runner>... | all [--lanes N] [--out DIR] [--update-baselines [--changed-only]] [--scenario GROUP,GROUP] [--keep]",
   );
   process.exit(2);
 }
-const chosen = select(options.list, runners);
+// `--scenario` limits the full accessibility and visual gates to the named groups of e2e/manifest.mjs (TS1).
+const chosen = select(options.list, runners).map((runner) =>
+  options.scenario && (runner.name === "a11y" || runner.name === "visual")
+    ? { ...runner, args: [...runner.args, "--scenario", options.scenario] }
+    : runner,
+);
 if (options.updateBaselines && !chosen.some((runner) => runner.baselines)) {
   console.error("--update-baselines names no visual runner: add `visual` or `visual:security`.");
   process.exit(2);

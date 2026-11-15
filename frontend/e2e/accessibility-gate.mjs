@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
-import { runAxe, formatViolations } from "./helpers/axe-helper.mjs";
+import { runAxe as scan, formatViolations } from "./helpers/axe-helper.mjs";
+import { scenarioFilter } from "./helpers/scenarios.mjs";
 import {
   expandChangeReviewRow,
   holdTreeDrag,
@@ -42,6 +43,20 @@ import { tmpdir } from "node:os";
 // scrolling region its own name; its entry matched nothing and was removed in Base 0.8 S7.
 const ALLOWLIST = [];
 
+// `--scenario group,group` (e2e/manifest.mjs) reports only those groups' scenarios (TS1). A scenario of a group
+// not named is still visited, since the page has to be reached, but is not scanned or reported; a scenario no
+// group names fails the gate.
+const scenarios = scenarioFilter();
+// The checks that plant a violation to prove the gate sees it call `scan` directly: they run whatever is selected.
+const runAxe = async (page, allowlist, name) =>
+  name === undefined || scenarios.selected(name)
+    ? scan(page, allowlist, name)
+    : { violations: [], allowed: [], skipped: true };
+/** One line of the report for a scenario scanned (a scenario left out by `--scenario` has none). */
+const record = (label, found) => {
+  if (!found.skipped) checks.push(`${label}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+};
+
 let harness;
 const checks = [];
 const regressionChecks = [];
@@ -60,7 +75,7 @@ async function visitSecurity(output) {
     if (!axe) return;
     const found = await runAxe(surface, ALLOWLIST, name);
     if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
-    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    record(`${name}`, found);
     await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
   });
 }
@@ -89,9 +104,9 @@ if (only === "guide") {
   const output = await mkdtemp(resolve(tmpdir(), "rdm-a11y-guide-"));
   try {
     const seen = await visitGuideSurfaces(async ({ page: surface, name }) => {
-      const found = await runAxe(surface, ALLOWLIST, name);
+      const found = await scan(surface, ALLOWLIST, name);
       if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
-      checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+      record(`${name}`, found);
       await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
     });
     const outside = seen.origins.filter((origin) => origin !== seen.uiOrigin);
@@ -124,7 +139,7 @@ try {
   await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
   let result = await runAxe(page, ALLOWLIST, "collection-domain");
   if (result.violations.length > 0) failures.push(`collection-domain:\n${formatViolations(result.violations)}`);
-  checks.push(`collection-domain: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`collection-domain`, result);
   await page.screenshot({ path: resolve(output, "a11y-collection-domain.png"), fullPage: true });
 
   // Verify a new violation of an allowlisted rule still fails at the browser boundary.
@@ -134,7 +149,7 @@ try {
     extra.textContent = "Unexpected content outside the page landmarks";
     document.body.append(extra);
   });
-  result = await runAxe(page, ALLOWLIST, "collection-domain");
+  result = await scan(page, ALLOWLIST, "collection-domain");
   assert.ok(result.violations.some((violation) => violation.id === "region"));
   await page.locator("#wp1-unexpected-content").evaluate((element) => element.remove());
   regressionChecks.push("new unlandmarked content is rejected");
@@ -144,7 +159,7 @@ try {
   await shown(page.getByRole("button", { name: "System 00", exact: true }));
   result = await runAxe(page, ALLOWLIST, "collection-system");
   if (result.violations.length > 0) failures.push(`collection-system:\n${formatViolations(result.violations)}`);
-  checks.push(`collection-system: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`collection-system`, result);
   await page.screenshot({ path: resolve(output, "a11y-collection-system.png"), fullPage: true });
 
   // --- 3. Record detail with panels: Domain ---
@@ -152,7 +167,7 @@ try {
   await shown(page.getByRole("heading", { name: "Domain 00" }));
   result = await runAxe(page, ALLOWLIST, "detail-domain");
   if (result.violations.length > 0) failures.push(`detail-domain:\n${formatViolations(result.violations)}`);
-  checks.push(`detail-domain: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`detail-domain`, result);
   await page.screenshot({ path: resolve(output, "a11y-detail-domain.png"), fullPage: true });
 
   // --- 4. Record detail with panels: System ---
@@ -160,7 +175,7 @@ try {
   await shown(page.getByRole("heading", { name: "System 00" }));
   result = await runAxe(page, ALLOWLIST, "detail-system");
   if (result.violations.length > 0) failures.push(`detail-system:\n${formatViolations(result.violations)}`);
-  checks.push(`detail-system: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`detail-system`, result);
   await page.screenshot({ path: resolve(output, "a11y-detail-system.png"), fullPage: true });
 
   // A new duplicate landmark must fail the gate: repeat the label of a region on the page.
@@ -175,7 +190,7 @@ try {
     extra.textContent = "Unexpected duplicate region";
     document.querySelector("main").append(extra);
   });
-  result = await runAxe(page, ALLOWLIST, "detail-system");
+  result = await scan(page, ALLOWLIST, "detail-system");
   assert.ok(result.violations.some((violation) => violation.id === "landmark-unique"));
   await page.locator("#wp1-unexpected-region").evaluate((element) => element.remove());
   regressionChecks.push("additional duplicate landmark is rejected");
@@ -190,7 +205,7 @@ try {
   await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
   result = await runAxe(page, ALLOWLIST, "change-set-collection");
   if (result.violations.length > 0) failures.push(`change set-collection:\n${formatViolations(result.violations)}`);
-  checks.push(`change set-collection: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`change set-collection`, result);
   await page.screenshot({ path: resolve(output, "a11y-change-set-collection.png"), fullPage: true });
 
   // Change set record editing.
@@ -200,7 +215,7 @@ try {
   await shown(page.getByRole("heading", { name: "Domain 00" }));
   result = await runAxe(page, ALLOWLIST, "change-set-detail");
   if (result.violations.length > 0) failures.push(`change set-detail:\n${formatViolations(result.violations)}`);
-  checks.push(`change set-detail: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`change set-detail`, result);
   await page.screenshot({ path: resolve(output, "a11y-change-set-detail.png"), fullPage: true });
 
   // --- 6. Publications view ---
@@ -212,7 +227,7 @@ try {
   await shown(page.getByText("Publication 1"));
   result = await runAxe(page, ALLOWLIST, "publications");
   if (result.violations.length > 0) failures.push(`publications:\n${formatViolations(result.violations)}`);
-  checks.push(`publications: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`publications`, result);
   await page.screenshot({ path: resolve(output, "a11y-publications.png"), fullPage: true });
 
   // --- 7. Settings › Model (the model workbench's list page since U3) ---
@@ -221,7 +236,7 @@ try {
   await shown(page.getByRole("region", { name: "Default workspace" }));
   result = await runAxe(page, ALLOWLIST, "model-workbench");
   if (result.violations.length > 0) failures.push(`model-workbench:\n${formatViolations(result.violations)}`);
-  checks.push(`model-workbench: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`model-workbench`, result);
   await page.screenshot({ path: resolve(output, "a11y-model-workbench.png"), fullPage: true });
 
   // --- 8. Change sets list ---
@@ -230,7 +245,7 @@ try {
   await shown(page.getByText("Second change set"));
   result = await runAxe(page, ALLOWLIST, "change-sets-list");
   if (result.violations.length > 0) failures.push(`change sets-list:\n${formatViolations(result.violations)}`);
-  checks.push(`change sets-list: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`change sets-list`, result);
   await page.screenshot({ path: resolve(output, "a11y-change-sets-list.png"), fullPage: true });
 
   // --- 9. Account menu (account placeholder, theme and the link to all settings) ---
@@ -238,7 +253,7 @@ try {
   await shown(page.getByRole("dialog", { name: "Account" }));
   result = await runAxe(page, ALLOWLIST, "settings-menu");
   if (result.violations.length > 0) failures.push(`settings-menu:\n${formatViolations(result.violations)}`);
-  checks.push(`settings-menu: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`settings-menu`, result);
   await page.keyboard.press("Escape");
 
   // --- 10. Continuous list and record tree (Base 0.8 S5, S6) ---
@@ -248,7 +263,7 @@ try {
   await openLongList(page, uiUrl, longDomain);
   result = await runAxe(page, ALLOWLIST, "scrolling-list-tree");
   if (result.violations.length > 0) failures.push(`scrolling-list-tree:\n${formatViolations(result.violations)}`);
-  checks.push(`scrolling-list-tree: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`scrolling-list-tree`, result);
   await page.screenshot({ path: resolve(output, "a11y-scrolling-list-tree.png"), fullPage: true });
 
   // A tree may own only items and groups: a stray control inside it must fail the gate.
@@ -258,7 +273,7 @@ try {
     extra.textContent = "Stray control";
     document.querySelector("[role='tree']").append(extra);
   });
-  result = await runAxe(page, ALLOWLIST, "scrolling-list-tree");
+  result = await scan(page, ALLOWLIST, "scrolling-list-tree");
   assert.ok(result.violations.some((violation) => violation.id === "aria-required-children"));
   await page.locator("#s7-unexpected-tree-child").evaluate((element) => element.remove());
   regressionChecks.push("a control the tree may not own is rejected");
@@ -309,19 +324,19 @@ try {
     await page.waitForLoadState("networkidle");
     result = await runAxe(page, ALLOWLIST, name);
     if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
-    checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+    record(`${name}`, result);
     await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
   }
   await openLongList(page, uiUrl, longDomain);
   result = await runAxe(page, ALLOWLIST, "dark-scrolling-list-tree");
   if (result.violations.length > 0) failures.push(`dark-scrolling-list-tree:\n${formatViolations(result.violations)}`);
-  checks.push(`dark-scrolling-list-tree: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`dark-scrolling-list-tree`, result);
   await page.screenshot({ path: resolve(output, "a11y-dark-scrolling-list-tree.png"), fullPage: true });
   await page.getByRole("button", { name: "Account", exact: true }).click();
   await shown(page.getByRole("dialog", { name: "Account" }));
   result = await runAxe(page, ALLOWLIST, "dark-settings-menu");
   if (result.violations.length > 0) failures.push(`dark-settings-menu:\n${formatViolations(result.violations)}`);
-  checks.push(`dark-settings-menu: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`dark-settings-menu`, result);
   await page.keyboard.press("Escape");
   await page.emulateMedia({ colorScheme: "light" });
 
@@ -348,7 +363,7 @@ try {
       await page.waitForLoadState("networkidle");
       result = await runAxe(page, ALLOWLIST, name);
       if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
-      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      record(`${name}`, result);
       await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
       await page.keyboard.press("Escape");
       await page.getByRole("dialog").waitFor({ state: "detached" });
@@ -374,7 +389,7 @@ try {
       await page.waitForLoadState("networkidle");
       result = await runAxe(page, ALLOWLIST, name);
       if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
-      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      record(`${name}`, result);
       await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
       await close?.();
     }
@@ -405,7 +420,7 @@ try {
       await open();
       result = await runAxe(page, ALLOWLIST, name);
       if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
-      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      record(`${name}`, result);
       await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
     }
   }
@@ -432,7 +447,7 @@ try {
       await page.waitForLoadState("networkidle");
       result = await runAxe(page, ALLOWLIST, `${prefix}${name}`);
       if (result.violations.length > 0) failures.push(`${prefix}${name}:\n${formatViolations(result.violations)}`);
-      checks.push(`${prefix}${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      record(`${prefix}${name}`, result);
       await page.screenshot({ path: resolve(output, `a11y-${prefix}${name}.png`), fullPage: true });
     };
     await openDomainHierarchy(page, uiUrl, restructuring);
@@ -492,7 +507,7 @@ try {
       await page.waitForLoadState("networkidle");
       result = await runAxe(page, ALLOWLIST, name);
       if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
-      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      record(`${name}`, result);
       await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
     }
     await page.keyboard.press("Escape");
@@ -521,7 +536,7 @@ try {
       await page.waitForLoadState("networkidle");
       result = await runAxe(page, ALLOWLIST, name);
       if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
-      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      record(`${name}`, result);
       await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
     }
   }
@@ -558,7 +573,7 @@ try {
       await page.waitForLoadState("networkidle");
       result = await runAxe(page, ALLOWLIST, name);
       if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
-      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      record(`${name}`, result);
       await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
     }
   }
@@ -569,7 +584,7 @@ try {
   await page.waitForLoadState("networkidle");
   result = await runAxe(page, ALLOWLIST, "dark-settings-narrow");
   if (result.violations.length > 0) failures.push(`dark-settings-narrow:\n${formatViolations(result.violations)}`);
-  checks.push(`dark-settings-narrow: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  record(`dark-settings-narrow`, result);
   await page.screenshot({ path: resolve(output, "a11y-dark-settings-narrow.png"), fullPage: true });
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -585,7 +600,7 @@ try {
   await visitReleaseSurfaces(async ({ page: surface, name }) => {
     const found = await runAxe(surface, ALLOWLIST, name);
     if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
-    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    record(`${name}`, found);
     await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
   });
 
@@ -596,7 +611,7 @@ try {
   await visitDesignerSurfaces(async ({ page: surface, name }) => {
     const found = await runAxe(surface, ALLOWLIST, name);
     if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
-    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    record(`${name}`, found);
     await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
   });
 
@@ -607,7 +622,7 @@ try {
   await visitSpreadsheetSurfaces(async ({ page: surface, name }) => {
     const found = await runAxe(surface, ALLOWLIST, name);
     if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
-    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    record(`${name}`, found);
     await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
   });
 
@@ -619,7 +634,7 @@ try {
     if (!axe) return;
     const found = await runAxe(surface, ALLOWLIST, name);
     if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
-    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    record(`${name}`, found);
     await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
   });
 
