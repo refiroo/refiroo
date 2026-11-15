@@ -539,8 +539,10 @@ def test_the_inbox_stream_reads_a_burst_in_bounded_pages_and_loses_none(world, s
 
 @pytest.mark.journey("J42.5")
 def test_the_inbox_stream_sends_a_notice_that_commits_long_after_a_later_one(
-    world, served, monkeypatch
-):  # noqa: F811
+    world,
+    served,  # noqa: F811
+    monkeypatch,
+):
     """Given the stream open and a transaction that made a notice for the caller and has not
     committed. When a later notice commits and the stream sends it, and then, a good while after,
     the first transaction commits, then the stream sends that notice too, once (R172-F9): the

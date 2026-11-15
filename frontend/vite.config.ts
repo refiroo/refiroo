@@ -98,6 +98,9 @@ export default defineConfig({
     // coding agent (`AI_AGENT`, `CLAUDECODE`); CI shows `stderr |` blocks. One reporter everywhere, so a run
     // looks the same wherever it is made (0.17 RF7).
     reporters: ["default"],
+    // GitHub's runners are several times slower than a developer machine and vary between runs (0.17.2: the
+    // same suite 369 s, then 499 s); a test of 76 ms locally reached the 5 s default there. A hang still fails.
+    testTimeout: process.env.CI ? 15_000 : 5_000,
     // Selection groups (docs/testing/EXECUTION_GUIDE.md). `unit` runs pure `.test.ts` files
     // without a DOM: jsdom setup cost ~1 s per file against ~10 ms of test time. A `.test.ts`
     // file that needs browser globals declares `// @vitest-environment jsdom`.
