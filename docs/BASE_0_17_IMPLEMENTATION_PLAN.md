@@ -2606,6 +2606,12 @@ bound; F35, a record page leaves focus in a popover the reader opened while it l
 **Version.** 0.17.2 in the six places 0.17.1 changed; the OpenAPI lock re-baselined for `info.version` only
 (checked: the document with 0.17.1 hashes to the previous lock).
 
+**Published 2026-11-15/16.** CI on the release commit `7cd782de` failed: Ruff on the F9 test's `noqa` line, and
+one Vitest test (76 ms locally) past the 5 s default on a slow runner (the suite 499 s against 369 s the run
+before). R172-F38 fixed both (`9e602bc9`, CI green); by the user's decision the `v0.17.2` tag was moved to it
+before any image existed, and the Images run built and started `refiroo-engine:v0.17.2` and
+`refiroo-web:v0.17.2` on amd64 and arm64.
+
 ## Exit gate
 
 - a workbook is shaped on the canvas without a dialog and without AI, every row checked, and becomes a
