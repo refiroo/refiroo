@@ -1,0 +1,315 @@
+{
+  "wave": "KV1",
+  "note": "Real screens of the reference instance (guide/reference, http://localhost:8480) for keeping a contract version through a breaking change (KV1). Light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file KV1.screens.json) into guide/public/screens/. keep-setup makes the break through the API (state keep-break-on: the SBOID field removed from the stops consumer API in the draft 'Guide keep draft' and in the workspace's own draft, no higher contract version) and keep-teardown removes both drafts; run the file in order. Dialogs are cancelled; nothing is installed, activated or applied.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "keep-setup",
+      "setup": true,
+      "shows": "Makes the break: the SBOID field of the stops consumer API removed, in the draft 'Guide keep draft' and in Graubünden's own draft, without raising the contract version.",
+      "actions": [
+        {
+          "state": "keep-break-on"
+        }
+      ]
+    },
+    {
+      "name": "model-install-contracts-break",
+      "shows": "The Install and activate dialog's Consumer APIs section for a draft that removes a field of the Stops API without a higher version: the break named, Raise to v2 and the red Keep v1, break its readers. Cancelled.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/{draft:Guide keep draft}/editor"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Install and activate…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Needs version",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "Install and activate",
+        "Consumer APIs",
+        "Keep v",
+        "Raise to v"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-install-contracts-kept",
+      "shows": "The same section after Keep: the box 'Stays v1, changed in place' with the breaking change and the webhooks bound to v1 when there are any, and Raise to v2 instead. The main action is enabled. Cancelled.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/{draft:Guide keep draft}/editor"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Install and activate…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Needs version",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "break its readers",
+            "exact": false,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Stays v",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Install and activate",
+        "Consumer APIs",
+        "Raise to v",
+        "instead"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-apply-contracts-break",
+      "shows": "The Apply to this workspace dialog's Consumer APIs section for Graubünden's draft with the same break: Raise to v2 and Keep v1, break its readers; the closing sentence 'unless you keep its version'; the main action disabled. Cancelled.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Applications",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Edit model"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Applies to",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Apply to this workspace…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Needs version",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "Apply to",
+        "Consumer APIs",
+        "Keep v",
+        "Raise to v"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Close",
+            "in": {
+              "role": "dialog"
+            },
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-apply-contracts-kept",
+      "shows": "The same dialog after Keep: the kept box and Raise to v2 instead; the main action enabled. Closed, nothing applied.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Applications",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Edit model"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Applies to",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Apply to this workspace…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Needs version",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "break its readers",
+            "exact": false,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Stays v",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Apply to",
+        "Consumer APIs",
+        "Raise to v",
+        "instead"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Close",
+            "in": {
+              "role": "dialog"
+            },
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "keep-teardown",
+      "setup": true,
+      "shows": "Deletes the two drafts keep-setup made.",
+      "actions": [
+        {
+          "state": "keep-break-off"
+        }
+      ]
+    }
+  ]
+}

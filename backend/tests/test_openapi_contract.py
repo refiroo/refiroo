@@ -629,9 +629,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for R172-F24 (descriptions only): the reference error lines of the routes that name
     # a draft or its source file (403 FORBIDDEN, 409 AI_TASK_DRAFT_HELD for an assistant's session).
     # Re-baselined for 0.17.2: info.version only (the hash with 0.17.1 is the one above).
+    # Re-baselined for 0.17.3 KV1 (additive): `keepContractVersions` on the activation and migration
+    # requests, `keptContractVersions` (`KeptContractVersionResponse`) on the activation response and on
+    # a release's activation history, and the reference text that names them; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "dcdb8d264f50ef411a3552ddba31d2695c58a3f4cf014d332fbd64fcb8f248b1"
+        "6e4ad61e92c139caceb8d7471ba71e7e4bb263590942d5627eee3e5a6b46d56d"
     )
 
 

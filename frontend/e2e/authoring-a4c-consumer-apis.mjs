@@ -345,6 +345,37 @@ async function journey(label, source) {
     await tree.getByText(`Needs v${version + 1}`).waitFor();
     await tab("Schema").click();
     await shot("contract-1440");
+
+    // Install and activate offers to keep the version instead (KV1): chosen by keyboard, it names the
+    // reader-facing change and enables the main action; Raise instead takes it back. Nothing is installed.
+    await page.getByRole("button", { name: "Install and activate…" }).click();
+    const main = dialog().getByRole("button", { name: /and activate in / });
+    await dialog()
+      .getByRole("button", { name: `Raise to v${version + 1}`, exact: true })
+      .waitFor();
+    assert.equal(await main.isDisabled(), true, "the main action waits for a choice");
+    await dialog()
+      .getByText(/unless you keep its version/)
+      .waitFor();
+    await assertAccessible(page, `a4c-${label}-install-break`);
+    const keep = dialog().getByRole("button", { name: `Keep v${version}, break its readers`, exact: true });
+    await keep.focus();
+    await page.keyboard.press("Enter");
+    await dialog().getByText(`Stays v${version}, changed in place`).waitFor();
+    assert.equal(await main.isDisabled(), false, "a kept version enables the main action");
+    await assertAccessible(page, `a4c-${label}-install-kept`);
+    await shot("install-kept-1440");
+    await dialog()
+      .getByRole("button", { name: `Raise to v${version + 1} instead`, exact: true })
+      .waitFor();
+    const wide = page.viewportSize();
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await page.setViewportSize(wide);
+    await dialog().getByRole("button", { name: "Cancel" }).click();
+    checks.push(
+      `${label}: Install and activate offers Keep v${version} beside Raise on the break; Keep by keyboard shows the kept box, Raise to v instead and the enabled main action; cancelled, nothing installed; no overflow at 390px`,
+    );
     await oneStep(() => centre.getByRole("button", { name: `Raise to version ${version + 1}` }).click());
     await centre
       .getByText(`Contract version ${version + 1}`)

@@ -593,6 +593,14 @@ while both releases offer XREF, so offering it again is an addition. A lower `co
 releases any change. A definition the candidate no longer declares is a `CONSUMER_API_REMOVED`
 warning and does not change the classification.
 
+Activation and a workspace migration refuse a breaking change that keeps the `contractVersion` with `409
+CONSUMER_CONTRACT_VERSION_REQUIRED`, unless the request sends `keepContractVersions: true` (default `false`),
+which accepts the breaking changes of every current version the release breaks and nothing else:
+`CONSUMER_CONTRACT_VERSION_DECREASED` and `CONSUMER_KEPT_VERSION_CHANGED` are refused with it too. The
+activation's answer lists what was kept as `keptContractVersions` (`consumerApi`, `contractVersion`,
+`diagnostics`); the `activated` audit event records the same, and `GET /model-releases/{releaseId}/activations`
+returns it on the entry. A migration carries the flag into its job and records it when it switches the release.
+
 Activation names its workspace (Product 0.11 M1): see
 [Workspace models](#workspace-models-product-011) for its body, answer, refusals and the commit guard
 each write runs under. `GET /model-releases/{releaseId}/activations` lists the recorded selections of

@@ -28,7 +28,7 @@ from ..events.subscription_rules import suspend_left_behind
 from ..indexes import matrix_states
 from .compatibility import CompatibilityResult, analyze_compatibility
 from .compiler import SUPPORTED_SCHEMA_VERSIONS, ModelDiagnostic, canonical_model, compile_model
-from .consumer_contract import contract_diagnostics
+from .consumer_contract import KeptContractVersion, contract_refusals
 from .release_lifecycle import require_choosable
 from .validation import require_valid_references
 from .workspace_models import load_assignment
@@ -94,6 +94,7 @@ class Activation:
     version: int
     updated_at: datetime
     change_sets_left_behind: tuple[ChangeSet, ...]
+    kept_contract_versions: tuple[KeptContractVersion, ...] = ()
 
 
 def lock_what_activation_changes(
@@ -161,6 +162,7 @@ def activate_model_release(
     *,
     expected_version: int,
     expected_release_id: str,
+    keep_contract_versions: bool = False,
 ) -> Activation:
     """Validate and select an installed release for one workspace in the current transaction.
 
@@ -231,13 +233,15 @@ def activate_model_release(
     if compatibility.classification == "migration_required":
         raise ModelMigrationRequired(compatibility)
     # The workspace's consumers read its release, so its definitions are the contract (C-D17).
-    contract_errors = [
-        item
-        for item in contract_diagnostics(current_compilation.model, candidate_compilation.model)
-        if item.severity == "error"
-    ]
+    # With ``keep_contract_versions`` a person accepts the breaking changes of a current version
+    # under its number; a lowered or changed earlier version is refused still.
+    contract_errors, kept = contract_refusals(
+        current_compilation.model,
+        candidate_compilation.model,
+        keep_contract_versions=keep_contract_versions,
+    )
     if contract_errors:
-        raise ConsumerContractVersionRequired(tuple(contract_errors))
+        raise ConsumerContractVersionRequired(contract_errors)
 
     return switch_workspace_release(
         session,
@@ -246,6 +250,8 @@ def activate_model_release(
         candidate_release,
         candidate_compilation.model,
         expected_version,
+        changes=({"keptContractVersions": [item.as_record() for item in kept]} if kept else None),
+        kept_contract_versions=kept,
     )
 
 
@@ -258,6 +264,7 @@ def switch_workspace_release(
     expected_version: int,
     *,
     changes: dict[str, Any] | None = None,
+    kept_contract_versions: tuple[KeptContractVersion, ...] = (),
 ) -> Activation:
     """Point the workspace's assignment, held for update and checked by the caller, at the
     candidate release, and carry what follows the workspace's release with it: its matrix states,
@@ -310,7 +317,14 @@ def switch_workspace_release(
             },
         )
     )
-    return Activation(workspace_key, candidate_release, new_version, updated_at, left_behind)
+    return Activation(
+        workspace_key,
+        candidate_release,
+        new_version,
+        updated_at,
+        left_behind,
+        kept_contract_versions,
+    )
 
 
 def installed_versions(session: Session, key: str) -> set[str]:

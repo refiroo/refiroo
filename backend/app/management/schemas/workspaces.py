@@ -5,6 +5,7 @@ from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
 from .common import CollectionPage
 from .jobs import JobResponse
+from .model import KeptContractVersionResponse
 
 
 class WorkspaceModelResponse(BaseModel):
@@ -35,6 +36,15 @@ class WorkspaceModelActivation(BaseModel):
     releaseId: UUID4
     expectedVersion: int = Field(ge=1)
     expectedReleaseId: UUID4
+    keepContractVersions: bool = Field(
+        default=False,
+        description="Accept the release although it changes what the readers of a consumer "
+        "API's current contract version get, keeping the version number. It covers every "
+        "current version the release breaks and nothing else: an earlier version served beside "
+        "the current one, or a lowered `contractVersion`, is refused still. Without it, such a "
+        "release is refused with `409 CONSUMER_CONTRACT_VERSION_REQUIRED` unless it raises the "
+        "version.",
+    )
 
 
 class MigrationAttributeSource(BaseModel):
@@ -127,6 +137,15 @@ class WorkspaceMigrationRequest(BaseModel):
     )
     changeSetId: str | None = Field(default=None, max_length=36)
     expectedChangeSetVersion: int | None = Field(default=None, ge=1)
+    keepContractVersions: bool = Field(
+        default=False,
+        description="Accept the release although it changes what the readers of a consumer "
+        "API's current contract version get, keeping the version number. It covers every "
+        "current version the release breaks and nothing else: an earlier version served beside "
+        "the current one, or a lowered `contractVersion`, is refused still. Without it, such a "
+        "release is refused with `409 CONSUMER_CONTRACT_VERSION_REQUIRED` unless it raises the "
+        "version.",
+    )
 
     @model_validator(mode="after")
     def _names_what_it_needs(self) -> WorkspaceMigrationRequest:
@@ -150,6 +169,11 @@ class ChangeSetLeftBehind(BaseModel):
 
 class WorkspaceModelActivationResponse(WorkspaceAssignmentResponse):
     changeSetsLeftBehind: list[ChangeSetLeftBehind]
+    keptContractVersions: list[KeptContractVersionResponse] = Field(
+        default_factory=list,
+        description="The consumer API versions kept through a breaking change by "
+        "`keepContractVersions`; empty otherwise. The `activated` audit event records the same",
+    )
 
 
 class WorkspaceAvailable(BaseModel):

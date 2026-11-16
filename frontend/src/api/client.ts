@@ -828,6 +828,8 @@ export const api = {
       draftId?: string;
       changeSetId?: string;
       expectedChangeSetVersion?: number;
+      /** Accept a break of a consumer API's current version under its number (KV1). */
+      keepContractVersions?: boolean;
     },
   ) =>
     request<Job>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/model/migrations`, {
@@ -1471,12 +1473,22 @@ export const api = {
       body: JSON.stringify({ expectedVersion }),
     }),
   /** ``releaseId`` activated into the workspace of ``current``, claiming its assignment (0.11 M1). */
-  activateWorkspaceModel: (releaseId: string, current: WorkspaceModel) =>
+  /** `keepContractVersions` accepts a break of a consumer API's current version under its number (KV1). */
+  activateWorkspaceModel: (
+    releaseId: string,
+    current: WorkspaceModel,
+    options: { keepContractVersions?: boolean } = {},
+  ) =>
     request<WorkspaceModelActivation>(
       `/api/v1/workspaces/${encodeURIComponent(current.workspaceKey)}/model/activation`,
       {
         method: "POST",
-        body: JSON.stringify({ releaseId, expectedVersion: current.version, expectedReleaseId: current.releaseId }),
+        body: JSON.stringify({
+          releaseId,
+          expectedVersion: current.version,
+          expectedReleaseId: current.releaseId,
+          ...(options.keepContractVersions ? { keepContractVersions: true } : {}),
+        }),
       },
     ),
   objects: (objectTypeKey: string, query: ObjectQuery) => request<ObjectPage>(objectQueryPath(objectTypeKey, query)),

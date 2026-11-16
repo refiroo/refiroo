@@ -842,6 +842,13 @@ their events produced from C10 (J30); written in schema 0.9 since C18.
 - **J25.8 Mistakes at the author's pointers**: a `via` naming no relation, a filter with two verbs,
   a role given to two fields and an `alsoMatchThrough` naming no related block are each
   refused at their pointer in the 0.9 document (C-D141).
+- **J25.10 Keep the current contract version through a break (0.17.3 KV1)**: a release that changes what
+  the current version's readers get is activated when it raises the version or when the activation, or the
+  migration that activates it, sends `keepContractVersions: true`; the readers then get the new shape under
+  the same number. The answer's `keptContractVersions`, the `activated` audit event and the release's
+  activation history name each kept API, its version and the breaking changes accepted, with the actor. A
+  lowered version and a changed earlier version stay refused with the flag. The editor's Install and Apply
+  dialogs offer Keep beside Raise to people who may install a release; the assistant never keeps.
 - **J25.9 Keep an earlier contract version (0.13 DF3)**: a definition keeps frozen copies of itself
   at older contract versions (`earlierVersions`, each with the day it was superseded and an optional
   `sunset` day). The editor keeps the previous version when the author raises the version, and the

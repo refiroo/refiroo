@@ -202,6 +202,7 @@ def list_model_release_activations(
                 runtimeVersion=event.version,
                 occurredAt=as_utc(event.occurred_at),
                 actor=named_actors[event.sequence_id],
+                keptContractVersions=event.changes.get("keptContractVersions", []),
             )
             for event in page.items
         ],

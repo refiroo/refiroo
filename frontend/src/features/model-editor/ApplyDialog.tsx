@@ -19,6 +19,7 @@ import {
   openChangeSets,
   ReleaseIdentityFields,
   summarizeChanges,
+  useKeptContracts,
   useReleaseIdentity,
 } from "@/ui/ActivationParts";
 import { ImpactSummary } from "@/ui/ImpactSummary";
@@ -78,6 +79,7 @@ export function ApplyDialog({
   // Installed, and the activation refused: Try again repeats the activation alone.
   const [installed, setInstalled] = useState<ModelRelease>();
   const identity = useReleaseIdentity(outline);
+  const contracts = useKeptContracts(compilation?.consumerContracts?.diagnostics, workspaceKey);
   const { capabilities } = useCapabilities();
 
   useEffect(() => {
@@ -118,11 +120,10 @@ export function ApplyDialog({
   // Nothing new against the base, and the base is what runs here. A base that does not run here is
   // a release an earlier Apply installed, which still has to reach the workspace.
   const nothing = compilation?.valid && !modelChanged && outline.baseReleaseId === workspace?.model.releaseId;
-  const contractsBreak = compilation?.consumerContracts?.classification === "version_required";
   const check = compilation?.compatibility.workspaces.find((item) => item.workspaceKey === workspaceKey);
   const moves = check?.classification === "migration_required";
   const canMigrate = Boolean(capabilities?.modelAdmin.activate && capabilities?.integrationJobs.createJobs);
-  const ready = compilation?.valid && !nothing && !contractsBreak && workspace && (!modelChanged || identity.complete);
+  const ready = compilation?.valid && !nothing && workspace && (!modelChanged || identity.complete);
   // The migration the draft states for this workspace (0.13 MG), read while the data must move.
   const {
     migration,
@@ -155,12 +156,13 @@ export function ApplyDialog({
           targetReleaseId: release.id,
           expectedVersion: state.version,
           ...proposalOf(migration, draftId),
+          ...(contracts.keeping ? { keepContractVersions: true } : {}),
         });
         onMigrationStarted(job.id);
         return;
       }
       try {
-        await api.activateWorkspaceModel(release.id, state);
+        await api.activateWorkspaceModel(release.id, state, { keepContractVersions: contracts.keeping });
       } catch (cause) {
         setError(
           `${release.name} ${release.version} is installed, but ${label} did not change: ${activationRefusal(cause)}`,
@@ -281,6 +283,7 @@ export function ApplyDialog({
                     diagnostics={compilation.consumerContracts.diagnostics}
                     run={run}
                     pending={pending}
+                    contracts={contracts}
                   />
                 )}
                 {!moves && (
@@ -356,7 +359,7 @@ export function ApplyDialog({
             {offered ? "Cancel" : "Close"}
           </button>
           {offered && (
-            <button type="submit" className="primary" disabled={pending}>
+            <button type="submit" className="primary" disabled={pending || contracts.blocked}>
               {pending
                 ? "Applying…"
                 : installed

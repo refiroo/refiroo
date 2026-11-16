@@ -15,6 +15,9 @@ Everything goes through the public API as the reference administrator; nothing i
   draft-ghost <name> / draft-ghost-off <name>   the deliberate error in a model draft: a column ghost-field in the
                         Municipalities view of Network (as a person would add it in the draft's JSON), and its removal
   draft-delete <name>   delete the newest model draft of that name (a draft nobody installs)
+  keep-break-on / keep-break-off   a break the Apply and Install dialogs offer to keep (KV1): the Install dialog's draft
+                        "Guide keep draft" (a copy of the model Graubünden runs) and the workspace's own draft both lose the
+                        SBOID field of the stops consumer API without a higher contract version; off deletes both again
   banner-mismatch-on / banner-mismatch-off   the empty workspace "Guide model banner" on Graubünden's release with the change
                         set "Guide model version banner", then another installed release of the model activated in the
                         workspace, so the change set differs from live data (UI1: the banner offers both ways out); off
@@ -283,6 +286,44 @@ def draft_concurrent(a, spec):
             ],
         },
     )
+
+
+KEEP_DRAFT = "Guide keep draft"
+KEEP_FIELD = "sboid"
+
+
+def _without_keep_field(model):
+    fields = next(c for c in model["consumerApis"] if c["key"] == "stops")["object"]["fields"]
+    fields.pop(KEEP_FIELD)
+
+
+def keep_break_on(a):
+    state = kept()
+    if state.get("keepBreak"):
+        return
+    own = a.call("POST", "/api/v1/workspaces/graubuenden/model/draft")
+    own = a.call("GET", f"/api/v1/model-drafts/{own['id']}")
+    _without_keep_field(own["model"])
+    a.call(
+        "PATCH",
+        f"/api/v1/model-drafts/{own['id']}",
+        {"expectedVersion": own["version"], "model": own["model"]},
+    )
+    named = a.call(
+        "POST",
+        "/api/v1/model-drafts",
+        {"name": KEEP_DRAFT, "baseReleaseId": own["baseReleaseId"], "model": own["model"]},
+    )
+    state["keepBreak"] = {"workspaceDraft": own["id"], "named": named["id"]}
+    save(state)
+
+
+def keep_break_off(a):
+    state = kept()
+    for draft_id_ in (state.pop("keepBreak", None) or {}).values():
+        d = a.call("GET", f"/api/v1/model-drafts/{draft_id_}")
+        a.call("DELETE", f"/api/v1/model-drafts/{draft_id_}?expectedVersion={d['version']}")
+    save(state)
 
 
 IMPORT_FILE = ROOT / "guide" / "_waves" / "runs" / "import-invalid-height.xlsx"
@@ -739,6 +780,8 @@ def export_job(a):
 
 
 STATES = {
+    "keep-break-on": keep_break_on,
+    "keep-break-off": keep_break_off,
     "banner-mismatch-on": banner_mismatch_on,
     "banner-mismatch-off": _banner_workspace_delete,
     "approver-account": approver_account,

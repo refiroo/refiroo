@@ -221,7 +221,12 @@ installed ([API.md § A draft's consumer APIs](API.md#a-drafts-consumer-apis)).
 Each definition has its own `contractVersion`, separate from the model release version. A new model
 release that changes a published definition's output must raise that definition's `contractVersion`.
 Model validation compares definitions with the previously installed release and rejects an unmarked
-breaking change (C-D2).
+breaking change (C-D2). A breaking change is marked in one of two ways: the release raises the
+definition's `contractVersion`, or the person activating it keeps the current version (KV-D1): the activation
+or migration request carries `keepContractVersions: true`, the readers of that version then get the new shape
+under the same number, and the activation's answer and the `activated` audit event name what was kept. Keeping
+is the model administrator's decision, like raising; it never covers an earlier version served beside the
+current one or a lowered `contractVersion`, which stay refused. The assistant's own activations never set it.
 
 #### Earlier versions served beside the new one (0.13 DF3)
 
@@ -1230,7 +1235,7 @@ C-D94 revised for C12; C-D112–C-D114 for C13 the same day.
 | # | Question | Decision |
 | --- | --- | --- |
 | C-D1 | Authentication for an external API | **Decided 2026-09-29:** no API-key credentials and no credential in a URL (the route's `consumerApi` is a definition name). The 0.12 security release provides OAuth 2.0 with JWT access tokens for the backend, frontend and consumer APIs, HMAC-signed webhooks, and UI administration of both. 0.9 is unauthenticated (C7 moved to 0.12). _Amended 2026-10-05:_ webhook signing moved into 0.9 (C-D12 revised); 0.12 keeps key rotation |
-| C-D2 | How strict the breaking-change check is | Removing or retyping an output field, or changing a projection's shape, needs a new `contractVersion`. Adding fields does not |
+| C-D2 | How strict the breaking-change check is | Removing or retyping an output field, or changing a projection's shape, needs a new `contractVersion`. Adding fields does not. **Amended 2026-11-16 (KV-D1):** or the activating request keeps the current version with `keepContractVersions` |
 | C-D3 | Serve several contract versions of one definition at once | Not in 0.9. One installed version per definition; the gateway handles overlap |
 | C-D4 | Are the scoring weights part of the contract | Yes. Weights change ranking, and flows depend on ranking, so a weight change needs a new `contractVersion`. Because of C-D3 (one installed version at a time), tuning weights is a contract release for every consumer of the definition; that cost is accepted |
 | C-D5 | Route compatibility for existing consumers | The existing gateway maps routes. The engine does not accept free-form route templates in 0.9 |

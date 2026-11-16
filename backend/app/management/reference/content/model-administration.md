@@ -9,7 +9,7 @@ A model draft is an editable copy of a model that no workspace runs yet. You use
 
 Title: Run a release in a workspace
 
-Makes an installed release the model of one workspace, when the workspace's data already fits it; other workspaces keep their releases. If the data does not fit, migrate with `POST /api/v1/workspaces/{workspace_key}/model/migrations`. Open change sets stay on the release they were made under and are named in `changeSetsLeftBehind`. Webhook subscriptions the new release cannot serve are suspended.
+Makes an installed release the model of one workspace, when the workspace's data already fits it; other workspaces keep their releases. If the data does not fit, migrate with `POST /api/v1/workspaces/{workspace_key}/model/migrations`. Open change sets stay on the release they were made under and are named in `changeSetsLeftBehind`. Webhook subscriptions the new release cannot serve are suspended. A release that changes what a consumer API's current version returns is refused unless it raises the `contractVersion` or the request sends `keepContractVersions: true`; the answer then lists the versions it kept in `keptContractVersions`.
 
 ### Parameters
 
@@ -25,7 +25,7 @@ Makes an installed release the model of one workspace, when the workspace's data
 - 409 WORKSPACE_RETIRED: a retired workspace's model is not changed
 - 409 MODEL_RELEASE_RETIRED: the release is retired
 - 409 MODEL_MIGRATION_REQUIRED: the workspace's data does not fit the release
-- 409 CONSUMER_CONTRACT_VERSION_REQUIRED: a consumer API changes without a higher `contractVersion`
+- 409 CONSUMER_CONTRACT_VERSION_REQUIRED: a consumer API changes without a higher `contractVersion` and no `keepContractVersions`
 - 422 REQUEST_VALIDATION_ERROR: a field is missing or not a UUID
 - 422 UNSUPPORTED_SCHEMA_VERSION: this engine cannot run the release's schema
 - 500 INVALID_INSTALLED_MODEL: a stored release no longer compiles
@@ -52,7 +52,7 @@ Gives the draft for the model a workspace runs, so you can change that model. It
 
 Title: Preview a workspace migration
 
-Starts a migration of a workspace's data to another installed release and answers 202 with a queued job. The job previews every conversion, loss and refusal, changing nothing; read it with `GET /api/v1/jobs/{job_id}/rows`, then run it with `POST /api/v1/jobs/{job_id}/confirm`. With `changeSetId` the migration also publishes that change set, and the target is its release.
+Starts a migration of a workspace's data to another installed release and answers 202 with a queued job. The job previews every conversion, loss and refusal, changing nothing; read it with `GET /api/v1/jobs/{job_id}/rows`, then run it with `POST /api/v1/jobs/{job_id}/confirm`. With `changeSetId` the migration also publishes that change set, and the target is its release. `keepContractVersions: true` is accepted as on activation, and the migration records what it kept when it switches the release.
 
 ### Parameters
 
@@ -72,7 +72,7 @@ Starts a migration of a workspace's data to another installed release and answer
 - 409 ACTIVATION_CONFLICT: the workspace's model changed since you read it
 - 409 CHANGE_SET_VERSION_CONFLICT: the change set changed since you read it
 - 409 APPROVAL_REQUIRED: the workspace's policy requires an approval to publish
-- 409 CONSUMER_CONTRACT_VERSION_REQUIRED: a consumer API changes without a higher `contractVersion`
+- 409 CONSUMER_CONTRACT_VERSION_REQUIRED: a consumer API changes without a higher `contractVersion` and no `keepContractVersions`
 - 422 REQUEST_VALIDATION_ERROR: a field is invalid or the target is missing
 - 422 MIGRATION_TARGET_IS_CURRENT: the workspace runs the target already
 - 422 MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE: the target is not the change set's release
@@ -658,6 +658,7 @@ Proposes how to load a rectangle of the draft's source file as a list, against t
 - releaseId: The installed release to run.
 - expectedVersion: The workspace's model `version`, from `GET /api/v1/workspaces/{workspace_key}/model`.
 - expectedReleaseId: The release the workspace runs now, from the same read.
+- keepContractVersions: Send `true` to accept the release although it changes what a consumer API's current contract version returns, keeping the version number. It covers every current version the release breaks and nothing else; a lowered `contractVersion` or a changed earlier version is refused still.
 
 ### WorkspaceModelActivationResponse
 
@@ -671,6 +672,7 @@ Proposes how to load a rectangle of the draft's source file as a list, against t
 - version: The assignment's own version, raised by this activation. The next activation sends it.
 - updatedAt: When the workspace changed release.
 - changeSetsLeftBehind: Open change sets of the workspace that stay pinned to the release it ran before.
+- keptContractVersions: The consumer API versions kept through a breaking change by `keepContractVersions`; empty otherwise. The release's activations list the same.
 
 ### ChangeSetLeftBehind
 
@@ -692,6 +694,7 @@ A migration of the workspace's data to an installed release. Naming a change set
 - listConversions: Attributes turned into list types in the target. At most 100.
 - changeSetId: A change set of the workspace to publish in the same transaction as the migration, which then moves the workspace to that change set's release.
 - expectedChangeSetVersion: The change set's `version`; sent with `changeSetId`, and only with it.
+- keepContractVersions: Send `true` to accept the target although it changes what a consumer API's current contract version returns, keeping the version number; the migration's switch records what was kept.
 
 ### MigrationRelationTypeMapping
 

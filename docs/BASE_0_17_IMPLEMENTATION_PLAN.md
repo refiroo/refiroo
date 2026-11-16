@@ -2612,6 +2612,84 @@ before). R172-F38 fixed both (`9e602bc9`, CI green); by the user's decision the 
 before any image existed, and the Images run built and started `refiroo-engine:v0.17.2` and
 `refiroo-web:v0.17.2` on amd64 and arm64.
 
+## KV1: Keep a contract version through a breaking change (0.17.3)
+
+**Why.** The user, 2026-11-16: a field set up by mistake (a relationship attribute chosen on an existing row of
+a related block, which retyped `value`) raised a consumer API to a new contract version, and putting it back
+raises it again; "with every change I bump a version… v23 makes no sense for a production setup". Requested: in
+the apply dialog, where the new version is accepted today, a red button beside it keeps the current version,
+stating its breaking change; the API gets one flag that, set to true, makes the engine accept the version as it
+is. Checked against the documents: consumer API versions are the model administrator's (DF-D2,
+[COMPATIBILITY.md](COMPATIBILITY.md#how-a-breaking-change-is-made)), so this extends that rule; it amends C-D2
+([CONSUMER_API.md](CONSUMER_API.md), "rejects an unmarked breaking change"), which KV-D1 records. refiroo's own
+compatibility commitment is not touched: the flag is an addition to the management API.
+
+**Mock-up:** [prototypes/keep-contract-version/index.html](../prototypes/keep-contract-version/index.html) (both
+states of the Consumer APIs section; the rest of the dialog is unchanged).
+
+### Decisions
+
+- **KV-D1 Keeping is a second way to mark a break** (amends C-D2; **settled by the user's approval of this plan, 2026-11-16**): a release that
+  changes what the current contract version's readers get is activated only when it raises `contractVersion`
+  or when the request carries `keepContractVersions: true`. Without either, `409
+  CONSUMER_CONTRACT_VERSION_REQUIRED` as today.
+- **KV-D2 One flag, the dialog decides per API** (**settled by the user's approval of this plan, 2026-11-16**): the flag is a boolean on the request, as requested,
+  and covers every current version the release breaks. The dialog offers Keep or Raise on each breaking row and
+  enables its main action only when every row is decided; a raised row no longer breaks, so the flag covers
+  only the kept ones. Keep is a choice in the dialog, not a draft step: the model keeps no trace of it.
+- **KV-D3 Earlier versions stay frozen** (**settled by the user's approval of this plan, 2026-11-16**): the flag never covers an earlier version served beside the
+  current one (`CONSUMER_KEPT_VERSION_CHANGED` and `CONSUMER_CONTRACT_VERSION_DECREASED` are refused as today),
+  and Keep is not offered on such a row.
+- **KV-D4 Activation and migration** (my recommendation, the question of 2026-11-16 being unanswered; **settled by the user's approval of this plan, 2026-11-16**): the
+  flag is accepted by `POST /api/v1/workspaces/{workspace_key}/model/activation` and by
+  `POST /api/v1/workspaces/{workspace_key}/model/migrations`, the two that refuse a break today; the migration
+  carries it into its job, so the job's activation does not refuse what the request accepted.
+- **KV-D5 A person decides** (**settled by the user's approval of this plan, 2026-11-16**): the assistant's paths (`engine/tasks/design_job.py`, the outcome check in
+  `engine/tasks/agent/outcome.py`) never set the flag and keep refusing; the flag is offered only to someone who
+  may install a model release, as the dialog's main action is.
+- **KV-D6 What was kept is recorded** (**settled by the user's approval of this plan, 2026-11-16**): the `activated` audit event names each kept
+  `{consumerApi, contractVersion}` with the breaking diagnostics accepted; the activation response lists the
+  same under `keptContractVersions`.
+- **KV-D7 The kept box names who is affected** (**settled by the user's approval of this plan, 2026-11-16**): the breaking changes as the engine reports them, and
+  the webhook subscriptions bound to that version, from the existing subscriptions list. The engine records no
+  reads per contract version (checked: no read counter or last-read for consumer APIs), so the box does not say
+  whether the version was read; that would be a package of its own.
+
+### Delivery
+
+- **Engine:** `activate_model_release` and the migration submission take `keep_contract_versions`; with it, the
+  contract errors other than the kept-version and decreased codes are accepted and recorded (KV-D6). Request
+  schemas `WorkspaceModelActivation` and `WorkspaceMigrationRequest` gain `keepContractVersions: bool = False`;
+  the management OpenAPI and its lock change for these two fields and the response list.
+- **Frontend:** `ConsumerContracts` (`ui/ActivationParts.tsx`, used by `ApplyDialog` and `InstallDialog`): the red
+  `danger` button "Keep v{n}, break its readers" beside "Raise to v{n+1}"; once chosen, the kept box and "Raise to
+  v{n+1} instead"; the main action sends the flag. The section's closing sentence names the keep choice. No other
+  part of either dialog changes; the `install-contracts` rules stay, the kept box takes the status-error tokens.
+- **Documents:** C-D2's text in CONSUMER_API.md, APPLICATION_MODEL.md (the two C-D2 paragraphs), API.md (the
+  contract-version paragraph), COMPATIBILITY.md (one sentence under DF-D2), the management reference
+  (`errors.md` for `CONSUMER_CONTRACT_VERSION_REQUIRED`, `model-administration.md` for both requests), CHANGELOG.
+  Guide prose by Codex: *Define a consumer API* (Refine a released API safely), *Install and activate a release*,
+  and the model page *Consumer APIs*; new pictures of the Consumer APIs section in both dialogs (a new control).
+- **Checks:** one journey beside `test_j25_earlier_versions.py`: a retyped field is refused without the flag;
+  with it, the same version serves the new shape, the audit event and response name it, and a changed earlier
+  version is still refused; the migration path accepts the flag. Vitest for `ConsumerContracts`' two states; the
+  browser runners and gates of the two dialogs' screens pass (TS1).
+
+**Delivered 2026-11-16.** Engine: `contract_refusals` and `KeptContractVersion` in
+`engine/model/consumer_contract.py` (only `CONSUMER_CONTRACT_VERSION_REQUIRED` diagnostics of a current version
+are kept); `activate_model_release` and `submit_migration` take `keep_contract_versions`, the migration job
+carries what was kept and its switch records it (the switch does not re-check the contract). API:
+`keepContractVersions` on both requests; `keptContractVersions` on the activation response and on
+`GET /model-releases/{id}/activations`. Frontend: `ConsumerContracts` and `useKeptContracts` in
+`ui/ActivationParts.tsx`, both dialogs; Keep only for Model release, webhook names only for integration
+administrators. Journey J25.10 (`test_j25_keep_contract_version.py`). Guide: three pages by Codex, four new
+pictures (`model-{apply,install}-contracts-{break,kept}`). *Decided within the approved package:* the journey's
+break is a removed field; package IDs left out of the API descriptions (the reference test refuses them); a raise
+from the dialog clears its Keep choice; of the 86 runners `test:changed` selected (shared `client.ts` and types),
+the 12 touching these dialogs ran. Checks: backend groups consumer, model_admin, workspace_models, contract,
+authoring 5,825 passed (13.5 min at load 40, over the 3 min ceiling); reference 82; Vitest 4 + 377; build, tsc,
+lint; 12 runners with a11y and visual; guide verify and links.
+
 ## UI1: Fix the model version banner in a change set (0.17.3)
 
 **Why.** The first package of the U lane (UI fixes, UI1, UI2, …; the user, 2026-11-16). The user, on the banner a change set shows when it works under a different model version

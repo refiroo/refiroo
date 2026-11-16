@@ -438,6 +438,58 @@ def contract_diagnostics(active: EngineModel, candidate: EngineModel) -> list[Mo
     return diagnostics
 
 
+@dataclass(frozen=True)
+class KeptContractVersion:
+    """A current contract version a request kept through a breaking change: its readers
+    get the new shape under the same number, with the breaking diagnostics accepted."""
+
+    consumer_api: str
+    contract_version: int
+    diagnostics: tuple[ModelDiagnostic, ...]
+
+    def as_record(self) -> dict[str, Any]:
+        """The kept version as the activation response, the audit event and a job record it."""
+        return {
+            "consumerApi": self.consumer_api,
+            "contractVersion": self.contract_version,
+            "diagnostics": [
+                {
+                    "severity": item.severity,
+                    "code": item.code,
+                    "path": item.path,
+                    "message": item.message,
+                }
+                for item in self.diagnostics
+            ],
+        }
+
+
+def contract_refusals(
+    active: EngineModel, candidate: EngineModel, *, keep_contract_versions: bool
+) -> tuple[tuple[ModelDiagnostic, ...], tuple[KeptContractVersion, ...]]:
+    """What stops ``candidate`` from replacing ``active``, and what the request kept.
+
+    The errors of :func:`contract_diagnostics` refuse. With ``keep_contract_versions`` the
+    breaking changes of a current version are accepted and returned as kept; a lowered version
+    and a changed earlier version stay refused.
+    """
+    errors = [item for item in contract_diagnostics(active, candidate) if item.severity == "error"]
+    if not keep_contract_versions:
+        return tuple(errors), ()
+    kept: list[KeptContractVersion] = []
+    for item in sorted(consumer_apis(active), key=lambda api: api.key):
+        base = f"/consumerApis/{pointer_segment(item.key)}"
+        found = tuple(
+            error
+            for error in errors
+            if error.code == BREAKING and (error.path == base or error.path.startswith(f"{base}/"))
+        )
+        if found:
+            kept.append(KeptContractVersion(item.key, item.contractVersion, found))
+    accepted = {id(error) for item in kept for error in item.diagnostics}
+    return tuple(error for error in errors if id(error) not in accepted), tuple(kept)
+
+
 def _kept_version_diagnostics(active: EngineModel, candidate: EngineModel) -> list[ModelDiagnostic]:
     """The versions ``candidate`` serves beside the current one (DF3), against the same version in
     ``active``: a version is a contract, so it must read as it did (C-D2) while it is served. An

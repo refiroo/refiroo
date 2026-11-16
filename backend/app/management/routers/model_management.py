@@ -82,6 +82,7 @@ from ..schemas.canvas import CanvasResponse, CanvasUpdate
 from ..schemas.jobs import JobResponse
 from ..schemas.model import (
     CandidateCompatibilityResponse,
+    KeptContractVersionResponse,
     ModelCompilationResponse,
     ModelDraftConsumerApiResponse,
     ModelDraftCreate,
@@ -143,6 +144,7 @@ def activate_workspace_model(
             str(payload.releaseId),
             expected_version=payload.expectedVersion,
             expected_release_id=str(payload.expectedReleaseId),
+            keep_contract_versions=payload.keepContractVersions,
         )
     except WorkspaceNotFound as exc:
         raise api_error(
@@ -221,6 +223,10 @@ def activate_workspace_model(
             ChangeSetLeftBehind(id=item.id, name=item.name, version=item.version)
             for item in activated.change_sets_left_behind
         ],
+        keptContractVersions=[
+            KeptContractVersionResponse.model_validate(item.as_record())
+            for item in activated.kept_contract_versions
+        ],
     )
     session.commit()
     try:
@@ -267,7 +273,9 @@ def start_workspace_migration(
     MODEL_RELEASE_NOT_FOUND``, ``409 WORKSPACE_RETIRED``, ``409 ACTIVATION_CONFLICT`` (the
     assignment changed since ``expectedVersion``), ``422 UNSUPPORTED_SCHEMA_VERSION``, ``422
     MIGRATION_TARGET_IS_CURRENT``, ``422 INVALID_MIGRATION_MAPPING`` (at ``details.pointer``),
-    ``409 CONSUMER_CONTRACT_VERSION_REQUIRED`` (as on activation).
+    ``409 CONSUMER_CONTRACT_VERSION_REQUIRED`` (as on activation, and as there
+    ``keepContractVersions: true`` accepts the breaking changes of a current version under its
+    number; the job records what was kept in its ``activated`` audit event).
 
     Naming ``changeSetId`` with ``expectedChangeSetVersion`` (0.11 V2) migrates the workspace to
     that change set's release (``targetReleaseId`` may be left out) and publishes the change set in
@@ -287,6 +295,7 @@ def start_workspace_migration(
             change_set_id=payload.changeSetId,
             expected_change_set_version=payload.expectedChangeSetVersion,
             permissions=permissions,
+            keep_contract_versions=payload.keepContractVersions,
             more={
                 "relationTypeMappings": [
                     item.model_dump() for item in payload.relationTypeMappings

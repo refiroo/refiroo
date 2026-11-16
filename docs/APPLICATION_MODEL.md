@@ -835,7 +835,7 @@ Their shape, defaults, validation and contract rules are specified in
   or attribute the model no longer has refuses the release naming it; a key change (`setKey`) in a draft is
   rewritten in every kept version as in the current definition, so each keeps its public names (R13-F14); and it is compared with the same
   version in the active release (C-D2), so a kept version that would read differently is refused too
-  (`CONSUMER_KEPT_VERSION_CHANGED`). Stopping to serve a version is a warning, as removing a definition is.
+  (`CONSUMER_KEPT_VERSION_CHANGED`; keeping the current version with `keepContractVersions` never covers it, KV-D3). Stopping to serve a version is a warning, as removing a definition is.
   The model editor raises the version with `raiseConsumerApiVersion`, which keeps the previous one by
   default ([API.md § Kinds](API.md#kinds)).
 - An `onRelated` filter may declare `crosswalk: true`, which enables crosswalk reads (`to.{filter}`).
@@ -867,8 +867,10 @@ Their shape, defaults, validation and contract rules are specified in
   a type, changing a related block's shape or fields, changing scoring weights (C-D4), removing or
   changing a list (its type, `sortBy` or `within`) or a filter's verb (C-D18), turning a filter's
   `scoreOnlyMatching` on or off (C-D46), removing or narrowing an event, or no longer offering an
-  operation (C-D132). Removing a whole definition is a warning. Installing a release without
-  activating it is not checked.
+  operation (C-D132), unless the request activating the release keeps the version
+  (`keepContractVersions: true`, KV-D1: the activation or migration accepts the break under the same
+  `contractVersion` and records what it kept; a lowered version and a changed earlier version stay refused).
+  Removing a whole definition is a warning. Installing a release without activating it is not checked.
 - A field's sources share one value type (`text` and `longText` count as one), which is its output
   type (C-D19); the `id` field reads `id`, the object ID (C-D24); a match rule or match field reads
   `name`, `id` or a `searchable` or `unique` attribute (C-D20). A `contains` weight reads text only:

@@ -93,7 +93,9 @@ be documented when it is built.
 refiroo's own promise for the contracts it publishes. A consumer API contract is written by the instance's model
 administrator, not by refiroo, so the engine does not apply that period to it: it serves the earlier contract
 version beside the new one, with the `Deprecation` header and, when the administrator sets a day, the `Sunset`
-header, until the administrator removes the version from the model. The administrator chooses the notice, and the
+header, until the administrator removes the version from the model. The administrator also decides whether a
+breaking change gets a new version or stays under the current one (`keepContractVersions`, KV1); the engine only
+records what was kept. The administrator chooses the notice, and the
 sunset day is announced, never enforced. See [CONSUMER_API.md](CONSUMER_API.md#earlier-versions-served-beside-the-new-one-013-df3).
 
 ## The schema language of models

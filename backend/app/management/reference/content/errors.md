@@ -392,7 +392,7 @@ An error in the `diagnostics` of a model compatibility check: the candidate mode
 
 <span class="rdm-status rdm-4xx">Status 409</span>
 
-The model release being activated, or the target of a migration, changes what a consumer API's consumers read without raising its `contractVersion`. `details` lists the diagnostics, each naming the consumer API and the change. It is answered by `POST /api/v1/workspaces/{workspace_key}/model/activation` and `POST /api/v1/workspaces/{workspace_key}/model/migrations`. Raise the `contractVersion` of the consumer API in a new release, and activate that release.
+The model release being activated, or the target of a migration, changes what a consumer API's consumers read without raising its `contractVersion`. `details` lists the diagnostics, each naming the consumer API and the change. It is answered by `POST /api/v1/workspaces/{workspace_key}/model/activation` and `POST /api/v1/workspaces/{workspace_key}/model/migrations`. Raise the `contractVersion` of the consumer API in a new release and activate that release, or send `keepContractVersions: true` to keep the current version under its number: its consumers then read the new shape, and the answer and the release's activations record what was kept. The flag never covers a lowered `contractVersion` or a change to an earlier version served beside the current one; those stay refused.
 
 ### CONSUMER_KEPT_VERSION_CHANGED
 

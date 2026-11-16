@@ -28,6 +28,7 @@ import {
   ConsumerContracts,
   ReleaseIdentityFields,
   summarizeChanges,
+  useKeptContracts,
   useReleaseIdentity,
 } from "@/ui/ActivationParts";
 import { api } from "@/api/client";
@@ -115,6 +116,10 @@ export function InstallDialog({
     chosenInto ??
     (!editorRuns && !runsModel && canCreate ? { kind: "new" } : { kind: "existing", workspaceKey: editorWorkspace });
   const target = into.kind === "existing" ? workspaces?.find((item) => item.key === into.workspaceKey) : undefined;
+  const contracts = useKeptContracts(
+    compilation?.consumerContracts?.diagnostics,
+    into.kind === "existing" ? into.workspaceKey : undefined,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -131,7 +136,6 @@ export function InstallDialog({
     };
   }, [draftId, outline.version]);
 
-  const contractsBreak = compilation?.consumerContracts?.classification === "version_required";
   // The chosen workspace's own check when it runs the draft's model (D25); none for another model.
   const checked =
     into.kind === "existing"
@@ -155,7 +159,7 @@ export function InstallDialog({
   const blocked =
     mappingsMissing ||
     !compilation?.valid ||
-    contractsBreak ||
+    contracts.blocked ||
     !identity.complete ||
     (into.kind === "new" ? !newWorkspace.complete : !target);
 
@@ -189,11 +193,12 @@ export function InstallDialog({
               targetReleaseId: release.id,
               expectedVersion: state.version,
               ...proposalOf(migration, draftId),
+              ...(contracts.keeping ? { keepContractVersions: true } : {}),
             });
             onMigrationStarted?.(job.id);
             return;
           }
-          await api.activateWorkspaceModel(release.id, state);
+          await api.activateWorkspaceModel(release.id, state, { keepContractVersions: contracts.keeping });
           workspace = target!;
         }
       } catch (cause) {
@@ -382,6 +387,7 @@ export function InstallDialog({
                 diagnostics={compilation.consumerContracts.diagnostics}
                 run={run}
                 pending={pending}
+                contracts={contracts}
               />
             )}
           </>

@@ -263,6 +263,31 @@ Renaming a public field or changing relationship cardinality can affect the outp
 the differences with the consuming teams, then
 [raise the contract version](/docs/guide/model/raise-a-contract-version/). Raising it keeps the previous definition served beside the new version by default. The editor preserves the definition from the draft’s base release, including when the draft already contains breaking edits. An API or version not served by that base release has no previous definition to retain. An invalid model still needs repair.
 
+A person with **Model release** may instead keep the current contract version through a
+breaking change. This choice is made under **Consumer APIs** in **Install and activate** or
+**Apply to this workspace**, rather than saved in the draft. It takes effect only when the
+workspace activates the release, including after a required migration is confirmed.
+
+Keeping means every consumer and webhook bound to that version receives the new shape under
+the same number immediately. There is no Deprecation header announcing a superseded contract,
+no second version to move to and no retained copy of the old shape from this choice. Raising
+is the way to give readers time to move. Keeping is for an agreed correction to a contract
+that should never have broken, such as a field exposed by mistake and then removed.
+
+The dialog's **Stays v1, changed in place** warning lists the accepted breaking changes;
+its number follows the API's current version. Where you may read webhooks, it also names
+those bound to that version. A missing webhook list does not establish that none are affected.
+The release's activation history and the audit trail name each API, its kept version and the
+accepted breaking changes, together with who activated it. The assistant never keeps a version:
+its own activation is still refused for a break. Follow the
+[activation guide](/docs/guide/model/install-and-activate-a-release/#decide-each-consumer-api-change)
+for the choices and confirmation steps.
+
+**For integrators:** [activation and migration](/docs/api)
+(`POST /workspaces/{key}/model/activation` and `POST /workspaces/{key}/model/migrations`)
+accept `keepContractVersions` (default false), and the activation response reports
+`keptContractVersions`.
+
 A consuming system needs a client granted this particular API in each workspace it reads.
 Defining the API, granting a role or giving a person Model authoring does not grant consumer
 access. A security administrator manages these grants. Without the API grant, a data read
@@ -365,7 +390,10 @@ source; restore the source or coordinate stopping that version.
 A retained number must be lower than the current version and appear only once. Invalid dates,
 duplicate numbers and invalid references must be corrected before release. If a kept contract
 would change, the finding says **a kept version is served as it was: restore it, or stop serving
-it**. Raising the current version again does not repair the retained copy. The install review
+it**. Keeping the current contract version through a break never changes an earlier version's
+frozen copy and cannot accept this finding. If an API also changes an earlier version, Keep
+is not offered on its row. Lowering the current version is refused too and cannot be accepted
+by keeping. Raising the current version again does not repair the retained copy. The install review
 shows this finding rather than offering a version-raise fix for it. A warning that a version
 stops serving is expected only when removal is deliberate; inspect it before activation.
 

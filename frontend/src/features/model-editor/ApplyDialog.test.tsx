@@ -272,14 +272,24 @@ describe("ApplyDialog", () => {
     expect(screen.queryByRole("button", { name: "Apply to North" })).not.toBeInTheDocument();
   });
 
-  it("offers nothing until a consumer API's contract is raised", async () => {
+  it("does not apply until a consumer API's contract is raised or kept", async () => {
     open(
       compiled("compatible", true, {
-        consumerContracts: { classification: "version_required", diagnostics: [] },
+        consumerContracts: {
+          classification: "version_required",
+          diagnostics: [
+            {
+              severity: "error",
+              code: "CONSUMER_CONTRACT_VERSION_REQUIRED",
+              path: "/consumerApis/shop/object/fields/code",
+              message: "Consumer API 'shop' field 'code' changes type; raise contractVersion above 1 to release it",
+            },
+          ],
+        },
       } as never),
     );
     await screen.findByText("Your records stay as they are");
-    expect(screen.queryByRole("button", { name: "Apply to North" })).not.toBeInTheDocument();
+    expect((screen.getByRole("button", { name: "Apply to North" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("offers nothing for an invalid draft", async () => {

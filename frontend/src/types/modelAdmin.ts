@@ -285,6 +285,8 @@ export interface WorkspaceModel {
 /** A workspace's new assignment, and its change sets left on the release it no longer runs (D26). */
 export interface WorkspaceModelActivation extends WorkspaceModel {
   changeSetsLeftBehind: { id: string; name: string | null; version: number }[];
+  /** The consumer API versions kept through a breaking change (`keepContractVersions`, KV1). */
+  keptContractVersions: { consumerApi: string; contractVersion: number; diagnostics: ModelDiagnostic[] }[];
 }
 
 /** One operation of a draft's history (0.10 A2, ADR-041). */

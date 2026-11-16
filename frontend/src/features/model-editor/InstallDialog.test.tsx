@@ -86,6 +86,7 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
       version: 4,
       updatedAt: "",
       changeSetsLeftBehind: [],
+      keptContractVersions: [],
     });
     const { run, onActivated } = renderDialog();
     expect(await screen.findByText("Bin")).toBeTruthy();

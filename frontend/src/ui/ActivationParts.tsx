@@ -7,11 +7,13 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { plural } from "@/lib/count";
 import { attributeTypeName, relationTypeName, suggestedVersion, typeName } from "@/model/outline";
-import type { ChangeSet, DraftOperation, ModelChange, ModelDiagnostic, ModelDraftOutline } from "@/types";
+import type { ChangeSet, DraftOperation, ModelChange, ModelDiagnostic, ModelDraftOutline, Subscription } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { everyPage } from "@/lib/everyPage";
 import { Notice } from "@/ui/Notice";
-import { useState, type ReactNode } from "react";
+import { holdsAnywhere, useHeldAnywhere } from "@/state/permissions";
+import { useCapabilities } from "@/state/useSystem";
+import { useRef, useState, type ReactNode } from "react";
 
 /** Every open change set of the workspace, page by page (a workspace holds few). */
 export function openChangeSets(workspaceKey: string): Promise<ChangeSet[]> {
@@ -147,6 +149,68 @@ export function contractsByApi(diagnostics: ModelDiagnostic[]): Map<string, Mode
   return found;
 }
 
+/** The diagnostic of a change that alters what a current contract version's readers get (C-D2). */
+const CONTRACT_VERSION_REQUIRED = "CONSUMER_CONTRACT_VERSION_REQUIRED";
+
+/**
+ * Which consumer APIs the person keeps at their current version through a breaking change (KV1).
+ * Keeping is a choice of the dialog, not a draft step: the draft keeps its version and the main action
+ * sends `keepContractVersions`. `blocked` is true while a break is neither raised nor kept, and for
+ * what a flag never covers (a lowered version, a changed earlier version).
+ */
+export function useKeptContracts(diagnostics: ModelDiagnostic[] | undefined, workspaceKey?: string) {
+  // Offered only to people who may install a release, as the main action is (hidden, never disabled).
+  const held = useHeldAnywhere();
+  const mayKeep = holdsAnywhere(held, "model-release");
+  // The names of the bound webhooks come from the subscriptions list: asked only where it can be read.
+  const { capabilities } = useCapabilities();
+  const readsWebhooks = Boolean(
+    capabilities?.consumerSubscriptions?.manageSubscriptions && holdsAnywhere(held, "integration-admin"),
+  );
+  const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const asked = useRef<string>(undefined);
+  const byApi = contractsByApi(diagnostics ?? []);
+  const errorsOf = (key: string) => (byApi.get(key) ?? []).filter((d) => d.severity === "error");
+  // What can be kept: every error of the API is a break of its current version.
+  const keepable = (key: string) => {
+    const errors = errorsOf(key);
+    return mayKeep && errors.length > 0 && errors.every((d) => d.code === CONTRACT_VERSION_REQUIRED);
+  };
+  // A choice outlives its row only while the row still breaks (a raised version breaks nothing).
+  const kept = new Set([...chosen].filter(keepable));
+  const blocked = [...byApi].some(([key]) => errorsOf(key).length > 0 && !kept.has(key));
+  return {
+    mayKeep,
+    keepable,
+    isKept: (key: string) => kept.has(key),
+    /** True when any API is kept: what `keepContractVersions` is sent as. */
+    keeping: kept.size > 0,
+    blocked,
+    /** The workspace's webhooks bound to this version of the API (KV-D7). */
+    webhooksOf: (key: string, version: number) =>
+      subscriptions.filter((item) => item.consumerApi === key && item.contractVersion === version),
+    keep: (key: string) => {
+      setChosen((before) => new Set(before).add(key));
+      if (!workspaceKey || !readsWebhooks || asked.current === workspaceKey) return;
+      asked.current = workspaceKey;
+      setSubscriptions([]);
+      // The names are a help: a list that cannot be read leaves the line out.
+      everyPage((cursor) => api.subscriptions({ cursor, workspaceKey }))
+        .then(setSubscriptions)
+        .catch(() => undefined);
+    },
+    unkeep: (key: string) =>
+      setChosen((before) => {
+        const next = new Set(before);
+        next.delete(key);
+        return next;
+      }),
+  };
+}
+
+export type KeptContracts = ReturnType<typeof useKeptContracts>;
+
 /** The release identity the draft installs as (D18): its key, name and version, editable. */
 export function useReleaseIdentity(outline: ModelDraftOutline) {
   const [key, setKey] = useState(outline.release.key ?? "");
@@ -227,11 +291,13 @@ export function ConsumerContracts({
   diagnostics,
   run,
   pending,
+  contracts,
 }: {
   outline: ModelDraftOutline;
   diagnostics: ModelDiagnostic[];
   run: (operations: DraftOperation[]) => Promise<unknown>;
   pending: boolean;
+  contracts: KeptContracts;
 }) {
   const byApi = contractsByApi(diagnostics);
   const removed = [...byApi].filter(([key]) => !outline.consumerApis.some((item) => item.key === key));
@@ -245,34 +311,72 @@ export function ConsumerContracts({
         {outline.consumerApis.map((item) => {
           const errors = (byApi.get(item.key) ?? []).filter((d) => d.severity === "error");
           // A kept earlier version that would read differently is not cured by a higher version.
-          const kept = errors.filter((d) => d.code === KEPT_VERSION_CHANGED);
+          const earlier = errors.filter((d) => d.code === KEPT_VERSION_CHANGED);
           const breaking = errors.filter((d) => d.code !== KEPT_VERSION_CHANGED);
           // A version the release stops serving, on purpose: a warning, but never "Compatible".
           const stopped = (byApi.get(item.key) ?? []).filter((d) => d.code === KEPT_VERSION_STOPPED);
-          const next = (item.contractVersion ?? 1) + 1;
+          const version = item.contractVersion ?? 1;
+          const next = version + 1;
+          const changes = breaking.map((d) => d.message.replace(/; raise contractVersion.*$/, ""));
+          const raise = (label: string) => (
+            <button
+              type="button"
+              className="primary"
+              disabled={pending}
+              onClick={() => {
+                contracts.unkeep(item.key);
+                void run([{ kind: "raiseConsumerApiVersion", consumerApi: item.key }]);
+              }}
+            >
+              {label}
+            </button>
+          );
+          const webhooks = contracts.webhooksOf(item.key, version);
           return (
             <li key={item.key}>
               <span>
-                <strong>{item.name}</strong>{" "}
-                <span className="muted">{`${item.key} v${item.contractVersion ?? 1}`}</span>
+                <strong>{item.name}</strong> <span className="muted">{`${item.key} v${version}`}</span>
               </span>
-              {breaking.length ? (
+              {breaking.length && contracts.isKept(item.key) ? (
+                <>
+                  <div className="install-contract-kept" role="status">
+                    <strong>Stays v{version}, changed in place</strong>
+                    Once applied, every reader of{" "}
+                    <span className="mono">{`/api/consumer/${item.key}/v${version}`}</span> gets the new shape:
+                    <ul>
+                      {changes.map((change) => (
+                        <li key={change}>{change}</li>
+                      ))}
+                      {webhooks.length > 0 && (
+                        <li>
+                          Webhooks bound to v{version}: {webhooks.map((hook) => hook.name).join(", ")}
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                  {raise(`Raise to v${next} instead`)}
+                </>
+              ) : breaking.length ? (
                 <>
                   <span className="install-contract-break">
-                    Needs version {next}:{" "}
-                    {breaking.map((d) => d.message.replace(/; raise contractVersion.*$/, "")).join("; ")}
+                    Needs version {next}: {changes.join("; ")}
                   </span>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={pending}
-                    onClick={() => void run([{ kind: "raiseConsumerApiVersion", consumerApi: item.key }])}
-                  >
-                    Raise to v{next}
-                  </button>
+                  <span className="install-contract-actions">
+                    {raise(`Raise to v${next}`)}
+                    {contracts.keepable(item.key) && (
+                      <button
+                        type="button"
+                        className="danger"
+                        disabled={pending}
+                        onClick={() => contracts.keep(item.key)}
+                      >
+                        Keep v{version}, break its readers
+                      </button>
+                    )}
+                  </span>
                 </>
-              ) : kept.length ? (
-                <span className="install-contract-break">{kept.map((d) => d.message).join("; ")}</span>
+              ) : earlier.length ? (
+                <span className="install-contract-break">{earlier.map((d) => d.message).join("; ")}</span>
               ) : stopped.length ? (
                 <span className="install-contract-warn">{stopped.map((d) => d.message).join(" ")}</span>
               ) : (
@@ -290,8 +394,11 @@ export function ConsumerContracts({
           </li>
         ))}
       </ul>
-      {byApi.size > 0 && [...byApi.values()].flat().some((d) => d.severity === "error") && (
-        <p className="muted">Activation is refused while a consumer API needs a higher contract version.</p>
+      {contracts.blocked && (
+        <p className="muted">
+          Activation is refused while a consumer API needs a higher contract version
+          {contracts.mayKeep ? ", unless you keep its version." : "."}
+        </p>
       )}
     </section>
   );

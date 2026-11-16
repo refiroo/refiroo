@@ -1096,6 +1096,15 @@ One recorded selection of a release as a workspace's model, read from the audit 
 - runtimeVersion: The workspace's assignment version after the change.
 - occurredAt: When it happened.
 - actor: Who made it; `null` when the engine did, or it was recorded before actors were kept.
+- keptContractVersions: The consumer API versions this activation kept through a breaking change; empty when it kept none.
+
+### KeptContractVersionResponse
+
+A consumer API's current contract version that an activation or migration kept through a breaking change, so its consumers read the new shape under the same version number.
+
+- consumerApi: The consumer API's key.
+- contractVersion: The version that was kept.
+- diagnostics: The breaking changes that were accepted, as the compatibility check reported them.
 
 ### CapabilitiesResponse
 

@@ -195,7 +195,8 @@ The stop number Exact rule scores Chur at 900 for its number 8509000. Matching Q
    means the attempted step was refused: correct its named problem, then review again.
    Specialist editing does not bypass validation.
 3. If the editor says **Needs contract version …**, inspect the contract changes and
-   [raise the contract version](/docs/guide/model/raise-a-contract-version/). The contract
+   decide whether to raise or keep the version, as described in
+   [Refine a released API safely](#refine-a-released-api-safely). The contract
    version is separate from the model release version. Renaming a public field, changing
    a related block's shape, removing an operation or reducing event coverage can require
    a higher version.
@@ -224,6 +225,35 @@ to remove the row, review the warning and activate the change. **Undo** restores
 in the draft; it does not reverse an already activated release.
 
 ## Refine a released API safely
+
+A released API is an agreement with its readers. For a deliberate change to that agreement,
+[raise the contract version](/docs/guide/model/raise-a-contract-version/). Raising normally
+retains the previous definition beside the new one, so consuming teams can move on their own
+time. Review the retained version and keep the model sources it needs.
+
+Keeping the current number is for correcting an agreement that should never have been made,
+such as a field exposed by mistake and then removed. Agree this with the consuming teams first:
+after activation, every consumer and webhook on that version gets the changed shape immediately.
+There is no superseded-version notice, no second version to move to and no retained copy of the
+old shape from this choice.
+
+Make this choice in **Install and activate…** or **Apply to this workspace…**, under
+**Consumer APIs**. **Raise to v2** changes the draft. **Keep v1, break its readers** chooses
+an exception for this activation only; it changes no draft and saves nothing by itself. The red
+**Stays v1, changed in place** box lists the accepted breaks. Review them before confirming;
+**Raise to v2 instead** clears that choice and raises the draft's version. The numbers follow
+the API's current version.
+
+Only people with **Model release** see Keep. It cannot accept a lowered version or a changed
+earlier version still being served: that earlier version's frozen definition must stay unchanged.
+The assistant never keeps a version; its own activations remain refused for a breaking change.
+Follow [Install and activate a release](/docs/guide/model/install-and-activate-a-release/#decide-each-consumer-api-change)
+for both dialogs and their checks.
+
+**Reference-data example:** removing the stop identifier field from Stops API without raising
+version 1 shows **Needs version 2**. Raise to preserve version 1's answer while readers move.
+Keep only when that field was exposed by mistake and its readers have agreed to lose it under
+version 1.
 
 Turning XREF off can ask **Stop offering XREF?** because its rules are removed and Resolve
 stops too. Cancel to retain them, or confirm and inspect the contract difference. **Undo**

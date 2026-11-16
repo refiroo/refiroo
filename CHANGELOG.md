@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format foll
 
 - **UI1 (change sets)**: the banner of a change set that works under another model version than live data is rebuilt. It reads "This change set cannot be published yet", shows the change set's version and live data's as two chips (`≠`), and offers each way out as a card with a direction chip and a short button: **Update change set** and **Move workspace and publish** (no "…"). A way out the deployment cannot run is left out, with no sentence about it, and the remaining button is the primary one; someone who only views the change set sees the facts and no buttons. **Discard change set** is on the banner (the same confirmation as the menu's Discard). The bar shows no **Publish** and no **Submit for publication** while the versions differ; before, they showed and the publication was refused. No API or behaviour of the two moves changes.
 
+### Added
+
+- **KV1 (consumer APIs)**: a breaking change to a consumer API's current contract version can be kept under its number instead of raising the version. `POST /workspaces/{key}/model/activation` and `POST /workspaces/{key}/model/migrations` take `keepContractVersions` (default `false`); with it the engine accepts the breaking changes of every current version the release breaks, still refusing a lowered `contractVersion` and a changed earlier version. The activation's answer lists `keptContractVersions`, and the `activated` audit event and `GET /model-releases/{id}/activations` carry the same. The model editor's Apply and Install dialogs show "Keep v{n}, break its readers" beside "Raise to v{n+1}" for people who may install a release, with the engine's breaking changes and the webhooks bound to that version; the assistant's paths never keep. Amends the breaking-change check of C-D2.
+
 ## [0.17.2] - 2026-11-15
 
 Internal work after 0.17.1 (one version of each step, helper, component and stylesheet rule; the test

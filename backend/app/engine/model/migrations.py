@@ -79,7 +79,7 @@ from ..records.feed import take_positions
 from ..records.values import WIDENINGS, value_json_sql
 from .compatibility import analyze_compatibility, is_parent_pair
 from .compiler import SCHEMA_VERSIONS, SUPPORTED_SCHEMA_VERSIONS
-from .consumer_contract import contract_diagnostics
+from .consumer_contract import contract_refusals
 from .registry import model_registry, resolve_pinned_release
 from .release_lifecycle import require_choosable
 from .releases import (
@@ -1379,13 +1379,16 @@ def submit_migration(
     expected_change_set_version: int | None = None,
     permissions: Permissions | None = None,
     more: dict[str, Any] | None = None,
+    keep_contract_versions: bool = False,
 ) -> Job:
     """Queue the preview of a migration of ``workspace_key`` to the target release. Refused before
     a job exists: an unknown or retired workspace, an unknown target or one of an unsupported
     schema, the release the workspace runs already, an assignment changed since
     ``expected_version`` (``409 ACTIVATION_CONFLICT``), a mapping naming what the models lack, a
     consumer API whose contract changes without a new contract version
-    (``ConsumerContractVersionRequired``). Naming a change set (V2): another workspace's or none
+    (``ConsumerContractVersionRequired``; ``keep_contract_versions`` accepts the breaking changes of
+    a current version: the job carries what was kept and its switch records it). Naming a
+    change set (V2): another workspace's or none
     (``404 CHANGE_SET_NOT_FOUND``), one changed since ``expected_change_set_version`` (``409
     CHANGE_SET_VERSION_CONFLICT``), a target other than its release (``422
     MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE``). It publishes the change set, so it needs what
@@ -1457,10 +1460,8 @@ def submit_migration(
     plan_migration(current_model, target_model, mappings.types, mappings.relations, mappings.spawns)
     # The workspace's consumers read its release, so the target's definitions are the contract,
     # as on activation (C-D17, D75).
-    contract_errors = tuple(
-        item
-        for item in contract_diagnostics(current_model, target_model)
-        if item.severity == "error"
+    contract_errors, kept = contract_refusals(
+        current_model, target_model, keep_contract_versions=keep_contract_versions
     )
     if contract_errors:
         raise ConsumerContractVersionRequired(contract_errors)
@@ -1476,6 +1477,14 @@ def submit_migration(
             "typeMappings": type_mappings,
             **{name: value for name, value in (more or {}).items() if value},
             **({"changeSetId": change_set.id} if change_set is not None else {}),
+            **(
+                {
+                    "keepContractVersions": True,
+                    "keptContractVersions": [item.as_record() for item in kept],
+                }
+                if keep_contract_versions
+                else {}
+            ),
         },
         total=None,
         retention_days=retention_days,
@@ -2217,7 +2226,16 @@ def switch_assignment(
         migration.target_release,
         migration.target,
         version,
-        changes={"migrationJobId": migration.job.id, "migrated": counts},
+        changes={
+            "migrationJobId": migration.job.id,
+            "migrated": counts,
+            # What the request kept is not checked again: the job accepts what it accepted.
+            **(
+                {"keptContractVersions": migration.job.parameters["keptContractVersions"]}
+                if migration.job.parameters.get("keepContractVersions")
+                else {}
+            ),
+        },
     )
 
 

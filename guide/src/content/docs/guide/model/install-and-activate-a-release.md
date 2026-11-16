@@ -21,7 +21,8 @@ administration**. Read [Releases](/docs/model/releases/) and
    and complete its details. Read the workspace name carefully: another workspace may run another
    model. The choice affects this target alone.
 4. Review **What changes against** the base release, **Valid**, stored-data compatibility and
-   **Consumer APIs**. Resolve blocking issues before continuing. A different-model workspace may
+   **Consumer APIs**. [Decide each consumer API change](#decide-each-consumer-api-change)
+   before continuing. A different-model workspace may
    be checked only when activation is attempted; its selection is not a promise its records fit.
 5. If **Activation needs a migration** appears, read the steps and what each part does.
    Review where records go, **records move**, **records created**, **relationships created**
@@ -48,6 +49,55 @@ A successful installation fixes the release's content; the draft continues as th
 version. If the result says **Installed, not active**, keep the installed release and resolve the
 reported activation problem. Do not assume installation was undone.
 
+
+## Decide each consumer API change
+
+The **Consumer APIs** section in both **Install and activate** and **Apply to this workspace**
+lists each API and its contract version. A breaking change shows **Needs version 2:** followed
+by what changes for readers; the proposed number follows that API's current version.
+
+1. Read every breaking row and agree the change with its consuming teams. Choose **Raise to v2**
+   for a deliberate new contract. This saves a version-raise step in the draft and normally
+   keeps the base release's previous definition available beside the new one. Readers can
+   move when ready; review **Earlier versions** before continuing.
+2. For an agreed correction that should never have broken the contract, choose the red
+   **Keep v1, break its readers** instead. Only people with **Model release** see this button.
+   It selects a choice in this dialog: it does not edit the draft, save a step or activate anything.
+3. Read the red **Stays v1, changed in place** box. It lists the breaking changes reported by
+   refiroo. Once activation completes, all consumers and webhooks on that version receive
+   the new shape under the same number. There is no superseded-version notice, no second
+   version to move to and no retained copy of the old shape from keeping. Use this only
+   after readers have agreed to the change.
+4. Where shown, review **Webhooks bound to v1:** and the names after it. This line
+   appears only when you may read webhooks and some are bound to this version; its absence
+   is not assurance that no webhook is affected. To change your decision, choose
+   **Raise to v2 instead**: it clears Keep and raises the version in the draft. Closing the
+   dialog discards its Keep choices; a saved version-raise step remains in the draft.
+5. Decide every breaking row. Until each is raised or kept, the main action is disabled.
+   The reminder says **Activation is refused while a consumer API needs a higher contract
+   version, unless you keep its version.** People without permission to keep see the reminder
+   without the exception. Other blocking issues still need correction.
+
+![Install and activate dialog showing a consumer API break, Raise to v2 and Keep v1, break its readers](/docs/screens/model-install-contracts-break.png)
+
+*Above: Stops API loses its stop identifier field in the Graubünden example. Both choices are
+visible and Install 1.8.3 and activate in Graubünden is disabled until the break is decided.*
+
+![Install and activate dialog after keeping version 1, with the red changed-in-place box and enabled install action](/docs/screens/model-install-contracts-kept.png)
+
+*Above: Stays v1, changed in place lists the removed field. Raise to v2 instead changes the
+choice; Install 1.8.3 and activate in Graubünden is now enabled.*
+
+Keep is not offered when the API also changes an earlier version still being served or lowers
+its contract version. Read the row's reason and correct it. Keeping the current number never
+changes an earlier version's frozen copy.
+
+After all checks pass, **Install … and activate in …** or **Apply to …** carries the Keep
+choices into activation. If records need a migration, the preview action carries them into
+the migration instead; records and the live API stay as they are until the migration is confirmed.
+The release's activation history and the audit trail record each API, its kept version, the
+accepted breaking changes and who activated it. The assistant never keeps a version: its own
+activations remain refused for a break.
 
 ## Review earlier consumer contracts before activation
 
@@ -81,7 +131,8 @@ passes: another workspace may serve a different release or retain different vers
 1. On **Settings**, **Workspaces**, open the intended workspace and choose **Edit model**.
    Confirm **Applies to** in the editor header, make the changes and choose **Apply to this workspace…**.
 2. Read the workspace's current model, **What changes in the model**, data compatibility and
-   **Consumer APIs**. Expand **Becomes release** to review the release identity where shown.
+   **Consumer APIs**. Use the [same raise-or-keep steps](#decide-each-consumer-api-change)
+   for every breaking API. Expand **Becomes release** to review the release identity where shown.
 3. Read **Change sets left on** the old version. They stay pinned to that release and cannot be
    published until moved to the new one or discarded. Check **Not changed** for the other workspaces.
 4. If **Your records stay as they are** is shown, confirm **Apply to** the named workspace when ready.
@@ -96,7 +147,17 @@ passes: another workspace may serve a different release or retain different vers
 
 ![Workspace apply dialog showing changes, compatible data and change sets left behind](/docs/screens/model-workspace-apply-dialog.png)
 
-*Above: The Apply to Graubünden review shows a consumer API change that needs version 2. Activation is refused until the contract version is raised; open change sets remain on release 1.8.1.*
+*Above: The Apply to Graubünden review shows a consumer API change that needs version 2. Activation is refused until the contract version is raised or kept; open change sets remain on release 1.8.1.*
+
+![Apply dialog showing a consumer API break and the Raise to v2 and Keep v1, break its readers choices](/docs/screens/model-apply-contracts-break.png)
+
+*Above: Apply to Graubünden shows Stops API needing version 2 because its stop identifier
+field is removed. Apply to Graubünden is disabled while that break is undecided.*
+
+![Apply dialog after keeping version 1, showing the red warning and enabled Apply action](/docs/screens/model-apply-contracts-kept.png)
+
+*Above: Stays v1, changed in place names the removed field. Apply to Graubünden is enabled;
+Raise to v2 instead remains available. Open change sets stay on release 1.8.1.*
 
 ![Workspace Apply review with a proposed type move and Preview what happens to the records action](/docs/screens/model-apply-migration.png)
 
@@ -133,7 +194,7 @@ before editing records. Review any left-behind change sets through the
 | Compatible with the workspace's data | Review the named workspace and confirm activation when ready. |
 | Activation needs a migration | From installation, choose **Install … and preview the migration…**; from Apply, **Preview what happens to the records…**. Review proposed destinations, created items, conversions, removals and items to fix before confirming the migration. |
 | A different model | Review this destination carefully; compatibility is checked when activation is attempted. |
-| A consumer API needs a higher contract version | Coordinate the contract change and raise its version in a draft before rechecking. |
+| A consumer API needs a higher contract version | Agree the change with readers, then raise its version in a draft, or use Keep in the Install or Apply dialog to accept the changed shape under its current number. Keep needs Model release and cannot accept a lowered version or a changed earlier version. |
 | Could not be checked | Read the failure, correct its cause and check again; it is not a successful compatibility result. |
 
 The install dialog says **Comparing with the base release** where the draft has one. That

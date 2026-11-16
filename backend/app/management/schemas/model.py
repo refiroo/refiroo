@@ -182,6 +182,23 @@ class ModelReleasePage(CollectionPage[ModelReleaseSummary]):
     pass
 
 
+class ModelDiagnosticResponse(BaseModel):
+    severity: Literal["error", "warning"]
+    code: str
+    path: str
+    message: str
+    count: int | None = None
+
+
+class KeptContractVersionResponse(BaseModel):
+    """A consumer API's current contract version a request kept through a breaking change, with
+    the breaking changes it accepted."""
+
+    consumerApi: str
+    contractVersion: int
+    diagnostics: list[ModelDiagnosticResponse]
+
+
 class ModelReleaseActivationResponse(BaseModel):
     """One recorded selection of a release as a workspace's model, read from the audit trail;
     ``workspaceKey`` is absent for one made for the whole instance before 0.11, and
@@ -195,6 +212,11 @@ class ModelReleaseActivationResponse(BaseModel):
     occurredAt: datetime
     # Who made it (0.12 Z4, D313); the engine for an offline schema upgrade, null before Z4.
     actor: ActorResponse | None
+    keptContractVersions: list[KeptContractVersionResponse] = Field(
+        default_factory=list,
+        description="The consumer API versions this activation kept through a breaking change "
+        "(`keepContractVersions`)",
+    )
 
 
 class ModelReleaseActivationPage(CollectionPage[ModelReleaseActivationResponse]):
@@ -205,14 +227,6 @@ class ModelDocumentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     model: ModelDocument
-
-
-class ModelDiagnosticResponse(BaseModel):
-    severity: Literal["error", "warning"]
-    code: str
-    path: str
-    message: str
-    count: int | None = None
 
 
 class ModelValidationResponse(BaseModel):
