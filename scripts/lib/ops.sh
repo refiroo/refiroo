@@ -29,7 +29,14 @@ quote() { local a out=""; for a in "$@"; do out="$out $(printf '%q' "$a")"; done
 # Run a command, printing it first; with --dry-run only print it.
 run() { show "$(quote "$@")"; [ "$DRY" = 1 ] || "$@"; }
 human() { awk -v b="$1" 'BEGIN { s="B KB MB GB TB"; split(s, u, " "); i=1; while (b >= 1024 && i < 5) { b /= 1024; i++ } printf (i == 1 ? "%d %s" : "%.1f %s"), b, u[i] }'; }
-filesize() { wc -c < "$1" | tr -d ' '; }
+# Size of a file in bytes; stops the script when the file cannot be read or is empty.
+filesize() {
+  local n
+  [ -r "$1" ] || die "cannot read $1 (missing, or owned by another user)"
+  n="$(wc -c < "$1" | tr -d ' ')"
+  [ -n "$n" ] && [ "$n" -gt 0 ] || die "$1 is empty"
+  printf '%s' "$n"
+}
 
 # --- compose ----------------------------------------------------------------------------------
 # Call after parsing FILES (-f), PROJECT_OPT (-p) and ENV_FILE_OPT (--env-file): sets COMPOSE,

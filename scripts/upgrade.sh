@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Upgrade a Docker Compose installation in one command (0.17): check, back up, pull and build,
 # migrate the database, start, and wait until the engine answers. Run it from a checkout of the
-# version you are upgrading to (git pull / the new source first), on the host that runs the
-# installation. It replaces the copy-and-paste commands of docs/OPERATIONS.md, Upgrades.
+# version you are upgrading to, on the host that runs the installation. Put that version in the
+# folder first:  git fetch --tags && git checkout v<version>   (git tag --list 'v*' --sort=-v:refname
+# | head shows the versions). It prints the checkout's version next to the running one, asks before
+# rebuilding the version that already runs, and stops on an older one. It replaces the
+# copy-and-paste commands of docs/OPERATIONS.md, Upgrades.
 #
 #   scripts/upgrade.sh                 ask once, then upgrade the installation next to compose.yml
 #   scripts/upgrade.sh --dry-run       print every command it would run, run nothing
@@ -23,7 +26,8 @@
 #   --yes                 no prompts
 #   --dry-run             print the commands, run nothing
 #   --force               go on although the backup folder has less free space than twice the
-#                         database's size, or the automatic-HTTPS check fails
+#                         database's size, or the automatic-HTTPS check fails; with --yes, also
+#                         rebuild and restart the version that is already running
 #   -f, --file FILE       a compose file, as docker compose -f (repeat it); COMPOSE_FILE in the
 #                         environment works too. With automatic HTTPS give both files:
 #                         -f compose.yml -f compose.acme.yml
@@ -177,6 +181,23 @@ info "database $DB_NAME, user $DB_USER"
 VERSION_BEFORE="$(engine_version)"
 REVISION_BEFORE="$(database_revision)"
 info "running now: engine $VERSION_BEFORE, database revision $REVISION_BEFORE"
+VERSION_CHECKOUT="$(sed -n 's/^ENGINE_VERSION = "\([^"]*\)".*/\1/p' backend/app/config.py 2>/dev/null | head -n 1)"
+[ -n "$VERSION_CHECKOUT" ] || die "could not read ENGINE_VERSION from backend/app/config.py (run the script from a checkout of refiroo)"
+info "this checkout: engine $VERSION_CHECKOUT"
+case "$VERSION_BEFORE" in
+  unknown) ;;
+  "$VERSION_CHECKOUT")
+    warn "this checkout is the version already running ($VERSION_BEFORE); to upgrade, first put the new version in this folder: git fetch --tags && git checkout vNEW (git tag --list 'v*' --sort=-v:refname | head shows the versions), then run this script again."
+    if [ "$YES" = 1 ]; then
+      [ "$FORCE" = 1 ] || die "nothing to upgrade: the checkout is the running version (--force rebuilds and restarts it anyway)"
+    elif [ "$FORCE" = 0 ]; then
+      confirm "Rebuild and restart the same version?" || { echo "Cancelled: nothing changed."; exit 0; }
+    fi ;;
+  *)
+    if [ "$(printf '%s\n%s\n' "$VERSION_CHECKOUT" "$VERSION_BEFORE" | sort -V | head -n 1)" = "$VERSION_CHECKOUT" ]; then
+      die "this checkout (engine $VERSION_CHECKOUT) is older than the running engine ($VERSION_BEFORE). A downgrade is not an upgrade: restore a backup instead (docs/OPERATIONS.md, Upgrades), or check out the newer version: git fetch --tags && git checkout vNEW"
+    fi ;;
+esac
 
 if [ "$SKIP_BACKUP" = 0 ]; then
   d="$BACKUPS"
@@ -227,8 +248,17 @@ else
 
   tar_volume() { # volume file
     local volume="$1" file="$2"
+    # The helper runs as root; hand the tarball to the invoking user before the mode is set, so the
+    # operator can read, move and delete their own backup.
+    local name owner
+    name="$(basename "$file")"; owner="$(id -u):$(id -g)"
     run docker run --rm --entrypoint sh -v "$volume:/data:ro" -v "$BACKUPS:/backup" "$HELPER_IMAGE" \
-      -c "tar czf /backup/$(basename "$file") -C /data . && chmod 600 /backup/$(basename "$file")"
+      -c "tar czf /backup/$name -C /data . && chown $owner /backup/$name && chmod 600 /backup/$name"
+    show "tar tzf $(quote "$file") > /dev/null    # the tarball must be readable"
+    if [ "$DRY" = 0 ]; then
+      [ -r "$file" ] || die "the backup $file was written but cannot be read by $(id -un) (check the owner of $BACKUPS)"
+      tar tzf "$file" > /dev/null 2>&1 || die "the backup $file cannot be read back with tar tzf"
+    fi
   }
   if [ "$DRY" = 0 ]; then
     docker volume inspect "${PROJECT}_job-files" >/dev/null 2>&1 || die "the volume ${PROJECT}_job-files does not exist (another project name? use -p NAME)"
@@ -244,7 +274,7 @@ else
 
   info "written:"
   for f in "$DUMP_FILE" "$JOBS_FILE" "$ENV_COPY" $([ "$WITH_ASSISTANT" = 1 ] && echo "$ASSISTANT_FILE"); do
-    if [ "$DRY" = 1 ]; then info "  $f"; else info "  $f  ($(human "$(filesize "$f")"))"; fi
+    if [ "$DRY" = 1 ]; then info "  $f"; else bytes="$(filesize "$f")" || exit 1; info "  $f  ($(human "$bytes"))"; fi
   done
   step_done
 fi
@@ -310,6 +340,9 @@ step_done
 step "6/6 Summary"
 FINISHED=1
 info "engine version:     $VERSION_BEFORE -> $VERSION_AFTER"
+if [ "$DRY" = 0 ] && [ "$VERSION_AFTER" != "$VERSION_CHECKOUT" ]; then
+  warn "the engine now reports $VERSION_AFTER but this checkout is $VERSION_CHECKOUT"
+fi
 info "database revision:  $REVISION_BEFORE -> $REVISION_AFTER"
 if [ "$SKIP_BACKUP" = 1 ]; then
   info "backup:             none (--skip-backup)"

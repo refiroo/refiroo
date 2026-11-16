@@ -12,18 +12,25 @@ model can be served.
 ## Upgrade with the script
 
 `scripts/upgrade.sh` makes the backup, builds the new version, upgrades the database and starts
-it again. Check out the target version, then run it from that checkout, with the same Compose
+it again. Check out the target version first, then run it from that checkout, with the same Compose
 files your installation uses (for automatic HTTPS, `-f compose.yml -f compose.acme.yml`):
 
 ```bash
+git fetch --tags
+git checkout v<version>
 scripts/upgrade.sh
 ```
+
+It shows the running version and the checkout's. If they are the same, it says so and asks
+before rebuilding (with `--yes` it stops unless `--force` is given); a checkout older than the
+running version is refused.
 
 It shows its plan and asks once, then:
 
 1. checks Docker, the environment file, the running database and the free space for the backup;
 2. writes the backup to `/opt/refiroo/backups` (`--backups DIR` for another folder): the database
-   dump, checked that it can be read back, the file volume and a copy of the environment file, all
+   dump and the file volume, each checked that it can be read back and owned by the user who runs
+   the script, and a copy of the environment file, all
    with one time stamp; `--with-assistant` adds the assistant volume;
 3. builds the new images;
 4. stops the engine and upgrades the database. If that fails, the database stays at its previous

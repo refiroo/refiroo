@@ -1414,14 +1414,18 @@ Drafts started from a deleted release stay, without the link.
 ## Upgrades
 
 **The upgrade script (0.17).** On a Docker Compose installation `scripts/upgrade.sh` does all of this in one command,
-from the checkout of the new version: it checks the host (Docker, `compose.yml`, the env file, the running
+from the checkout of the new version: put that version in the folder first (`git fetch --tags`, then
+`git checkout v<version>`; `git tag --list 'v*' --sort=-v:refname | head` shows the versions). It prints the checkout's
+version (`this checkout: engine X`) next to the running one. If they are the same, it warns, asks "Rebuild and restart
+the same version?" and exits with nothing changed on no (with `--yes` it refuses unless `--force`); a checkout older
+than the running engine stops it, because a downgrade goes through a restore. It then checks the host (Docker, `compose.yml`, the env file, the running
 database, free space of at least twice the database's size in the backup folder), backs up (`pg_dump -Fc` of the
-database, proved readable with `pg_restore --list`; the `job-files` volume as a tarball; the env file at mode 600;
+database, proved readable with `pg_restore --list`; the `job-files` volume as a tarball, owned by the user who ran the script and proved readable with `tar tzf`; the env file at mode 600;
 `--with-assistant` adds the `assistant` volume; one time stamp in every file name; default folder
 `/opt/refiroo/backups`, `--backups DIR` names another; old backups are never touched or pruned), pulls the registry
 images and builds, stops the engine, runs `python -m app.cli.database_upgrade`, starts everything, waits up to 120 s
 for `/health` and prints the engine version and database revision before and after, the files written and the commands
-that restore them. Each step is announced with its duration. If the migration fails the database stays at its
+that restore them; a backup file that cannot be read or is empty stops the script. Each step is announced with its duration. If the migration fails the database stays at its
 previous revision, the script leaves the engine stopped, prints the restore commands for the backup it just made and
 exits 1; it never starts the old engine by itself. `scripts/upgrade.sh --dry-run` prints every command and runs none.
 
@@ -1432,7 +1436,7 @@ exits 1; it never starts the old engine by itself. `scripts/upgrade.sh --dry-run
 | `--skip-backup` | No backup; asks for confirmation unless `--yes`. |
 | `--yes` | No questions (it asks one confirmation before it starts otherwise). |
 | `--dry-run` | Print the commands, run nothing. |
-| `--force` | Go on although the backup folder has less than twice the database's size free. |
+| `--force` | Go on although the backup folder has less than twice the database's size free. With `--yes`, also rebuild and restart the version that is already running. |
 | `-f`, `--file FILE` | A Compose file, repeated as in `docker compose -f`; `COMPOSE_FILE` in the shell works too. With automatic HTTPS give both: `-f compose.yml -f compose.acme.yml`. Without them it refuses when a `caddy-data` volume exists (web would be recreated without Caddy). |
 | `-p`, `--project NAME` | The Compose project name, when you override `refiroo`. |
 | `--env-file FILE` | The env file (default `.env`, or `RDM_ENV_FILE`). |
