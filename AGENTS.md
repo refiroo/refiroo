@@ -333,6 +333,15 @@ intentional baseline updates before including them in the change. Dark baselines
 representative subset (`*-dark`); extend them and the dark accessibility scenarios when a change
 affects theme tokens or a new surface. Do not update baselines merely to hide an unexplained failure.
 
+### Release tag and the website
+
+Every stable release's R, before it pushes the tag `vX.Y.Z`, writes the release's plain line (one
+short sentence for readers; the website build's SEO check fails when the release page's
+description passes 160 characters) in the website repository's
+`src/data/release-lines.ts` and pushes it there. The website's hourly workflow then puts the release
+on the site by itself; a tag without its line fails that run. Prereleases (a hyphen in the tag) are
+not picked up.
+
 ### Execution discipline
 
 - Run comprehensive suites (the full `pytest` and `npm run test` suites, the whole of `test:a11y` and
