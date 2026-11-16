@@ -580,13 +580,17 @@ export function ChangeSetActions({
   const current = changeSet;
   const reload = refresh;
   const modelMismatch = Boolean(activeModelReleaseId && activeModelReleaseId !== current.modelReleaseId);
+  // The label names the live release by key and version; the direction chips and the sentence say the version.
+  const liveVersion = activeModelReleaseLabel?.slice(activeModelReleaseLabel.lastIndexOf(" ") + 1);
+  const showUpdateCard = Boolean(canMove && onMigrationStarted);
+  const showMoveCard = Boolean(migrates && onMigrationStarted);
   const validationPassed = Boolean(validation?.result.valid && validation.version === current.version);
   // Approval (0.12 A3): a submitted change set waits; publishing directly is refused when approval is
   // required and this person cannot approve their own (or any) submission, so only Submit is offered.
   const request = current.submission ?? null;
   const waiting = request?.state === "submitted";
   const directPublish = publishes && !(policy?.requireApproval && (policy.secondPerson || !approves));
-  const offersSubmit = works && !waiting && !directPublish;
+  const offersSubmit = works && !waiting && !directPublish && !modelMismatch;
   const isSubmitter = Boolean(me && request?.submitter && request.submitter.id === me.id);
   const withdraws = works && waiting && (isSubmitter || approves);
   const sentBack =
@@ -754,14 +758,6 @@ export function ChangeSetActions({
   }
   /** Publish checks first: a change set that passes asks once; one that fails publishes nothing and lists why. */
   async function publish() {
-    if (modelMismatch) {
-      setValidation(undefined);
-      setDiagnostics([]);
-      setError(
-        "This change set uses a different model version than live data. Change its model version or move it, as described above, before publishing.",
-      );
-      return;
-    }
     const checked = await check();
     if (checked?.result.valid) setConfirm("publish");
   }
@@ -870,7 +866,7 @@ export function ChangeSetActions({
                     Submit for publication
                   </button>
                 )}
-                {directPublish && (
+                {directPublish && !modelMismatch && (
                   <button className="primary" disabled={pending} onClick={() => void publish()}>
                     Publish
                   </button>
@@ -943,48 +939,93 @@ export function ChangeSetActions({
           </Notice>
         )}
         {modelMismatch && (
-          <Notice
-            tone="info"
-            title="This change set uses a different model version"
-            actions={
-              works && ((canMove && onMigrationStarted) || (migrates && onMigrationStarted)) ? (
-                <>
-                  {canMove && (
-                    <button type="button" className="primary" disabled={pending} onClick={() => void moveChangeSet()}>
-                      Move this change set to {activeModelReleaseLabel ?? "the workspace's release"}…
-                    </button>
-                  )}
-                  {migrates && (
-                    <button
-                      type="button"
-                      className={canMove ? "secondary" : "primary"}
-                      disabled={pending}
-                      onClick={() => void migrateAndPublish()}
-                    >
-                      Move {workspaceLabel ?? "the workspace"} to {current.modelReleaseVersion} and publish…
-                    </button>
-                  )}
-                </>
-              ) : undefined
-            }
-          >
-            This change set works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the
-            active model{activeModelReleaseLabel ? ` ${activeModelReleaseLabel}` : ""}. Publishing requires these
-            versions to match.
-            {!works
-              ? " You can change the change set’s model version if the content fits, or discard the change set."
-              : ` You can move this change set to the active model (its content is converted where that model differs, and you review every item first), move ${workspaceLabel ?? "the workspace"} to ${current.modelReleaseVersion} and publish this change set with it, or discard the change set.`}
-            {works && !canMove && (
-              <> Moving the change set needs background jobs, which this deployment does not run.</>
+          <section className="model-mismatch" aria-label="Model version mismatch">
+            <div className="model-mismatch-head">
+              <div className="model-mismatch-title">
+                <strong>This change set cannot be published yet</strong>
+                <p>
+                  {works
+                    ? "It was made under a different model version than live data. Bring the two onto the same version, then publish."
+                    : "It was made under a different model version than live data. The people working on it can update it to the live version or discard it."}
+                </p>
+              </div>
+              <div className="model-mismatch-versions" role="group" aria-label="Model versions">
+                <div className="model-version change-set">
+                  <small>This change set</small>
+                  <code>
+                    {current.modelReleaseKey} {current.modelReleaseVersion}
+                  </code>
+                </div>
+                <span className="model-mismatch-neq" aria-label="is not">
+                  ≠
+                </span>
+                <div className="model-version live">
+                  <small>Live data</small>
+                  <code>{activeModelReleaseLabel ?? "the workspace's release"}</code>
+                </div>
+              </div>
+            </div>
+            {works && (showUpdateCard || showMoveCard) && (
+              <div className="model-mismatch-paths">
+                {showUpdateCard && (
+                  <article className="model-mismatch-path update">
+                    <h3>
+                      Update the change set
+                      <span className="model-mismatch-direction">
+                        {current.modelReleaseVersion} → {liveVersion ?? "live"}
+                      </span>
+                    </h3>
+                    <p>
+                      Its content is converted where {liveVersion ?? "the live version"} differs. You review every item
+                      before the move is saved. Then you publish it as usual.
+                    </p>
+                    <div className="model-mismatch-act">
+                      <button type="button" className="primary" disabled={pending} onClick={() => void moveChangeSet()}>
+                        Update change set
+                      </button>
+                    </div>
+                  </article>
+                )}
+                {showMoveCard && (
+                  <article className="model-mismatch-path move">
+                    <h3>
+                      Move the workspace back
+                      <span className="model-mismatch-direction">
+                        {liveVersion ?? "live"} → {current.modelReleaseVersion}
+                      </span>
+                    </h3>
+                    <p>
+                      {workspaceLabel ?? "The workspace"} goes to {current.modelReleaseVersion} and this change set is
+                      published with it.
+                    </p>
+                    <div className="model-mismatch-act">
+                      <button
+                        type="button"
+                        className={showUpdateCard ? "secondary" : "primary"}
+                        disabled={pending}
+                        onClick={() => void migrateAndPublish()}
+                      >
+                        Move workspace and publish
+                      </button>
+                    </div>
+                  </article>
+                )}
+              </div>
             )}
-            {works && canMove && !canMigrate && (
-              <>
-                {" "}
-                Moving {workspaceLabel ?? "the workspace"} needs model administration, which this deployment does not
-                run.
-              </>
+            {works && !waiting && (
+              <div className="model-mismatch-foot">
+                Don’t need these changes?
+                <button
+                  type="button"
+                  className="danger-outline"
+                  disabled={pending}
+                  onClick={() => setConfirm("discard")}
+                >
+                  Discard change set
+                </button>
+              </div>
             )}
-          </Notice>
+          </section>
         )}
         {warning && (
           <InlineError

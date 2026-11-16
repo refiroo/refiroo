@@ -98,8 +98,8 @@ This does not edit your original workbook.
 6. On the loaded page, compare the actual counts with the checked result. Both include parent
    links in the relationship total. Choose **Review the change set**, inspect its changes and
    validate. Follow the workspace’s approval rules. If the workspace runs a different model
-   version, review offers **Move** followed by the workspace name, the proposed version and
-   **and publish…**. Use it to preview the migration, then choose **Migrate and publish** to
+   version, the change-set banner offers **Move workspace and publish**. Use it to preview the
+   migration, then choose **Migrate and publish** to
    switch the workspace’s model and publish together. You need model-release and publication
    permission and any required approval. A separate activation first is not required; follow
    [Migrate a workspace](/docs/guide/model/migrate-a-workspace/) for the preview and blockers.

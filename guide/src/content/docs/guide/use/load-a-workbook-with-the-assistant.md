@@ -58,8 +58,8 @@ as needed. Turns can incur costs and the task and session files are retained. Re
 8. Choose **Review the change set**. Check the actual record and relationship changes, validate,
    obtain any required approval and publish through
    [Prepare and publish a change set](/docs/guide/use/prepare-and-publish-a-change-set/).
-   If the change set uses a different model version, review offers **Move** followed by the
-   workspace name, the proposed version and **and publish…**. A model administrator with
+   If the change set uses a different model version, its banner offers **Move workspace and
+   publish**. A model administrator with
    publication permission can use this to preview the migration and choose **Migrate and
    publish**. This moves the workspace to that model and publishes the change set together;
    a separate activation first is not required. Follow

@@ -121,7 +121,7 @@ try {
   await create.getByRole("button", { name: "Start change set" }).click();
   await publication.getByRole("heading", { name: "Retail next", exact: true }).waitFor();
   const changeSet2 = new URL(page.url()).searchParams.get("changeSetId");
-  await page.getByText("This change set uses a different model version").waitFor();
+  await page.getByText("This change set cannot be published yet").waitFor();
   expect(
     (await api(`/change-sets/${changeSet2}`)).modelReleaseId === next.id &&
       (await api(`/change-sets/${changeSet1}`)).modelReleaseId === activeReleaseId,
@@ -226,10 +226,11 @@ try {
 
   // ---- 5. Before the candidate is active, draft2 cannot publish ----
   await page.goto(valuesUrl(changeSet2));
-  const activate = page.getByRole("button", { name: "Publish", exact: true });
-  await activate.waitFor();
-  await activate.click();
-  await page.getByText(/uses a different model version than live data/).first().waitFor();
+  await page.getByText("This change set cannot be published yet").waitFor();
+  expect(
+    (await page.getByRole("button", { name: "Publish", exact: true }).count()) === 0,
+    "draft2 offers Publish before its release is active",
+  );
   expect((await page.getByRole("alertdialog").count()) === 0, "draft2 can activate before its release is active");
 
   // ---- 6. The administrator activates the candidate: live follows it, draft1 no longer matches ----
@@ -255,9 +256,12 @@ try {
 
   // ---- 8. draft1 is refused with an explanation, then discarded without changing data ----
   await page.goto(valuesUrl(changeSet1));
-  const mismatch = page.getByText("This change set uses a different model version");
+  const mismatch = page.getByText("This change set cannot be published yet");
   await mismatch.waitFor();
-  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  expect(
+    (await page.getByRole("button", { name: "Publish", exact: true }).count()) === 0,
+    "draft1 offers Publish on a non-active release",
+  );
   expect((await page.getByRole("alertdialog").count()) === 0, "draft1 can activate on a non-active release");
   expect(
     (await attempt(`/change-sets/${changeSet1}/publication`, { expectedChangeSetVersion: (await api(`/change-sets/${changeSet1}`)).version }))

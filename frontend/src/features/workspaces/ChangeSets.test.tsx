@@ -388,77 +388,26 @@ it("words the closing entry of a capped graph-diagnostics list as a sentence", a
   expect(screen.getByText("4 more problems are not listed.")).toBeVisible();
 });
 
-describe("a change set on a release its workspace no longer runs (0.11 V2)", () => {
+describe("the banner of a change set under another model version than live data (0.11 V2, V3, UI1)", () => {
   const older = { ...baseChangeSet, modelReleaseId: olderRelease.id, modelReleaseVersion: "0.6.0", version: 7 };
-  const mismatched = () =>
-    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+  const mismatched = () => {
+    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
+    return vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
       permissions: permissionsFixture("west"),
       api,
       changeSet: older,
       activeModelReleaseId: activeRelease.id,
-      activeModelReleaseLabel: "0.7.0",
+      activeModelReleaseLabel: "west-model 0.7.0",
       warning: "",
       refresh: vi.fn().mockResolvedValue(older),
     });
+  };
 
-  it("offers to move the workspace to the change set's release and publish, naming the reviewed versions", async () => {
+  it("offers both ways out with short buttons, the update first", async () => {
     mismatched();
-    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
-    vi.spyOn(api, "workspaceModel").mockResolvedValue({ version: 3 } as never);
-    const start = vi.spyOn(api, "startWorkspaceMigration").mockResolvedValue({ id: "job-9" } as never);
-    const started = vi.fn();
-    render(
-      <ChangeSetActions
-        readOnly={false}
-        onExit={vi.fn()}
-        onModelChanged={vi.fn()}
-        canMigrate
-        onMigrationStarted={started}
-      />,
-    );
-    // Publish is never a disabled button explained by a tooltip (0.17 PL1): it says why in words.
-    const publish = screen.getByRole("button", { name: "Publish" });
-    expect(publish).toBeEnabled();
-    expect(publish).not.toHaveAttribute("title");
-    fireEvent.click(publish);
-    expect(await screen.findByText(/uses a different model version than live data/)).toBeVisible();
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", { name: "Move West office to 0.6.0 and publish…" }));
-    await waitFor(() => expect(started).toHaveBeenCalledWith("job-9"));
-    expect(start).toHaveBeenCalledWith("west", {
-      changeSetId: older.id,
-      expectedChangeSetVersion: 7,
-      expectedVersion: 3,
-    });
-  });
-
-  it("says why not where background jobs do not run", async () => {
-    mismatched();
-    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
-    render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
-    expect(await screen.findByText(/Moving the change set needs background jobs/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /and publish…/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Move this change set/ })).not.toBeInTheDocument();
-  });
-});
-
-describe("a change set moved onto the release its workspace runs (0.11 V3)", () => {
-  const older = { ...baseChangeSet, modelReleaseId: olderRelease.id, modelReleaseVersion: "0.6.0", version: 7 };
-  const mismatched = () =>
-    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
-      permissions: permissionsFixture("west"),
-      api,
-      changeSet: older,
-      activeModelReleaseId: activeRelease.id,
-      activeModelReleaseLabel: "0.7.0",
-      warning: "",
-      refresh: vi.fn().mockResolvedValue(older),
-    });
-
-  it("offers to move the change set first, naming its reviewed version", async () => {
-    mismatched();
-    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
     const start = vi.spyOn(api, "startChangeSetMigration").mockResolvedValue({ id: "job-10" } as never);
+    const startWorkspace = vi.spyOn(api, "startWorkspaceMigration").mockResolvedValue({ id: "job-9" } as never);
+    vi.spyOn(api, "workspaceModel").mockResolvedValue({ version: 3 } as never);
     const started = vi.fn();
     render(
       <ChangeSetActions
@@ -470,17 +419,43 @@ describe("a change set moved onto the release its workspace runs (0.11 V3)", () 
         onMigrationStarted={started}
       />,
     );
-    const move = await screen.findByRole("button", { name: "Move this change set to 0.7.0…" });
-    expect(move).toHaveClass("primary");
-    expect(screen.getByRole("button", { name: "Move West office to 0.6.0 and publish…" })).toHaveClass("secondary");
-    fireEvent.click(move);
+    expect(await screen.findByText("This change set cannot be published yet")).toBeVisible();
+    expect(screen.getByText("This change set")).toBeVisible();
+    expect(screen.getByText("Live data")).toBeVisible();
+    expect(screen.getByText("west-model 0.7.0")).toBeVisible();
+    expect(screen.getByText("0.6.0 → 0.7.0")).toBeVisible();
+    expect(screen.getByText("0.7.0 → 0.6.0")).toBeVisible();
+    const update = await screen.findByRole("button", { name: "Update change set" });
+    expect(update).toHaveClass("primary");
+    const move = screen.getByRole("button", { name: "Move workspace and publish" });
+    expect(move).toHaveClass("secondary");
+    fireEvent.click(update);
     await waitFor(() => expect(started).toHaveBeenCalledWith("job-10"));
     expect(start).toHaveBeenCalledWith(older.id, { expectedChangeSetVersion: 7 });
+    fireEvent.click(move);
+    await waitFor(() => expect(started).toHaveBeenCalledWith("job-9"));
+    expect(startWorkspace).toHaveBeenCalledWith("west", {
+      changeSetId: older.id,
+      expectedChangeSetVersion: 7,
+      expectedVersion: 3,
+    });
   });
 
-  it("moves the change set where only background jobs run, and says why the workspace cannot move", async () => {
+  it("shows only the way out the deployment can run, and it takes the primary button", async () => {
     mismatched();
-    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
+    const { unmount } = render(
+      <ChangeSetActions
+        readOnly={false}
+        onExit={vi.fn()}
+        onModelChanged={vi.fn()}
+        canMigrate
+        onMigrationStarted={vi.fn()}
+      />,
+    );
+    expect(await screen.findByRole("button", { name: "Move workspace and publish" })).toHaveClass("primary");
+    expect(screen.queryByRole("button", { name: "Update change set" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/needs background jobs/)).not.toBeInTheDocument();
+    unmount();
     render(
       <ChangeSetActions
         readOnly={false}
@@ -490,9 +465,45 @@ describe("a change set moved onto the release its workspace runs (0.11 V3)", () 
         onMigrationStarted={vi.fn()}
       />,
     );
-    expect(await screen.findByRole("button", { name: "Move this change set to 0.7.0…" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /and publish…/ })).not.toBeInTheDocument();
-    expect(await screen.findByText(/Moving West office needs model administration/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Update change set" })).toHaveClass("primary");
+    expect(screen.queryByRole("button", { name: "Move workspace and publish" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/needs model administration/)).not.toBeInTheDocument();
+  });
+
+  it("opens the discard confirmation from the banner", async () => {
+    mismatched();
+    render(
+      <ChangeSetActions
+        readOnly={false}
+        onExit={vi.fn()}
+        onModelChanged={vi.fn()}
+        canMove
+        onMigrationStarted={vi.fn()}
+      />,
+    );
+    const banner = await screen.findByRole("region", { name: "Model version mismatch" });
+    fireEvent.click(within(banner).getByRole("button", { name: "Discard change set" }));
+    expect(await screen.findByRole("alertdialog")).toBeVisible();
+    expect(screen.getByText("Discard this change set?")).toBeVisible();
+  });
+
+  it("hides Publish while the versions differ", async () => {
+    mismatched();
+    render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
+    await screen.findByText("This change set cannot be published yet");
+    expect(screen.queryByRole("button", { name: "Publish" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit for publication" })).not.toBeInTheDocument();
+  });
+
+  it("gives someone who only views the change set the facts and no way out", async () => {
+    mismatched();
+    render(<ChangeSetActions readOnly onExit={vi.fn()} onModelChanged={vi.fn()} />);
+    expect(await screen.findByText("This change set cannot be published yet")).toBeVisible();
+    expect(
+      screen.getByText(/The people working on it can update it to the live version or discard it\./),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Discard change set" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Update change set" })).not.toBeInTheDocument();
   });
 });
 

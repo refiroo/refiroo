@@ -232,17 +232,41 @@ permissions.
 
 ## Model-version actions on the banner
 
-The amber strip's **More change set actions** menu holds model-version changes and discarding.
-When the releases differ, **Move this change set to …** previews converting the proposal onto
+When the releases differ, the banner says **This change set cannot be published yet**. The
+**This change set** and **Live data** chips show the model and version on each side of a ≠ sign.
+The bar offers neither **Publish** nor **Submit for publication** until the versions match.
+The banner offers two cards where your access and the available features allow them; each
+has a direction chip showing the versions before and after the move.
+
+In **Update the change set**, **Update change set** previews converting the proposal onto
 the workspace's release. Review converted values, type changes, accepted removals and items
 that must be fixed, then confirm **Move change set**. This changes no Live data or workspace
-release. Unchanged records then read as they are live.
+release and does not publish. Unchanged records then read as they are live. This option needs
+background jobs and rights to work in the change set. Afterwards, choose **Open the change set
+to publish it** and publish as usual.
 
-The alternative **Move … to … and publish…** moves the workspace to the change set's release.
-It requires model-release access, model administration and background jobs. Review the migration,
+In **Move the workspace back**, **Move workspace and publish** previews moving the workspace to
+the change set's release and publishing it together. It requires model-release and publication
+rights, model administration and background jobs, and follows the same approval policy as
+publication. Review the migration,
 explicitly accept any removals and resolve all items to fix, including live conflicts. Confirm
 **Migrate and publish** only when ready: migration and publication happen together or neither
 does. Opening either preview changes nothing. A stale review needs **Preview again**.
+
+Only the cards you can use appear. If only one appears, its button is the primary action.
+Below them, **Don’t need these changes?** offers **Discard change set**, which opens the same
+confirmation as **Discard** in **More change set actions**. The menu keeps **Change model
+version** and **Discard**.
+
+Someone who can only view the change set sees the title, the two version chips and an
+explanation that the people working on it can update it to the live version or discard it.
+They see no action cards or discard button.
+
+![The model-version banner with both action cards, their direction chips and Discard change set](/docs/screens/change-set-model-banner.png)
+
+*Above: the Graubünden reference data has a change set on version 1.8.1 and Live on 1.8.2.
+The two cards show opposite directions between the versions. Discard change set sits below
+them, and the bar above has no Publish button. Neither preview is open.*
 
 Policy configuration belongs to
 [Approval policies](/docs/administer/approval-policies/). A pending request may be withdrawn by

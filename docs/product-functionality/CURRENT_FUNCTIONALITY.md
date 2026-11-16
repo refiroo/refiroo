@@ -658,15 +658,15 @@ be fixed block it; a workspace changed after the preview asks to preview again; 
 the workspace runs the new release.
 
 A change set that works under a release its workspace no longer runs, such as one started from an
-older publication, cannot be published as it is. Its bar offers **Move ‹workspace› to ‹release› and
-publish…** (where model administration and background jobs run): the same migration page moves the
+older publication, cannot be published as it is. Its banner (the bar has no Publish meanwhile) offers
+**Move workspace and publish** (where model administration and background jobs run): the same migration page moves the
 workspace's data back to the change set's release and says it then publishes the change set. What
 would stop the publication, such as a record changed both in the change set and live, is listed with
 the items to be fixed. **Migrate and publish** does both in one step, or nothing; the page then names
 the new publication. Through the API this is the same migration naming the change set.
 
 The other way round, the change set itself moves onto the release its workspace runs, even when its
-content does not fit that release: its bar offers **Move this change set to ‹release›…** (where
+content does not fit that release: its banner offers **Update change set** (where
 background jobs run). The same page then lists what changes in the change set: its values converted
 to their new types, its records whose type changes, what the release has no place for (removed from
 the change set only once accepted), and what must be fixed first, including a record the change set

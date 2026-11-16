@@ -194,8 +194,8 @@ async function publishWithMigration(variant, key, label) {
   await page.goto(
     `${uiUrl}/apps/${encodeURIComponent(configuration.rApp)}/change-sets/${changeSet.id}/changes?workspaceKey=${key}&changeSetId=${changeSet.id}`,
   );
-  await page.getByText("This change set uses a different model version").waitFor({ timeout: 30_000 });
-  const offer = page.getByRole("button", { name: `Move ${label} to ${x1.version} and publish…` });
+  await page.getByText("This change set cannot be published yet").waitFor({ timeout: 30_000 });
+  const offer = page.getByRole("button", { name: "Move workspace and publish" });
   await offer.waitFor();
   if (variant === "a") {
     await assertAccessible(page, "the change set bar offering the migration");
@@ -272,8 +272,8 @@ async function moveChangeSet(variant, key, label) {
   await page.goto(
     `${uiUrl}/apps/${encodeURIComponent(configuration.rApp)}/change-sets/${changeSet.id}/changes?workspaceKey=${key}&changeSetId=${changeSet.id}`,
   );
-  await page.getByText("This change set uses a different model version").waitFor({ timeout: 30_000 });
-  const offer = page.getByRole("button", { name: /^Move this change set to / });
+  await page.getByText("This change set cannot be published yet").waitFor({ timeout: 30_000 });
+  const offer = page.getByRole("button", { name: "Update change set" });
   await offer.waitFor();
   if (variant === "a") {
     await assertAccessible(page, "the change set bar offering the move");
@@ -317,7 +317,7 @@ async function moveChangeSet(variant, key, label) {
   await page.getByRole("button", { name: "Open the change set" }).click();
   await page.waitForURL(new RegExp(`/change-sets/${changeSet.id}/`));
   await page.getByRole("button", { name: "Publish", exact: true }).waitFor({ timeout: 30_000 });
-  assert.equal(await page.getByText("This change set uses a different model version").count(), 0);
+  assert.equal(await page.getByText("This change set cannot be published yet").count(), 0);
 }
 
 const waitForPreview = () => page.getByRole("group", { name: "Items by outcome" }).waitFor({ timeout: 30_000 });

@@ -10,6 +10,10 @@ All notable changes to this project are documented in this file. The format foll
 
 - **Upgrade script**: the job-files tarball is handed to the user who runs the script (`chown` inside the helper container, then `chmod 600`) and is checked with `tar tzf`; before, a root-owned file made the size listing print `0 B` and the script went on. `filesize` stops the script on a file that cannot be read or is empty. The script prints the checkout's version (`this checkout: engine X`) next to the running one, warns and asks when they are the same (with `--yes` it refuses unless `--force`), stops on an older checkout, and warns in the summary when the engine's version after the upgrade is not the checkout's. `docs/OPERATIONS.md`, Upgrades, names `git fetch --tags && git checkout v<version>` as the step before the script.
 
+### Changed
+
+- **UI1 (change sets)**: the banner of a change set that works under another model version than live data is rebuilt. It reads "This change set cannot be published yet", shows the change set's version and live data's as two chips (`≠`), and offers each way out as a card with a direction chip and a short button: **Update change set** and **Move workspace and publish** (no "…"). A way out the deployment cannot run is left out, with no sentence about it, and the remaining button is the primary one; someone who only views the change set sees the facts and no buttons. **Discard change set** is on the banner (the same confirmation as the menu's Discard). The bar shows no **Publish** and no **Submit for publication** while the versions differ; before, they showed and the publication was refused. No API or behaviour of the two moves changes.
+
 ## [0.17.2] - 2026-11-15
 
 Internal work after 0.17.1 (one version of each step, helper, component and stylesheet rule; the test

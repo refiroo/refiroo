@@ -111,7 +111,8 @@ change set is not reported as a successful load.
 The result names the change set and its counts. **Review the change set** opens its normal
 review. Check the actual rows and relationships, validate, then submit for approval or publish
 as your access and the workspace’s policy allow. If the load uses a different model version,
-review offers a combined move of the workspace and publication. A model administrator with
+the change-set banner offers **Move workspace and publish** for a combined move of the workspace
+and publication. A model administrator with
 publication permission reviews the migration preview and confirms **Migrate and publish**;
 a separate activation first is not required. See [the workbook load’s publication step](/docs/guide/use/load-a-workbook-with-the-assistant/).
 The assistant does not confirm it. A second-person approval rule still applies to the person

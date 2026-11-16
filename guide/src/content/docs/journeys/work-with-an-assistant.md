@@ -78,7 +78,8 @@ without another assistant turn. Nothing is activated or published. If any item i
 none of the batch is loaded and its change set is discarded; read the reason and correct the
 proposal. A release installed before a failed load can remain installed. Review and publish
 the successful change set through the normal approval process. If it uses a different model
-version, review offers migration and publication together; a model administrator with
+version, its banner offers **Move workspace and publish** for migration and publication together;
+a model administrator with
 publication permission previews it and confirms **Migrate and publish**. The assistant saves no import profile: send the next file to it again.
 Model-only and record-move proposals keep **Accept the model** and their separate endings.
 

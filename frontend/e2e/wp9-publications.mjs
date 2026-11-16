@@ -217,7 +217,7 @@ try {
   await page.getByText(`Started from publication ${oldPublication.publicationNumber}`, { exact: true }).waitFor();
   const changeSetText = await page.locator("main").innerText();
   assert.doesNotMatch(changeSetText, new RegExp(oldPublication.id));
-  assert.match(changeSetText, /This change set uses a different model version/);
+  assert.match(changeSetText, /This change set cannot be published yet/);
   checks.push(
     "Deriving from an earlier publication is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override",
   );

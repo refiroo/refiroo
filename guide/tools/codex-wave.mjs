@@ -109,7 +109,7 @@ const SCREENS_DIR = path.join(GUIDE, 'public', 'screens');
 function screenImages(screensFile) {
   if (!screensFile) return { images: [], described: [] };
   const spec = readJson(screensFile);
-  const described = spec.screens.map((s) => ({ name: s.name, shows: s.shows }));
+  const described = spec.screens.filter((s) => !s.setup).map((s) => ({ name: s.name, shows: s.shows })); // a "setup" screen takes no picture
   const images = described.map((d) => path.join(SCREENS_DIR, `${d.name}.png`));
   const missing = images.filter((f) => !fs.existsSync(f));
   if (missing.length) die(`screenshots missing (run node guide/tools/screens.mjs): ${missing.map((m) => path.basename(m)).join(', ')}`);

@@ -2695,6 +2695,147 @@ button.history-line:hover {
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+/* The banner of a change set under another model version than live data (UI1): the two versions as
+   chips, each way out a card, Discard below. Amber is the change set, green live data. */
+.model-mismatch {
+  display: grid;
+  gap: var(--space-4);
+  margin: var(--space-3) 0;
+  padding: var(--space-4);
+  border: 1px solid var(--context-change-set-strip-line);
+  border-radius: var(--radius-large);
+  background: var(--context-change-set-strip);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+.model-mismatch-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+.model-mismatch-title {
+  display: grid;
+  gap: 3px;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.model-mismatch-title strong {
+  font-size: var(--text-lg);
+  font-weight: 650;
+}
+.model-mismatch-title p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--text-secondary);
+}
+.model-mismatch-versions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.model-version {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 5px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-raised);
+}
+.model-version small {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.model-version code {
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.model-version.change-set {
+  border-color: var(--context-change-set-line);
+}
+.model-version.change-set code {
+  color: var(--context-change-set-text);
+}
+.model-version.live {
+  border-color: var(--context-live-marker);
+}
+.model-version.live code {
+  color: var(--context-live-text);
+}
+.model-mismatch-neq {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+.model-mismatch-paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+.model-mismatch-path {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-raised);
+}
+.model-mismatch-path.update {
+  border-color: var(--state-selected-line);
+}
+.model-mismatch-path.move {
+  border-color: var(--context-publication-line);
+}
+.model-mismatch-path h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-md);
+}
+.model-mismatch-direction {
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.model-mismatch-path.update .model-mismatch-direction {
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
+.model-mismatch-path.move .model-mismatch-direction {
+  background: var(--context-publication-surface);
+  color: var(--context-publication-text);
+}
+.model-mismatch-path p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.model-mismatch-act {
+  display: flex;
+}
+.model-mismatch-path.move .secondary {
+  border-color: var(--context-publication-line);
+  color: var(--context-publication-text);
+}
+.model-mismatch-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-faint);
+  color: var(--text-secondary);
+}
 .publication-bar-main p {
   max-width: 72ch;
   margin: 0;

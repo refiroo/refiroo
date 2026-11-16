@@ -78,14 +78,18 @@ cause; they are not successful migration results.
 
 ## Change sets on another release
 
-A change set can move to **the release its workspace currently runs**. **Move this change set
-to …** opens the same review for its content. The page says nothing live changes. Confirmation
+A change set can move to **the release its workspace currently runs**. When the releases differ,
+its banner says **This change set cannot be published yet** and shows **This change set** and
+**Live data** version chips. The bar has no **Publish** or **Submit for publication** until the
+versions match. **Update change set** in the **Update the change set** card opens the same review
+for its content. The page says nothing live changes. Confirmation
 converts its content and updates its base and release together against current live records.
 Conflicting authored records, relationships or mapping sets block the move. Open the resulting
-change set, review it and validate before publishing normally.
+change set with **Open the change set to publish it**, review it and validate before publishing normally.
 
-Alternatively, **Move … to … and publish…** migrates the workspace to the change set's release
-and publishes that change set in one step. The review explicitly says **Then publishes …** and
+Alternatively, **Move workspace and publish** in the banner's **Move the workspace back** card
+previews migrating the workspace to the change set's release and publishing that change set
+in one step. The review explicitly says **Then publishes …** and
 the confirmation says **Migrate and publish**. Required approval and publication conflicts still
 apply; neither migration nor publication succeeds alone. Review the named publication afterwards.
 

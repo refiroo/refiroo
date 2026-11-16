@@ -398,21 +398,20 @@ try {
   await axe("wp13c-change-set-create-version");
   await create.getByRole("button", { name: "Start change set" }).click();
   await create.waitFor({ state: "detached" });
-  const mismatch = page.getByText("This change set uses a different model version");
+  const mismatch = page.getByText("This change set cannot be published yet");
   await mismatch.waitFor();
   // WP-10G: the active model is named by key and version, like the change set's own release.
-  const mismatchText = await page.locator(".notice", { has: mismatch }).innerText();
+  const mismatchText = await page.getByRole("region", { name: "Model version mismatch" }).innerText();
   expect(
-    mismatchText.includes(`active model ${model.release.key} ${model.release.version}.`),
+    mismatchText.includes(`${model.release.key} ${model.release.version}`),
     `mismatch notice does not name the active release: ${mismatchText}`,
   );
   expect(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(mismatchText), `mismatch notice shows a release id: ${mismatchText}`);
-  const activate = page.getByRole("button", { name: "Publish", exact: true });
-  // Publish is never a disabled button explained by a tooltip (0.17 PL1): it says why in words.
-  expect(!(await activate.isDisabled()), "Publish is disabled for a change set on a non-active release");
-  expect(((await activate.getAttribute("title")) ?? "") === "", "Publish explains the version mismatch in a tooltip");
-  await activate.click();
-  await page.getByText(/uses a different model version than live data/).first().waitFor();
+  // The bar offers no Publish while the versions differ (UI1): the banner says why in words.
+  expect(
+    (await page.getByRole("button", { name: "Publish", exact: true }).count()) === 0,
+    "Publish is offered for a change set on a non-active release",
+  );
   expect((await page.getByRole("alertdialog").count()) === 0, "publishing opened a confirmation on a non-active release");
   // The change set's model stands under Details in the band (0.17 PL1).
   const details = page.getByRole("button", { name: "Details", exact: true }).first();

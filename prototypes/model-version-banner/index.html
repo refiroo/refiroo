@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Model version mismatch banner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: page of labelled mock frames, each a slice of the change set page with the banner in place. Tokens follow frontend/src/styles/tokens.css */
+:root{
+  --bg:#f6f5f2; --surface:#ffffff; --fg:#1d1c1a; --muted:#69655e; --line:#e4e2dc; --line-soft:#efede8;
+  --band:#fff8ea; --band-line:#f0cf8f;
+  --indigo:#3346c9; --indigo-hover:#2a3bb0; --indigo-soft:#eceefc; --indigo-line:#c9cff5;
+  --violet:#6e52cc; --violet-soft:#f7f4fe; --violet-line:#d7cdf6;
+  --amber:#b0650b; --amber-soft:#fff1d6; --amber-line:#f0cf8f;
+  --red:#b42318; --green:#1f8a52; --green-soft:#e5f3ea;
+  --note:#47308f; --note-bg:#efeafc;
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141416; --surface:#1d1d21; --fg:#ececee; --muted:#9a99a1; --line:#3e3e45; --line-soft:#2c2c31;
+  --band:#231d10; --band-line:#5a4219;
+  --indigo:#8e9bff; --indigo-hover:#a7b1ff; --indigo-soft:#23284a; --indigo-line:#3a4280;
+  --violet:#a58cf0; --violet-soft:#1e1b2c; --violet-line:#463a78;
+  --amber:#f2a53c; --amber-soft:#3a2a0e; --amber-line:#5a4219;
+  --red:#f28b82; --green:#40c47f; --green-soft:#13301f;
+  --note:#d2c8fb; --note-bg:#29214a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141416; --surface:#1d1d21; --fg:#ececee; --muted:#9a99a1; --line:#3e3e45; --line-soft:#2c2c31;
+  --band:#231d10; --band-line:#5a4219;
+  --indigo:#8e9bff; --indigo-hover:#a7b1ff; --indigo-soft:#23284a; --indigo-line:#3a4280;
+  --violet:#a58cf0; --violet-soft:#1e1b2c; --violet-line:#463a78;
+  --amber:#f2a53c; --amber-soft:#3a2a0e; --amber-line:#5a4219;
+  --red:#f28b82; --green:#40c47f; --green-soft:#13301f;
+  --note:#d2c8fb; --note-bg:#29214a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45;margin:0}
+.page{max-width:1240px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:40px}
+h1{font-size:24px;margin:0 0 6px;text-wrap:balance}
+.lede{color:var(--muted);max-width:70ch;margin:0}
+.frame-label{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:10px}
+.frame-label b{font-size:15px}
+.frame-label span{color:var(--muted)}
+.frame{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+
+/* context bar, as in the app */
+.bar{background:var(--band);border-bottom:1px solid var(--band-line);display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--amber-line);background:var(--amber-soft);color:var(--amber);border-radius:99px;font-size:12px;padding:1px 9px;font-weight:600}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.bar-name{font-weight:600}
+.bar-meta{color:var(--muted);font-size:12.5px}
+.bar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.ghost-publish{position:relative}
+.ghost-publish s{opacity:.55}
+button{font:inherit;cursor:pointer;border-radius:7px;padding:6px 12px;font-weight:600;font-size:13px}
+.primary{background:var(--indigo);color:#fff;border:1px solid var(--indigo)}
+:root[data-theme="dark"] .primary{color:#10153d}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .primary{color:#10153d}}
+.primary:hover{background:var(--indigo-hover)}
+.secondary{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
+.secondary:hover{border-color:var(--muted)}
+.more{background:var(--surface);border:1px solid var(--line);color:var(--fg);padding:6px 9px}
+button:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+.danger{background:var(--surface);color:var(--red);border:1px solid var(--line)}
+.danger:hover{border-color:var(--red)}
+
+/* the redesigned banner */
+.content{padding:18px 20px 22px;display:grid;gap:18px}
+.mm{border:1px solid var(--amber-line);background:var(--band);border-radius:10px;padding:16px 18px;display:grid;gap:14px}
+.mm-head{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.mm-title{display:grid;gap:3px;min-width:0;flex:1 1 320px}
+.mm-title strong{font-size:15px}
+.mm-title p{margin:0;color:var(--muted);max-width:68ch}
+.versions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ver{display:grid;gap:1px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 10px;min-width:0}
+.ver small{font-size:11px;color:var(--muted);letter-spacing:.03em;text-transform:uppercase}
+.ver code{font-family:var(--mono);font-size:13px}
+.ver.cs{border-color:var(--amber-line)}
+.ver.cs code{color:var(--amber)}
+.ver.live{border-color:var(--green)}
+.ver.live code{color:var(--green)}
+.neq{color:var(--muted);font-weight:700}
+.paths{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.path{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:14px;display:grid;gap:10px;grid-template-rows:auto 1fr auto;min-width:0}
+.path.a{border-color:var(--indigo-line)}
+.path.b{border-color:var(--violet-line)}
+.path h3{margin:0;font-size:14px;display:flex;gap:8px;align-items:center}
+.dir{font-family:var(--mono);font-size:12px;border-radius:5px;padding:1px 6px;white-space:nowrap}
+.path.a .dir{background:var(--indigo-soft);color:var(--indigo)}
+.path.b .dir{background:var(--violet-soft);color:var(--violet)}
+.path p{margin:0;color:var(--muted)}
+.path .act{display:flex}
+.path.b .secondary{border-color:var(--violet-line);color:var(--violet)}
+.mm-foot{border-top:1px solid var(--line-soft);padding-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;color:var(--muted)}
+.facts{margin:0;color:var(--muted)}
+.list-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.list-head h2{margin:0;font-size:22px}
+.row{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:center}
+.added{background:var(--green-soft);color:var(--green);border-radius:99px;font-size:12px;padding:1px 9px;font-weight:600}
+
+/* annotations */
+.notes{display:grid;gap:8px;margin-top:12px}
+.note{background:var(--note-bg);color:var(--note);border-radius:8px;padding:9px 12px;max-width:90ch}
+.note b{font-weight:700}
+.tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-right:6px}
+
+.phone{max-width:390px}
+.phone .bar-actions{margin-left:0}
+.phone .mm-head{flex-direction:column}
+.phone .paths{grid-template-columns:1fr}
+.old{font-size:12.5px}
+.old .mm{grid-template-columns:1fr auto;align-items:start}
+.old p{margin:0}
+@media (prefers-reduced-motion:no-preference){button{transition:background .12s,border-color .12s}}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header>
+    <h1>Model version mismatch banner</h1>
+    <p class="lede">Mock-up for the change set page. The banner says what is wrong in one line, shows the two versions side by side, and offers the two ways out as cards with short buttons. Discard is offered right in the banner. Names and versions are sample values.</p>
+  </header>
+
+  <!-- 1. main state -->
+  <section>
+    <div class="frame-label"><b>1 · You work on the change set, both ways out are available</b><span>Desktop, 1240 px</span></div>
+    <div class="frame">
+      <div class="bar">
+        <span class="pill">Change set</span>
+        <span class="bar-name">Load of reference_test.xlsx</span>
+        <span class="bar-meta">30 changes · open · 13 minutes ago</span>
+        <span class="bar-meta">Details ▾</span>
+        <div class="bar-actions">
+          <button class="more" aria-label="More change set actions">⋯</button>
+          <span class="bar-meta">Live · <b>Change sets</b> · Publications</span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="mm" role="region" aria-label="Model version mismatch">
+          <div class="mm-head">
+            <div class="mm-title">
+              <strong>This change set cannot be published yet</strong>
+              <p>It was made under a different model version than live data. Bring the two onto the same version, then publish.</p>
+            </div>
+            <div class="versions" aria-label="Model versions">
+              <div class="ver cs"><small>This change set</small><code>reference-data 0.3.42</code></div>
+              <span class="neq" aria-hidden="true">≠</span>
+              <div class="ver live"><small>Live data</small><code>reference-data 0.3.48</code></div>
+            </div>
+          </div>
+          <div class="paths">
+            <article class="path a">
+              <h3>Update the change set <span class="dir">0.3.42 → 0.3.48</span></h3>
+              <p>Its content is converted where 0.3.48 differs. You review every item before the move is saved. Then you publish it as usual.</p>
+              <div class="act"><button class="primary">Update change set</button></div>
+            </article>
+            <article class="path b">
+              <h3>Move the workspace back <span class="dir">0.3.48 → 0.3.42</span></h3>
+              <p>Reference Data goes to 0.3.42 and this change set is published with it.</p>
+              <div class="act"><button class="secondary">Move workspace and publish</button></div>
+            </article>
+          </div>
+          <div class="mm-foot">Don’t need these changes? <button class="danger">Discard change set</button></div>
+        </div>
+        <div class="list-head"><h2>Changes in this change set</h2><button class="secondary">See the data with these changes</button></div>
+        <div class="row"><span class="added">Added</span><b>ET – Under Sedation</b><span class="bar-meta">Translation</span></div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="tag">Buttons</span>The long names move into the card headings. The buttons say only the act: <b>Update change set</b> and <b>Move workspace and publish</b>, with no “…”. The version arrow chip shows the direction of each move.</div>
+      <div class="note"><span class="tag">Discard</span>A <b>Discard change set</b> button (red text, secondary shape) sits in the banner and opens the same confirmation as Discard in the ⋯ menu. The menu entry stays.</div>
+      <div class="note"><span class="tag">Publish</span>The bar has no <b>Publish</b> (or <b>Submit for publication</b>) while the versions differ, because it cannot succeed. Today it shows and fails. It comes back once the versions match.</div>
+      <div class="note"><span class="tag">Colour</span>Amber banner as the bar it sits under; the change set version takes the change set amber, live takes the live green; the forward move is indigo (primary), the move back violet.</div>
+    </div>
+  </section>
+
+  <!-- 2. one way out -->
+  <section>
+    <div class="frame-label"><b>2 · Only one way out is available</b><span>e.g. this deployment runs no background jobs, so the change set cannot be updated</span></div>
+    <div class="frame">
+      <div class="content">
+        <div class="mm">
+          <div class="mm-head">
+            <div class="mm-title">
+              <strong>This change set cannot be published yet</strong>
+              <p>It was made under a different model version than live data. Bring the two onto the same version, then publish.</p>
+            </div>
+            <div class="versions">
+              <div class="ver cs"><small>This change set</small><code>reference-data 0.3.42</code></div>
+              <span class="neq" aria-hidden="true">≠</span>
+              <div class="ver live"><small>Live data</small><code>reference-data 0.3.48</code></div>
+            </div>
+          </div>
+          <div class="paths">
+            <article class="path b">
+              <h3>Move the workspace back <span class="dir">0.3.48 → 0.3.42</span></h3>
+              <p>Reference Data goes to 0.3.42 and this change set is published with it.</p>
+              <div class="act"><button class="primary">Move workspace and publish</button></div>
+            </article>
+          </div>
+          <div class="mm-foot">Don’t need these changes? <button class="danger">Discard change set</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="tag">Hidden, not explained</span>A way out the deployment cannot run is left out. The two sentences about background jobs and model administration go away. The remaining card takes the primary button.</div>
+    </div>
+  </section>
+
+  <!-- 3. viewer -->
+  <section>
+    <div class="frame-label"><b>3 · You only view the change set</b><span>Someone else works on it</span></div>
+    <div class="frame">
+      <div class="content">
+        <div class="mm">
+          <div class="mm-head">
+            <div class="mm-title">
+              <strong>This change set cannot be published yet</strong>
+              <p>It was made under a different model version than live data. The people working on it can update it to the live version or discard it.</p>
+            </div>
+            <div class="versions">
+              <div class="ver cs"><small>This change set</small><code>reference-data 0.3.42</code></div>
+              <span class="neq" aria-hidden="true">≠</span>
+              <div class="ver live"><small>Live data</small><code>reference-data 0.3.48</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="tag">No cards</span>No buttons and no discard line, only the facts.</div>
+    </div>
+  </section>
+
+  <!-- 4. phone -->
+  <section>
+    <div class="frame-label"><b>4 · Phone width</b><span>390 px; the cards stack</span></div>
+    <div class="frame phone">
+      <div class="bar">
+        <span class="pill">Change set</span>
+        <span class="bar-name">Load of reference_test.xlsx</span>
+        <div class="bar-actions"><button class="more" aria-label="More change set actions">⋯</button></div>
+      </div>
+      <div class="content">
+        <div class="mm">
+          <div class="mm-head">
+            <div class="mm-title">
+              <strong>This change set cannot be published yet</strong>
+              <p>It was made under a different model version than live data. Bring the two onto the same version, then publish.</p>
+            </div>
+            <div class="versions">
+              <div class="ver cs"><small>This change set</small><code>0.3.42</code></div>
+              <span class="neq" aria-hidden="true">≠</span>
+              <div class="ver live"><small>Live data</small><code>0.3.48</code></div>
+            </div>
+          </div>
+          <div class="paths">
+            <article class="path a">
+              <h3>Update the change set <span class="dir">→ 0.3.48</span></h3>
+              <p>Its content is converted where 0.3.48 differs. You review every item before the move is saved. Then you publish it as usual.</p>
+              <div class="act"><button class="primary">Update change set</button></div>
+            </article>
+            <article class="path b">
+              <h3>Move the workspace back <span class="dir">→ 0.3.42</span></h3>
+              <p>Reference Data goes to 0.3.42 and this change set is published with it.</p>
+              <div class="act"><button class="secondary">Move workspace and publish</button></div>
+            </article>
+          </div>
+          <div class="mm-foot">Don’t need these changes? <button class="danger">Discard change set</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. today -->
+  <section>
+    <div class="frame-label"><b>For comparison · today</b></div>
+    <div class="frame old">
+      <div class="content">
+        <div class="mm">
+          <div><p><b>This change set uses a different model version</b></p>
+          <p>This change set works under reference-data 0.3.42; live data uses the active model reference-data 0.3.48. Publishing requires these versions to match. You can move this change set to the active model (its content is converted where that model differs, and you review every item first), move Reference Data to 0.3.42 and publish this change set with it, or discard the change set.</p></div>
+          <div class="versions"><button class="primary">Move this change set to reference-data 0.3.48…</button><button class="secondary">Move Reference Data to 0.3.42 and publish…</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

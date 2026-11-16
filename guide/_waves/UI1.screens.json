@@ -1,0 +1,52 @@
+{
+  "wave": "UI1",
+  "note": "Real screen of the reference instance (guide/reference, http://localhost:8480) for the banner of a change set under another model version (UI1). Light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file UI1.screens.json) into guide/public/screens/. banner-setup makes the empty workspace 'Guide model banner' with the change set 'Guide model version banner' and activates another installed release in the workspace, so the change set differs from live data; banner-teardown deletes the workspace. Run the file in order. Nothing is clicked.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "banner-setup",
+      "setup": true,
+      "shows": "Makes the workspace 'Guide model banner', its change set and a later release active in it.",
+      "actions": [
+        {
+          "state": "banner-mismatch-on"
+        }
+      ]
+    },
+    {
+      "name": "change-set-model-banner",
+      "shows": "A change set under another model version than live data: the bar without Publish, and the banner 'This change set cannot be published yet' with the two version chips, the cards 'Update the change set' (Update change set) and 'Move the workspace back' (Move workspace and publish), and Discard change set. Nothing is clicked.",
+      "height": 900,
+      "actions": [
+        {
+          "goto": "/apps/network/change-sets/{cs:Guide model version banner@guide-model-banner}/changes?workspaceKey=guide-model-banner"
+        },
+        {
+          "waitFor": {
+            "text": "This change set cannot be published yet",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "This change set cannot be published yet",
+        "Update change set",
+        "Move workspace and publish",
+        "Discard change set"
+      ]
+    },
+    {
+      "name": "banner-teardown",
+      "setup": true,
+      "shows": "Deletes the workspace banner-setup made.",
+      "actions": [
+        {
+          "state": "banner-mismatch-off"
+        }
+      ]
+    }
+  ]
+}

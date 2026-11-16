@@ -2612,6 +2612,78 @@ before). R172-F38 fixed both (`9e602bc9`, CI green); by the user's decision the 
 before any image existed, and the Images run built and started `refiroo-engine:v0.17.2` and
 `refiroo-web:v0.17.2` on amd64 and arm64.
 
+## UI1: Fix the model version banner in a change set (0.17.3)
+
+**Why.** The first package of the U lane (UI fixes, UI1, UI2, …; the user, 2026-11-16). The user, on the banner a change set shows when it works under a different model version
+than live data: two buttons with very long text, and a paragraph that names discarding while Discard is only in
+the ⋯ menu; "bring a good UX to this dialog". A UI fix: no API, engine or behaviour of the two moves changes.
+
+**Mock-up:** [prototypes/model-version-banner/index.html](../prototypes/model-version-banner/index.html) (the
+banner with both ways out, with one, for someone who only views the change set, at phone width, and today's
+banner for comparison).
+
+### Decisions
+
+- **UI1-D1 The banner's shape** (shaped with the user on the mock-up, 2026-11-16; awaiting approval of this
+  plan): title "This change set cannot be published yet" and one sentence; the two versions as chips ("This
+  change set" in the change set amber ≠ "Live data" in green); each way out a card with a heading, a direction
+  chip (0.3.42 → 0.3.48), one line on what happens and a short button. "Update change set" (indigo, primary):
+  content converted, every item reviewed, then published as usual (checked: this move does not publish;
+  `MigrationPage` ends with "Open the change set to publish it"). "Move workspace and publish" (violet,
+  secondary): the workspace goes to the change set's version and the change set is published with it. A
+  "Discard change set" button (secondary, red text) under "Don't need these changes?" opens the existing discard
+  confirmation; the ⋯ menu entry stays. No "…" on the banner's buttons (the user, 2026-11-16).
+- **UI1-D2 A way out that cannot run is left out** (my recommendation, following "hide what cannot be done";
+  awaiting approval): without background jobs the update card is not shown, without model administration the
+  workspace card is not shown; the remaining card takes the primary button; the two sentences explaining a
+  missing deployment part go away. Someone who only views the change set sees the title, sentence and chips, no
+  cards and no Discard.
+- **UI1-D3 No Publish while the versions differ** (my proposal on the mock-up; awaiting approval): the bar hides
+  Publish and Submit for publication while the change set's model version differs from the workspace's; today
+  they show and the publication is refused. They come back once the versions match.
+
+### Delivery
+
+- **Frontend:** the `modelMismatch` banner in `features/workspaces/ChangeSets.tsx` (the `Notice` with the long
+  text and two buttons) becomes the banner of UI1-D1, its styles beside the change set page's; the Discard button
+  calls the same `setConfirm("discard")` as the menu; the bar's Publish and Submit follow UI1-D3. Existing colour
+  tokens only.
+- **Checks:** Vitest in `ChangeSets.test.tsx` for the three states (both ways, one way, viewer) and the hidden
+  Publish; the browser runners that read the old banner text (`sc15-model-version-acceptance`,
+  `wp13c-ui-states`, `workspace-v1`, `wp9-publications`) updated and run with their a11y and visual checks;
+  build, tsc, lint.
+- **Guide:** Codex updates the pages that name the banner's old buttons or text
+  (*Prepare under the next model version*, *Load a workbook with the assistant*, *Review an assistant's workbook
+  design*, *Change sets*, *Loading with the assistant*, *Migrations*); new picture of the banner (new controls
+  and labels). CHANGELOG entry.
+
+**Delivered 2026-11-16.** Frontend: the `model-mismatch` section in `features/workspaces/ChangeSets.tsx` replaces the
+`Notice` (title, sentence, the two chips with `≠`, the two cards with direction chips, the footer with **Discard change
+set**, which calls `setConfirm("discard")`); a card shows only when `canMove`/`migrates` and `onMigrationStarted` allow
+it, the single card takes the primary button, the viewer sees title, sentence and chips; the bar's Publish and Submit
+for publication are hidden while `modelMismatch` (the guard in `publish()` that explained the refusal is gone with
+them). Styles `.model-mismatch*` in `styles/components.css` beside the change set bar, existing tokens only. The live
+chip and the direction chips take the version from `activeModelReleaseLabel` (key and version). The phone variant of the
+mock (versions only in the chips) is not built: the chips wrap and keep key and version. Runners `workspace-v1`,
+`wp9-publications`, `sc15-model-version-acceptance`, `wp13c-ui-states` read the new texts (sc15 and wp13c assert Publish
+is absent instead of clicking it). Guide: seven pages by Codex, one new picture `change-set-model-banner` (the reference
+instance's state `banner-mismatch-on`/`-off` in `guide/tools/screen-states.py` makes an empty workspace whose change set
+differs from live data; `codex-wave.mjs` no longer asks for pictures of "setup" screens); no older picture showed the
+banner. The product docs that named the old buttons (`UI_ACCEPTANCE`, `EXECUTION_GUIDE`, `CURRENT_FUNCTIONALITY`) follow.
+Checks: Vitest `ChangeSets.test.tsx` 34 (both ways, one way, viewer, Publish hidden, Discard opens the confirmation);
+build, tsc, eslint; of the 86 runners `test:changed` selected (a shared stylesheet selects every screen), the six
+change set and workspace runners (`sc15-model-version-acceptance`, `wp13c-ui-states`, `workspace-v1`, `wp9-publications`,
+`wp9-change-sets`, `p2-change-review`) and the accessibility and visual gates of "change sets and publications" and
+"workspaces" ran and passed; no baseline differed, so none was re-recorded (the banner is in no visual baseline); guide
+verify and links.
+
+## R 0.17.3: Review and release
+
+Full review of every change since `v0.17.2`; the checks of the changed layers and both gates; version 0.17.3 in
+the places 0.17.2 changed; CHANGELOG [0.17.3] and a PROJECT_STATUS entry; the R record here. Before the tag, the
+release's plain line for the website (its own repository) is written and pushed there: the website then updates
+itself from the tag, and a release without its line fails that update.
+
 ## Exit gate
 
 - a workbook is shaped on the canvas without a dialog and without AI, every row checked, and becomes a

@@ -15,6 +15,10 @@ Everything goes through the public API as the reference administrator; nothing i
   draft-ghost <name> / draft-ghost-off <name>   the deliberate error in a model draft: a column ghost-field in the
                         Municipalities view of Network (as a person would add it in the draft's JSON), and its removal
   draft-delete <name>   delete the newest model draft of that name (a draft nobody installs)
+  banner-mismatch-on / banner-mismatch-off   the empty workspace "Guide model banner" on Graubünden's release with the change
+                        set "Guide model version banner", then another installed release of the model activated in the
+                        workspace, so the change set differs from live data (UI1: the banner offers both ways out); off
+                        deletes the workspace
   draft-concurrent <name>::<type key>   a second person's change to the newest draft of that name: the type is renamed
                         'Renamed elsewhere' through the draft's operations (the draft's version moves on while a page
                         still holds the old one: the conflict and newer-version screens)
@@ -648,6 +652,64 @@ def workbook_workspace(a):
     )
 
 
+BANNER_WS = "guide-model-banner"
+BANNER_CHANGE_SET = "Guide model version banner"
+
+
+def _banner_workspace_delete(a):
+    for w in a.call("GET", "/api/v1/workspaces?status=all&pageSize=100")["items"]:
+        if w["key"] != BANNER_WS:
+            continue
+        if w["status"] != "active":
+            w = a.call(
+                "PATCH",
+                f"/api/v1/workspaces/{BANNER_WS}",
+                {"expectedVersion": w["version"], "status": "active"},
+            )
+        for c in a.call("GET", f"/api/v1/workspaces/{BANNER_WS}/change-sets?pageSize=100")["items"]:
+            a.call("DELETE", f"/api/v1/change-sets/{c['id']}?expectedVersion={c['version']}")
+        w = a.call(
+            "PATCH",
+            f"/api/v1/workspaces/{BANNER_WS}",
+            {"expectedVersion": w["version"], "status": "retired"},
+        )
+        a.call("DELETE", f"/api/v1/workspaces/{BANNER_WS}?expectedVersion={w['version']}")
+
+
+def banner_mismatch_on(a):
+    """An empty workspace on the release Graubünden runs, a change set on it, and then another installed
+    release of the same model activated in the workspace: the change set keeps the first release."""
+    _banner_workspace_delete(a)
+    live = a.call("GET", f"/api/v1/workspaces/{WS}/model")
+    other = [
+        r
+        for r in a.call("GET", "/api/v1/model-releases?pageSize=200")["items"]
+        if r["key"] == live["releaseKey"] and r["id"] != live["releaseId"]
+    ]
+    if not other:
+        sys.exit(f"no other installed release of {live['releaseKey']!r}")
+    a.call(
+        "POST",
+        "/api/v1/workspaces",
+        {"key": BANNER_WS, "label": "Guide model banner", "modelReleaseId": live["releaseId"]},
+    )
+    a.call(
+        "POST",
+        f"/api/v1/workspaces/{BANNER_WS}/change-sets",
+        {"name": BANNER_CHANGE_SET, "source": "currentLive"},
+    )
+    assignment = a.call("GET", f"/api/v1/workspaces/{BANNER_WS}/model")
+    a.call(
+        "POST",
+        f"/api/v1/workspaces/{BANNER_WS}/model/activation",
+        {
+            "releaseId": other[0]["id"],
+            "expectedVersion": assignment["version"],
+            "expectedReleaseId": assignment["releaseId"],
+        },
+    )
+
+
 def hierarchy_change_set(a):
     name = "C10 hierarchy screenshot preparation"
     if not any(
@@ -677,6 +739,8 @@ def export_job(a):
 
 
 STATES = {
+    "banner-mismatch-on": banner_mismatch_on,
+    "banner-mismatch-off": _banner_workspace_delete,
     "approver-account": approver_account,
     "contributor-account": contributor_account,
     "hierarchy-change-set": hierarchy_change_set,
