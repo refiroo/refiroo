@@ -198,7 +198,7 @@ is ready for your use.
 In the installation's checkout:
 
 ```bash
-git fetch --tags && git checkout <new-tag>
+git fetch --tags --force && git checkout <new-tag>
 scripts/upgrade.sh --dry-run      # shows every command, runs nothing
 scripts/upgrade.sh
 ```

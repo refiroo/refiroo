@@ -408,7 +408,7 @@ backup in step 7 first, keeping the old tag and matching configuration for recov
 paused and the old engine stopped. From `/opt/refiroo/refiroo`, replace `v<next>` with the next tag:
 
 ```bash
-git fetch --tags && git checkout v<next> && docker compose up -d --build
+git fetch --tags --force && git checkout v<next> && docker compose up -d --build
 ```
 
 Git reports any fetched tags and the checked-out commit; Compose prints build progress and the

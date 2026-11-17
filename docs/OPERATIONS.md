@@ -1414,7 +1414,7 @@ Drafts started from a deleted release stay, without the link.
 ## Upgrades
 
 **The upgrade script (0.17).** On a Docker Compose installation `scripts/upgrade.sh` does all of this in one command,
-from the checkout of the new version: put that version in the folder first (`git fetch --tags`, then
+from the checkout of the new version: put that version in the folder first (`git fetch --tags --force`, then
 `git checkout v<version>`; `git tag --list 'v*' --sort=-v:refname | head` shows the versions). It prints the checkout's
 version (`this checkout: engine X`) next to the running one. If they are the same, it warns, asks "Rebuild and restart
 the same version?" and exits with nothing changed on no (with `--yes` it refuses unless `--force`); a checkout older

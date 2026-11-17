@@ -2,7 +2,7 @@
 # Upgrade a Docker Compose installation in one command (0.17): check, back up, pull and build,
 # migrate the database, start, and wait until the engine answers. Run it from a checkout of the
 # version you are upgrading to, on the host that runs the installation. Put that version in the
-# folder first:  git fetch --tags && git checkout v<version>   (git tag --list 'v*' --sort=-v:refname
+# folder first:  git fetch --tags --force && git checkout v<version>   (git tag --list 'v*' --sort=-v:refname
 # | head shows the versions). It prints the checkout's version next to the running one, asks before
 # rebuilding the version that already runs, and stops on an older one. It replaces the
 # copy-and-paste commands of docs/OPERATIONS.md, Upgrades.
@@ -187,7 +187,7 @@ info "this checkout: engine $VERSION_CHECKOUT"
 case "$VERSION_BEFORE" in
   unknown) ;;
   "$VERSION_CHECKOUT")
-    warn "this checkout is the version already running ($VERSION_BEFORE); to upgrade, first put the new version in this folder: git fetch --tags && git checkout vNEW (git tag --list 'v*' --sort=-v:refname | head shows the versions), then run this script again."
+    warn "this checkout is the version already running ($VERSION_BEFORE); to upgrade, first put the new version in this folder: git fetch --tags --force && git checkout vNEW (git tag --list 'v*' --sort=-v:refname | head shows the versions), then run this script again."
     if [ "$YES" = 1 ]; then
       [ "$FORCE" = 1 ] || die "nothing to upgrade: the checkout is the running version (--force rebuilds and restarts it anyway)"
     elif [ "$FORCE" = 0 ]; then
@@ -195,7 +195,7 @@ case "$VERSION_BEFORE" in
     fi ;;
   *)
     if [ "$(printf '%s\n%s\n' "$VERSION_CHECKOUT" "$VERSION_BEFORE" | sort -V | head -n 1)" = "$VERSION_CHECKOUT" ]; then
-      die "this checkout (engine $VERSION_CHECKOUT) is older than the running engine ($VERSION_BEFORE). A downgrade is not an upgrade: restore a backup instead (docs/OPERATIONS.md, Upgrades), or check out the newer version: git fetch --tags && git checkout vNEW"
+      die "this checkout (engine $VERSION_CHECKOUT) is older than the running engine ($VERSION_BEFORE). A downgrade is not an upgrade: restore a backup instead (docs/OPERATIONS.md, Upgrades), or check out the newer version: git fetch --tags --force && git checkout vNEW"
     fi ;;
 esac
 

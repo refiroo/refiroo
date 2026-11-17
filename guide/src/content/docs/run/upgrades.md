@@ -16,7 +16,7 @@ it again. Check out the target version first, then run it from that checkout, wi
 files your installation uses (for automatic HTTPS, `-f compose.yml -f compose.acme.yml`):
 
 ```bash
-git fetch --tags
+git fetch --tags --force
 git checkout v<version>
 scripts/upgrade.sh
 ```

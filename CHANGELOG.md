@@ -8,7 +8,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
-- **Upgrade script**: the job-files tarball is handed to the user who runs the script (`chown` inside the helper container, then `chmod 600`) and is checked with `tar tzf`; before, a root-owned file made the size listing print `0 B` and the script went on. `filesize` stops the script on a file that cannot be read or is empty. The script prints the checkout's version (`this checkout: engine X`) next to the running one, warns and asks when they are the same (with `--yes` it refuses unless `--force`), stops on an older checkout, and warns in the summary when the engine's version after the upgrade is not the checkout's. `docs/OPERATIONS.md`, Upgrades, names `git fetch --tags && git checkout v<version>` as the step before the script.
+- **Upgrade script**: the job-files tarball is handed to the user who runs the script (`chown` inside the helper container, then `chmod 600`) and is checked with `tar tzf`; before, a root-owned file made the size listing print `0 B` and the script went on. `filesize` stops the script on a file that cannot be read or is empty. The script prints the checkout's version (`this checkout: engine X`) next to the running one, warns and asks when they are the same (with `--yes` it refuses unless `--force`), stops on an older checkout, and warns in the summary when the engine's version after the upgrade is not the checkout's. `docs/OPERATIONS.md`, Upgrades, names `git fetch --tags --force && git checkout v<version>` as the step before the script.
+- **Upgrade instructions fetch tags with `--force`** (README, `docs/OPERATIONS.md`, the guide's install and upgrade pages, `scripts/upgrade.sh`): the repository's history was rewritten on 2026-11-17 and its release tags now point to new commits; a plain `git fetch --tags` in a checkout made before refuses a tag that moved.
 
 ### Changed
 
