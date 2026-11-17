@@ -342,6 +342,11 @@ description passes 160 characters) in the website repository's
 on the site by itself; a tag without its line fails that run. Prereleases (a hyphen in the tag) are
 not picked up.
 
+After the tag is pushed, R creates the GitHub release page from the version's CHANGELOG section:
+`gh release create vX.Y.Z --verify-tag --title "refiroo X.Y.Z" --notes-file <section> --latest`.
+Tags before `v0.17.1` exist only in the private history and are never pushed (the public repository
+starts at 0.17.1). Rulesets on GitHub block force-pushes to `main` and moving or deleting `v*` tags.
+
 ### Execution discipline
 
 - Run comprehensive suites (the full `pytest` and `npm run test` suites, the whole of `test:a11y` and
