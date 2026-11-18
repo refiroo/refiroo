@@ -24,7 +24,9 @@ The assistant discovers refiroo's sign-in page. The assistant must listen on its
 
 For an unattended system, the administrator selects **New agent client** under **Agent clients**, creates it and grants it the intended workspace access or consumer API access. Store its secret as a credential. Obtain a token with `scope=agent`, following the [OAuth operations](/docs/api/?api=management#tag/oauth). A regular API client cannot obtain that audience. Use the agent token only on `/mcp`.
 
-If you implement the person's connection yourself, follow the protected-resource metadata named by the endpoint's `401` challenge. It leads to registration and the authorization-code flow with PKCE. Refresh tokens rotate; keep the replacement from every successful renewal. The optional OAuth `resource` must identify this instance's `/mcp`. See [Signing in and tokens](/docs/integrate/signing-in-and-tokens/#assistant-connections).
+If you implement the person's connection yourself, follow the protected-resource metadata named by the endpoint's `401` challenge. It leads to registration and the authorization-code flow with PKCE. Refresh tokens rotate; keep the newest refresh token from each successful renewal. A window still holding an earlier token from that sign-in can renew with it, even if it was already used, without signing the person out. The optional OAuth `resource` must identify this instance's `/mcp`. See [Signing in and tokens](/docs/integrate/signing-in-and-tokens/#assistant-connections).
+
+A person's assistant renews its sign-in on its own while it is used. By default, the sign-in lasts up to 30 days without a renewal and 90 days in all, after which the person signs in again. A security administrator sets these limits under **Sign-ins** on **Agent access**. A change to the days without use applies at the next renewal; a change to the days in all applies only to new sign-ins. Integrations managing these settings can use the [Agent access operations](/docs/api/?api=management#tag/agent-access) to read or change the limits.
 
 ## 3. Check access before asking for data
 
@@ -43,5 +45,7 @@ If validation fails, have the assistant use the returned code and diagnostics to
 ## 5. End or revoke the connection
 
 End a person's assistant session from the person's account when it is no longer needed. A security administrator can block the assistant or deactivate a system's agent client. The next call is refused. Restoring an assistant requires a new sign-in for sessions that ended.
+
+A person's assistant sign-in also ends when it reaches either the limit without renewal or the total lifetime set by the administrator.
 
 On **Agent access**, administrators can inspect **Last used**, **Calls, 30 days** and the outcomes on the **Calls** tab. Use the request reference when reporting a failed call, rather than sending credentials or reference-data values.

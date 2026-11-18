@@ -1729,7 +1729,11 @@ the consumer APIs alike (ROADMAP), with no API keys and no credential in a URL (
   security window for revocation.
 - **The browser** keeps the access token in memory and the refresh token in an `HttpOnly`, `Secure`,
   `SameSite=Strict` cookie read only by the token and revocation endpoints. Refresh tokens are
-  opaque, stored hashed and rotated on every use; a reused one ends the session. The frontend and the
+  opaque, stored hashed and rotated on every use; a reused one ends the session, except an
+  assistant's (0.17 AS-D1, amending D251 for assistants only: any refresh token an assistant's
+  session was given renews it, since several windows share one sign-in and each renews on its own;
+  its limits are its own, 30 days without use and 90 in all, set on the Agent access page,
+  AS-D2/AS-D3). The frontend and the
   engine share a site.
 - **Signing keys** live in the database, sealed under `SECRETS_ENCRYPTION_KEY` (the one setting for
   every sealed secret, replacing `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`), published at

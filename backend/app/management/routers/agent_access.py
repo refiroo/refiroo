@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from ...config import get_settings
 from ...engine.agent_access import applications, calls
+from ...engine.identity import agent_limits
 from ...engine.identity.clients import client_page
 from ...models.database import AgentApplication, OAuthClient, User
 from ..access import INSTANCE, AuthorizedRoute, requires
@@ -16,6 +17,7 @@ from ..paging import PageQuery, PageSize
 from ..projections import identity as identity_present
 from ..schemas.agent_access import (
     AgentAccessStatus,
+    AgentAccessUpdate,
     AgentApplicationCreate,
     AgentApplicationPage,
     AgentApplicationResponse,
@@ -28,14 +30,11 @@ from ..schemas.agent_access import (
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["agent-access"])
 
 
-@router.get("/agent-access", response_model=AgentAccessStatus)
-@requires("agent-access.read", at=INSTANCE)
-def get_agent_access(request: Request, session: DbSession) -> AgentAccessStatus:
-    """Whether assistants can reach the instance, where, under which limits, and the calls of the
-    last 30 days. The settings are the environment's, read at start."""
+def _status(request: Request, session: DbSession) -> AgentAccessStatus:
     identity = request.app.state.identity_settings
     settings = get_settings()
     totals = calls.totals(session, datetime.now(UTC))
+    limits = agent_limits.load(session)
     return AgentAccessStatus(
         enabled=identity.agent_access,
         url=applications.endpoint(identity),
@@ -45,7 +44,39 @@ def get_agent_access(request: Request, session: DbSession) -> AgentAccessStatus:
         callsDays=settings.mcp_calls_days,
         calls30Days=totals.calls,
         lastCallAt=totals.last_call_at,
+        sessionIdleDays=limits.idle_days,
+        sessionDays=limits.days,
+        sessionLimitsVersion=limits.version,
+        browserSessionIdleHours=identity.session_idle_hours,
+        browserSessionDays=identity.session_days,
     )
+
+
+@router.get("/agent-access", response_model=AgentAccessStatus)
+@requires("agent-access.read", at=INSTANCE)
+def get_agent_access(request: Request, session: DbSession) -> AgentAccessStatus:
+    """Whether assistants can reach the instance, where, under which limits, how long an assistant
+    stays signed in, and the calls of the last 30 days. Whether agent access is on, its address and
+    its limits are the environment's, read at start."""
+    return _status(request, session)
+
+
+@router.patch("/agent-access", response_model=AgentAccessStatus)
+@requires("agent-access.write", at=INSTANCE)
+def patch_agent_access(
+    payload: AgentAccessUpdate, request: Request, session: DbSession
+) -> AgentAccessStatus:
+    """Set how long an assistant stays signed in: the days without use and the days in all. A
+    change applies to each session's next renewal (days without use) and to new sign-ins (days in
+    all). ``422 AGENT_SESSION_LIMITS_INVALID`` when the days in all are fewer than the days without
+    use."""
+    agent_limits.save(
+        session,
+        idle_days=payload.sessionIdleDays,
+        days=payload.sessionDays,
+        expected_version=payload.expectedVersion,
+    )
+    return _status(request, session)
 
 
 @router.get("/agent-access/clients", response_model=AgentClientPage)

@@ -7,6 +7,10 @@ after ``SESSION_IDLE_HOURS`` without a renewal or ``SESSION_DAYS`` in all, when 
 when the person is deactivated or their password is changed or reset, and when the sign-in provider
 that started it is disabled (I3, D367). Its access tokens carry
 ``sid`` and are refused from the next request once it has ended.
+
+An assistant's session (0.17 AS-D1, AS-D2) differs in two ways: any refresh token it was given
+renews it, so several windows sharing one sign-in never end it, and its limits are the days set on
+the Agent access page (``agent_limits``), not the browser's.
 """
 
 from dataclasses import dataclass
@@ -19,7 +23,7 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
 from ...models.database import SessionRefreshToken, User, UserSession
-from . import managed, security_events
+from . import agent_limits, managed, security_events
 from .passwords import digest, new_token
 from .settings import IdentitySettings
 
@@ -94,7 +98,13 @@ def start(
 ) -> tuple[UserSession, str]:
     """A new session for a person who has just signed in, with its first refresh token. The caller
     commits."""
-    ends_at = now + timedelta(days=settings.session_days)
+    if application_id is None:
+        ends_at = now + timedelta(days=settings.session_days)
+        idle_ends_at = min(now + timedelta(hours=settings.session_idle_hours), ends_at)
+    else:
+        limits = agent_limits.load(session)
+        ends_at = now + timedelta(days=limits.days)
+        idle_ends_at = min(now + timedelta(days=limits.idle_days), ends_at)
     user_session = UserSession(
         user_id=user.id,
         signed_in_with=signed_in_with,
@@ -103,7 +113,7 @@ def start(
         agent_application_id=application_id,
         created_at=now,
         last_used_at=now,
-        idle_ends_at=min(now + timedelta(hours=settings.session_idle_hours), ends_at),
+        idle_ends_at=idle_ends_at,
         ends_at=ends_at,
     )
     session.add(user_session)
@@ -163,9 +173,11 @@ def renew(
 ) -> Renewed:
     """Use a refresh token once: the session goes on with a new one. A used token presented again
     ends its session (D251), except within ``REFRESH_REUSE_GRACE`` of its use while its successor is
-    unused: then the session renews from the successor. A token presented after the session lapsed
-    also ends it. A token of a session started for another assistant, or for the browser, renews
-    nothing and spends nothing (0.16 AG-D12). Commits either way."""
+    unused: then the session renews from the successor. An assistant's session never ends for a used
+    token (0.17 AS-D1): the windows that share its sign-in each renew from whichever token they
+    hold. A token presented after the session lapsed also ends it. A token of a session started for
+    another assistant, or for the browser, renews nothing and spends nothing (0.16 AG-D12). Commits
+    either way."""
     row = session.execute(
         select(SessionRefreshToken, UserSession, User)
         .join(UserSession, UserSession.id == SessionRefreshToken.session_id)
@@ -178,7 +190,8 @@ def renew(
     token, user_session, user = row
     if user_session.agent_application_id != application_id:
         raise SessionRefused
-    if token.used_at is not None:
+    assistant = user_session.agent_application_id is not None
+    if token.used_at is not None and not assistant:
         # The successor is the session's next token: renewing issues it as the token is used.
         successor = (
             session.scalar(
@@ -203,11 +216,15 @@ def renew(
         end(user_session, "expired" if user.active else "deactivated", now)
         session.commit()
         raise SessionRefused
-    token.used_at = now
+    if token.used_at is None:
+        token.used_at = now
     user_session.last_used_at = now
-    user_session.idle_ends_at = min(
-        now + timedelta(hours=settings.session_idle_hours), user_session.ends_at
+    idle = (
+        timedelta(days=agent_limits.load(session).idle_days)
+        if assistant
+        else timedelta(hours=settings.session_idle_hours)
     )
+    user_session.idle_ends_at = min(now + idle, user_session.ends_at)
     renewed = _refresh_token(session, user_session, now)
     session.commit()
     return Renewed(user_session, user, renewed)

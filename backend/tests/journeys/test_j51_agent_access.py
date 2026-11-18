@@ -6,6 +6,7 @@ once revoked. An ``agent`` token reaches nothing else, and no other token reache
 runs on two configurations through the public API.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -15,9 +16,13 @@ from harness_identity import TestClient
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from scenario import W1, ok, refused
-from test_j39_sign_in import PASSWORD, _bearer, _person, _pkce
+from sqlalchemy import select
+from test_j39_sign_in import PASSWORD, _bearer, _person, _pkce, _used_long_ago
 from test_j39_sign_in import _sign_in as browser_sign_in
 from test_j39_sign_in import address as email_of
+
+from app.engine.identity.passwords import digest
+from app.models.database import SessionRefreshToken, UserSession
 
 ON = {"MCP_ENABLED": "true"}
 CALLBACK = "http://localhost:43123/callback"
@@ -489,3 +494,144 @@ def test_what_a_self_registration_may_carry_and_how_often_one_address_may_regist
     slowed = _register(browser)
     assert slowed.status_code == 429 and slowed.json()["error"] == "temporarily_unavailable"
     assert "try again in" in slowed.json()["error_description"]
+
+
+def _assistant_session(world, refresh_token: str) -> UserSession:
+    with world.api.client.app.state.session_factory() as session:
+        row = session.scalar(
+            select(UserSession)
+            .join(SessionRefreshToken, SessionRefreshToken.session_id == UserSession.id)
+            .where(SessionRefreshToken.token_hash == digest(refresh_token))
+        )
+        session.expunge(row)
+        return row
+
+
+def _days_from_now(moment: datetime) -> float:
+    return (moment - datetime.now(UTC)).total_seconds() / 86400
+
+
+@pytest.mark.journey("J51.8")
+@pytest.mark.settings(**ON)
+def test_a_spent_refresh_token_renews_an_assistant_but_still_ends_a_browser(world):
+    """Given a person signed in through an assistant that several windows share. When a window
+    presents a token already used, minutes after its use, then it renews and answers a new token,
+    again and again, and the session stays open. When a browser session's used token comes again
+    after the reuse grace, then it still ends."""
+    browser = _browser(world)
+    application = ok(_register(browser), 201)["client_id"]
+    person = _person(world, "petra")
+    _grant(world, "user", person["id"], "reader")
+    first = ok(_sign_in(browser, application, "petra"))
+    second = ok(_renew(browser, application, first["refresh_token"]))
+    _used_long_ago(world, first["refresh_token"])
+    third = ok(_renew(browser, application, first["refresh_token"]))
+    again = ok(_renew(browser, application, first["refresh_token"]))
+    behind = ok(_renew(browser, application, second["refresh_token"]))
+    assert len({first["refresh_token"], second["refresh_token"], third["refresh_token"]}) == 3
+    assert again["refresh_token"] not in {third["refresh_token"], behind["refresh_token"]}
+    assert not _call(world, behind["access_token"], "describe_access").isError
+    assert not _call(world, third["access_token"], "describe_access").isError
+
+    own = _browser(world)
+    browser_sign_in(own, "petra")
+    cookie = own.cookies.get("oauth_refresh")
+    ok(own.post("/oauth/token", data={"grant_type": "refresh_token", "client_id": "browser"}))
+    _used_long_ago(world, cookie)
+    gone = own.post(
+        "/oauth/token",
+        data={"grant_type": "refresh_token", "client_id": "browser", "refresh_token": cookie},
+    )
+    assert gone.json()["error"] == "invalid_grant"
+
+
+@pytest.mark.journey("J51.8")
+@pytest.mark.settings(**ON)
+def test_the_limits_set_on_the_page_decide_when_a_session_ends(world):
+    """Given the defaults, an assistant's sign-in lasts 90 days and a renewal moves its end to 30
+    days ahead. When an administrator sets 10 days without use and 20 in all, then the next renewal
+    ends the session 10 days ahead and a new sign-in 20 days in all; the browser keeps its own limits.
+    A change is a security event."""
+    shown = ok(world.api.get("/agent-access"))
+    assert (shown["sessionIdleDays"], shown["sessionDays"]) == (30, 90)
+    assert (shown["browserSessionIdleHours"], shown["browserSessionDays"]) == (12, 14)
+    browser = _browser(world)
+    application = ok(_register(browser), 201)["client_id"]
+    person = _person(world, "petra")
+    _grant(world, "user", person["id"], "reader")
+    tokens = ok(_sign_in(browser, application, "petra"))
+    held = _assistant_session(world, tokens["refresh_token"])
+    assert 89 < _days_from_now(held.ends_at) <= 90
+    assert 29 < _days_from_now(held.idle_ends_at) <= 30
+
+    changed = ok(
+        world.api.patch(
+            "/agent-access",
+            {
+                "sessionIdleDays": 10,
+                "sessionDays": 20,
+                "expectedVersion": shown["sessionLimitsVersion"],
+            },
+        )
+    )
+    assert (changed["sessionIdleDays"], changed["sessionDays"]) == (10, 20)
+    assert changed["sessionLimitsVersion"] > shown["sessionLimitsVersion"]
+    renewed = ok(_renew(browser, application, tokens["refresh_token"]))
+    after = _assistant_session(world, renewed["refresh_token"])
+    assert 9 < _days_from_now(after.idle_ends_at) <= 10
+    assert after.ends_at == held.ends_at
+    fresh = _assistant_session(
+        world, ok(_sign_in(_browser(world), application, "petra"))["refresh_token"]
+    )
+    assert 19 < _days_from_now(fresh.ends_at) <= 20
+    assert 9 < _days_from_now(fresh.idle_ends_at) <= 10
+
+    events = ok(world.api.get("/security-events", aggregateType="agent-access-settings"))
+    [event] = events["items"]
+    assert event["details"]["changedFields"] == ["sessionIdleDays", "sessionDays"]
+    assert (event["details"]["sessionIdleDays"], event["details"]["sessionDays"]) == (10, 20)
+
+    one = ok(world.api.patch("/agent-access", {"sessionIdleDays": 5}))
+    assert (one["sessionIdleDays"], one["sessionDays"]) == (5, 20)
+
+
+@pytest.mark.journey("J51.8")
+@pytest.mark.settings(**ON)
+def test_limits_outside_the_range_or_by_someone_who_may_not_are_refused(world):
+    """Given the limits, when a value is outside 1 to 365, or the days in all are fewer than the days
+    without use, or the version read is stale, then the change is refused and nothing changes; a
+    person without Security administration may not read or change them."""
+    before = ok(world.api.get("/agent-access"))
+    for body in ({"sessionIdleDays": 0}, {"sessionDays": 366}, {"sessionIdleDays": 1.5}):
+        refused(world.api.patch("/agent-access", body), 422, "REQUEST_VALIDATION_ERROR")
+    refused(
+        world.api.patch("/agent-access", {"sessionIdleDays": 60, "sessionDays": 30}),
+        422,
+        "AGENT_SESSION_LIMITS_INVALID",
+    )
+    refused(
+        world.api.patch("/agent-access", {"sessionIdleDays": 100}),
+        422,
+        "AGENT_SESSION_LIMITS_INVALID",
+    )
+    refused(
+        world.api.patch("/agent-access", {"sessionDays": 5, "expectedVersion": 99}),
+        409,
+        "VERSION_CONFLICT",
+    )
+    after = ok(world.api.get("/agent-access"))
+    assert (after["sessionIdleDays"], after["sessionDays"]) == (
+        before["sessionIdleDays"],
+        before["sessionDays"],
+    )
+
+    person = _person(world, "rita")
+    _grant(world, "user", person["id"], "reader")
+    own = _browser(world)
+    access = browser_sign_in(own, "rita")
+    for answer in (
+        own.get("/api/v1/agent-access", headers=_bearer(access)),
+        own.patch("/api/v1/agent-access", json={"sessionDays": 5}, headers=_bearer(access)),
+    ):
+        assert answer.status_code == 403, answer.text
+        assert answer.json()["error"]["code"] == "FORBIDDEN"

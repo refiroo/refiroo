@@ -70,6 +70,6 @@
     "`items`: the first 2 of 16 items are shown.",
     "`items[0].actions`: the first 2 of 7 items are shown.",
     "`items[0].actions[0].operations`: the first 2 of 13 items are shown.",
-    "`items[1].actions[0].operations`: the first 2 of 13 items are shown."
+    "`items[1].actions[0].operations`: the first 2 of 14 items are shown."
   ]
 }

@@ -17,6 +17,7 @@ vi.mock("@/api/agentAccessClient", () => ({
     register: vi.fn(),
     block: vi.fn(),
     restore: vi.fn(),
+    setSessionLimits: vi.fn(),
   },
 }));
 vi.mock("@/api/securityClient", () => ({ security: { createClient: vi.fn() } }));
@@ -30,6 +31,11 @@ const status: AgentAccessStatus = {
   callsDays: 90,
   calls30Days: 3,
   lastCallAt: "2026-10-30T14:02:00Z",
+  sessionIdleDays: 30,
+  sessionDays: 90,
+  sessionLimitsVersion: 1,
+  browserSessionIdleHours: 12,
+  browserSessionDays: 14,
 };
 
 const client = (overrides: Partial<AgentClient>): AgentClient => ({
@@ -189,6 +195,62 @@ describe("Settings › Security › Agent access (0.16 AG1)", () => {
       name: "Helper",
       redirectUris: ["http://assistant.example.com", "https://ok.example.com/cb"],
     });
+  });
+
+  it("shows how long assistants stay signed in beside the browser's limits", async () => {
+    open();
+    const section = await screen.findByRole("region", { name: "Sign-ins" });
+    expect(within(section).getByText("30 days")).toBeInTheDocument();
+    expect(within(section).getByText("90 days, then the person signs in again")).toBeInTheDocument();
+    expect(
+      within(section).getByText("12 hours without use, 14 days in all (set in the server's environment)"),
+    ).toBeInTheDocument();
+  });
+
+  it("changes the limits in a dialog, refuses what is out of range, and shows the saved values", async () => {
+    open();
+    vi.mocked(agentAccess.setSessionLimits).mockResolvedValue({
+      ...status,
+      sessionIdleDays: 10,
+      sessionDays: 20,
+      sessionLimitsVersion: 2,
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Change…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Assistant sign-ins" });
+    const idle = within(dialog).getByLabelText("Signed out after no use for (days)");
+    const all = within(dialog).getByLabelText("Signed out in all after (days)");
+    expect(idle).toHaveValue(30);
+    expect(all).toHaveValue(90);
+    fireEvent.change(idle, { target: { value: "0" } });
+    expect(within(dialog).getByText("Enter a whole number of days from 1 to 365.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.change(idle, { target: { value: "100" } });
+    expect(within(dialog).getByText("Must be at least the days without use.")).toBeInTheDocument();
+    fireEvent.change(idle, { target: { value: "10" } });
+    fireEvent.change(all, { target: { value: "20" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(agentAccess.setSessionLimits).toHaveBeenCalledWith({
+        sessionIdleDays: 10,
+        sessionDays: 20,
+        expectedVersion: 1,
+      }),
+    );
+    const section = await screen.findByRole("region", { name: "Sign-ins" });
+    await within(section).findByText("10 days");
+    expect(within(section).getByText("20 days, then the person signs in again")).toBeInTheDocument();
+  });
+
+  it("shows the API's words when the limits are refused", async () => {
+    open();
+    vi.mocked(agentAccess.setSessionLimits).mockRejectedValueOnce(
+      new ApiError(409, "VERSION_CONFLICT", "The sign-in limits have changed"),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Change…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Assistant sign-ins" });
+    fireEvent.change(within(dialog).getByLabelText("Signed out in all after (days)"), { target: { value: "60" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await within(dialog).findByText("The sign-in limits have changed");
   });
 
   it("is listed under Security only to security administrators", () => {

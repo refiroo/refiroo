@@ -13,7 +13,12 @@
       "redirectHosts": [],
       "callsDays": 90,
       "calls30Days": 0,
-      "lastCallAt": null
+      "lastCallAt": null,
+      "sessionIdleDays": 30,
+      "sessionDays": 90,
+      "sessionLimitsVersion": 1,
+      "browserSessionIdleHours": 12,
+      "browserSessionDays": 14
     }
   }
 }

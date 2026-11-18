@@ -956,7 +956,7 @@
   ],
   "source": "backend/app/engine/authorization/catalogue.py:332",
   "section": "administer",
-  "summary": "Register, block and restore the assistants people sign in with",
+  "summary": "Register, block and restore assistants, and set how long they stay signed in",
   "groups": [
    "security-admin"
   ],

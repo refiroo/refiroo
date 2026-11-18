@@ -236,6 +236,7 @@ SecurityAggregate = Literal[
     "sign-in-provider",
     "mail-settings",
     "approval-policy",
+    "agent-access-settings",
 ]
 
 

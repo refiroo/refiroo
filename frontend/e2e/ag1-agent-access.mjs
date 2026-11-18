@@ -5,7 +5,9 @@
 // the client opens its own page with the Agent pill; New assistant refuses an address that is
 // not allowed, with the API's words, then registers one; Block asks first, Restore does not; a token of
 // the agent client calls a tool that answers and one that is refused, and both are listed with their
-// words. At 1440px and 390px, axe on each state, no horizontal page scroll. Then a backend without
+// words. The Sign-ins section (0.17 AS1) shows how long an assistant stays signed in beside the
+// browser's limits; Change… opens its dialog by keyboard, refuses a value out of range in words, saves
+// valid ones and the page shows them. At 1440px and 390px, axe on each state, no horizontal page scroll. Then a backend without
 // MCP_ENABLED: the page says agent access is off and offers nothing.
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
@@ -63,6 +65,35 @@ async function whenOn() {
     assert.equal(await overflow(page), 0, "no horizontal page scroll at 1440px");
     checks.push(
       "the page is listed under Security and shows the address, both ways to connect, the limit and the command",
+    );
+
+    // 1b. Sign-ins: the limits, the dialog, a refusal in words, a save.
+    const signIns = page.getByRole("region", { name: "Sign-ins" });
+    const limitRow = (name, text) =>
+      signIns.locator(".setting-row").filter({ hasText: name }).filter({ hasText: text }).waitFor();
+    await limitRow("Without use", "30 days");
+    await limitRow("In all", "90 days, then the person signs in again");
+    await limitRow("Browser sign-ins", "12 hours without use, 14 days in all (set in the server's environment)");
+    await shot("sign-ins-1440");
+    await press(signIns.getByRole("button", { name: "Change…" }));
+    const limits = page.getByRole("dialog", { name: "Assistant sign-ins" });
+    await limits.waitFor();
+    await limits.getByLabel("Signed out after no use for (days)").fill("100");
+    await limits.getByText("Must be at least the days without use.").waitFor();
+    assert.equal(await limits.getByRole("button", { name: "Save" }).isDisabled(), true, "Save waits for valid days");
+    await shot("sign-ins-dialog-refused-1440");
+    await accessible(page, "as1-sign-ins-dialog");
+    await limits.getByLabel("Signed out after no use for (days)").fill("10");
+    await limits.getByLabel("Signed out in all after (days)").fill("20");
+    await page.keyboard.press("Enter");
+    await limits.waitFor({ state: "detached" });
+    await limitRow("Without use", "10 days");
+    await limitRow("In all", "20 days, then the person signs in again");
+    const saved = await api("/agent-access");
+    assert.deepEqual([saved.sessionIdleDays, saved.sessionDays], [10, 20]);
+    await accessible(page, "as1-sign-ins-saved");
+    checks.push(
+      "Sign-ins shows the assistants' and the browser's limits; Change… by keyboard refuses days in all fewer than days without use in words, and saves valid days, which the API then holds",
     );
 
     // 2. New agent client by keyboard; its secret is shown once.
@@ -184,6 +215,14 @@ async function whenOn() {
     assert.equal(await overflow(page), 0, "no horizontal page scroll with the dialog at 390px");
     await shot("register-390");
     await accessible(page, "ag1-register-390");
+    await page.keyboard.press("Escape");
+    await dialog().waitFor({ state: "detached" });
+    await shot("sign-ins-390");
+    await press(page.getByRole("region", { name: "Sign-ins" }).getByRole("button", { name: "Change…" }));
+    await dialog().waitFor();
+    assert.equal(await overflow(page), 0, "no horizontal page scroll with the sign-ins dialog at 390px");
+    await shot("sign-ins-dialog-390");
+    await accessible(page, "as1-sign-ins-dialog-390");
     await page.keyboard.press("Escape");
     checks.push("at 390px the page and its dialog have no horizontal page scroll and no axe violation");
   } catch (error) {

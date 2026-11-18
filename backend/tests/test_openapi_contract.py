@@ -632,9 +632,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.17.3 KV1 (additive): `keepContractVersions` on the activation and migration
     # requests, `keptContractVersions` (`KeptContractVersionResponse`) on the activation response and on
     # a release's activation history, and the reference text that names them; nothing else changed.
+    # Re-baselined for 0.17.3 AS1 (additive): `PATCH /agent-access` (`AgentAccessUpdate`), the sign-in
+    # limits on `AgentAccessStatus`, `AGENT_SESSION_LIMITS_INVALID`, the `agent-access-settings`
+    # security aggregate and the reference text that names them; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "6e4ad61e92c139caceb8d7471ba71e7e4bb263590942d5627eee3e5a6b46d56d"
+        "2f6ce8ce34325ed5b78859d97d8e8a81d1c3fa45ce8fe9909fa6dc179b4040e0"
     )
 
 

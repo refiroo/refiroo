@@ -1,0 +1,30 @@
+{
+  "operation": "PATCH /api/v1/agent-access",
+  "name": "limits",
+  "summary": "Set how long an assistant stays signed in",
+  "request": {
+    "body": {
+      "sessionIdleDays": 14,
+      "sessionDays": 60,
+      "expectedVersion": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "enabled": true,
+      "url": "http://localhost:8000/mcp",
+      "ratePerMinute": 120,
+      "openRegistration": true,
+      "redirectHosts": [],
+      "callsDays": 90,
+      "calls30Days": 0,
+      "lastCallAt": null,
+      "sessionIdleDays": 14,
+      "sessionDays": 60,
+      "sessionLimitsVersion": 2,
+      "browserSessionIdleHours": 12,
+      "browserSessionDays": 14
+    }
+  }
+}

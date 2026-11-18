@@ -331,7 +331,7 @@ ACTIONS: dict[str, Action] = {
         Action(
             "agent-access.write",
             ("security-admin",),
-            "Register, block and restore the assistants people sign in with",
+            "Register, block and restore assistants, and set how long they stay signed in",
             doing="Changing agent access",
         ),
         Action(

@@ -2951,6 +2951,7 @@ An operator turns agent access on (`MCP_ENABLED`). A system's assistant connects
 - **J51.5 The ceiling**: a person holding Approve and Publish keeps neither through an assistant.
 - **J51.6 Registration**: a self-registered assistant returns only to this computer or a listed host; with `MCP_OPEN_REGISTRATION` off only one an administrator registered signs in; a blocked assistant signs nobody in and its sessions end.
 - **J51.7 The limit**: the call past `MCP_RATE_PER_MINUTE` is refused with its wait, and recorded.
+- **J51.8 Staying signed in**: a refresh token already used renews an assistant's session, again and again, from several windows, while a browser session still ends on one; an administrator sets the days without use and the days in all on the Agent access page, and the next renewal and new sign-ins follow; a value outside 1 to 365, days in all fewer than days without use, or a person without Security administration is refused; a change is a security event.
 
 ### J52 — An assistant reads
 

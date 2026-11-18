@@ -2755,6 +2755,149 @@ change set and workspace runners (`sc15-model-version-acceptance`, `wp13c-ui-sta
 "workspaces" ran and passed; no baseline differed, so none was re-recorded (the banner is in no visual baseline); guide
 verify and links.
 
+## AS1: Assistants stay signed in (0.17.3)
+
+**Why.** The user, 2026-11-18: Claude Code asks to reconnect to refiroo's MCP "a few times per 10-20 minutes
+with active refiroo usage", so it cannot be used for longer tasks. Checked in code (production runs the same):
+an assistant's session renews with a refresh token that is used once (D251); a used one presented again more
+than `REFRESH_REUSE_GRACE` (30 s) later ends the whole session as `reused`
+(`engine/identity/sessions.py` `renew`). Several Claude Code windows share one sign-in and renew on their own,
+so a window holding the spent token ends the session for all of them. Besides, an assistant's session has the
+browser's limits: it ends after `SESSION_IDLE_HOURS` (12) without a renewal and `SESSION_DAYS` (14) in all.
+Not checked on production's data (its `user_sessions.ended_reason`).
+
+Within "no API keys" (C-D1): the assistant still signs in as its person through OAuth, with one-hour access
+tokens and refresh tokens; nothing long-lived is stored or pasted. The user asked for both parts, 2026-11-18,
+in place of a long-lived client token (that package, TL1, was dropped before delivery).
+
+**Mock-up:** [prototypes/assistant-sign-ins/index.html](../prototypes/assistant-sign-ins/index.html) (the Sign-ins
+section of Agent access and its dialog).
+
+### Decisions
+
+- **AS-D1 A spent refresh token renews an assistant's session** (the user's request, 2026-11-18; amends D251 for
+  assistants only; **settled by the user's approval of this plan, 2026-11-18**): while an assistant's session is open, any refresh token it was given renews it and answers
+  a new one; the session never ends as `reused`. Browser sessions keep D251 unchanged. An assistant's session
+  still ends by its limits (AS-D2), by signing out, by its person being deactivated or their password changed,
+  by an administrator, and when its application is blocked, as today.
+- **AS-D2 Assistants have their own limits** (the user's request; the values my proposal; **settled by the user's approval of this plan,
+  2026-11-18**): an assistant's
+  session ends after 30 days without a renewal and 90 days in all; the browser keeps `SESSION_IDLE_HOURS` and
+  `SESSION_DAYS`. Days without use 1–365, days in all 1–365 and not fewer than the first. A change applies to
+  each session's next renewal (days without use) and to new sign-ins (days in all).
+- **AS-D3 Set on the Agent access page** (**settled by the user's approval of this plan, 2026-11-18**): a Sign-ins section on the Access tab, after How to connect, shows the
+  two limits; someone with `agent-access.write` changes them in a dialog. Stored in one settings row like the
+  mail settings; recorded as a security event. No environment variable.
+
+### Delivery
+
+- **Engine:** table `agent_access_settings` (one row, `session_idle_days` 30, `session_days` 90), migration
+  written in one go; `sessions.start` and `renew` take an assistant session's limits from it; `renew` skips the
+  reuse ending for `agent_application_id` sessions and renews from the presented token's session.
+- **API:** `GET /agent-access` gains `sessionIdleDays` and `sessionDays`; `PATCH /agent-access` with
+  `agent-access.write` changes them (`422` outside the ranges). Management OpenAPI, its lock and the reference
+  change for these.
+- **Frontend:** `SignInsSection` in `features/settings/AgentAccessPage.tsx` with the existing `SettingRow`,
+  `Dialog` and number fields; existing colour tokens only.
+- **Documents:** D251's amendment in DECISIONS and the sessions paragraph of API.md (security); OPERATIONS
+  (assistant sign-ins are set on the page, not in the environment); CHANGELOG. Guide prose by Codex: *Agent
+  access* and the page on connecting an assistant; one new picture of the Sign-ins section.
+- **Checks:** one journey beside the agent access journeys: two renewals with the same refresh token minutes
+  apart both succeed for an assistant and the session stays open, the same for the browser still ends it;
+  limits changed through the API set the next renewal's idle end and a new sign-in's end; a value outside the
+  range is refused; a person without `agent-access.write` is refused. Vitest for the section and the dialog;
+  the agent access runner with its a11y and visual checks; build, tsc, lint.
+
+**Delivered 2026-11-18.** Engine: `engine/identity/agent_limits.py` (`load`, `save`; table `agent_access_settings`, one row, model `AgentAccessSettings`, migration `20261205_01` also adds the security aggregate `agent-access-settings`); `sessions.start` and `renew` take an assistant session's limits (days) from it, and `renew` no longer ends an assistant's session for a used token (it renews from the presented token and answers a new one; the browser's reuse rule is unchanged). API: `PATCH /agent-access` (`agent-access.write`), `GET /agent-access` gains `sessionIdleDays`, `sessionDays`, `sessionLimitsVersion` and the browser's `browserSessionIdleHours`, `browserSessionDays` (for the comparison row); `422 AGENT_SESSION_LIMITS_INVALID`, range errors `REQUEST_VALIDATION_ERROR`; the OpenAPI lock, reference text and recorded examples are updated. Frontend: `SignInsSection` and `SignInsDialog` in `features/settings/AgentAccessPage.tsx`, the `.sign-in-kind` chips in `styles/settings.css` (publication violet for Assistants, type hue 1 for Browser), `agentAccess.setSessionLimits`, the security event line in `securityText.ts`. Decided within the package: an optional `expectedVersion` on the PATCH (a stale one is `409 VERSION_CONFLICT`, the invariant of optimistic concurrency); the browser row's two values are served by the API rather than hard-coded; the dialog refuses invalid days beside the field before Save. Documents: D251's amendment in DECISIONS (ADR-043), API.md Sessions, OPERATIONS (Agent access and the two `SESSION_*` rows), ARCHITECTURE, CURRENT_FUNCTIONALITY, USER_JOURNEYS J51.8, API_JOURNEYS, CHANGELOG. Guide by Codex (wave `AS1-GUIDE`): *Agent access*, *Manage an assistant's access*, *Connect an assistant*, *Signing in and tokens*, *Sign-in and mail setup*; new picture `admin-agent-sign-ins.png`, taken from the browser runner's real-backend page at 1440 px; the guide's inventory regenerated. Checks: journey J51.8 (3 cases) on both configurations; `--journey J39 --journey J51 --journey J47` 187 passed; reference, OpenAPI lock, API inventory, startup, boundaries, migrations unit tests 47 passed; identity and agent-access unit tests, schema drift, J52 and J53 88 passed; Vitest `AgentAccessPage` 9 passed; `tsc -b`, `vite build`, eslint (0 errors) green; browser runners `ag1-agent-access` (22 checks, axe 0 violations at 1440 and 390 px, no horizontal scroll) and `u3-settings` passed; accessibility and visual gates for the settings and security scenario groups passed with no baseline change (no scenario shows the Agent access page); the new section was looked at at 1440 and 390 px (violet and teal chips, three rows, Change… beside the title); `npm run verify` and the link check in `guide/` passed. `test:changed -- HEAD` selects 86 runners because other sessions' unfinished changes (the relation cell files) and shared styles are in the tree; only the runners above were run.
+
+## OT1: Each object in its type's shape (0.17.3)
+
+**Why.** The user, 2026-11-18: an XREF lookup of a country answered every field the consumer API declares for any of
+its types, `null` on the country (a duration, other types' codes, empty related blocks); "very misleading and mixing
+up non related datasets". Cause, checked in code: a definition has one object shape (`object.fields`, the blocks) for
+every type it exposes, and `ConsumerObjects._object` (`engine/reads/consumer_objects.py`) writes all of it on every
+object; a field with no value takes its default, then `null` (C-D26), so "this country has no value" and "a country
+cannot hold this" read the same. The OpenAPI `Object` marks every field required
+(`engine/model/consumer_openapi.py`, `_schemas`), and the model editor's Schema and Message example tabs are written
+from that same `Object` (`engine/model/authoring/consumer_documents.py`). The user asked, in the same conversation,
+for a schema per type with a picker on the reference page and in the model editor's consumer API composer, to see
+how each type's object looks. Pre-1.0 the answer shape may change (COMPATIBILITY.md); no definition changes.
+
+**Mock-up:** [prototypes/type-shaped-objects/index.html](../prototypes/type-shaped-objects/index.html) (the editor's
+Message example today and with the type dropdown open on an API of 20 types, the Schema tab with All types) and
+[prototypes/type-shaped-objects/scalar.html](../prototypes/type-shaped-objects/scalar.html) (the vendored Scalar
+1.72.2 rendering a per-type contract: its own "One of" schema picker and named-example picker, no code of ours).
+
+### Decisions
+
+- **OT-D1 A field is on an object when its type holds it** (amends C-D26; **settled by the user's approval of this plan, 2026-11-18**): a declared
+  field (role fields included) is written on an object only when at least one of its sources is a built-in field or
+  an attribute the object's type binds; otherwise it is left out. A field the type holds and the record has no value
+  for keeps C-D26: its default, then `null`. A default never puts a field on a type that does not hold it.
+  `objectType`, `parent`, `path`, `hierarchy`, `matchScore` and `target` stay on every object (C-D21, C-D41, the
+  "parent always present" rule).
+- **OT-D2 A related block is on an object when its type is an end of the relation** (**settled by the user's approval of this plan, 2026-11-18**): a block (object or
+  `parent.<block>`) is written when the object's type (the parent's type for a parent block) can be the block's
+  relation end in that direction; otherwise it is left out, not `[]` or `null`. Served-on-request rules are unchanged
+  (PP-D30).
+- **OT-D3 One schema per type** (**settled by the user's approval of this plan, 2026-11-18**): the consumer OpenAPI has a schema for each exposed type, named and
+  titled by its public name (`Country`), with that type's fields from OT-D1/OT-D2, each required (on-request blocks
+  optional, as today). `Object` becomes a `oneOf` over them with a `discriminator` on `objectType` and no written
+  `mapping`: the schema name equals the `objectType` value, so the implicit mapping is right for code generators, and
+  Scalar labels each choice once (with a written mapping it shows "Country · Country", checked in the mock-up). Only a
+  public name that equals one of the document's own schema names (`Object`, `ListPage`, `Parent`, …) gets the
+  `Object_` prefix and a mapping entry for itself; `ScoredObject`, the list,
+  XREF, resolve and event payload schemas refer to them. One function decides "the type holds it" and both the
+  composer and the OpenAPI call it, so the answer and the schema cannot differ.
+- **OT-D4 Examples per type, from the model** (**settled by the user's approval of this plan, 2026-11-18**): every response whose body holds objects carries one named
+  example per exposed type (`examples`, keyed by the public name), written as the editor's Message example is (values
+  of each field's type; no record is read, so no workspace data is published). Scalar shows them in its example
+  picker.
+- **OT-D5 The editor picks the type from a dropdown list** (the user's requirement, 2026-11-18: "a dropdown list to
+  select the object"; **settled by the user's approval of this plan, 2026-11-18**): the Schema and Message example tabs get the dropdown of the
+  mock-up: one button showing the chosen type in its hue tile (`objectTypeHue`), opening a searchable list of every
+  exposed type in the model's order, each with its tile, the chosen one ticked; one control whatever the number of
+  types. Schema offers All types first (the whole document, today's download); the example shows one type, the first by default. The
+  choice is shared by the two tabs while the editor stays on the API. The management API takes it as
+  `?objectType=<PublicName>` on `…/schema.json` and `…/example.json` (an unknown name is
+  `400 UNKNOWN_OBJECT_TYPE` naming the valid ones, the code a subscription's type filter already answers); the download takes the chosen type
+  (`{key}-{type}-schema.json`, `{key}-{type}-example.json`).
+- **OT-D6 The contract check sees each type's fields** (extends C-D2; **settled by the user's approval of this plan, 2026-11-18**): the output contract records which
+  outputs each type carries; a field leaving a type (an attribute unbound from it, a block whose relation no longer
+  reaches it) needs a new contract version (or KV-D1's keep); a field joining a type is additive. This package itself
+  raises no version: both sides of a comparison are computed by the same rule. CHANGELOG states the answer change.
+
+### Delivery
+
+- **Engine:** a `holds(model, type, field)` (and block) rule beside `binding_types` in
+  `engine/model/consumer_contract.py`; `ConsumerObjects._object` and `_parent` skip what the type does not hold, for
+  every read that composes objects (get by ID, lists, XREF, resolve, events and deliveries, publications).
+  `output_contract` gains the per-type output sets and `_breaking_changes` their diagnostics (OT-D6).
+- **OpenAPI and documents:** `consumer_openapi._schemas` writes the per-type schemas, `oneOf` and discriminator and
+  the named examples (OT-D3, OT-D4); `consumer_documents.draft_schema`/`draft_example` take `object_type`
+  (`example_of` on one type's schema); the two management routes in `routers/model_management.py` take
+  `objectType`; the management OpenAPI lock, reference text (the routes' text and `errors.md` for `UNKNOWN_OBJECT_TYPE`) and recorded
+  examples are updated.
+- **Frontend:** the dropdown in `ConsumerDocument` (`features/model-editor/ConsumerApis.tsx`) is the existing
+  `ui/SearchMenu.tsx` (search, list, keyboard from React Aria), extended, not copied: an optional `hue`/`icon` on
+  `PickOption` drawn as `HueTile`, and an optional `selected` id that ticks the chosen row and makes the button show
+  it; the webhook dialog's use stays as it is. The type list comes from the definition's exposed types, the
+  selection is held in `ConsumerApiPanel`; `api.modelDraftConsumerApiDocument` and `consumerApiDocumentPath` take the
+  type. Nothing else in the tabs changes (Copy, Download,
+  the contract section).
+- **Documents:** C-D26 and the object paragraph in CONSUMER_API.md, OT-D1–D6 in DECISIONS, API.md (the two document
+  routes), CHANGELOG. Guide prose by Codex: *Define a consumer API* (the Schema and Message example part) and the
+  consumer reference page text on the object shape; a new picture of the Message example tab (a new control).
+- **Checks:** journey J25 (`test_j25_consumer_api.py`) gains a case with two types binding different attributes and a
+  relation one of them ends: get by ID, list and XREF show each type with only its fields; a bound empty field is
+  `null` or its default; an unbound field with a default is absent; the block only on its end type; the per-type
+  schema validates each answer. J25's contract case: unbinding an attribute from one type needs a new version. J33
+  (`test_j33_consumer_apis.py`): schema with and without `objectType`, the example per type, the unknown-type
+  refusal. Vitest for the dropdown (search, choice, keyboard, shared between tabs, download name) and SearchMenu's existing tests; OpenAPI lock, reference
+  and startup groups. A try on the dev instance: the same XREF lookup of a country before and after, diffed (only
+  the country's own fields remain), and the Schema and Message example tabs looked at at 1440 and 390 px; the
+  reference page's two pickers looked at on the dev instance's real API.
+
 ## R 0.17.3: Review and release
 
 Full review of every change since `v0.17.2`; the checks of the changed layers and both gates; version 0.17.3 in

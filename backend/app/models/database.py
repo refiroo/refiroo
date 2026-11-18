@@ -71,6 +71,7 @@ SECURITY_AGGREGATES = (
     "sign-in-provider",
     "mail-settings",
     "approval-policy",
+    "agent-access-settings",
 )
 SECURITY_AGGREGATES_SQL = ", ".join(f"'{item}'" for item in SECURITY_AGGREGATES)
 
@@ -3122,6 +3123,28 @@ class AgentApplication(Base):
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class AgentAccessSettings(Base):
+    """How long an assistant's session lasts (0.17 AS-D2): one row, set on the Agent access page.
+    ``session_idle_days`` is the days without a renewal, ``session_days`` the days in all."""
+
+    __tablename__ = "agent_access_settings"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_agent_access_settings_one_row"),
+        CheckConstraint(
+            "session_idle_days BETWEEN 1 AND 365", name="ck_agent_access_settings_idle_days"
+        ),
+        CheckConstraint(
+            "session_days BETWEEN session_idle_days AND 365", name="ck_agent_access_settings_days"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_idle_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    session_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
 
 
 class AgentCall(Base):

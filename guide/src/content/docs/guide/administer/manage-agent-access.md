@@ -17,6 +17,20 @@ If sign-in cannot register the assistant, use the registration steps below or as
 
 A person stops their own connection under **Settings › Account**, in **Where you’re signed in**. The session name includes **(assistant)**. **Sign out** on that session ends its access. For all users of one assistant, block it below.
 
+## Change how long assistants stay signed in
+
+These limits apply to assistants people sign in with. A system's agent client does not use a person's sign-in.
+
+1. Open **Settings › Connections › Agent access** and stay on the **Access** tab. Find **Sign-ins**, just after **How to connect**. **Without use** and **In all**, marked **Assistants**, show the current limits: 30 and 90 days by default. **Browser sign-ins** shows the separate browser limits for comparison; you cannot change those here.
+2. Choose **Change…**. The **Assistant sign-ins** dialog opens with the current values.
+3. Set **Signed out after no use for (days)**. Enter a whole number from 1 to 365. This counts from the assistant's last renewal; it renews on its own while it is used, including from several windows at once.
+4. Set **Signed out in all after (days)**. Enter a whole number from 1 to 365 that is at least the days without use. This counts from the original sign-in. At that limit, the person signs in again even if the assistant is still in use.
+5. Choose **Save**. The dialog closes and the rows show the saved limits. The days without use apply at each existing sign-in's next renewal; the days in all apply only to new sign-ins. Choose **Cancel** instead to leave the saved limits unchanged.
+
+An empty field, a fraction or a value outside the range shows **Enter a whole number of days from 1 to 365.** beside the field. If the total is shorter than the days without use, it shows **Must be at least the days without use.** **Save** stays unavailable until both values are valid. If **The limits were not saved** appears, read the reported problem and correct it before trying again. If another administrator changed the limits, close the dialog, reload the page and check the current values before making your change again.
+
+Saving a change records **Assistant sign-in limits changed** in the security events. The limits do not prevent a person ending their session under **Settings › Account** or signing out everywhere. Deactivating the person or changing their password also ends the assistant's sign-in. Blocking an assistant ends its sessions on their next call; use the blocking steps below when access must stop.
+
 ## Create a client for a system's assistant
 
 1. On **Agent access**, under **Agent clients**, choose **New agent client**. This is different from **New client** on the ordinary Clients page.

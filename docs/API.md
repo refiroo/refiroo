@@ -6741,7 +6741,8 @@ Outside `/api/v1`, needing no token:
   answer the access token in the body and the new refresh token as the cookie. A code that is unknown,
   expired, used, or whose verifier or address differs, and a refresh token that is unknown, used or
   whose session ended, answer `400 invalid_grant`; a code, or a refresh token presented a second time
-  (but within 30 seconds of its use, with its successor unused), ends the session it started. No refresh token at all is `invalid_request`.
+  (but within 30 seconds of its use, with its successor unused), ends the session it started. An
+  assistant's session is the exception: it ends for no used token (see Sessions below). No refresh token at all is `invalid_request`.
 - `POST /oauth/revoke` (RFC 7009): the refresh token in `token`, or the cookie, ends its session; the
   cookie is cleared; always `200`.
 
@@ -6757,7 +6758,7 @@ principal's ID), `aud` (`management` or `consumer`), `exp`, `iat`, `jti`, `princ
 **Sessions** (people only): a refresh token, opaque and stored hashed, held in an `HttpOnly`,
 `Secure`, `SameSite=Strict` cookie named `oauth_refresh` scoped to the path `/oauth` (D234), so the browser sends it to `/oauth/token`, `/oauth/revoke` and the other `/oauth` routes. Each use
 rotates it; presenting a used one ends the session, except within 30 seconds of its use (`REFRESH_REUSE_GRACE`) when the token that use issued is still unused: the session then renews from that token, so a reload that moves on before the browser kept the new cookie does not sign the person out. A session ends after 12 idle hours or 14 days
-(settings). Clients have no refresh token; they ask for a new access token with their credentials.
+(settings). An assistant's session (a person signed in through an assistant, `/mcp`) differs in two ways: any refresh token it was given renews it, used or not, because several windows of one assistant share one sign-in and each renews on its own, so it never ends as reused; and it ends after 30 days without a renewal or 90 days in all, set with `PATCH /api/v1/agent-access` (`sessionIdleDays`, `sessionDays`), not by the browser's settings. A change applies to each session's next renewal (days without use) and to new sign-ins (days in all). Clients have no refresh token; they ask for a new access token with their credentials.
 
 **Signing keys** rotate on their own every 30 days (`TOKEN_SIGNING_KEY_DAYS`): the first token issued
 after that makes the new key (D264); the previous key verifies until its last token expires. "Rotate now" retires the current key at once (J43). Nobody acts on a rotation: refresh

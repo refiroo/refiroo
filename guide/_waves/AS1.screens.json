@@ -1,0 +1,18 @@
+{
+  "wave": "AS1",
+  "note": "Real screen of the reference instance (guide/reference, http://localhost:8480) for the Sign-ins group of Agent access (AS1). Light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file AS1.screens.json) into guide/public/screens/. Nothing is clicked.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "admin-agent-sign-ins",
+      "shows": "The Sign-ins group on the Access tab of Agent access: its title, description and Change… button, and the rows Without use, In all (Assistants chips) and Browser sign-ins (Browser chip). Nothing is clicked.",
+      "height": 1400,
+      "actions": [
+        { "goto": "/settings/agent-access" },
+        { "waitFor": { "role": "heading", "name": "Agent access", "exact": true } },
+        { "waitFor": { "text": "Browser sign-ins", "exact": false }, "timeout": 15000 }
+      ],
+      "expect": ["Sign-ins", "Change…", "Without use", "In all", "Browser sign-ins"]
+    }
+  ]
+}

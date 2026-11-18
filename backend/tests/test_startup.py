@@ -25,8 +25,8 @@ from app.db import DatabaseStartupError, get_engine
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-# The newest migration: 0.17 SR3's drop of the unused derived-sheet role (20261204_01), after 20261203_01.
-HEAD = "20261204_01"
+# The newest migration: 0.17 AS1's assistant session limits (20261205_01), after 20261204_01.
+HEAD = "20261205_01"
 LIMITED_ROLE = "rdm_startup_limited"
 LIMITED_PASSWORD = "limited-role-pass"
 

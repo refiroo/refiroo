@@ -14,6 +14,22 @@ export interface AgentAccessStatus {
   callsDays: number;
   calls30Days: number;
   lastCallAt: string | null;
+  /** Days an assistant's session may go without a renewal before it ends (0.17 AS-D2). */
+  sessionIdleDays: number;
+  /** Days an assistant's session lasts in all. */
+  sessionDays: number;
+  /** Rises by one with every change of the two limits; sent back as `expectedVersion`. */
+  sessionLimitsVersion: number;
+  /** The browser's own limits, set in the server's environment: a fact shown beside the assistants'. */
+  browserSessionIdleHours: number;
+  browserSessionDays: number;
+}
+
+/** `PATCH /agent-access`: a field left out keeps its value. */
+export interface AgentAccessUpdate {
+  sessionIdleDays?: number;
+  sessionDays?: number;
+  expectedVersion?: number;
 }
 
 export interface AgentClient extends Client {

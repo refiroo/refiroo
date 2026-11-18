@@ -140,8 +140,12 @@ unset ACCESS_TOKEN CLIENT_ID CLIENT_SECRET
 
 Browser sign-in uses the OAuth authorization-code flow with PKCE. Access tokens stay in page
 memory. The `oauth_refresh` session cookie is `HttpOnly`, `SameSite=Strict` and scoped to `/oauth`;
-it is `Secure` when `PUBLIC_URL` uses HTTPS. Each renewal replaces its refresh token. Presenting
-an already-used refresh token ends that session as a suspected copied credential.
+it is `Secure` when `PUBLIC_URL` uses HTTPS. Each renewal replaces its refresh token. For browser
+sign-ins, presenting an already-used refresh token ends the session as a suspected copied
+credential, except within a 30-second recovery grace while its successor is unused. An assistant's
+session is the exception: it can renew from any refresh token issued to it, even one already used,
+and has its own limits set on **Settings › Connections › Agent access**, not by
+`SESSION_IDLE_HOURS` and `SESSION_DAYS`.
 
 If `VITE_API_URL` separates the frontend and engine, both must share a site, such as
 `refiroo.example.org` and `api.refiroo.example.org`. Unrelated domains cannot share this strict

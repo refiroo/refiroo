@@ -2970,7 +2970,7 @@
   "labels": [
    "Validate now"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:882",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:878",
   "section": "use",
   "commonContext": [
    "change",
@@ -2983,7 +2983,7 @@
   "labels": [
    "Change model version"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:883",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:879",
   "section": "use",
   "commonContext": [
    "change",
@@ -2996,7 +2996,7 @@
   "labels": [
    "Rename"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:889",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:885",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3010,7 +3010,7 @@
   "labels": [
    "Discard"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:898",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:894",
   "section": "use",
   "weak": true,
   "commonContext": [
@@ -3672,7 +3672,7 @@
   "labels": [
    "Block"
   ],
-  "source": "frontend/src/features/settings/AgentAccessPage.tsx:388",
+  "source": "frontend/src/features/settings/AgentAccessPage.tsx:560",
   "section": "administer",
   "commonContext": [
    "agent",
@@ -3776,7 +3776,7 @@
    "Publish this change set?",
    "publish"
   ],
-  "source": "frontend/src/features/workspaces/ChangeSets.tsx:1134",
+  "source": "frontend/src/features/workspaces/ChangeSets.tsx:1175",
   "section": "use",
   "commonContext": [
    "change",

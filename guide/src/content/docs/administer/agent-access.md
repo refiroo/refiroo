@@ -20,6 +20,21 @@ An external assistant connects at the address shown. Give the exact copied addre
 
 A **person's assistant** opens this instance's own sign-in page. The page names the assistant and where it returns. The name is the assistant's own claim, not proof of its identity. Check both before signing in. Signing in authorises it to act as that person; no additional Agent role or Use AI proposals grant is needed for this connection. Its session appears among the person's account sessions, with the assistant's name. Ending that session stops its access.
 
+Just after **How to connect**, the **Sign-ins** group shows how long a person's assistant stays signed in. It renews its sign-in on its own while it is used, including from several windows at once. The two rows marked **Assistants** show:
+
+- **Without use**: the time allowed since the assistant's last renewal, 30 days by default.
+- **In all**: the total time from sign-in, 90 days by default. After that, the person signs in again even if the assistant is still in use.
+
+The **Browser sign-ins** row, marked **Browser**, shows the browser's separate limits for comparison: 12 hours without use and 14 days in all by default. The operator sets those limits on the server; **Change…** does not change them.
+
+Choose **Change…** to set the assistants' two limits. Each must be a whole number from 1 to 365 days, and the days in all must be at least the days without use. A change to the days without use applies at each existing sign-in's next renewal. A change to the days in all applies only to new sign-ins. Saving a change records **Assistant sign-in limits changed** in the security events. Follow [Change how long assistants stay signed in](/docs/guide/administer/manage-agent-access/#change-how-long-assistants-stay-signed-in) for the steps.
+
+These limits do not delay ending access. Signing out of the assistant's session under **Settings › Account**, signing out everywhere, deactivating the person or changing their password still ends its sign-in. **Block** ends an assistant's sessions on their next call.
+
+![Agent access with the Sign-ins group, Change… button and separate assistant and browser limits](/docs/screens/admin-agent-sign-ins.png)
+
+Above: **Sign-ins** shows the two assistant limits with **Assistants** chips and the separate browser limits with a **Browser** chip. Use **Change…** to change the assistant limits.
+
 A **system's assistant** uses an **agent client**, created here with its own access grants. It does not sign in as a person. The connection credentials for agent access are separate from those used by ordinary integrations; they cannot be used to reach the other APIs. An ordinary integration's credentials cannot be used for agent access either. Ask the integrator to use the correct connection type rather than widening roles to solve a sign-in failure.
 
 ![Enabled Agent access with connection information and empty client and assistant sections](/docs/screens/admin-agent-access-enabled.png)

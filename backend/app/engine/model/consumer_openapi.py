@@ -10,6 +10,7 @@ the document and the contract cannot drift apart. The limits a consumer meets ar
 apply.
 """
 
+import re
 from typing import Any
 
 from ...models.schema import (
@@ -22,7 +23,8 @@ from ...models.schema import (
     RelatedParameter,
 )
 from ...models.search_index import MIN_INDEXED_LENGTH
-from ..model.consumer_contract import OutputContract, output_contract
+from ..model.consumer_contract import OutputContract, output_contract, parent_blocks_held
+from ..model.consumer_examples import example_of
 from ..model.consumer_definitions import consumer_api, served_versions
 from ..reads.consumer_events import FULL, IDENTITY
 from ..reads.consumer_events import PAGE_SIZES as EVENT_PAGE_SIZES
@@ -85,6 +87,37 @@ def consumer_openapi(
     }
     document["security"] = [{"oauth2": ["consumer"]}]
     return document
+
+
+# The schema names the document writes itself; a public type name that equals one cannot name its schema.
+_OWN_SCHEMAS = frozenset(
+    {
+        "Object", "ScoredObject", "ListPage", "XrefPage", "Publication", "PublicationPage", "ResolveDefaults",
+        "ResolveItem", "ResolveRequest", "ResolveOutcome", "ResolveAnswer", "ErrorBody", "Error", "Event",
+        "EventPage", "Parent",
+    }
+)
+_SCHEMA_NAME = re.compile(r"[A-Za-z0-9._-]+")
+
+
+def type_schema_names(definition: ConsumerApiDefinition) -> dict[str, str]:
+    """The schema of each exposed type, by type key (OT-D3): named by its public name, so a code
+    generator and the reference page read ``Country``. A public name that equals one of the document's
+    own schemas, or is no valid schema name, is prefixed ``Object_`` (and written in the discriminator's
+    mapping)."""
+    names: dict[str, str] = {}
+    taken = set(_OWN_SCHEMAS)
+    for key, item in definition.objectTypes.items():
+        public = item.publicName
+        name = public
+        if not _SCHEMA_NAME.fullmatch(name) or name in taken or name.startswith("Projection_"):
+            base = f"Object_{re.sub(r'[^A-Za-z0-9._-]+', '_', public)}"
+            name, counter = base, 2
+            while name in taken:
+                name, counter = f"{base}_{counter}", counter + 1
+        taken.add(name)
+        names[key] = name
+    return names
 
 
 def _ref(name: str) -> dict[str, str]:
@@ -461,17 +494,37 @@ class _Document:
             for name in self.contract.projections
             if not name.startswith(PARENT_BLOCK_PREFIX)
         }
-        properties = {
-            "objectType": {"type": "string", "enum": sorted(set(self.contract.types.values()))},
-            **self._fields(),
-            **blocks,
-        }
-        # A block served on request is an optional property: present when the read names it (PP-D30).
-        required = [name for name in properties if self.contract.projections.get(name, {}).get("served") != "onRequest"]
         target = self._target()
-        shared = {**properties, **({"target": target} if target else {})}
-        schemas["Object"] = _object(shared, required)
-        schemas["ScoredObject"] = _object({**shared, "matchScore": {"type": "integer"}}, [*required, "matchScore"])
+        names = type_schema_names(self.definition)
+        required_of = self.contract.projections
+        for key, public in self.contract.types.items():
+            held = self.contract.type_outputs[key]
+            properties = {
+                "objectType": {"type": "string", "enum": [public]},
+                **self._fields(key),
+                **{name: block for name, block in blocks.items() if name in held},
+                **({"target": target} if target else {}),
+            }
+            # A block served on request is an optional property: present when the read names it (PP-D30).
+            required = [
+                name for name in properties if name != "target" and required_of.get(name, {}).get("served") != "onRequest"
+            ]
+            schemas[names[key]] = {"title": public, **_object(properties, required)}
+        mapping = {
+            public: f"#/components/schemas/{names[key]}"
+            for key, public in self.contract.types.items()
+            if names[key] != public
+        }
+        schemas["Object"] = {
+            "oneOf": [_ref(names[key]) for key in self.contract.types],
+            "discriminator": {"propertyName": "objectType", **({"mapping": mapping} if mapping else {})},
+        }
+        schemas["ScoredObject"] = {
+            "allOf": [
+                _ref("Object"),
+                _object({"matchScore": {"type": "integer"}}),
+            ]
+        }
         page = {
             "workspace": {"type": "string"},
             "publication": {"type": ["string", "null"]},
@@ -612,7 +665,9 @@ class _Document:
             ),
         }
 
-    def _fields(self) -> dict[str, Any]:
+    def _fields(self, type_key: str) -> dict[str, Any]:
+        """The fields of the type's objects (OT-D1): the contract's outputs the type holds."""
+        held = self.contract.type_outputs[type_key]
         shape = self.definition.object
         fixed = {shape.id.output}
         if shape.name is not None:
@@ -623,6 +678,8 @@ class _Document:
         } | {name for name, item in shape.attributes.items() if item.default is not None}
         found: dict[str, Any] = {}
         for name, value_type in self.contract.fields.items():
+            if name not in held:
+                continue
             if isinstance(value_type, dict):
                 fields = self.definition.object.parent.fields
                 properties = {}
@@ -635,19 +692,24 @@ class _Document:
                     else:
                         # A source the parent has no value for, or no binding, is null (CA1).
                         properties[field] = _value(kind) if fields[field].default is not None else _nullable(_value(kind))
+                # A parent block is on the parent when the parent's type is an end of its relation (OT-D2);
+                # it is always there only when every type this one's parent can be holds it.
+                held_blocks = parent_blocks_held(self.model, self.definition, type_key)
                 parent_blocks = {
                     block: _with_description(
                         self._projection(f"{PARENT_BLOCK_PREFIX}{block}"),
                         self.definition.described(f"related:{PARENT_BLOCK_PREFIX}{block}"),
                     )
                     for block in self.definition.object.parent.projections
+                    if f"{PARENT_BLOCK_PREFIX}{block}" in held_blocks
                 }
                 required = [
                     *properties,
                     *(
                         block
                         for block in parent_blocks
-                        if self.contract.projections[f"{PARENT_BLOCK_PREFIX}{block}"].get("served") != "onRequest"
+                        if held_blocks[f"{PARENT_BLOCK_PREFIX}{block}"]
+                        and self.contract.projections[f"{PARENT_BLOCK_PREFIX}{block}"].get("served") != "onRequest"
                     ),
                 ]
                 found[name] = _nullable(_object({**properties, **parent_blocks}, required))

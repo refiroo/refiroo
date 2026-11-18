@@ -2,7 +2,8 @@
  * Settings › Security › Agent access (0.16 AG1): the address assistants connect to, the agent clients
  * (systems whose assistant asks for a token), the assistants people sign in with and every tool call
  * made. Whether assistants can reach the instance is set in the server's environment (MCP_ENABLED)
- * and read at start; nothing here turns it on.
+ * and read at start; nothing here turns it on. How long an assistant stays signed in is set here
+ * (0.17 AS1): the Sign-ins section and its dialog.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -119,6 +120,7 @@ export function AgentAccessPage({ onNavigate }: { onNavigate: (route: RouteState
                 content: (
                   <>
                     <ConnectSection status={status} hue={head.hue} />
+                    <SignInsSection status={status} onSaved={setStatus} />
                     <ClientsSection version={clientsVersion} onNavigate={onNavigate} />
                     <ApplicationsSection hue={head.hue} />
                   </>
@@ -184,6 +186,176 @@ function ConnectSection({ status, hue }: { status: AgentAccessStatus; hue: Hue }
         </SettingRow>
       </SettingsPanel>
     </SettingsGroup>
+  );
+}
+
+/** How long an assistant stays signed in, beside the browser's limits, which are a fact (0.17 AS-D3). */
+function SignInsSection({
+  status,
+  onSaved,
+}: {
+  status: AgentAccessStatus;
+  onSaved: (status: AgentAccessStatus) => void;
+}) {
+  const [changing, setChanging] = useState(false);
+  const toast = useToast();
+  const days = (value: number) => `${count(value)} ${plural(value, "day")}`;
+
+  return (
+    <SettingsGroup
+      title="Sign-ins"
+      description="How long an assistant someone signed in stays signed in. It renews on its own while it is used, also from several windows at once."
+      action={
+        <button type="button" className="secondary" onClick={() => setChanging(true)}>
+          Change…
+        </button>
+      }
+    >
+      <SettingsPanel>
+        <SettingRow fact name="Without use">
+          <span className="sign-in-kind sign-in-kind-assistants">Assistants</span>
+          {days(status.sessionIdleDays)}
+        </SettingRow>
+        <SettingRow fact name="In all">
+          <span className="sign-in-kind sign-in-kind-assistants">Assistants</span>
+          {days(status.sessionDays)}, then the person signs in again
+        </SettingRow>
+        <SettingRow fact name="Browser sign-ins">
+          <span className="sign-in-kind sign-in-kind-browser">Browser</span>
+          {`${count(status.browserSessionIdleHours)} ${plural(status.browserSessionIdleHours, "hour")} without use, ${days(status.browserSessionDays)} in all (set in the server's environment)`}
+        </SettingRow>
+      </SettingsPanel>
+      {changing && (
+        <SignInsDialog
+          status={status}
+          onClose={() => setChanging(false)}
+          onSaved={(saved) => {
+            setChanging(false);
+            onSaved(saved);
+            toast(
+              "Assistant sign-ins were saved. A change applies to each sign-in's next renewal and to new sign-ins.",
+            );
+          }}
+        />
+      )}
+    </SettingsGroup>
+  );
+}
+
+const whole = (text: string) => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : NaN);
+const inRange = (value: number) => value >= 1 && value <= 365;
+
+function SignInsDialog({
+  status,
+  onClose,
+  onSaved,
+}: {
+  status: AgentAccessStatus;
+  onClose: () => void;
+  onSaved: (status: AgentAccessStatus) => void;
+}) {
+  const [idle, setIdle] = useState(String(status.sessionIdleDays));
+  const [all, setAll] = useState(String(status.sessionDays));
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const idleDays = whole(idle);
+  const allDays = whole(all);
+  const idleError = inRange(idleDays) ? "" : "Enter a whole number of days from 1 to 365.";
+  const allError = !inRange(allDays)
+    ? "Enter a whole number of days from 1 to 365."
+    : inRange(idleDays) && allDays < idleDays
+      ? "Must be at least the days without use."
+      : "";
+  const dirty = idleDays !== status.sessionIdleDays || allDays !== status.sessionDays;
+
+  async function save() {
+    setPending(true);
+    setError("");
+    try {
+      onSaved(
+        await agentAccess.setSessionLimits({
+          sessionIdleDays: idleDays,
+          sessionDays: allDays,
+          expectedVersion: status.sessionLimitsVersion,
+        }),
+      );
+    } catch (cause) {
+      setError(errorMessage(cause));
+      setPending(false);
+    }
+  }
+
+  return (
+    <Modal
+      title="Assistant sign-ins"
+      eyebrow="Agent access"
+      size="compact"
+      busy={pending}
+      dirty={dirty}
+      onClose={onClose}
+    >
+      <form
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!idleError && !allError) void save();
+        }}
+      >
+        <FormField
+          label="Signed out after no use for (days)"
+          help="Counted from the assistant's last renewal. 1 to 365."
+          error={idleError}
+        >
+          {(control) => (
+            <input
+              {...control}
+              autoFocus
+              className="sign-in-days"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={365}
+              required
+              value={idle}
+              onChange={(event) => setIdle(event.target.value)}
+            />
+          )}
+        </FormField>
+        <FormField
+          label="Signed out in all after (days)"
+          help="Counted from the sign-in. Not fewer than the days without use. Applies to new sign-ins."
+          error={allError}
+        >
+          {(control) => (
+            <input
+              {...control}
+              className="sign-in-days"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={365}
+              required
+              value={all}
+              onChange={(event) => setAll(event.target.value)}
+            />
+          )}
+        </FormField>
+        <p className="muted">
+          Blocking an assistant, or signing out everywhere, still ends its sign-ins at once, as today.
+        </p>
+        {error && (
+          <Notice tone="error" title="The limits were not saved">
+            {error}
+          </Notice>
+        )}
+        <div className="dialog-actions">
+          <CancelButton disabled={pending} />
+          <button className="primary" disabled={pending || Boolean(idleError || allError)}>
+            {pending ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

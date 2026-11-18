@@ -1,19 +1,33 @@
 # agent-access
 
-Agent access lets an assistant, a program speaking the Model Context Protocol, reach the instance at `/mcp`. The operator switches it on with `MCP_ENABLED`. A person's assistant works with that person's grants cut down to Browse and Work in change sets; an agent client, made with `kind: agent`, works with its own. You use these operations to see the settings, the agent clients and the assistants, to review every call, and to register, block or restore an assistant. Reading needs `agent-access.read` and changing `agent-access.write`, both in Security administration.
+Agent access lets an assistant, a program speaking the Model Context Protocol, reach the instance at `/mcp`. The operator switches it on with `MCP_ENABLED`. A person's assistant works with that person's grants cut down to Browse and Work in change sets; an agent client, made with `kind: agent`, works with its own. You use these operations to see the settings, the agent clients and the assistants, to review every call, to register, block or restore an assistant, and to set how long an assistant stays signed in. Reading needs `agent-access.read` and changing `agent-access.write`, both in Security administration.
 
 1. Connect a program: `POST /api/v1/clients` with `kind: agent`, give it a role with `POST /api/v1/grants`, then `POST /oauth/token` with `scope=agent`.
-2. Review use: `GET /api/v1/agent-access/calls`, and `POST /api/v1/agent-access/applications/{application_id}/block` for an assistant that should stop.
+2. Set how long assistants stay signed in: `PATCH /api/v1/agent-access`.
+3. Review use: `GET /api/v1/agent-access/calls`, and `POST /api/v1/agent-access/applications/{application_id}/block` for an assistant that should stop.
 
 ## GET /api/v1/agent-access
 
 Title: Read agent access
 
-Says whether assistants can reach the instance and where, under which limits, and how many calls the last 30 days held. The settings are the operator's, read when the engine started; they are not changed here. It answers while agent access is off.
+Says whether assistants can reach the instance and where, under which limits, how long an assistant stays signed in, and how many calls the last 30 days held. Whether agent access is on, its address and its limits are the operator's, read when the engine started; the sign-in limits are changed with `PATCH /api/v1/agent-access`. It answers while agent access is off.
 
 ### Errors
 
 - 403 FORBIDDEN: needs Security administration at the instance
+
+## PATCH /api/v1/agent-access
+
+Title: Set how long assistants stay signed in
+
+Sets the days an assistant's session may go without use and the days it lasts in all; a field left out keeps its value. An assistant renews its session on its own while it is used, also from several windows at once. A change applies to each session's next renewal (days without use) and to new sign-ins (days in all); browser sign-ins keep the operator's limits. The change is a security event.
+
+### Errors
+
+- 403 FORBIDDEN: needs Security administration at the instance
+- 409 VERSION_CONFLICT: `expectedVersion` is not the current `sessionLimitsVersion`
+- 422 AGENT_SESSION_LIMITS_INVALID: days in all fewer than days without use
+- 422 REQUEST_VALIDATION_ERROR: a value is not a whole number of 1 to 365 days
 
 ## GET /api/v1/agent-access/clients
 
@@ -120,6 +134,17 @@ Lists each call an assistant or agent client made through `/mcp`, newest first, 
 - callsDays: Days a call's record is kept (`MCP_CALLS_DAYS`).
 - calls30Days: Calls recorded in the last 30 days.
 - lastCallAt: When the last call was made; null if none is kept.
+- sessionIdleDays: Days an assistant's session may go without a renewal before it ends; 30 until changed.
+- sessionDays: Days an assistant's session lasts in all; 90 until changed.
+- sessionLimitsVersion: Rises by one with every change of the two limits.
+- browserSessionIdleHours: Hours a browser sign-in may go without use (`SESSION_IDLE_HOURS`).
+- browserSessionDays: Days a browser sign-in lasts in all (`SESSION_DAYS`).
+
+### AgentAccessUpdate
+
+- sessionIdleDays: Days without a renewal, 1 to 365.
+- sessionDays: Days in all, 1 to 365 and not fewer than the days without use.
+- expectedVersion: The `sessionLimitsVersion` last read; a different current version answers `VERSION_CONFLICT`.
 
 ### AgentClientResponse
 

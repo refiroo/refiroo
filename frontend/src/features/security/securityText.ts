@@ -305,6 +305,8 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
     }
     case "approval-policy":
       return `Approval policy of workspace ${event.aggregateId} changed`;
+    case "agent-access-settings":
+      return "Assistant sign-in limits changed";
     case "grant":
       return `${event.action === "created" ? "Granted" : "Grant removed:"} ${grantEventWords(details, labels)}`;
     case "group": {

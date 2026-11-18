@@ -26,6 +26,12 @@ An administrator tried to register an assistant with details the engine does not
 
 No assistant has the ID in the path of `POST /api/v1/agent-access/applications/{application_id}/block` or `.../restore`. It usually comes from an ID copied from another instance or a mistyped one. Use the ID the registration answered with.
 
+### AGENT_SESSION_LIMITS_INVALID
+
+<span class="rdm-status rdm-4xx">Status 422</span>
+
+The days in all are fewer than the days without use in `PATCH /api/v1/agent-access`, counting the value the request leaves out. Send a `sessionDays` that is at least `sessionIdleDays`, or lower `sessionIdleDays` in the same request.
+
 ### AI_NOT_CONFIGURED
 
 <span class="rdm-status rdm-4xx">Status 409</span>

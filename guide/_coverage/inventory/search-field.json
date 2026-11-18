@@ -166,7 +166,7 @@
   "labels": [
    "Search by name…"
   ],
-  "source": "frontend/src/features/objects/RestructuringDialog.tsx:1189",
+  "source": "frontend/src/features/objects/RestructuringDialog.tsx:1192",
   "section": "use",
   "commonContext": [
    "restructuring",
@@ -219,7 +219,7 @@
   "labels": [
    "Search related records"
   ],
-  "source": "frontend/src/features/objects/panels/RelationsPanel.tsx:414",
+  "source": "frontend/src/features/objects/panels/RelationsPanel.tsx:362",
   "section": "use",
   "commonContext": [
    "relations",

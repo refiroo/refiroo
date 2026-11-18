@@ -1540,6 +1540,26 @@ def test_an_assistant_reaches_the_engine_through_agent_access(security):
         summary="Whether assistants can reach the instance, where and under which limits",
     )
     assert status["enabled"] is True and status["url"].endswith("/mcp")
+    limits = s.call(
+        "PATCH",
+        "/api/v1/agent-access",
+        body={
+            "sessionIdleDays": 14,
+            "sessionDays": 60,
+            "expectedVersion": status["sessionLimitsVersion"],
+        },
+        status=200,
+        record="limits",
+        summary="Set how long an assistant stays signed in",
+    )
+    assert (limits["sessionIdleDays"], limits["sessionDays"]) == (14, 60)
+    s.call(
+        "PATCH",
+        "/api/v1/agent-access",
+        body={"sessionIdleDays": 90},
+        status=422,
+        code="AGENT_SESSION_LIMITS_INVALID",
+    )
     agent = s.call(
         "POST",
         "/api/v1/clients",

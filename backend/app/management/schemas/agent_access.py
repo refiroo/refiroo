@@ -26,6 +26,33 @@ class AgentAccessStatus(BaseModel):
     callsDays: int = Field(description="Days a call's record is kept")
     calls30Days: int
     lastCallAt: datetime | None
+    sessionIdleDays: int = Field(
+        description="Days an assistant's session may go without a renewal before it ends"
+    )
+    sessionDays: int = Field(description="Days an assistant's session lasts in all")
+    sessionLimitsVersion: int = Field(
+        description="The version of the two limits; rises by one with every change"
+    )
+    browserSessionIdleHours: int = Field(
+        description="Hours a browser sign-in may go without use, set in the server's environment"
+    )
+    browserSessionDays: int = Field(
+        description="Days a browser sign-in lasts in all, set in the server's environment"
+    )
+
+
+class AgentAccessUpdate(BaseModel):
+    """The limits of an assistant's session; a field left out keeps its value."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sessionIdleDays: int | None = Field(default=None, ge=1, le=365)
+    sessionDays: int | None = Field(
+        default=None, ge=1, le=365, description="Not fewer than the days without use"
+    )
+    expectedVersion: int | None = Field(
+        default=None, ge=0, description="The `sessionLimitsVersion` the client read"
+    )
 
 
 class AgentClientResponse(ClientResponse):

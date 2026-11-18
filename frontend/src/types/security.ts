@@ -48,7 +48,8 @@ export interface SecurityEvent {
     | "sign-in"
     | "sign-in-provider"
     | "mail-settings"
-    | "approval-policy";
+    | "approval-policy"
+    | "agent-access-settings";
   aggregateId: string;
   action: string;
   version: number;

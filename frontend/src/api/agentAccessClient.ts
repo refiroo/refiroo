@@ -3,6 +3,7 @@
 import { request } from "@/api/client";
 import type {
   AgentAccessStatus,
+  AgentAccessUpdate,
   AgentApplication,
   AgentApplicationPage,
   AgentCallPage,
@@ -19,6 +20,9 @@ const application = (id: string) => `/api/v1/agent-access/applications/${encodeU
 
 export const agentAccess = {
   status: () => request<AgentAccessStatus>("/api/v1/agent-access"),
+  /** `422 AGENT_SESSION_LIMITS_INVALID` when the days in all are fewer than the days without use; `409 VERSION_CONFLICT`. */
+  setSessionLimits: (body: AgentAccessUpdate) =>
+    request<AgentAccessStatus>("/api/v1/agent-access", { method: "PATCH", body: JSON.stringify(body) }),
   clients: (cursor?: string) => request<AgentClientPage>(`/api/v1/agent-access/clients${page(cursor)}`),
   applications: (cursor?: string) => request<AgentApplicationPage>(`/api/v1/agent-access/applications${page(cursor)}`),
   /** `422 AGENT_APPLICATION_INVALID` for a return address that is not allowed. */

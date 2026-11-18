@@ -3385,3 +3385,24 @@ a.account-reach-app:hover {
 .settings-page > .react-aria-Tabs > div > .react-aria-TabPanel {
   padding-top: var(--space-5);
 }
+/* Which kind of sign-in a row speaks of (Agent access › Sign-ins): assistants in the publication violet, the
+   browser in the first type hue. */
+.sign-in-kind {
+  display: inline-block;
+  margin-right: var(--space-2);
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.sign-in-kind-assistants {
+  background: var(--context-publication-surface);
+  color: var(--context-publication-text);
+}
+.sign-in-kind-browser {
+  background: var(--hue-1-fill);
+  color: var(--hue-1-ink);
+}
+.sign-in-days {
+  width: 7em;
+}
