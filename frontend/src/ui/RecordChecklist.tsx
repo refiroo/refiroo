@@ -31,6 +31,7 @@ export function RecordChecklist({
   model,
   label,
   objectTypeKeys,
+  heldTypeKeys = [],
   workspaceKey,
   records,
   chosen,
@@ -43,6 +44,8 @@ export function RecordChecklist({
   /** What the records are, as the search and the list name them ("Master values"). */
   label: string;
   objectTypeKeys: readonly string[];
+  /** Types of ticked records that are not searched, listed under their heading so they stay visible. */
+  heldTypeKeys?: readonly string[];
   workspaceKey?: string;
   /** The records to choose from; omitted, every record of the types is searched. */
   records?: readonly ChecklistRecord[];
@@ -105,7 +108,8 @@ export function RecordChecklist({
     ...chosen.filter((record) => !term || record.name.toLowerCase().includes(term)),
     ...(listed ?? []).filter((record) => !chosenIds.has(record.id)),
   ];
-  const groups = objectTypeKeys.length > 1 ? objectTypeKeys : [undefined];
+  const listedTypes = [...objectTypeKeys, ...heldTypeKeys.filter((type) => !objectTypeKeys.includes(type))];
+  const groups = listedTypes.length > 1 ? listedTypes : [undefined];
 
   function toggle(record: ChecklistRecord) {
     onChange(chosenIds.has(record.id) ? chosen.filter((item) => item.id !== record.id) : [...chosen, record]);

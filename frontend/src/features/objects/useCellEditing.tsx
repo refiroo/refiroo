@@ -27,6 +27,9 @@ import { EditableField, fieldEditing } from "./EditableField";
 import { RelatedRecordsDialog } from "./RelatedRecordsDialog";
 import { useRemovals } from "./useRemovals";
 import { RelationFormDialog } from "./panels/RelationFormDialog";
+import { OwnEndReasons, useOwnEndRefusals } from "./useOwnEndRefusals";
+import { CancelButton, Modal } from "@/ui/Modal";
+import type { RelationChoice } from "@/model/lookup";
 import { everyPage } from "@/lib/everyPage";
 
 /** What a table cell shows, given the row, the column and the value as the list renders it. */
@@ -168,17 +171,21 @@ export function useCellEditing({
 
   const dialogs = open && (
     <>
-      {(open.kind === "set" || open.kind === "change") && (
+      {open.kind === "set" && (
+        <SetRelationDialog
+          model={model}
+          object={open.item}
+          choices={open.edit.choices}
+          onClose={() => setOpen(undefined)}
+          onSaved={() => saved(open.edit.choices[0].label, open.item)}
+        />
+      )}
+      {open.kind === "change" && (
         <RelationFormDialog
           model={model}
           object={open.item}
-          choices={
-            open.kind === "change"
-              ? open.edit.choices.filter((choice) => choice.otherObjectTypeKey === open.held.object.objectTypeKey)
-              : open.edit.choices
-          }
-          replacing={open.kind === "change" ? open.held : undefined}
-          setting={open.kind === "set"}
+          choices={open.edit.choices.filter((choice) => choice.otherObjectTypeKey === open.held.object.objectTypeKey)}
+          replacing={open.held}
           onClose={() => setOpen(undefined)}
           onSaved={() => saved(open.edit.choices[0].label, open.item)}
         />
@@ -196,6 +203,37 @@ export function useCellEditing({
   );
 
   return { renderCell: readOnly ? undefined : renderCell, dialogs };
+}
+
+/** Set on a record that holds none: only the bindings the record meets from its own end are offered
+ * (0.9 K7, D172); when it meets none, the reason is told. */
+function SetRelationDialog({
+  model,
+  object,
+  choices,
+  onClose,
+  onSaved,
+}: {
+  model: EngineModel;
+  object: ObjectItem;
+  choices: RelationChoice[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { offered, refusedReasons, checking } = useOwnEndRefusals(model, object, choices);
+  if (checking) return null;
+  if (offered.length === 0)
+    return (
+      <Modal title={choices[0].label} eyebrow={`Related records of ${object.name}`} onClose={onClose}>
+        <OwnEndReasons reasons={refusedReasons} />
+        <div className="dialog-actions">
+          <CancelButton />
+        </div>
+      </Modal>
+    );
+  return (
+    <RelationFormDialog model={model} object={object} choices={offered} setting onClose={onClose} onSaved={onSaved} />
+  );
 }
 
 /** A relationship's name as read from the row's end. */

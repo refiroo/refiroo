@@ -16,6 +16,7 @@ import type { RelatedCellEdit } from "@/model/lookup";
 import type { EngineModel, ObjectItem } from "@/types";
 import { CancelButton, Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { OwnEndReasons, useOwnEndRefusals } from "./useOwnEndRefusals";
 import { RecordChecklist, type ChecklistRecord } from "@/ui/RecordChecklist";
 import { checklistChange, relationItems } from "./bulkRelations";
 import { everyPage } from "@/lib/everyPage";
@@ -43,11 +44,14 @@ export function RelatedRecordsDialog({
   const [ticked, setTicked] = useState<ChecklistRecord[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const types = [...new Set(edit.choices.map((choice) => choice.otherObjectTypeKey))];
-  const scoped = edit.choices
+  // Only the bindings the record meets from its own end are offered (0.9 K7, D172).
+  const { offered, refusedReasons, checking } = useOwnEndRefusals(model, object, edit.choices);
+  const types = [...new Set(offered.map((choice) => choice.otherObjectTypeKey))];
+  const allTypes = [...new Set(edit.choices.map((choice) => choice.otherObjectTypeKey))];
+  const scoped = offered
     .map((choice) => candidateScope(model, choice.relation, choice.direction, object.objectTypeKey))
     .find(Boolean);
-  const hint = edit.choices.map((choice) => candidateHint(model, choice.relation, choice.direction)).find(Boolean);
+  const hint = offered.map((choice) => candidateHint(model, choice.relation, choice.direction)).find(Boolean);
   const label = edit.choices[0].label;
 
   useEffect(() => {
@@ -66,7 +70,7 @@ export function RelatedRecordsDialog({
       );
       if (!current) return;
       const records: ChecklistRecord[] = read
-        .filter((item) => types.includes(item.object.objectTypeKey))
+        .filter((item) => allTypes.includes(item.object.objectTypeKey))
         .map((item) => ({ id: item.object.id, name: item.object.name, objectTypeKey: item.object.objectTypeKey }));
       setHeld(records);
       setTicked(records);
@@ -133,17 +137,24 @@ export function RelatedRecordsDialog({
           void save();
         }}
       >
-        {held ? (
-          <RecordChecklist
-            model={model}
-            label={label}
-            objectTypeKeys={types}
-            workspaceKey={object.workspaceKey}
-            chosen={ticked}
-            candidates={scoped}
-            emptyText="No records to choose."
-            onChange={setTicked}
-          />
+        {held && !checking ? (
+          <>
+            {types.length === 0 && <OwnEndReasons reasons={refusedReasons} />}
+            {(types.length > 0 || held.length > 0) && (
+              <RecordChecklist
+                model={model}
+                label={label}
+                objectTypeKeys={types}
+                heldTypeKeys={allTypes}
+                records={types.length === 0 ? held : undefined}
+                workspaceKey={object.workspaceKey}
+                chosen={ticked}
+                candidates={scoped}
+                emptyText="No records to choose."
+                onChange={setTicked}
+              />
+            )}
+          </>
         ) : (
           !error && <p role="status">Reading the related records…</p>
         )}

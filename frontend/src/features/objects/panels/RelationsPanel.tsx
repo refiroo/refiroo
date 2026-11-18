@@ -1,4 +1,4 @@
-import { ownEndReasonParts, ownEndScope, type WordPart } from "@/model/candidates";
+import { OwnEndReasons, useOwnEndRefusals } from "@/features/objects/useOwnEndRefusals";
 import { useEffect, useMemo, useState } from "react";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/state/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
@@ -129,47 +129,7 @@ export function RelationsPanel({
     [model, object.objectTypeKey, panel, own, writes],
   );
   // A relationship whose end the record does not meet is not offered, with the reason (0.9 K7, D172).
-  const [refusedOwn, setRefusedOwn] = useState<{ id: string; kinds: ReadonlySet<string> }>();
-  useEffect(() => {
-    const limited = choices.filter((choice) => ownEndScope(model, choice.relation, choice.direction));
-    if (readOnly || limited.length === 0) return;
-    let current = true;
-    Promise.all(
-      limited.map((choice) =>
-        api
-          .objects(object.objectTypeKey, {
-            workspaceKey: object.workspaceKey,
-            ...ownEndScope(model, choice.relation, choice.direction),
-            filters: [{ field: "id", operator: "eq", value: object.id }],
-            pageSize: 1,
-          })
-          .then((page) => (page.items.length ? undefined : choiceKind(choice))),
-      ),
-    )
-      .then(
-        (found) =>
-          current &&
-          setRefusedOwn({ id: object.id, kinds: new Set(found.filter((kind): kind is string => kind !== undefined)) }),
-      )
-      .catch(() => undefined);
-    return () => {
-      current = false;
-    };
-  }, [api, choices, model, object.id, object.objectTypeKey, object.workspaceKey, readOnly]);
-  const refused = useMemo(
-    () => (refusedOwn?.id === object.id ? refusedOwn.kinds : NONE_REFUSED),
-    [refusedOwn, object.id],
-  );
-  const offered = useMemo(() => choices.filter((choice) => !refused.has(choiceKind(choice))), [choices, refused]);
-  const refusedReasons = [
-    ...new Map(
-      choices
-        .filter((choice) => refused.has(choiceKind(choice)))
-        .map((choice) => ownEndReasonParts(model, choice.relation, choice.direction))
-        .filter((parts): parts is WordPart[] => Boolean(parts))
-        .map((parts) => [parts.map((part) => part.text).join(""), parts] as const),
-    ),
-  ];
+  const { offered, refusedReasons } = useOwnEndRefusals(model, object, choices, readOnly);
   // Where the record holds at most one of a kind (0.9 K3a, D139) it is set, not added to: Set while
   // it holds none, Change and Delete on the one it holds.
   const adding = useMemo(() => offered.filter((choice) => !holdsOneHere(choice)), [offered]);
@@ -385,19 +345,7 @@ export function RelationsPanel({
         {panel.title}
         {!readOnly && refusedReasons.length > 0 && (
           <InfoHint label={`About ${panel.title}`}>
-            {refusedReasons.map(([reason, parts]) => (
-              <p key={reason}>
-                {parts.map((part, index) =>
-                  part.mark ? (
-                    <strong key={index} className={`info-hint-${part.mark}`}>
-                      {part.text}
-                    </strong>
-                  ) : (
-                    part.text
-                  ),
-                )}
-              </p>
-            ))}
+            <OwnEndReasons reasons={refusedReasons} />
           </InfoHint>
         )}
       </h2>
@@ -541,11 +489,4 @@ export function RelationsPanel({
       )}
     </>
   );
-}
-
-const NONE_REFUSED: ReadonlySet<string> = new Set();
-
-/** A relationship choice's identity: its direction, relation type and the type at the other end. */
-function choiceKind(choice: RelationChoice) {
-  return `${choice.direction} ${choice.relation.relationTypeKey} ${choice.otherObjectTypeKey}`;
 }
