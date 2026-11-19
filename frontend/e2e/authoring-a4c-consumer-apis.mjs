@@ -310,21 +310,78 @@ async function journey(label, source) {
       `${label}: a filter added with its match fields picked as chips and taken back by Undo; the history words the consumer step`,
     );
 
-    // The two documents, each its own tab and download (D56, the user at acceptance).
+    // The two documents, each its own tab and download (D56, the user at acceptance); each type's own schema
+    // and example from the Object type dropdown (OT-D5), the choice shared by the two tabs.
     await centre.getByRole("button", { name: "Schema", exact: true }).click();
     await page.waitForURL(/tab=schema/);
-    const schema = JSON.parse(await centre.getByRole("region", { name: "Schema" }).locator("pre").textContent());
-    assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
-    assert.ok("a4cLabel" in schema.properties, "the schema holds the added field");
+    const documentOf = async (name) =>
+      JSON.parse(await centre.getByRole("region", { name }).locator("pre").textContent());
+    const picker = centre.getByRole("button", { name: /^Object type: / });
+    await picker.waitFor();
+    assert.equal(await picker.getAttribute("aria-label"), "Object type: All types");
+    await page.waitForFunction(() =>
+      /oneOf/.test(document.querySelector(".consumer-document-body")?.textContent ?? ""),
+    );
+    const union = await documentOf("Schema");
+    assert.equal(union.$schema, "https://json-schema.org/draft/2020-12/schema");
+    assert.ok(Array.isArray(union.oneOf) && union.oneOf.length >= 2, "All types is the union of the types' schemas");
+    assert.deepEqual(union.discriminator, { propertyName: "objectType" }, "no written mapping");
     await centre.getByRole("link", { name: /Download schema\.json/ }).waitFor();
+    await shot("schema-all-1440");
+    // Opened: All types first, then every exposed type with its tile, the chosen one ticked.
+    await picker.click();
+    const options = page.getByRole("menuitemradio");
+    await options.first().waitFor();
+    const names = (await options.allTextContents()).map((text) => text.trim());
+    assert.equal(names[0], "All types");
+    assert.equal(names.length - 1, union.oneOf.length, "one entry per exposed type");
+    assert.equal(await options.first().getAttribute("aria-checked"), "true");
+    assert.equal(await page.locator(".picker-option .hue-tile").count(), names.length);
+    await assertAccessible(page, `a4c-${label}-type-picker`);
+    await shot("schema-picker-1440");
+    // Chosen by keyboard: the second type searched for by its name, then Enter.
+    const chosen = names[2];
+    await page.getByRole("searchbox", { name: "Search: Object type" }).fill(chosen);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await centre.getByRole("button", { name: `Object type: ${chosen}`, exact: true }).waitFor();
+    await page.waitForFunction(
+      () => !/oneOf/.test(document.querySelector(".consumer-document-body")?.textContent ?? ""),
+    );
+    const schema = await documentOf("Schema");
+    assert.deepEqual(schema.properties.objectType.enum, [chosen]);
+    assert.ok("a4cLabel" in schema.properties, "the type's schema holds the added field");
+    await centre.getByRole("link", { name: /Download .*-schema\.json/ }).waitFor();
     await shot("schema-1440");
     await centre.getByRole("button", { name: "Message example", exact: true }).click();
-    const example = JSON.parse(
-      await centre.getByRole("region", { name: "Message example" }).locator("pre").textContent(),
+    await centre.getByRole("button", { name: `Object type: ${chosen}`, exact: true }).waitFor();
+    await page.waitForFunction(
+      (type) => document.querySelector(".consumer-document-body")?.textContent.includes(`"${type}"`),
+      chosen,
     );
+    const example = await documentOf("Message example");
+    assert.equal(example.objectType, chosen, "the choice is shared by the two tabs");
     assert.deepEqual(Object.keys(example).sort(), Object.keys(schema.properties).sort());
+    await shot("example-1440");
+    // The example has no All types: the type list alone, the chosen one ticked.
+    await centre.getByRole("button", { name: `Object type: ${chosen}`, exact: true }).click();
+    assert.deepEqual(
+      (await page.getByRole("menuitemradio").allTextContents()).map((text) => text.trim()),
+      names.slice(1),
+    );
+    await page.keyboard.press("Escape");
+    // Another type's example holds that type's fields only.
+    await centre.getByRole("button", { name: `Object type: ${chosen}`, exact: true }).click();
+    await page.getByRole("menuitemradio").first().click();
+    await centre.getByRole("button", { name: `Object type: ${names[1]}`, exact: true }).waitFor();
+    await page.waitForFunction(
+      (type) => document.querySelector(".consumer-document-body")?.textContent.includes(`"${type}"`),
+      names[1],
+    );
+    const first = await documentOf("Message example");
+    assert.equal(first.objectType, names[1]);
     checks.push(
-      `${label}: Schema and Message example are two documents, each with Copy and Download; the example has the schema's properties`,
+      `${label}: Schema and Message example are two documents, each with Copy and Download; Schema offers All types (the union, discriminated on objectType) and every exposed type from the Object type dropdown with its tile, chosen by keyboard; the choice is shared by the two tabs, the example has no All types and holds the chosen type's properties; `,
     );
 
     // A released field removed: the contract needs a higher version, raised from the Schema tab (D55).
@@ -452,8 +509,22 @@ async function journey(label, source) {
     await phone.getByRole("tab", { name: "Consumer APIs", exact: true }).first().click();
     await phone.getByRole("tree", { name: "Consumer APIs" }).waitFor();
     await phone.screenshot({ path: resolve(harness.output, `a4c-${label}-390-pane.png`), fullPage: true });
+    // The Object type dropdown at 390px: the Schema's All types, the list opened, no overflow, axe.
+    await phone.goto(
+      `${harness.uiUrl}/settings/model/drafts/${draft.id}/editor?show=consumerApi&key=a4c-feed&tab=schema`,
+    );
+    const phonePicker = phone.getByRole("button", { name: "Object type: All types", exact: true });
+    await phonePicker.click();
+    await phone.getByRole("menuitemradio").first().waitFor();
+    assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await assertAccessible(phone, `a4c-${label}-type-picker-390`);
+    await phone.screenshot({ path: resolve(harness.output, `a4c-${label}-picker-390.png`), fullPage: true });
+    await phone.keyboard.press("Escape");
+    await phone.getByRole("menuitemradio").first().waitFor({ state: "detached" });
     await narrow.close();
-    checks.push(`${label}: at 390px the definition and the Consumer APIs pane open as tabs; no page overflow`);
+    checks.push(
+      `${label}: at 390px the definition and the Consumer APIs pane open as tabs; no page overflow; the Object type dropdown opens within the width, passes axe and closes with Escape`,
+    );
   } catch (error) {
     await page
       .screenshot({ path: resolve(harness.output, `a4c-${label}-failure.png`), fullPage: true })

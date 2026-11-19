@@ -951,7 +951,10 @@ The audit log is the ordered source of the change feed and of consumer events (A
   records and their values, one per projection, and for the ancestors one recursive walk by ID and
   one read of the walked records by their list (a single statement misestimated the walk, C14b).
   Field resolution and projection shapes come from `engine/model/consumer_contract.py`, the module
-  the contract check uses. The router refuses an operation the definition does not offer
+  the contract check uses, as does the rule of which outputs a type's objects carry (`TypeHolding`:
+  the composed object, the OpenAPI schema of each type and the contract's per-type outputs all call it,
+  so they cannot differ). `consumer_examples.example_of` writes an example from a schema, for the editor's
+  message example and the per-type examples of the consumer OpenAPI document. The router refuses an operation the definition does not offer
   (`OPERATION_NOT_OFFERED`) before it reads anything. XREF (`engine/reads/consumer_xref.py`) scores at read time in one
   statement built from the definition's `match`. The terms of every lookup are one relation
   `(item, term)` bound as arrays; a rule's exact matches of every term are read through a `LATERAL`

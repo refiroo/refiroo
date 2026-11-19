@@ -804,7 +804,9 @@ parent types, and related records of its own); which operations it offers, with 
 ask for in `include`, its lists, its
 XREF match rules and its custom events; its filters. Two documents an integration takes from it are
 shown with Copy and Download: the **Schema** of the message consumers receive and a **Message
-example**. Every change is a step with undo. A change the consumers of the active release would
+example**. Each has an Object type dropdown, a searchable list of the exposed types, each with its
+coloured tile and the chosen one ticked: the Schema offers All types (the whole document) first, the
+example shows one type, and the choice is shared by the two tabs and named in the download's file name. Every change is a step with undo. A change the consumers of the active release would
 notice is marked "Needs v2" as soon as it is made, with a button that raises the contract version (keeping the previous version served unless told otherwise; the consumer API's Settings list the earlier versions, their sunset day and **Stop serving**),
 and the install dialog lists each consumer API's result; activation waits until each is compatible.
 Renaming a key the draft added renames it in the consumer APIs too.
@@ -1287,7 +1289,8 @@ cannot break it by accident.
 The model (schema 0.9) declares consumer APIs in the order a reader asks about them: which record
 types they expose and under which public names, which operations they offer (reading by ID,
 looking up, resolving in a batch, lists, events), what a business object looks like, how it is
-looked up, how reads are filtered, and a contract version. Whatever an author leaves out takes a
+looked up, how reads are filtered, and a contract version. A business object is written in the shape of
+its type: the fields and related records the type holds, not every one the definition names. Whatever an author leaves out takes a
 sensible default, and an integrator or the UI can read a definition with every default written out.
 Every reference is validated, and a mistake is reported at the place the author wrote it. Comparing
 releases reports contract changes, and activation refuses a breaking change without a higher contract
@@ -1409,8 +1412,11 @@ already settle is answered without that count. A lookup holds at most 100 terms,
 
 An integrator finds the consumer APIs in an index, each with its name, contract version and the
 address of its own OpenAPI document. That document is the API's typed contract at its version: every
-path written out with the API's name and version, every field with its type, the parameters each read
-takes, its limits and its refusals. A client generated from it reads the API's real answers. When a
+path written out with the API's name and version, a schema for each exposed type with that type's fields and
+related records (named by its public name, and shown by the reference page's schema picker), an example per
+type, the parameters each read takes, its limits and its refusals. A client generated from it reads the API's
+real answers. An object carries only the fields and related records its type holds: a country has no
+currency's fields, with `null` only where the record has no value for a field its type holds. When a
 release raises the contract version, the index and the document move to the new version. The author can keep the previous version served beside the new one, with the `Deprecation` header and an announced `Sunset` day, until they stop serving it: each kept version is in the index and answers every route from the current data in its own shape, and a webhook set up under it keeps receiving that shape.
 
 Settings › Connections › **Consumer APIs** shows each consumer API of the active release, read

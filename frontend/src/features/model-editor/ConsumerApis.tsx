@@ -57,8 +57,10 @@ import {
   type RelatedRow,
   renameMember,
   ROLE_OPTIONS,
+  schemaProperties,
   schemaTypeLabel,
   setField,
+  typeFileName,
   sortOptions,
   toggleOperation,
   viaLabel,
@@ -74,8 +76,10 @@ import type { RunStep } from "@/features/model-editor/OperationDialog";
 import { OperationsMenu, type OnOperation } from "@/features/model-editor/OperationsMenu";
 import { operationById, operationsFor, type OperationTarget } from "@/features/model-editor/operations";
 import { EditInPlaceValue } from "@/ui/EditInPlace";
-import { consumerApiOf, isReleased, typeName } from "@/model/outline";
+import { consumerApiOf, draftTypeHue, isReleased, objectTypeOf, typeName } from "@/model/outline";
 import { copyText } from "@/lib/copyText";
+import type { PickOption } from "@/ui/MultiSelect";
+import { SearchMenu } from "@/ui/SearchMenu";
 
 const SECTIONS: { tab: ConsumerApiTab; label: string; count?: keyof OutlineConsumerApi["counts"] }[] = [
   { tab: "types", label: "Types and related", count: "related" },
@@ -150,19 +154,22 @@ export function ConsumerApiPane({
   );
 }
 
+/** The Schema's choice of the whole document, which is no public name. */
+const ALL_TYPES = "__all_types__";
+
 /** What a document is for, in the integrator's terms (D56). */
 const DOCUMENTS: Record<"schema" | "example", { title: string; file: string; about: string }> = {
   schema: {
     title: "Schema",
     file: "schema.json",
     about:
-      "The JSON Schema of the message consumers receive. An integration validates messages against it or generates its types from it.",
+      "The JSON Schema of the message consumers receive: one of the types below, told apart by objectType, each with only the fields its type holds. An integration validates messages against it or generates its types from it.",
   },
   example: {
     title: "Message example",
     file: "example.json",
     about:
-      "One message as Get by ID would answer it, valid against the schema. An integration uses it as a test fixture or to agree the format with a partner. No record is read: the values come from each field's type.",
+      "One message of the chosen type as Get by ID would answer it, valid against the schema. An integration uses it as a test fixture or to agree the format with a partner. No record is read: the values come from each field's type.",
   },
 };
 
@@ -197,6 +204,9 @@ export function ConsumerApiPanel({
   const [attempt, setAttempt] = useState(0);
   // Switching XREF off takes its match rules with it, so it asks first.
   const [confirmXref, setConfirmXref] = useState(false);
+  // The type the Schema and the Message example show, shared by the two tabs while the editor stays on this
+  // API (OT-D5); none is All types, which the example shows as the first type.
+  const [typeChoice, setTypeChoice] = useState<{ api: string; name: string }>();
 
   useEffect(() => {
     let cancelled = false;
@@ -291,7 +301,7 @@ export function ConsumerApiPanel({
       ],
     }),
   });
-  const properties = (read.schema?.properties ?? {}) as Record<string, Record<string, unknown>>;
+  const properties = schemaProperties(read.schema);
   const defs = (read.schema?.$defs ?? {}) as Record<string, Record<string, unknown>>;
   const contract = item.contract;
   // The previous version stays served beside the new one unless the author says otherwise (DF3).
@@ -1143,6 +1153,15 @@ export function ConsumerApiPanel({
     );
   };
 
+  const typeOptions: PickOption[] = item.exposes.map((type) => ({
+    id: type.publicName,
+    label: type.publicName,
+    hue: draftTypeHue(outline, type.objectType),
+    icon: objectTypeOf(outline, type.objectType)?.icon ?? undefined,
+  }));
+  const chosenType = typeOptions.some((option) => option.id === typeChoice?.name && typeChoice.api === key)
+    ? typeChoice?.name
+    : undefined;
   const documentTab = (document: "schema" | "example") => {
     return (
       <div className="element-tab">
@@ -1153,6 +1172,9 @@ export function ConsumerApiPanel({
           document={document}
           version={outline.version}
           valid={read.data.valid}
+          types={typeOptions}
+          objectType={document === "example" ? (chosenType ?? typeOptions[0]?.id) : chosenType}
+          onObjectType={(name) => setTypeChoice({ api: key, name })}
         />
         {document === "schema" && contract && (
           <section aria-labelledby="consumer-contract" className="consumer-contract">
@@ -1266,23 +1288,31 @@ function ConsumerDocument({
   document,
   version,
   valid,
+  types,
+  objectType,
+  onObjectType,
 }: {
   draftId: string;
   consumerApi: string;
   document: Extract<ConsumerApiDocumentKind, "schema" | "example">;
   version: number;
   valid: boolean;
+  /** The types the API exposes, in the order the definition lists them. */
+  types: readonly PickOption[];
+  /** The public name of the type shown; none is All types (the Schema only). */
+  objectType: string | undefined;
+  onObjectType: (name: string) => void;
 }) {
   const toast = useToast();
   const [text, setText] = useState<{ at: string; body: string }>();
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
-  const at = `${document}:${consumerApi}:${version}`;
+  const at = `${document}:${consumerApi}:${version}:${objectType ?? ""}`;
   useEffect(() => {
     if (!valid) return;
     let cancelled = false;
     api
-      .modelDraftConsumerApiDocument(draftId, consumerApi, document)
+      .modelDraftConsumerApiDocument(draftId, consumerApi, document, objectType)
       .then((body) => {
         if (!cancelled) setText({ at, body: JSON.stringify(body, null, 2) });
       })
@@ -1292,7 +1322,7 @@ function ConsumerDocument({
     return () => {
       cancelled = true;
     };
-  }, [draftId, consumerApi, document, valid, at, attempt]);
+  }, [draftId, consumerApi, document, objectType, valid, at, attempt]);
   const about = DOCUMENTS[document];
   if (!valid)
     return (
@@ -1331,15 +1361,27 @@ function ConsumerDocument({
         </button>
         <DownloadLink
           className="secondary"
-          href={consumerApiDocumentPath(draftId, consumerApi, document)}
+          href={consumerApiDocumentPath(draftId, consumerApi, document, objectType)}
           save={() =>
-            downloadFrom(consumerApiDocumentPath(draftId, consumerApi, document), `${consumerApi}-${about.file}`)
+            downloadFrom(
+              consumerApiDocumentPath(draftId, consumerApi, document, objectType),
+              typeFileName(consumerApi, objectType, about.file),
+            )
           }
         >
-          <Icon name="download" /> Download {about.file}
+          <Icon name="download" /> Download {typeFileName(undefined, objectType, about.file)}
         </DownloadLink>
       </div>
       <p className="muted">{about.about}</p>
+      <div className="consumer-type-picker">
+        <span aria-hidden="true">Object type</span>
+        <SearchMenu
+          label="Object type"
+          items={document === "schema" ? [{ id: ALL_TYPES, label: "All types", icon: "layers" }, ...types] : types}
+          selected={objectType ?? ALL_TYPES}
+          onSelect={(id) => onObjectType(id === ALL_TYPES ? "" : id)}
+        />
+      </div>
       {text?.at === at ? (
         <pre className="consumer-document-body" tabIndex={0} aria-label={about.title}>
           {text.body}

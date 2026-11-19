@@ -4,12 +4,12 @@
   "status": 200,
   "headers": {
     "content-type": "application/json",
-    "etag": "W/\"aa0a706f7657c2adb5a7:1\"",
+    "etag": "W/\"6686a9435491d2d27bf6:1\"",
     "rdm-workspace": "graubuenden",
     "vary": "Origin",
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
-    "x-request-id": "3cf1ac9ccc9f4e5c8b1a8ad51f43af15"
+    "x-request-id": "eb5e136f00294fab944e5df3dd28a30a"
   },
   "body": {
     "results": [
@@ -22,11 +22,9 @@
         "validTo": null,
         "stopNumber": 8505173,
         "abbreviation": "TSSE",
-        "fsoNumber": null,
         "latitude": "46.65674442039232",
         "longitude": "8.709084193690385",
         "height": "1701.3",
-        "sboid": null,
         "parent": {
           "objectType": "Municipality",
           "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",

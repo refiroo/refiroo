@@ -1,7 +1,7 @@
 {
   "operation": "GET /api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json",
   "name": "stops",
-  "summary": "The JSON Schema of the object message the Stops API serves",
+  "summary": "The JSON Schema of the object message the Stops API serves: its types' schemas",
   "request": {
     "path": {
       "draft_id": "00000000-0000-4000-8000-000000000024",
@@ -12,97 +12,27 @@
     "status": 200,
     "body": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Stop"
+        },
+        {
+          "$ref": "#/$defs/Municipality"
+        }
+      ],
+      "discriminator": {
+        "propertyName": "objectType"
+      },
       "title": "Stops API",
-      "type": "object",
-      "properties": {
-        "objectType": {
-          "type": "string",
-          "enum": [
-            "Mode",
-            "Municipality"
-          ]
-        },
-        "id": {
-          "type": "string"
-        },
-        "code": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "name": {
-          "type": "string"
-        },
-        "validFrom": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "date"
-        },
-        "validTo": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "date"
-        },
-        "stopNumber": {
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "abbreviation": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "fsoNumber": {
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "latitude": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "A decimal, written as a string to keep its digits"
-        },
-        "longitude": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "A decimal, written as a string to keep its digits"
-        },
-        "height": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "A decimal, written as a string to keep its digits"
-        },
-        "sboid": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "parent": {
-          "type": [
-            "object",
-            "null"
-          ],
+      "$defs": {
+        "Stop": {
+          "title": "Stop",
+          "type": "object",
           "properties": {
             "objectType": {
-              "type": [
-                "string",
-                "null"
+              "type": "string",
+              "enum": [
+                "Stop"
               ]
             },
             "id": {
@@ -116,6 +46,131 @@
             },
             "name": {
               "type": "string"
+            },
+            "validFrom": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "validTo": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "stopNumber": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "abbreviation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "latitude": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "A decimal, written as a string to keep its digits"
+            },
+            "longitude": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "A decimal, written as a string to keep its digits"
+            },
+            "height": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "A decimal, written as a string to keep its digits"
+            },
+            "parent": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "objectType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "objectType",
+                "id"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "operator": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Projection_operator"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "modes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Projection_modes"
+              }
+            },
+            "systemCodes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Projection_systemCodes"
+              }
+            },
+            "translations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Projection_translations"
+              }
+            },
+            "target": {
+              "description": "With a `to.` name: the targeted projection's matching items; a single item where the read answers one object, else in the projection's shape.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Projection_systemCodes"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Projection_systemCodes"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
@@ -123,60 +178,6 @@
             "id"
           ]
         },
-        "path": {
-          "type": "string"
-        },
-        "operator": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Projection_operator"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "modes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Projection_modes"
-          }
-        },
-        "systemCodes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Projection_systemCodes"
-          }
-        },
-        "translations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Projection_translations"
-          }
-        },
-        "target": {
-          "description": "With a `to.` name: the targeted projection's matching items; a single item where the read answers one object, else in the projection's shape.",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Projection_systemCodes"
-            },
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/Projection_systemCodes"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "objectType",
-        "id"
-      ],
-      "$defs": {
         "Projection_operator": {
           "type": "object",
           "properties": {
@@ -304,15 +305,279 @@
             "translatedName",
             "isActive"
           ]
+        },
+        "Municipality": {
+          "title": "Municipality",
+          "type": "object",
+          "properties": {
+            "objectType": {
+              "type": "string",
+              "enum": [
+                "Municipality"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "fsoNumber": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "parent": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "objectType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "objectType",
+                "id"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "systemCodes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Projection_systemCodes"
+              }
+            },
+            "translations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Projection_translations"
+              }
+            },
+            "target": {
+              "description": "With a `to.` name: the targeted projection's matching items; a single item where the read answers one object, else in the projection's shape.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Projection_systemCodes"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Projection_systemCodes"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "objectType",
+            "id"
+          ]
+        },
+        "Operator": {
+          "title": "Operator",
+          "type": "object",
+          "properties": {
+            "objectType": {
+              "type": "string",
+              "enum": [
+                "Operator"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": "string"
+            },
+            "sboid": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "parent": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "objectType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "objectType",
+                "id"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "translations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Projection_translations"
+              }
+            },
+            "target": {
+              "description": "With a `to.` name: the targeted projection's matching items; a single item where the read answers one object, else in the projection's shape.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Projection_systemCodes"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Projection_systemCodes"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "objectType",
+            "id"
+          ]
+        },
+        "Mode": {
+          "title": "Mode",
+          "type": "object",
+          "properties": {
+            "objectType": {
+              "type": "string",
+              "enum": [
+                "Mode"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": "string"
+            },
+            "parent": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "objectType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "objectType",
+                "id"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "target": {
+              "description": "With a `to.` name: the targeted projection's matching items; a single item where the read answers one object, else in the projection's shape.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Projection_systemCodes"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Projection_systemCodes"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "objectType",
+            "id"
+          ]
         }
       }
     }
   },
   "notes": [
-    "`properties.objectType.enum`: the first 2 of 4 items are shown.",
-    "`properties.parent.required`: the first 2 of 4 items are shown.",
-    "`required`: the first 2 of 19 items are shown.",
+    "`oneOf`: the first 2 of 4 items are shown.",
+    "`$defs.Stop.properties.parent.required`: the first 2 of 4 items are shown.",
+    "`$defs.Stop.required`: the first 2 of 17 items are shown.",
     "`$defs.Projection_operator.required`: the first 2 of 5 items are shown.",
-    "`$defs.Projection_systemCodes.required`: the first 2 of 4 items are shown."
+    "`$defs.Projection_systemCodes.required`: the first 2 of 4 items are shown.",
+    "`$defs.Municipality.properties.parent.required`: the first 2 of 4 items are shown.",
+    "`$defs.Municipality.required`: the first 2 of 8 items are shown.",
+    "`$defs.Operator.properties.parent.required`: the first 2 of 4 items are shown.",
+    "`$defs.Operator.required`: the first 2 of 8 items are shown.",
+    "`$defs.Mode.properties.parent.required`: the first 2 of 4 items are shown.",
+    "`$defs.Mode.required`: the first 2 of 6 items are shown."
   ]
 }

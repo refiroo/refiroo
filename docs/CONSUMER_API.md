@@ -168,6 +168,7 @@ XREF results and list items use the same object:
 
 `code` takes the first non-empty value of owner code, value code, codelist code, domain code and
 site group code. List items also carry `description`. Site groups also carry `ownerCode` in XREF results.
+The example is the reference's; the engine's object carries only what its type holds (below, OT-D1).
 
 ### How flows call it
 
@@ -216,7 +217,8 @@ errors, and ensures a definition can never reference a type or relation the rele
 A draft's definitions are changed like the rest of the draft, by operations with history and undo
 (0.10 A4c, [API.md § Kinds](API.md#kinds)), from the model editor's Consumer APIs tab or any client.
 A draft also serves each definition's schema, a message example and its OpenAPI document before it is
-installed ([API.md § A draft's consumer APIs](API.md#a-drafts-consumer-apis)).
+installed ([API.md § A draft's consumer APIs](API.md#a-drafts-consumer-apis)); the schema and the example
+are of one type when asked for (`objectType`, OT-D5).
 
 Each definition has its own `contractVersion`, separate from the model release version. A new model
 release that changes a published definition's output must raise that definition's `contractVersion`.
@@ -593,9 +595,15 @@ GET /api/consumer?workspace=…
   takes it in each item and in `defaults`. A name that is not an on-request block is
   `400 UNKNOWN_INCLUDE` naming the valid ones; events and deliveries leave on-request blocks out (PP-D30,
   PP-D32).
-  `hierarchy` and `path` hold the ancestors from the top down, without the object (C-D21). A field
-  with no value from any source takes its `default`, then `null`; empty text is no value (C-D26).
-  Projection arrays are ordered by the related record's name, then ID.
+  `hierarchy` and `path` hold the ancestors from the top down, without the object (C-D21). An
+  object carries the fields and related blocks its own type holds, not every one the definition
+  declares (OT-D1, OT-D2): a field is on it when one of its sources is a built-in field or an attribute
+  the type binds, and a block when the type is an end of the block's relation in its direction (for
+  `parent.<block>`, the parent's type); `objectType`, `parent`, `path`, `hierarchy`, `matchScore` and
+  `target` are on every object. A field the type holds and the record has no value for takes its `default`,
+  then `null`; empty text is no value (C-D26). A default never puts a field on a type that does not hold
+  it. One rule, `TypeHolding` in `engine/model/consumer_contract.py`, decides it for the composed answer,
+  the OpenAPI schemas and the contract. Projection arrays are ordered by the related record's name, then ID.
 - **Lists** page as the management lists do (ADR-030, C-D30): cursors both ways with `anchor`,
   `position`, `from=end`, `seek` and `includeTotal`, with `pageSize` 1–100 (default 20). The envelope
   is `items`, `workspace`, `pageSize`, `nextCursor`, `prevCursor`, `anchor`, `totalCount` and
@@ -612,6 +620,13 @@ GET /api/consumer?workspace=…
   `400 PARAMETER_NOT_SUPPORTED` (C3).
 - **Generated OpenAPI:** each definition generates its own OpenAPI document, so integrators get a
   typed contract per API. _Delivered in C6b (2026-10-05)_, at `…/openapi.json` (see "API index").
+  Each exposed type has its own object schema, named and titled by its public name, with the fields and
+  blocks that type holds, each required (a block served on request optional). `Object` is a `oneOf` over
+  them with a `discriminator` on `objectType` and no written `mapping`, because the schema's name is the
+  `objectType` value; only a public name equal to one of the document's own schema names (`Object`,
+  `ListPage`, …) is prefixed `Object_` and mapped. `ScoredObject` adds `matchScore` to `Object`. Every
+  response that holds objects carries one named example per exposed type (a list, its own type's only),
+  written from the schemas with values of each field's type, so no record is read (OT-D3, OT-D4).
 - **Consistency:** reads use live data by default. `publication={publicationId}` reads a
   publication, so a flow or extract can pin one consistent snapshot; `publication=latest` reads the
   workspace's newest publication, and the response names the publication it resolved to. Responses
@@ -1235,7 +1250,7 @@ C-D94 revised for C12; C-D112–C-D114 for C13 the same day.
 | # | Question | Decision |
 | --- | --- | --- |
 | C-D1 | Authentication for an external API | **Decided 2026-09-29:** no API-key credentials and no credential in a URL (the route's `consumerApi` is a definition name). The 0.12 security release provides OAuth 2.0 with JWT access tokens for the backend, frontend and consumer APIs, HMAC-signed webhooks, and UI administration of both. 0.9 is unauthenticated (C7 moved to 0.12). _Amended 2026-10-05:_ webhook signing moved into 0.9 (C-D12 revised); 0.12 keeps key rotation |
-| C-D2 | How strict the breaking-change check is | Removing or retyping an output field, or changing a projection's shape, needs a new `contractVersion`. Adding fields does not. **Amended 2026-11-16 (KV-D1):** or the activating request keeps the current version with `keepContractVersions` |
+| C-D2 | How strict the breaking-change check is | Removing or retyping an output field, or changing a projection's shape, needs a new `contractVersion`. Adding fields does not. **Amended 2026-11-16 (KV-D1):** or the activating request keeps the current version with `keepContractVersions`. **Amended 2026-11-18 (OT-D6):** an output that stays in the definition but leaves a type's objects (an attribute unbound from the type, a block whose relation no longer reaches it) is breaking as well; one joining a type is additive |
 | C-D3 | Serve several contract versions of one definition at once | Not in 0.9. One installed version per definition; the gateway handles overlap |
 | C-D4 | Are the scoring weights part of the contract | Yes. Weights change ranking, and flows depend on ranking, so a weight change needs a new `contractVersion`. Because of C-D3 (one installed version at a time), tuning weights is a contract release for every consumer of the definition; that cost is accepted |
 | C-D5 | Route compatibility for existing consumers | The existing gateway maps routes. The engine does not accept free-form route templates in 0.9 |
@@ -1259,7 +1274,7 @@ C-D94 revised for C12; C-D112–C-D114 for C13 the same day.
 | C-D23 | How get by ID names the resolved workspace (C-D16) | **Settled 2026-10-04 (C2).** The `RDM-Workspace` header on every consumer response; get by ID stays the bare shared object, the shape XREF items have; the collection envelopes (C3, C4) also carry it as a field |
 | C-D24 | What `{id}` in get by ID is | **Settled 2026-10-04 (C2).** The object ID only, unique across the database. Other identifiers go through XREF, whose `409 AMBIGUOUS_MATCH` names a faulty migration's duplicates. No `409` in get by ID: the state cannot occur. The `id` role's source is the built-in `id` (C1's rule narrowed). Database-backed uniqueness for `unique` attributes is recorded in TODO for a later build |
 | C-D25 | Error code pattern | **Settled 2026-10-04.** Upper case across every API of the engine, delivered first as the amendment T1b |
-| C-D26 | When a source has no value | **Settled 2026-10-04 (C2).** Absent, `null` or empty text, as everywhere in the engine (required fields, `atLeastOneOf`, uniqueness), so a consumer never receives `""`. Not a new rule |
+| C-D26 | When a source has no value | **Settled 2026-10-04 (C2).** Absent, `null` or empty text, as everywhere in the engine (required fields, `atLeastOneOf`, uniqueness), so a consumer never receives `""`. Not a new rule. **Amended 2026-11-18 (OT-D1):** this applies to a field the object's type holds; a field the type cannot hold is not on the object at all, so `null` always means "this record has no value" |
 | C-D27 | Does a parent value keep the parent's direct children, or every record of the list's type below it? | **Settled 2026-10-04 (C3).** Every record of the list's type below it. Where a type can sit under several parent types (cities under a country or a region), a city under a region of the country is included, and a city under another country is not. Each item's `parent` is its direct parent. The parent parameter is an optional filter: without it, the list holds every record of its type |
 | C-D28 | How a list's parent is named | **Settled 2026-10-04 (C3).** By object ID only, with no free-text matching: a consumer reads the parent's list first and uses the IDs it returns. An ID that is no record of the parent types is `404 PARENT_NOT_FOUND`. Parity scenario 10's name and code cases go through an `ancestor` parameter declared on a list without a parent |
 | C-D29 | List order | **Settled 2026-10-04 (C3).** An optional `sortBy` on a list. Records without a value come last, then name, then creation order (what every engine list ends with). A change to `sortBy` is a breaking change |

@@ -162,11 +162,9 @@ ETag: W/"aa0a706f7657c2adb5a7:1"
   "validTo": null,
   "stopNumber": 8505173,
   "abbreviation": "TSSE",
-  "fsoNumber": null,
   "latitude": "46.65674442039232",
   "longitude": "8.709084193690385",
   "height": "1701.3",
-  "sboid": null,
   "parent": {
     "objectType": "Municipality",
     "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
@@ -200,7 +198,7 @@ ETag: W/"aa0a706f7657c2adb5a7:1"
 }
 ```
 
-This is the whole body, not an envelope containing a record. `objectType` uses the declaration's public name. `stopNumber` is an integer; decimal coordinates and height use the API's decimal string encoding, preserving their precision. Nulls mean this object has no applicable value for that output. The declared operator is an object; modes, system codes and translations are arrays. An empty array is a real empty projection, not an omitted part of this example.
+This is the whole body, not an envelope containing a record. `objectType` uses the declaration's public name. `stopNumber` is an integer; decimal coordinates and height use the API's decimal string encoding, preserving their precision. A main object field is null when this record has no value for a field its type holds. Fields the type cannot hold are absent; this stop therefore has no fsoNumber or sboid field. The declared operator is an object; modes, system codes and translations are arrays. An empty array is a real empty projection, not an omitted part of this example.
 
 ## A list page with navigation
 
@@ -231,11 +229,9 @@ RDM-Workspace: graubuenden
       "validTo": null,
       "stopNumber": 8500004,
       "abbreviation": "SAXX",
-      "fsoNumber": null,
       "latitude": "46.662107304536484",
       "longitude": "8.723794590415595",
       "height": "1553.9",
-      "sboid": null,
       "parent": {
         "objectType": "Municipality",
         "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
@@ -305,11 +301,9 @@ RDM-Workspace: graubuenden
       "validTo": null,
       "stopNumber": 8505173,
       "abbreviation": "TSSE",
-      "fsoNumber": null,
       "latitude": "46.65674442039232",
       "longitude": "8.709084193690385",
       "height": "1701.3",
-      "sboid": null,
       "parent": {
         "objectType": "Municipality",
         "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",

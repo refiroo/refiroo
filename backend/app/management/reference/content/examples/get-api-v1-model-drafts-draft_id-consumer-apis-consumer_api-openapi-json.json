@@ -66,6 +66,155 @@
                   "application/json": {
                     "schema": {
                       "$ref": "#/components/schemas/Object"
+                    },
+                    "examples": {
+                      "Stop": {
+                        "summary": "Stop",
+                        "value": {
+                          "objectType": "Stop",
+                          "id": "Example id",
+                          "code": "Example code",
+                          "name": "Example name",
+                          "validFrom": "2026-01-01",
+                          "validTo": "2026-01-01",
+                          "stopNumber": 1,
+                          "abbreviation": "Example abbreviation",
+                          "latitude": "Example latitude",
+                          "longitude": "Example longitude",
+                          "height": "Example height",
+                          "parent": {
+                            "objectType": "Example objectType",
+                            "id": "Example id",
+                            "code": "Example code",
+                            "name": "Example name"
+                          },
+                          "path": "Example path",
+                          "operator": {
+                            "id": "Example id",
+                            "code": "Example code",
+                            "name": "Example name",
+                            "localName": "Example localName",
+                            "isPrimary": true
+                          },
+                          "modes": [
+                            {
+                              "id": "Example id",
+                              "code": "Example code",
+                              "name": "Example name"
+                            }
+                          ],
+                          "systemCodes": [
+                            {
+                              "system": "Example system",
+                              "systemKey": "Example systemKey",
+                              "code": "Example code",
+                              "name": "Example name"
+                            }
+                          ],
+                          "translations": [
+                            {
+                              "languageCode": "Example languageCode",
+                              "translatedName": "Example translatedName",
+                              "isActive": true
+                            }
+                          ],
+                          "target": {
+                            "system": "Example system",
+                            "systemKey": "Example systemKey",
+                            "code": "Example code",
+                            "name": "Example name"
+                          }
+                        }
+                      },
+                      "Municipality": {
+                        "summary": "Municipality",
+                        "value": {
+                          "objectType": "Municipality",
+                          "id": "Example id",
+                          "name": "Example name",
+                          "fsoNumber": 1,
+                          "parent": {
+                            "objectType": "Example objectType",
+                            "id": "Example id",
+                            "code": "Example code",
+                            "name": "Example name"
+                          },
+                          "path": "Example path",
+                          "systemCodes": [
+                            {
+                              "system": "Example system",
+                              "systemKey": "Example systemKey",
+                              "code": "Example code",
+                              "name": "Example name"
+                            }
+                          ],
+                          "translations": [
+                            {
+                              "languageCode": "Example languageCode",
+                              "translatedName": "Example translatedName",
+                              "isActive": true
+                            }
+                          ],
+                          "target": {
+                            "system": "Example system",
+                            "systemKey": "Example systemKey",
+                            "code": "Example code",
+                            "name": "Example name"
+                          }
+                        }
+                      },
+                      "Operator": {
+                        "summary": "Operator",
+                        "value": {
+                          "objectType": "Operator",
+                          "id": "Example id",
+                          "code": "Example code",
+                          "name": "Example name",
+                          "sboid": "Example sboid",
+                          "parent": {
+                            "objectType": "Example objectType",
+                            "id": "Example id",
+                            "code": "Example code",
+                            "name": "Example name"
+                          },
+                          "path": "Example path",
+                          "translations": [
+                            {
+                              "languageCode": "Example languageCode",
+                              "translatedName": "Example translatedName",
+                              "isActive": true
+                            }
+                          ],
+                          "target": {
+                            "system": "Example system",
+                            "systemKey": "Example systemKey",
+                            "code": "Example code",
+                            "name": "Example name"
+                          }
+                        }
+                      },
+                      "Mode": {
+                        "summary": "Mode",
+                        "value": {
+                          "objectType": "Mode",
+                          "id": "Example id",
+                          "code": "Example code",
+                          "name": "Example name",
+                          "parent": {
+                            "objectType": "Example objectType",
+                            "id": "Example id",
+                            "code": "Example code",
+                            "name": "Example name"
+                          },
+                          "path": "Example path",
+                          "target": {
+                            "system": "Example system",
+                            "systemKey": "Example systemKey",
+                            "code": "Example code",
+                            "name": "Example name"
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -160,6 +309,60 @@
                   "application/json": {
                     "schema": {
                       "$ref": "#/components/schemas/ListPage"
+                    },
+                    "examples": {
+                      "Municipality": {
+                        "summary": "Municipality",
+                        "value": {
+                          "items": [
+                            {
+                              "objectType": "Municipality",
+                              "id": "Example id",
+                              "name": "Example name",
+                              "fsoNumber": 1,
+                              "parent": {
+                                "objectType": "Example objectType",
+                                "id": "Example id",
+                                "code": "Example code",
+                                "name": "Example name"
+                              },
+                              "path": "Example path",
+                              "systemCodes": [
+                                {
+                                  "system": "Example system",
+                                  "systemKey": "Example systemKey",
+                                  "code": "Example code",
+                                  "name": "Example name"
+                                }
+                              ],
+                              "translations": [
+                                {
+                                  "languageCode": "Example languageCode",
+                                  "translatedName": "Example translatedName",
+                                  "isActive": true
+                                }
+                              ],
+                              "target": {
+                                "system": "Example system",
+                                "systemKey": "Example systemKey",
+                                "code": "Example code",
+                                "name": "Example name"
+                              }
+                            }
+                          ],
+                          "workspace": "Example workspace",
+                          "publication": "Example publication",
+                          "pageSize": 1,
+                          "nextCursor": "cursor-14",
+                          "prevCursor": "cursor-15",
+                          "anchor": "cursor-16",
+                          "totalCount": 1,
+                          "startIndex": 1,
+                          "asOfApplied": [
+                            "Example asOfApplied"
+                          ]
+                        }
+                      }
                     }
                   }
                 }
@@ -392,7 +595,7 @@
   },
   "notes": [
     "`paths`: the first 2 of 10 paths are shown.",
-    "`components.schemas`: the first 3 of 19 schemas are shown.",
+    "`components.schemas`: the first 3 of 23 schemas are shown.",
     "`paths./api/consumer/stops/v1/objects/{id}.get.parameters`: the first 2 of 10 items are shown.",
     "`paths./api/consumer/stops/v1/lists/municipalities.get.parameters`: the first 2 of 14 items are shown.",
     "`components.schemas.Projection_operator.required`: the first 2 of 5 items are shown.",

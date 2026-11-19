@@ -1922,3 +1922,53 @@ nothing.
 - No behaviour, markup, route or API changes: files moved, and a few shared definitions were taken out of the
   files that held them (the column-drop operations, the relation filter's names, the export request's types).
 - The duplicated Apply/Install and Bulk dialogs stay for the package that next touches them.
+
+## ADR-047 — Each consumer object is written in its type's shape
+
+**Status:** Accepted, 2026-11-18, by the user's approval of the
+[Base 0.17 OT1 plan](BASE_0_17_IMPLEMENTATION_PLAN.md#ot1-each-object-in-its-types-shape-0173). Amends C-D26
+and extends C-D2 ([CONSUMER_API.md](CONSUMER_API.md)).
+
+### Motivation
+
+A consumer API definition has one object shape for every type it exposes. The composer wrote every declared
+field on every object, and a field with no value took its default, then `null`, so "this record has no value"
+and "this type cannot hold the field" read the same: a country answered a currency's minor units as `null`.
+The OpenAPI `Object` listed every field as required for every type, and the editor's Schema and Message
+example showed one object with the fields of all of them.
+
+### Decision
+
+- **OT-D1: a field is on an object when its type holds it.** A declared field (role fields included) is
+  written when one of its sources is a built-in field or an attribute the object's type binds; otherwise it is
+  left out. A field the type holds keeps C-D26: its default, then `null`. A default never puts a field on a type
+  that does not hold it. `objectType`, `parent`, `path`, `hierarchy`, `matchScore` and `target` stay on every
+  object.
+- **OT-D2: a related block is on an object when its type is an end of the relation**, in the block's direction
+  (for `parent.<block>`, the parent's type); otherwise it is left out, not `[]` or `null`. Blocks served on
+  request are unchanged.
+- **OT-D3: one schema per type.** The consumer OpenAPI has a schema for each exposed type, named and titled by
+  its public name, with the fields of OT-D1 and OT-D2, each required (blocks served on request optional).
+  `Object` is a `oneOf` over them with a `discriminator` on `objectType` and no written `mapping` (the schema
+  name equals the `objectType` value, so the implicit mapping is right and a reference page labels each choice
+  once); a public name equal to one of the document's own schema names takes the `Object_` prefix and a mapping
+  entry. One class (`TypeHolding`, `engine/model/consumer_contract.py`) decides "the type holds it", for
+  the composed answer, the schemas and the contract, so they cannot differ.
+- **OT-D4: examples per type, from the model.** Every response whose body holds objects carries one named
+  example per exposed type (a list, its own type's), written from the schemas; no record is read.
+- **OT-D5: the editor picks the type from a dropdown list** (the user's requirement): the Schema and Message
+  example tabs get one searchable list of the exposed types with their hue tiles, the chosen one ticked; the
+  Schema offers All types first, the example one type (the first by default); the choice is shared by the two
+  tabs. The management API takes `?objectType=<PublicName>` on `…/schema.json` and `…/example.json`
+  (`400 UNKNOWN_OBJECT_TYPE` for an unknown name).
+- **OT-D6: the contract check sees each type's fields.** The output contract records the outputs each type
+  carries; an output leaving a type is breaking, one joining a type is additive. The package raises no version:
+  both sides of a comparison are computed by the same rule.
+
+### Consequences
+
+- An integrator reads a country with a country's fields: `null` means the record has no value, an absent field
+  means the type has none. A client that read a field of a type that cannot hold it must stop reading it.
+- A model change that moves an attribute binding or a relation end between exposed types needs a new contract
+  version (or keeping the current one) where the type's objects lose an output.
+- Pre-1.0 the answer shape may change; no definition changes.

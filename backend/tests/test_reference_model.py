@@ -539,15 +539,24 @@ def test_a_draft_of_the_workspace_model_is_changed_read_and_stepped_back(model):
         path=where,
         status=200,
         record="stops",
-        summary="The JSON Schema of the object message the Stops API serves",
+        summary="The JSON Schema of the object message the Stops API serves: its types' schemas",
+    )
+    s.call(
+        "GET",
+        api + "/schema.json",
+        path=where,
+        query={"objectType": "Nowhere"},
+        status=400,
+        code="UNKNOWN_OBJECT_TYPE",
     )
     s.call(
         "GET",
         api + "/example.json",
         path=where,
+        query={"objectType": "Municipality"},
         status=200,
         record="stops",
-        summary="One object message valid against that schema",
+        summary="One object message of the Municipality type, valid against its schema",
     )
     s.call(
         "GET",

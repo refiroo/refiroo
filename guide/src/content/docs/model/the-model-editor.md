@@ -204,7 +204,10 @@ relations' menus and an action to allow another. It can be resized.
 The **Consumer APIs** tab holds the contracts other systems read. Add a consumer API with its
 name and the types to expose, then inspect **Types and related**, **Fields**, **Operations**,
 **Filters**, **Schema** and **Message example**. Fields and related lists shape the public data;
-operations choose what consumers can read. The compatibility status says whether a higher
+operations choose what consumers can read. Each exposed type is answered with only the
+fields it holds and the related blocks its relationships support. In **Schema** and
+**Message example**, use **Object type** to inspect each type. Schema also offers **All types**;
+Message example shows one type, and the choice is shared between tabs. The compatibility status says whether a higher
 contract version is needed. Raising that version is separate from numbering the model release.
 Review breaking changes with the consuming teams before activation.
 

@@ -9,6 +9,8 @@ You need **Model authoring** to edit and **Model release** in the destination wo
 activate. Read [Consumer APIs](/docs/model/consumer-apis/#keep-an-earlier-version-available)
 for the rules. Agree the change and changeover with the consuming teams first.
 
+Unbinding an attribute from a type takes its field away from that type’s consumer objects. Changing a relationship so a related block no longer reaches the type takes that block away too. Both are breaking changes needing a higher contract version, even when the consumer definition itself has not changed. A field or block joining a type is an addition and does not by itself need a higher version. If the old agreement was a mistake, [refine a released API safely](/docs/guide/model/define-a-consumer-api/#refine-a-released-api-safely) explains the explicit choice to keep the current number during activation and change its readers immediately.
+
 ## Keep the previous version available
 
 1. Open a draft based on the release whose contract you are changing. Select **Consumer APIs**,

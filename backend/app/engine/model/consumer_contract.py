@@ -11,8 +11,10 @@ consumers read (C-D17). A definition whose contract loses or changes anything it
 needs a higher ``contractVersion``; removing a whole definition is a warning (C-D18).
 """
 
+from collections import OrderedDict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
+from threading import Lock
 from typing import Any
 
 from ...common.json_pointer import pointer_segment
@@ -75,6 +77,110 @@ def field_value_type(
     if definition is None or not binding_types(types, field):
         return None
     return output_type(definition.valueType)
+
+
+class TypeHolding:
+    """What each object type of a model can hold of a consumer API definition (OT-D1, OT-D2): the one rule
+    the composed object, the OpenAPI schema of each type and the contract's per-type outputs share, so
+    they cannot differ. What the types bind and which types end each block are read once, so asking for
+    every exposed type costs one pass over the model's attributes and relation bindings."""
+
+    def __init__(self, model: EngineModel, definition: ConsumerApiDefinition) -> None:
+        self.model = model
+        self.definition = definition
+        self._bound = {
+            item.key: frozenset(binding.attributeTypeKey for binding in item.attributes)
+            for item in model.objectTypes
+        }
+        # The types that are the owning end of each block's relation, in its direction.
+        self._ends: dict[str, frozenset[str]] = {}
+        for name, block in definition.blocks().items():
+            route = block.from_
+            outgoing = route.direction == "outgoing"
+            self._ends[name] = frozenset(
+                allowed.fromObjectTypeKey if outgoing else allowed.toObjectTypeKey
+                for allowed in model.objectTypeRelations
+                if allowed.relationTypeKey == route.relation
+            )
+
+    def holds_sources(self, type_key: str, sources: Iterable[str]) -> bool:
+        """Whether a record of ``type_key`` can have a value for a field reading ``sources``: one source is
+        a built-in field or an attribute the type binds (OT-D1)."""
+        bound = self._bound.get(type_key, frozenset())
+        return any(source in BUILT_IN_FIELDS or source in bound for source in sources)
+
+    def holds_block(self, type_key: str, name: str) -> bool:
+        """Whether a record of ``type_key`` is an end of the related block ``name``'s relation, in the
+        block's direction (OT-D2). For ``parent.<block>`` the type is the parent's."""
+        return type_key in self._ends[name]
+
+    def parent_blocks(self, type_key: str) -> dict[str, bool]:
+        """The parent blocks (``parent.<block>``) an object of ``type_key`` can carry: each name with whether
+        every type its parent can be holds it. A name no possible parent type holds is left out."""
+        shape = self.definition.object.parent
+        if shape is None:
+            return {}
+        parents = sorted(parent_type_keys(self.model, type_key))
+        found: dict[str, bool] = {}
+        for block in shape.projections:
+            name = f"{PARENT_BLOCK_PREFIX}{block}"
+            held = [self.holds_block(key, name) for key in parents]
+            if any(held):
+                found[name] = all(held)
+        return found
+
+    def outputs(self, type_key: str) -> frozenset[str]:
+        """The outputs an object of ``type_key`` carries: the roles and attributes whose sources the type
+        holds, the parent, path and hierarchy, the blocks whose relation the type is an end of, and
+        ``parent.<block>`` names a possible parent type holds."""
+        shape = self.definition.object
+        found: set[str] = set()
+        for role in OBJECT_ROLES:
+            declared: ConsumerField | None = getattr(shape, role)
+            if declared is not None and self.holds_sources(type_key, declared.source):
+                found.add(declared.output)
+        found |= {
+            name
+            for name, item in shape.attributes.items()
+            if self.holds_sources(type_key, item.source)
+        }
+        if shape.parent is not None:
+            found.add(shape.parent.output)
+        if shape.path is not None:
+            found.add(shape.path)
+        if shape.hierarchy is not None:
+            found.add(shape.hierarchy)
+        found |= {name for name in self.definition.projections if self.holds_block(type_key, name)}
+        found |= set(self.parent_blocks(type_key))
+        return frozenset(found)
+
+
+_HOLDINGS: OrderedDict[tuple[int, int], tuple[EngineModel, ConsumerApiDefinition, TypeHolding]] = (
+    OrderedDict()
+)
+_HOLDINGS_KEPT = 64
+_HOLDINGS_LOCK = Lock()
+
+
+def type_holding(model: EngineModel, definition: ConsumerApiDefinition) -> TypeHolding:
+    """The :class:`TypeHolding` of a definition over a model, kept per pair so a read does not rebuild it.
+
+    A model and a definition are frozen for as long as they live, and a release the registry loads is one
+    ``EngineModel`` object, so the pair is the key (by identity: they are not hashable). The entry holds
+    both objects, so an identity cannot be reused while it is kept; a new release is a new object and
+    never meets an old entry. The newest ``_HOLDINGS_KEPT`` pairs stay."""
+    key = (id(model), id(definition))
+    with _HOLDINGS_LOCK:
+        kept = _HOLDINGS.get(key)
+        if kept is not None:
+            _HOLDINGS.move_to_end(key)
+            return kept[2]
+    holding = TypeHolding(model, definition)
+    with _HOLDINGS_LOCK:
+        _HOLDINGS[key] = (model, definition, holding)
+        while len(_HOLDINGS) > _HOLDINGS_KEPT:
+            _HOLDINGS.popitem(last=False)
+    return holding
 
 
 def split_ancestor_reference(field: str) -> tuple[str, str] | None:
@@ -292,12 +398,15 @@ class OutputContract:
     events: dict[str, EventContract] = field(default_factory=dict)
     # The operations among ``objects``, ``xref`` and ``resolve`` the definition offers (C-D132).
     operations: frozenset[str] = frozenset()
+    # The outputs each exposed type's objects carry (OT-D1, OT-D2, OT-D6).
+    type_outputs: dict[str, frozenset[str]] = field(default_factory=dict)
 
 
 
 def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> OutputContract:
     """The contract of a definition that validation has accepted against ``model``."""
     types = exposed_types(model, definition)
+    holding = type_holding(model, definition)
     shape = definition.object
     fields: dict[str, Any] = {}
     role_types: dict[str, str | None] = {}
@@ -379,6 +488,7 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
             for event in definition.events
         },
         operations=frozenset(name for name in ("objects", "xref", "resolve") if definition.offers(name)),
+        type_outputs={item.key: holding.outputs(item.key) for item in types},
     )
 
 
@@ -573,6 +683,7 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
                 )
             )
     changes += _field_changes("/object", "output field", old.fields, new.fields)
+    changes += _type_output_changes(old, new)
     for name, projection in old.projections.items():
         path = _block_path(name)
         if name not in new.projections:
@@ -638,6 +749,26 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
                 )
             )
     changes += _event_changes(old.events, new.events)
+    return changes
+
+
+def _type_output_changes(old: OutputContract, new: OutputContract) -> list[tuple[str, str]]:
+    """An output that stays in the definition but leaves a type's objects (an attribute unbound from the
+    type, a block whose relation no longer reaches it): its consumers of that type read less (OT-D6). An
+    output that joins a type is additive; one the definition drops is reported as removed."""
+    changes: list[tuple[str, str]] = []
+    for key, held in old.type_outputs.items():
+        if key not in new.types or key not in new.type_outputs:
+            continue
+        name = new.types[key]
+        for output in sorted(held - new.type_outputs[key]):
+            if output in new.projections:
+                path, label = _block_path(output), "related block"
+            elif output in new.fields:
+                path, label = "/object", "output field"
+            else:
+                continue
+            changes.append((path, f"no longer carries {label} '{output}' on '{name}' objects"))
     return changes
 
 

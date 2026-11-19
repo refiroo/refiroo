@@ -4,6 +4,7 @@ import copy
 import json
 
 import pytest
+from jsonschema import Draft202012Validator
 from scenario import consumer_object, consumer_resolve, consumer_xref, ok, refused
 
 API = ("R", "R.u", "R.b", "R.dt", "K", "B1n")
@@ -127,6 +128,107 @@ def test_a_model_change_that_changes_a_projection_needs_a_new_version(world):
     diff = ok(world.api.get(f"/model-releases/{release['id']}/diff", againstReleaseId=active["id"]))
     assert diff["consumerContracts"]["classification"] == "version_required"
     refused(world.activate(release["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")
+
+
+def _journey_api(model):
+    return next(item for item in model["consumerApis"] if item["key"] == "journey-api")
+
+
+@pytest.mark.journey("J25")
+@pytest.mark.structures(*API)
+def test_each_type_answers_with_the_fields_and_blocks_it_holds(world):
+    """Given a consumer API exposing a ledger and a token, where only the ledger binds the number and
+    the flag and the ledger is the owning end of the tokens relationship. When each is read by ID,
+    listed and looked up by XREF. Then the ledger answers its number, its flag (null: it holds it and has
+    no value) and its tokens, the token answers neither the number, the flag nor the tokens but its
+    ledger block, no list item carries a block its type is not an end of, and every answer validates
+    against its own type's schema from the draft."""
+    model = _model(world, "per-type")
+    _journey_api(model)["operations"]["xref"] = {"matchOn": [{"field": "name", "exact": 100}]}
+    draft, compiled = _compile(world, model)
+    assert compiled["valid"] is True
+    ok(world.activate(ok(_install(world, draft), 201)["id"]))
+    ledger = world.made("R", "Per-type ledger", values={"R.u": "PT-1"})
+    token = world.made("K", "Per-type token")
+    ok(world.relate("B1n", ledger["id"], token["id"]), 201)
+    api = "/api/consumer/journey-api/v1"
+
+    def schema(public):
+        return Draft202012Validator(
+            ok(
+                world.api.get(
+                    f"/model-drafts/{draft['id']}/consumer-apis/journey-api/schema.json",
+                    objectType=public,
+                )
+            )
+        )
+
+    ledger_answer = ok(world.api.get(f"{api}/objects/{ledger['id']}"))
+    assert ledger_answer["objectType"] == "Ledger"
+    assert ledger_answer["number"] == "PT-1"
+    assert ledger_answer["flag"] is None
+    assert [item["tokenName"] for item in ledger_answer["tokens"]] == ["Per-type token"]
+    assert "ledger" not in ledger_answer
+    schema("Ledger").validate(ledger_answer)
+
+    token_answer = ok(world.api.get(f"{api}/objects/{token['id']}"))
+    assert token_answer["objectType"] == "Token"
+    assert not {"number", "flag", "tokens"} & set(token_answer)
+    assert token_answer["ledger"]["ledgerName"] == "Per-type ledger"
+    schema("Token").validate(token_answer)
+
+    page = ok(world.api.get(f"{api}/lists/ledgers"))
+    mine = next(item for item in page["items"] if item["id"] == ledger["id"])
+    assert "ledger" not in mine and "tokens" in mine
+    schema("Ledger").validate(mine)
+
+    found = ok(world.api.get(f"{api}/xref", query=["Per-type ledger", "Per-type token"]))
+    by_type = {item["objectType"]: item for item in found["results"]}
+    assert set(by_type) == {"Ledger", "Token"}
+    assert not {"number", "flag", "tokens"} & set(by_type["Token"])
+    assert "number" in by_type["Ledger"] and "ledger" not in by_type["Ledger"]
+    for public, item in by_type.items():
+        schema(public).validate({key: value for key, value in item.items() if key != "matchScore"})
+
+
+@pytest.mark.journey("J25.1")
+@pytest.mark.structures(*API)
+def test_a_field_leaving_a_type_needs_a_new_version_and_one_joining_does_not(world):
+    """Given a consumer API whose note field only the ledger holds. When a draft lets the token bind
+    the attribute too, then it is compatible. When, once that is active, a draft unbinds it from the
+    ledger, so the ledger no longer holds the field although the token does, then a new contract
+    version is required, saying the ledger's objects no longer carry it."""
+    note = "j25-note"
+
+    def model_with(suffix, *, ledger, token):
+        model = _model(world, suffix)
+        model["attributeTypes"].append({"key": note, "name": "Note", "valueType": "text"})
+        for structure, binds in (("R", ledger), ("K", token)):
+            item = next(t for t in model["objectTypes"] if t["key"] == world.key(structure))
+            if binds:
+                item["attributes"].append({"attributeTypeKey": note, "order": 90})
+        _journey_api(model)["object"]["fields"]["note"] = {"from": [note]}
+        return model
+
+    ledger_only = model_with("own-note", ledger=True, token=False)
+    draft, compiled = _compile(world, ledger_only)
+    assert compiled["valid"] is True, compiled["diagnostics"]
+    ok(world.activate(ok(_install(world, draft), 201)["id"]))
+
+    both = model_with("shared-note", ledger=True, token=True)
+    draft, compiled = _compile(world, both)
+    assert compiled["valid"] is True, compiled["diagnostics"]
+    assert compiled["consumerContracts"]["classification"] == "compatible"
+    ok(world.activate(ok(_install(world, draft), 201)["id"]))
+
+    # The ledger lets go of the attribute the token still binds, so the field stays in the API.
+    _draft, compiled = _compile(world, model_with("token-only-note", ledger=False, token=True))
+    assert compiled["valid"] is True, compiled["diagnostics"]
+    assert compiled["consumerContracts"]["classification"] == "version_required"
+    messages = [item["message"] for item in compiled["consumerContracts"]["diagnostics"]]
+    assert any(
+        "no longer carries output field 'note' on 'Ledger' objects" in text for text in messages
+    ), messages
 
 
 @pytest.mark.journey("J25")

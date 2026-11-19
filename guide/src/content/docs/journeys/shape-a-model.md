@@ -47,7 +47,10 @@ A model author defines the business objects other systems should read without ex
 storage structure. Start with [Consumer APIs](/docs/model/consumer-apis/), then
 [define a consumer API](/docs/guide/model/define-a-consumer-api/) over the chosen types, fields,
 related records, lists, lookup rules and events. Validate each reference and review the generated
-[schema and message example](/docs/guide/model/see-a-consumer-apis-documents/).
+[schema and message example](/docs/guide/model/see-a-consumer-apis-documents/). Each exposed
+type carries only its own fields and the related blocks its relationships support. Use
+**Object type** in both tabs to check each type. Schema also offers **All types**; Message
+example shows one type, with the choice shared between the tabs.
 
 Compare the consumer contract before installing and activating the release. A breaking change
 needs a higher contract version; activation refuses it otherwise. An operation is available only

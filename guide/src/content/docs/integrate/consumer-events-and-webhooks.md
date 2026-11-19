@@ -119,11 +119,9 @@ RDM-Workspace: graubuenden
         "validTo": null,
         "stopNumber": 8500004,
         "abbreviation": "SAXX",
-        "fsoNumber": null,
         "latitude": "46.662107304536484",
         "longitude": "8.723794590415595",
         "height": "1553.9",
-        "sboid": null,
         "parent": {
           "objectType": "Municipality",
           "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",

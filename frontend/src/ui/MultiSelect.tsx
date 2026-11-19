@@ -12,6 +12,7 @@ import {
   type Selection,
 } from "react-aria-components";
 import { ChipList } from "@/ui/ChipList";
+import type { Hue } from "@/model/hues";
 import { Icon } from "@/ui/Icon";
 
 export interface PickOption {
@@ -19,6 +20,9 @@ export interface PickOption {
   label: string;
   /** A second line under the label, such as what an event covers. */
   description?: string;
+  /** A hue and a model icon draw a `HueTile` before the label (a kind of record); either alone is drawn too. */
+  hue?: Hue;
+  icon?: string;
 }
 
 /** Ids in the options' order, from a React Aria selection. */

@@ -1445,8 +1445,12 @@ export const api = {
       `/api/v1/model-drafts/${encodeURIComponent(draftId)}/consumer-apis/${encodeURIComponent(consumerApi)}`,
     ),
   /** Its schema, a message example or its OpenAPI document, from the draft (D56). */
-  modelDraftConsumerApiDocument: (draftId: string, consumerApi: string, document: ConsumerApiDocumentKind) =>
-    request<Record<string, unknown>>(consumerApiDocumentPath(draftId, consumerApi, document)),
+  modelDraftConsumerApiDocument: (
+    draftId: string,
+    consumerApi: string,
+    document: ConsumerApiDocumentKind,
+    objectType?: string,
+  ) => request<Record<string, unknown>>(consumerApiDocumentPath(draftId, consumerApi, document, objectType)),
   applyModelDraftOperations: (draftId: string, expectedVersion: number, operations: DraftOperation[]) =>
     request<ModelDraftStep>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/operations`, {
       method: "POST",
@@ -2001,11 +2005,14 @@ function writeQuery(expectedVersion: number, context: ChangeSetWriteContext) {
   return params;
 }
 
-/** Where a draft's consumer API document is served, for a request or a download link (0.10 A4c). */
+/** Where a draft's consumer API document is served, for a request or a download link (0.10 A4c); the schema
+ * and the example of one type when `objectType` (a public name) is given (OT1). */
 export function consumerApiDocumentPath(
   draftId: string,
   consumerApi: string,
   document: ConsumerApiDocumentKind,
+  objectType?: string,
 ): string {
-  return `/api/v1/model-drafts/${encodeURIComponent(draftId)}/consumer-apis/${encodeURIComponent(consumerApi)}/${document}.json`;
+  const path = `/api/v1/model-drafts/${encodeURIComponent(draftId)}/consumer-apis/${encodeURIComponent(consumerApi)}/${document}.json`;
+  return objectType === undefined ? path : `${path}?objectType=${encodeURIComponent(objectType)}`;
 }

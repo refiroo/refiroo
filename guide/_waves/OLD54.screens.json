@@ -1175,7 +1175,7 @@
   },
   {
    "name": "model-consumer-tab-schema",
-   "shows": "Consumer APIs, Stops API, Schema: the generated schema document of the draft consumer API.",
+   "shows": "Consumer APIs, Stops API, Schema: the Object type dropdown opened on All types, with every exposed type in its colour, above the generated schema document. Retaken for OT1 on the e2e harness from guide/samples/model.json (the reference instance was not available), 1440 x 1100.",
    "height": 1100,
    "actions": [
     {
@@ -1191,16 +1191,24 @@
      "wait": 1200
     },
     {
+     "click": {
+      "role": "button",
+      "name": "Object type: All types",
+      "exact": true
+     }
+    },
+    {
      "wait": 600
     }
    ],
    "expect": [
-    "Schema"
+    "Schema",
+    "All types"
    ]
   },
   {
    "name": "model-consumer-tab-example",
-   "shows": "Consumer APIs, Stops API, Message example: the generated example object with placeholder values.",
+   "shows": "Consumer APIs, Stops API, Message example: the Object type dropdown on Stop, above the generated example object of that type with placeholder values. Retaken for OT1 on the e2e harness from guide/samples/model.json (the reference instance was not available), 1440 x 1100.",
    "height": 1100,
    "actions": [
     {
@@ -1220,7 +1228,8 @@
     }
    ],
    "expect": [
-    "Message example"
+    "Message example",
+    "Object type"
    ]
   },
   {

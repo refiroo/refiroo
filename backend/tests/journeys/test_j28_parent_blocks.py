@@ -147,7 +147,8 @@ def test_the_parent_serves_its_fields_and_the_blocks_served_always(world):
     assert _parent_of(world, _read(world, alpha["id"])) is None
     assert OWN_TOKEN not in _read(world, alpha["id"])
 
-    # A parent that does not bind the attribute (a G or M above a D) serves null for it.
+    # A parent that does not bind the attribute (a G or M above a D) serves null for it, and has no block
+    # over a relation it is no end of (OT-D1, OT-D2).
     permit = world.made(
         "D",
         "Permit",
@@ -155,7 +156,7 @@ def test_the_parent_serves_its_fields_and_the_blocks_served_always(world):
         relations=[world.owner("Bown", alpha["id"])],
     )
     above = _parent_of(world, _read(world, permit["id"]))
-    assert above["parentRef"] is None and above[PARENT_PLAIN] is None
+    assert above["parentRef"] is None and PARENT_PLAIN not in above
 
 
 @pytest.mark.journey("J28.16")
@@ -167,7 +168,7 @@ def test_a_block_served_on_request_comes_with_include_on_every_read(world):
     object; a name that is no on-request block is ``400 UNKNOWN_INCLUDE`` naming the valid ones, and
     a batch item's is rejected at its own pointer."""
     _activate(world)
-    _alpha, _beta, entries = _ledgers(world)
+    alpha, _beta, entries = _ledgers(world)
     child = entries["alpha"]["id"]
     named = [f"parent.{PARENT_TOKEN}", OWN_TOKEN]
 
@@ -176,7 +177,9 @@ def test_a_block_served_on_request_comes_with_include_on_every_read(world):
         "tokenName": "Paired token",
         "tokenCode": "TK-1",
     }
-    assert body[OWN_TOKEN] is None
+    # The entry is no end of the relationship, so it has no such block; its ledger has (OT-D2).
+    assert OWN_TOKEN not in body
+    assert _read(world, alpha["id"], include=OWN_TOKEN)[OWN_TOKEN] == {"tokenName": "Paired token"}
     only_parent = _read(world, child, include=f"parent.{PARENT_TOKEN}")
     assert PARENT_TOKEN in _parent_of(world, only_parent) and OWN_TOKEN not in only_parent
     commas = ok(
@@ -200,13 +203,15 @@ def test_a_block_served_on_request_comes_with_include_on_every_read(world):
                     {"id": child},
                     {"id": entries["beta"]["id"], "include": [OWN_TOKEN]},
                     {"id": child, "include": ["parent.nope"]},
+                    {"id": alpha["id"], "include": [OWN_TOKEN]},
                 ],
             },
         )
     )
-    first, second, third = resolved["items"]
+    first, second, third, fourth = resolved["items"]
     assert PARENT_TOKEN in _parent_of(world, first["object"])
-    assert OWN_TOKEN in second["object"] and PARENT_TOKEN not in _parent_of(world, second["object"])
+    assert PARENT_TOKEN not in _parent_of(world, second["object"])
+    assert OWN_TOKEN in fourth["object"]
     assert (third["status"], third["error"]["code"]) == ("rejected", "UNKNOWN_INCLUDE")
     assert third["error"]["details"]["pointer"] == "/items/2/include"
 
@@ -269,7 +274,7 @@ def test_the_openapi_document_types_the_parent_and_lists_the_names(world):
     get by ID, lists and XREF, the on-request blocks are optional properties of the object and of
     the parent, the parent's schema has its fields, and answers conform."""
     _activate(world)
-    _alpha, _beta, entries = _ledgers(world)
+    alpha, _beta, entries = _ledgers(world)
     key = world.key("Capi")
     document = ok(world.api.get(f"/api/consumer/{key}/v1/openapi.json"))
     names = [OWN_TOKEN, f"parent.{PARENT_TOKEN}"]
@@ -278,8 +283,13 @@ def test_the_openapi_document_types_the_parent_and_lists_the_names(world):
             p for p in document["paths"][path]["get"]["parameters"] if p["name"] == "include"
         ]
         assert include["schema"]["items"]["enum"] == names
-    schema = document["components"]["schemas"]["Object"]
-    assert OWN_TOKEN in schema["properties"] and OWN_TOKEN not in schema["required"]
+    schemas = document["components"]["schemas"]
+    # Each type has its own schema (OT-D3): the ledger holds the object's block, the entry (whose parent is
+    # a ledger) holds the parent's.
+    ledger = schemas[world.key("Capi.R")]
+    assert OWN_TOKEN in ledger["properties"] and OWN_TOKEN not in ledger["required"]
+    schema = schemas[world.key("Capi.R2")]
+    assert OWN_TOKEN not in schema["properties"]
     parent = schema["properties"][world.key("Capi.parent")]
     # A parent attribute is null where the parent has no value, and keeps its own type.
     assert parent["properties"]["parentScore"]["type"] == ["integer", "null"]
@@ -288,6 +298,9 @@ def test_the_openapi_document_types_the_parent_and_lists_the_names(world):
     validator = OAS31Validator({**schema, "components": document["components"]})
     validator.validate(_read(world, entries["alpha"]["id"]))
     validator.validate(_read(world, entries["alpha"]["id"], include=names))
+    OAS31Validator({**ledger, "components": document["components"]}).validate(
+        _read(world, alpha["id"], include=names)
+    )
 
 
 @pytest.mark.journey("J25.10")

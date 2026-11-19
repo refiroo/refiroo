@@ -945,7 +945,8 @@ invalid between steps; installation refuses an invalid draft as J08 does.
   on the edited model.
 - **J33.13 Define a consumer API in the editor** (A4c): a definition added from the types it exposes
   and changed part by part (fields, related records, operations, lists, XREF rules, filters, events),
-  each change one step with undo; its schema and a message example read from the draft; a key changed
+  each change one step with undo; its schema (all types, or one chosen from the Object type dropdown) and a
+  message example of the chosen type read from the draft; a key changed
   after it is exposed is rewritten in the definition; served by the consumer tier after activation.
 - **J33.14 A consumer contract change at activation** (A4c): a change the active release's consumers
   would notice shows as needing a higher contract version after each step and in the install dialog;
@@ -1847,9 +1848,11 @@ C6a); XREF is J29 (0.9 C4); the typed document per API (0.9 C6b) and `asOf` read
 1. Read one business object by its object ID from a consumer API's contract version:
    `GET /api/consumer/{consumerApi}/v{contractVersion}/objects/{id}`; or read a declared list of them,
    page by page: `GET /api/consumer/{consumerApi}/v{contractVersion}/lists/{listKey}`.
-2. Receive the definition's shared object: exactly the declared fields, values in their declared
-   types, `parent` (or `null`), `path` and `hierarchy` from the ancestors, and each projection as an
-   object or `null`, or as an array, by the relationship's cardinality. A list item is the same object.
+2. Receive the definition's shared object in the shape of its type: the declared fields the type
+   holds (a field the record has no value for is its default, then `null`; one the type cannot hold is
+   not there), values in their declared types, `parent` (or `null`), `path` and `hierarchy` from the
+   ancestors, and each projection the type is an end of as an object or `null`, or as an array, by the
+   relationship's cardinality. A list item is the same object.
 3. Narrow either read with the definition's parameters, and a list with its parent parameter.
 4. Read live data in the default workspace, or in the workspace named by `workspace`; the response
    names it in `RDM-Workspace`, and a list's envelope in `workspace` as well. Or read one of its

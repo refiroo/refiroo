@@ -1279,6 +1279,14 @@ button.model-editor-crumb {
   flex: 1 1 auto;
   margin: 0;
 }
+.consumer-type-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
 .consumer-document-body {
   max-height: 60vh;
   margin: var(--space-2) 0 0;

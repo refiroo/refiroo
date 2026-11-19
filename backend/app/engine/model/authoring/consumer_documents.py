@@ -5,10 +5,11 @@ and with every default written out, its contract against what the active release
 and three documents, each a download of its own:
 
 - the **schema**: the JSON Schema (2020-12) of the object message consumers receive, the ``Object``
-  component of the definition's OpenAPI document with the schemas it refers to, which an integration
-  validates messages against or generates its types from;
-- a **message example**: one message valid against that schema, written from it (a value of each
-  property's type, a related block as one object or a list of one); no record is read, so the
+  component of the definition's OpenAPI document (a union of the types' schemas) with the schemas it
+  refers to, or one type's schema, which an integration validates messages against or generates its
+  types from;
+- a **message example**: one message of a type valid against that schema, written from it (a value of
+  each property's type, a related block as one object or a list of one); no record is read, so the
   consumer tier never reads a model that is not running (D44, D45);
 - the definition's **OpenAPI document**, as the consumer tier will serve it.
 """
@@ -21,7 +22,8 @@ from ....models.schema import EngineModel
 from ..compiler import compile_model
 from ..consumer_contract import KEPT_VERSION_CHANGED, contract_diagnostics
 from ..consumer_definitions import consumer_api
-from ..consumer_openapi import consumer_openapi
+from ..consumer_examples import example_of
+from ..consumer_openapi import consumer_openapi, type_schema_names
 from ..consumer_rendering import expanded_definition
 from .outline import diagnostic_with_element
 
@@ -68,20 +70,46 @@ def draft_openapi(
     )
 
 
-def draft_schema(draft: ModelDraft, key: str, *, resolve_max_items: int) -> dict[str, Any]:
-    """The JSON Schema of the object message: the OpenAPI document's ``Object`` and what it refers to."""
+def draft_schema(
+    draft: ModelDraft, key: str, *, resolve_max_items: int, object_type: str | None = None
+) -> dict[str, Any]:
+    """The JSON Schema of the object message: the OpenAPI document's ``Object`` (a union of the types'
+    schemas) and what it refers to; with ``object_type`` (a public name) that one type's schema (OT-D5)."""
     # Only the schemas are taken, so the token URL is never read.
-    document = draft_openapi(draft, key, root_path="", resolve_max_items=resolve_max_items, token_url="")
-    return object_schema(document, title=document["info"]["title"])
+    model, definition = _compiled(draft, key)
+    document = consumer_openapi(
+        model, definition, root_path="", resolve_max_items=resolve_max_items, token_url=""
+    )
+    root = "Object"
+    title = document["info"]["title"]
+    if object_type is not None:
+        by_name = {item.publicName: type_key for type_key, item in definition.objectTypes.items()}
+        if object_type not in by_name:
+            public = sorted(by_name)
+            raise api_error(
+                400,
+                "UNKNOWN_OBJECT_TYPE",
+                f"Unknown object type '{object_type}'; this API exposes {', '.join(public)}",
+                {"objectTypes": [object_type], "publicNames": public, "path": "/query/objectType"},
+            )
+        root = type_schema_names(definition)[by_name[object_type]]
+        title = object_type
+    return object_schema(document, title=title, root=root)
 
 
-def draft_example(draft: ModelDraft, key: str, *, resolve_max_items: int) -> dict[str, Any]:
-    """One object message valid against :func:`draft_schema`."""
-    schema = draft_schema(draft, key, resolve_max_items=resolve_max_items)
-    return example_of(schema, schema.get("$defs", {}))
+def draft_example(
+    draft: ModelDraft, key: str, *, resolve_max_items: int, object_type: str | None = None
+) -> dict[str, Any]:
+    """One object message valid against :func:`draft_schema`; of ``object_type`` when named, else of the
+    first type the definition exposes (OT-D5)."""
+    if object_type is None:
+        _model, definition = _compiled(draft, key)
+        object_type = next(iter(definition.objectTypes.values())).publicName
+    schema = draft_schema(draft, key, resolve_max_items=resolve_max_items, object_type=object_type)
+    return example_of(schema, schema.get("$defs", {}), "", object_type)
 
 
-def object_schema(document: dict[str, Any], *, title: str) -> dict[str, Any]:
+def object_schema(document: dict[str, Any], *, title: str, root: str = "Object") -> dict[str, Any]:
     schemas = document["components"]["schemas"]
     wanted: dict[str, Any] = {}
 
@@ -99,63 +127,32 @@ def object_schema(document: dict[str, Any], *, title: str) -> dict[str, Any]:
             for value in node:
                 collect(value)
 
-    root = schemas["Object"]
-    collect(root)
-    wanted.pop("Object", None)
-    schema = {"$schema": JSON_SCHEMA, "title": title, **_relinked(root)}
+    start = schemas[root]
+    collect(start)
+    wanted.pop(root, None)
+    schema = {"$schema": JSON_SCHEMA, **_relinked(start), "title": title}
     if wanted:
         schema["$defs"] = {name: _relinked(value) for name, value in wanted.items()}
     return schema
 
 
-def _relinked(node: Any) -> Any:
+def _relinked(node: Any, parent: str = "") -> Any:
+    """``$ref`` pointers and a discriminator's ``mapping`` targets rewritten from the OpenAPI document's
+    components to this document's ``$defs``."""
     if isinstance(node, dict):
         return {
-            name: (f"#/$defs/{value.removeprefix(_REF)}" if name == "$ref" and isinstance(value, str) else _relinked(value))
+            name: (
+                f"#/$defs/{value.removeprefix(_REF)}"
+                if isinstance(value, str)
+                and value.startswith(_REF)
+                and (name == "$ref" or parent == "mapping")
+                else _relinked(value, name)
+            )
             for name, value in node.items()
         }
     if isinstance(node, list):
         return [_relinked(value) for value in node]
     return node
-
-
-_STRINGS = {"date": "2026-01-01", "date-time": "2026-01-01T09:00:00Z", "uuid": "7f3c2a9e-1b4d-4c8a-9e21-5d0f6b8a3c11"}
-
-
-def example_of(schema: Any, defs: dict[str, Any], name: str = "") -> Any:
-    """A value valid against ``schema``: the first choice of a union that is not null, an enum's
-    first value, and a value of each type otherwise."""
-    if not isinstance(schema, dict):
-        return None
-    reference = schema.get("$ref")
-    if isinstance(reference, str):
-        return example_of(defs.get(reference.removeprefix("#/$defs/"), {}), defs, name)
-    if "const" in schema:
-        return schema["const"]
-    if schema.get("enum"):
-        return schema["enum"][0]
-    for union in ("anyOf", "oneOf"):
-        if isinstance(schema.get(union), list):
-            choices = [item for item in schema[union] if item.get("type") != "null"] or schema[union]
-            return example_of(choices[0], defs, name)
-    kind = schema.get("type")
-    if isinstance(kind, list):
-        kind = next((item for item in kind if item != "null"), "null")
-    if kind == "object" or "properties" in schema:
-        return {prop: example_of(value, defs, prop) for prop, value in (schema.get("properties") or {}).items()}
-    if kind == "array":
-        return [example_of(schema.get("items", {}), defs, name)]
-    if kind == "string":
-        return _STRINGS.get(schema.get("format", ""), f"Example {name}".strip())
-    if kind == "integer":
-        return 1
-    if kind == "number":
-        return 1.5
-    if kind == "boolean":
-        return True
-    if kind == "null":
-        return None
-    return f"Example {name}".strip()
 
 
 def _compiled(draft: ModelDraft, key: str) -> tuple[EngineModel, Any]:

@@ -7,7 +7,7 @@ reader: integrator
 Use this sequence when a downstream system needs a stable business representation. Read [Consumer APIs](/docs/integrate/consumer-apis/) for the contract and permission model.
 
 1. Have an administrator [grant the client](/docs/administer/clients/) the intended consumer API in the workspace. [Get a consumer token](/docs/guide/integrate/get-a-token/); a management role alone does not open these reads.
-2. Read the [consumer API index](/docs/api/?api=management). For the reference example, request `GET /api/consumer?workspace=graubuenden` and select `stops`, version 1. Its document is `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`. Read [how the declaration becomes routes and outputs](/docs/integrate/consumer-apis/#from-a-declaration-to-a-running-api), then use the instance's document to confirm its shape. An earlier served version has its own entry marked `deprecated: true`, with `sunset` when announced. Select the version your client implements; deprecated does not mean unavailable.
+2. Read the [consumer API index](/docs/api/?api=management). For the reference example, request `GET /api/consumer?workspace=graubuenden` and select `stops`, version 1. Its document is `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`. Read [how the declaration becomes routes and outputs](/docs/integrate/consumer-apis/#from-a-declaration-to-a-running-api), then use the instance's document to confirm each exposed type’s shape. The response schema’s **One of** selector and named example picker show the fields for each type. An earlier served version has its own entry marked `deprecated: true`, with `sunset` when announced. Select the version your client implements; deprecated does not mean unavailable.
 3. Choose live data for current answers, or a publication for a fixed extract. Use the contract's Publications operation to select an available snapshot. Keep its identity; a business date, if supported, filters that snapshot rather than choosing another one.
 4. Read a known object ID, or start a declared list. Check that the answer identifies the intended workspace and publication. Apply only documented narrowing parameters.
 5. Process each page and follow its next cursor with the same request scope. Persist completed work before the cursor. A cursor started on the current publication continues on that snapshot if a new one is published.
@@ -41,7 +41,7 @@ Authorization: Bearer <consumer-token>
 Accept: application/json
 ```
 
-The 200 body is the shared `Stop` object for Tschamut-Selva: the stop number, typed fields, parent, ancestor path, operator, modes, system codes and translations. It is not wrapped in `items`. Check the [complete response](/docs/integrate/reading-business-objects/#a-complete-object-read) before coding a client that expects another shape.
+The 200 body is the object in the `Stop` type’s shape for Tschamut-Selva: the stop number, typed fields, parent, ancestor path, operator, modes, system codes and translations. It omits `fsoNumber` and `sboid`, which the Stop type cannot hold. It is not wrapped in `items`. Check the [complete response](/docs/integrate/reading-business-objects/#a-complete-object-read) before coding a client that expects another shape.
 
 To enumerate stops, use a list instead:
 

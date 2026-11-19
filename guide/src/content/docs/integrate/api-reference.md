@@ -12,7 +12,7 @@ The reference opens with **Management API** and lists the consumer APIs declared
 
 In the browser, **Settings › Connections › API reference** lists the sources, versions and OpenAPI document links. Select a source name to open its reference. You can also open the [management source](/docs/api/?api=management), or discover consumer sources through the [API index](/docs/api/?api=management). See [Discovering the model](/docs/integrate/discovering-the-model/) for selecting a contract programmatically.
 
-The management document describes the engine's management interface. Each consumer API has a separate document describing the contract declared in the model. Use those documents for generated clients and validation; the guide does not duplicate their schemas.
+The management document describes the engine's management interface. Each consumer API has a separate document describing the contract declared in the model. A response containing business objects shows **One of** in its schema: choose a type to see only its fields, with objectType marked as the discriminator. Under **The answer.**, the named example picker offers one example per exposed type; a list offers its own type’s example. These examples are generated from field types without reading records. Use those documents for generated clients and validation; the guide does not duplicate their schemas.
 
 ## Try an operation
 

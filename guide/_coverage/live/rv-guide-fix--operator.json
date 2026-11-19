@@ -4,32 +4,21 @@
   "status": 200,
   "headers": {
     "content-type": "application/json",
-    "etag": "W/\"aa0a706f7657c2adb5a7:1\"",
+    "etag": "W/\"6686a9435491d2d27bf6:1\"",
     "rdm-workspace": "graubuenden",
     "vary": "Origin",
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
-    "x-request-id": "86e613ffd8784eb5a78ed2933ac5a8ec"
+    "x-request-id": "8bd8ed66ac34474cada1450a05bfaf56"
   },
   "body": {
     "objectType": "Operator",
     "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
     "code": "MGB-fo",
     "name": "Matterhorn Gotthard Bahn (fo)",
-    "validFrom": null,
-    "validTo": null,
-    "stopNumber": null,
-    "abbreviation": null,
-    "fsoNumber": null,
-    "latitude": null,
-    "longitude": null,
-    "height": null,
     "sboid": "ch:1:sboid:100029",
     "parent": null,
     "path": "",
-    "operator": null,
-    "modes": [],
-    "systemCodes": [],
     "translations": [
       {
         "languageCode": "de",

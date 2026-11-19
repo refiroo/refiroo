@@ -281,15 +281,17 @@ Reads one consumer API definition as written in the draft and, when the draft co
 
 Title: Get a draft consumer API's message schema
 
-Answers the JSON Schema (2020-12) of the object message that consumers of this definition will receive, written from the draft. Use it to generate types or validate messages before the model is installed.
+Answers the JSON Schema (2020-12) of the object message that consumers of this definition will receive, written from the draft: the union of its types, told apart by `objectType`, or one type's schema with `objectType`. Each type's schema holds only the fields and related blocks that type holds. Use it to generate types or validate messages before the model is installed.
 
 ### Parameters
 
 - draft_id: The draft's ID.
 - consumer_api: The consumer API's key.
+- objectType: The public name of one type the definition exposes. Without it the answer covers every type.
 
 ### Errors
 
+- 400 UNKNOWN_OBJECT_TYPE: objectType names no type the definition exposes
 - 403 FORBIDDEN: needs Model authoring
 - 404 MODEL_DRAFT_NOT_FOUND: no draft has this ID
 - 404 CONSUMER_API_NOT_FOUND: the draft declares no consumer API with this key
@@ -300,15 +302,17 @@ Answers the JSON Schema (2020-12) of the object message that consumers of this d
 
 Title: Get a draft consumer API's example message
 
-Answers one object message valid against the draft consumer API's schema, written from the schema alone: the values are placeholders and no record is read. Use it as a sample for people building a client.
+Answers one object message of one type, valid against the draft consumer API's schema and written from the schema alone: the values are placeholders and no record is read. Use it as a sample for people building a client.
 
 ### Parameters
 
 - draft_id: The draft's ID.
 - consumer_api: The consumer API's key.
+- objectType: The public name of the type to show. Without it the first type the definition exposes.
 
 ### Errors
 
+- 400 UNKNOWN_OBJECT_TYPE: objectType names no type the definition exposes
 - 403 FORBIDDEN: needs Model authoring
 - 404 MODEL_DRAFT_NOT_FOUND: no draft has this ID
 - 404 CONSUMER_API_NOT_FOUND: the draft declares no consumer API with this key

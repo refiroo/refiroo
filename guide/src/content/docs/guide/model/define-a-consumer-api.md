@@ -30,7 +30,8 @@ examples below use the reference Stops API. They explain the result of your choi
    **Output name**, **Via** and **Fields**. Each related field pairs a public name with a
    value on the related record. Check the relationship's direction and whether it serves
    one record or several: the answer is respectively an object or an array. A missing
-   relationship gives null or an empty array, rather than an invented related record. The
+   relationship gives null or an empty array when the type can hold that block, rather than
+   an invented related record. A type the relationship does not reach omits the block. The
    field picker's group **Attributes of the relationship** lists the values stored on the
    relationship itself, when the relation's binding carries any. Give each selected value a
    public output name and check its served type in **Schema**. A connection without that value
@@ -90,8 +91,8 @@ avoids a second read, but a parent's related block repeats for every child in a 
 5. Open **Operations**. If any block is on request, **Include** shows the accepted choices,
    with the parent's blocks distinguished by a parent prefix. This list is generated from
    Served; there is nothing to enter here. Share it with the consuming team. An omitted
-   block is absent, rather than null or an empty list; when requested it uses the usual
-   object-or-list shape.
+   block is absent, rather than null or an empty list; when requested on a type its relationship
+   reaches, it uses the usual object-or-list shape.
 6. To filter through the parent's block, open **Filters**, choose **Add filter…**, set
    **Verb** to **On related**, and select the parent's entry in **Related block**. Choose
    **Name** and **Matches on**. Select **Keep only matching records** if children whose
@@ -99,7 +100,8 @@ avoids a second read, but a parent's related block repeats for every child in a 
    The filter still works when the block is not requested. Leave **Crosswalk** clear:
    a parent's block cannot be a crosswalk target. The parameter used by Include is
    reserved for requesting blocks; choose a different filter name.
-7. Review **Issues**, **Schema**, **Message example** and compatibility. The parent has
+7. Review **Issues**, **Schema**, **Message example** and compatibility. In both document
+   tabs, use **Object type** to check each exposed type and its parent’s blocks. The parent has
    one level; another parent, path or hierarchy cannot be added inside it. Values from the
    parent's ancestors are supported through specialist editing, rather than new choices
    in the parent field picker. An invalid field or relationship must be corrected before
@@ -168,7 +170,8 @@ Above: adding a public field to a consumer API in the reference model.
    and a field under **Attributes of the relationship**. Keep only matching records if objects
    without a matching connection should disappear too. To score a carried value instead, use
    a text attribute in the related match's **First of**. Review **Schema** and **Message example**:
-   only the connection with that value supplies a match, even when other records share its target.
+   choose each exposed type in **Object type** to check its fields. Only the connection with
+   that value supplies a match, even when other records share its target.
 
 ![Filter dialog with verb-specific matching options](/docs/screens/model-consumer-add-filter.png)
 
@@ -193,7 +196,13 @@ The stop number Exact rule scores Chur at 900 for its number 8509000. Matching Q
 2. Use **Describe…** to explain the API's purpose to consuming teams. Review **Issues**,
    **Schema**, **Message example** and the compatibility result. A **Not applied** notice
    means the attempted step was refused: correct its named problem, then review again.
-   Specialist editing does not bypass validation.
+   Specialist editing does not bypass validation. In **Schema** and **Message example**, use
+   **Object type** to review every exposed type. **All types** on Schema shows the whole
+   document; Message example shows one type. The choice is shared between tabs. Check
+   that each type has only the fields it holds. If an expected field is missing, check
+   that the type attaches its source attribute; for a related block, check that the type
+   is an end of the chosen relationship in that direction. A default cannot add a field
+   to a type that does not hold its source.
 3. If the editor says **Needs contract version …**, inspect the contract changes and
    decide whether to raise or keep the version, as described in
    [Refine a released API safely](#refine-a-released-api-safely). The contract

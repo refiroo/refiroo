@@ -191,11 +191,9 @@ RDM-Workspace: graubuenden
       "validTo": null,
       "stopNumber": 8505173,
       "abbreviation": "TSSE",
-      "fsoNumber": null,
       "latitude": "46.65674442039232",
       "longitude": "8.709084193690385",
       "height": "1701.3",
-      "sboid": null,
       "parent": {
         "objectType": "Municipality",
         "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
@@ -243,7 +241,7 @@ RDM-Workspace: graubuenden
 }
 ```
 
-The complete shared object is returned with `matchScore` added. XREF pages use `results`, not a list's `items`. Here there is one candidate and no next page. If you add `expect=one`, the response is this one scored object directly, without the page envelope. With no candidate it is `404 NO_MATCH`; with tied top candidates it is `409 AMBIGUOUS_MATCH`. Lower-scoring alternatives do not make an untied top answer ambiguous.
+The complete object in its type’s shape is returned with `matchScore` added. A Stop has no `fsoNumber` or `sboid` field, because its type does not hold them. XREF pages use `results`, not a list's `items`. Here there is one candidate and no next page. If you add `expect=one`, the response is this one scored object directly, without the page envelope. With no candidate it is `404 NO_MATCH`; with tied top candidates it is `409 AMBIGUOUS_MATCH`. Lower-scoring alternatives do not make an untied top answer ambiguous.
 
 Name search is case-insensitive. A contains match begins at three characters. Multiple terms use repeated `query` values or the supported comma syntax; percent-encode a literal comma inside a URL value. JSON resolution items can instead use arrays without URL splitting. Keep terms and filters unchanged when following a lookup cursor.
 
@@ -288,11 +286,9 @@ RDM-Workspace: graubuenden
   "validTo": null,
   "stopNumber": 8505173,
   "abbreviation": "TSSE",
-  "fsoNumber": null,
   "latitude": "46.65674442039232",
   "longitude": "8.709084193690385",
   "height": "1701.3",
-  "sboid": null,
   "parent": {
     "objectType": "Municipality",
     "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
@@ -385,11 +381,9 @@ RDM-Workspace: graubuenden
         "validTo": null,
         "stopNumber": 8505173,
         "abbreviation": "TSSE",
-        "fsoNumber": null,
         "latitude": "46.65674442039232",
         "longitude": "8.709084193690385",
         "height": "1701.3",
-        "sboid": null,
         "parent": {
           "objectType": "Municipality",
           "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",

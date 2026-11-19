@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Per-type reference mock-up</title>
+<style>body { margin: 0; }</style>
+</head>
+<body>
+<!-- The reference page as the vendored Scalar 1.72.2 renders a contract with one schema per object type:
+     Object is a oneOf over Object_Country / Object_Currency / Object_Language with a discriminator on
+     objectType, and each response carries one named example per type. Open from the repository
+     (file:// or any static server at the repository root) so the relative script path resolves. -->
+<div id="app"></div>
+<script src="../../backend/app/management/reference/scalar/standalone.js"></script>
+<script>
+const parent = {
+  type: ["object", "null"], required: ["objectType", "id", "code", "name"],
+  properties: { objectType: { type: ["string", "null"] }, id: { type: "string" }, code: { type: ["string", "null"] }, name: { type: "string" } },
+};
+const common = {
+  id: { type: "string", format: "uuid" },
+  code: { type: ["string", "null"] },
+  name: { type: "string" },
+  isActive: { type: "boolean" },
+  description: { type: ["string", "null"] },
+  parent: { $ref: "#/components/schemas/Parent" },
+  path: { type: "string" },
+  hierarchy: { type: "array", items: { type: "string" } },
+  translations: { type: "array", items: { $ref: "#/components/schemas/Projection_translations" } },
+};
+function typed(title, own, note) {
+  const properties = { objectType: { type: "string", const: title }, ...common, ...own };
+  return { title, description: note, type: "object", additionalProperties: false, properties, required: Object.keys(properties) };
+}
+const scored = (name) => ({
+  title: name.replace("Object_", ""),
+  allOf: [{ $ref: `#/components/schemas/${name}` }, { type: "object", required: ["matchScore"], properties: { matchScore: { type: "integer" } } }],
+});
+const base = (type, code, name, extra) => ({
+  objectType: type, id: "7f3c2a9e-1b4d-4c8a-9e21-5d0f6b8a3c11", code, name, isActive: true, description: null,
+  parent: { objectType: "Folder", id: "3b8e1f40-6c2d-4a7e-9f15-2d4c8b7a9e03", code: null, name: "Reference lists" },
+  path: "Reference lists", hierarchy: ["Reference lists"],
+  translations: [{ languageCode: "es", translatedName: "Example translated name" }], ...extra,
+});
+const examples = {
+  Country: base("Country", "DE", "Germany", { "alpha-3": "DEU", callingCode: "+49" }),
+  Currency: base("Currency", "EUR", "Euro", { minorUnits: 2, symbol: "€" }),
+  Language: base("Language", "de", "German", { nativeName: "Deutsch" }),
+};
+// Seventeen more types, so the page shows an API of 20 types.
+const more = ["Region", "City", "Time zone", "Unit of measure", "Unit group", "Tax rate", "Payment term", "Incoterm",
+  "Industry", "Legal form", "Title", "Gender", "Marital status", "Document type", "Channel", "Priority", "Status reason"];
+const key = (n) => n.replace(/ /g, "");
+for (const n of more) examples[n] = base(n, "X1", `Example ${n.toLowerCase()}`, { sortOrder: 1 });
+const named = (wrap) => Object.fromEntries(Object.entries(examples).map(([k, v]) => [k, { summary: k, value: wrap(v) }]));
+const spec = {
+  openapi: "3.1.0",
+  info: { title: "Reference data (mock-up)", version: "3", description: "Mock-up of per-type object schemas. Each object carries only the fields its type holds; `objectType` says which shape it is." },
+  paths: {
+    "/objects/{id}": {
+      get: {
+        summary: "Get by ID", operationId: "getObject",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { 200: { description: "The object, in its type's shape", content: { "application/json": { schema: { $ref: "#/components/schemas/Object" }, examples: named((v) => v) } } } },
+      },
+    },
+    "/xref": {
+      get: {
+        summary: "XREF", operationId: "xref",
+        parameters: [{ name: "q", in: "query", required: true, schema: { type: "array", items: { type: "string" } } }],
+        responses: { 200: { description: "Scored objects, each in its type's shape", content: { "application/json": { schema: { $ref: "#/components/schemas/XrefPage" },
+          examples: named((v) => ({ results: [{ ...v, matchScore: 500 }], query: [v.code], workspace: "main", publication: null, pageSize: 20, nextCursor: null, prevCursor: null, anchor: null, totalCount: 1, startIndex: 0 })) } } } },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Object: {
+        description: "One of the object types this API serves; `objectType` names it.",
+        oneOf: Object.keys(examples).map((n) => ({ $ref: `#/components/schemas/Object_${key(n)}` })),
+        discriminator: { propertyName: "objectType" },
+      },
+      Object_Country: typed("Country", { "alpha-3": { type: ["string", "null"] }, callingCode: { type: ["string", "null"] } }, "A country."),
+      Object_Currency: typed("Currency", { minorUnits: { type: ["integer", "null"] }, symbol: { type: ["string", "null"] } }, "A currency."),
+      Object_Language: typed("Language", { nativeName: { type: ["string", "null"] } }, "A language."),
+      ...Object.fromEntries(more.map((n) => [`Object_${key(n)}`, typed(n, { sortOrder: { type: ["integer", "null"] } }, `A ${n.toLowerCase()}.`)])),
+      ScoredObject: {
+        oneOf: Object.keys(examples).map((n) => scored(`Object_${key(n)}`)),
+        discriminator: { propertyName: "objectType" },
+      },
+      Parent: parent,
+      Projection_translations: { type: "object", required: ["languageCode", "translatedName"], properties: { languageCode: { type: "string" }, translatedName: { type: ["string", "null"] } } },
+      XrefPage: {
+        type: "object",
+        required: ["results", "query", "workspace", "publication", "pageSize", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"],
+        properties: {
+          results: { type: "array", items: { $ref: "#/components/schemas/ScoredObject" } },
+          query: { type: "array", items: { type: "string" } }, workspace: { type: "string" }, publication: { type: ["string", "null"] },
+          pageSize: { type: "integer" }, nextCursor: { type: ["string", "null"] }, prevCursor: { type: ["string", "null"] },
+          anchor: { type: ["string", "null"] }, totalCount: { type: ["integer", "null"] }, startIndex: { type: ["integer", "null"] },
+        },
+      },
+    },
+  },
+};
+Scalar.createApiReference("#app", {
+  content: spec, withDefaultFonts: false, telemetry: false, agent: { disabled: true }, mcp: { disabled: true },
+  showDeveloperTools: "never", hideClientButton: true, hideDarkModeToggle: true, hideTestRequestButton: true,
+});
+</script>
+</body>
+</html>

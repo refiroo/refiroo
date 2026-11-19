@@ -806,6 +806,37 @@ export function outputFor(source: string): string {
   );
 }
 
+/**
+ * The properties of a schema document, over every type when it is the union of the types' schemas (a
+ * `oneOf` of references, OT-D3): the first type holding a name gives its schema.
+ */
+export function schemaProperties(schema: Record<string, unknown> | undefined): Record<string, Record<string, unknown>> {
+  if (!schema) return {};
+  const defs = record(schema.$defs);
+  const found: Record<string, Record<string, unknown>> = {};
+  const own = record(schema.properties) as Record<string, Record<string, unknown>>;
+  for (const [name, value] of Object.entries(own)) found[name] = value;
+  for (const choice of list(schema.oneOf)) {
+    const reference = record(choice).$ref;
+    const type = record(typeof reference === "string" ? defs[reference.replace("#/$defs/", "")] : choice);
+    for (const [name, value] of Object.entries(record(type.properties)))
+      if (!(name in found)) found[name] = record(value);
+  }
+  return found;
+}
+
+/**
+ * The file name of a document, of one type's when `objectType` is given: `{api}-{type}-schema.json`, the
+ * type as a slug of its public name. Without `consumerApi` the name the Download link shows.
+ */
+export function typeFileName(consumerApi: string | undefined, objectType: string | undefined, file: string): string {
+  const slug = objectType
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return [consumerApi, objectType === undefined ? undefined : slug || "type", file].filter(Boolean).join("-");
+}
+
 /** A property's type in a JSON Schema, in a few words: `text`, `date`, `integer | null`, `list of …`. */
 export function schemaTypeLabel(
   schema: Record<string, unknown> | undefined,

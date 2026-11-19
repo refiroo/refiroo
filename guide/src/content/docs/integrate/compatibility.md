@@ -29,6 +29,8 @@ An optional request field whose absence preserves behavior is additive. So are n
 
 Removing or renaming a contract element, changing its type, meaning, unit or default, requiring an optional input, refusing a previously accepted request, changing response status or changing signature, token or cursor verification is breaking. Adding a value that a request must send is also breaking.
 
+For a consumer API, unbinding an attribute from a type or changing a relation so a related block no longer reaches that type removes an output from that type’s objects. This is breaking even if the consumer declaration is unchanged. It needs a higher contract version, unless the model administrator explicitly accepts changing the current version in place during activation. A field or related block joining a type is additive and does not itself require a higher version. See [Raise a contract version](/docs/guide/model/raise-a-contract-version/) for the model author’s review.
+
 Make these rules part of your client:
 
 - Ignore unknown fields in responses, events and tokens. Consumer response objects permit additional fields.

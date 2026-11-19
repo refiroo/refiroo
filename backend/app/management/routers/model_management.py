@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request, Response, status
 from sqlalchemy import select
@@ -545,13 +545,19 @@ def get_model_draft_consumer_api(
 )
 @requires("model.author", at=INSTANCE)
 def get_model_draft_consumer_api_schema(
-    draft_id: str, consumer_api: str, request: Request, session: DbSession
+    draft_id: str,
+    consumer_api: str,
+    request: Request,
+    session: DbSession,
+    object_type: Annotated[str | None, Query(alias="objectType")] = None,
 ) -> dict[str, Any]:
-    """The JSON Schema of the object message the definition serves, from the draft (D56)."""
+    """The JSON Schema of the object message the definition serves, from the draft (D56): the union of
+    its types, or one type's with `objectType` (a public name; `400 UNKNOWN_OBJECT_TYPE` otherwise)."""
     return draft_schema(
         load_draft(session, draft_id),
         consumer_api,
         resolve_max_items=request.app.state.consumer_resolve_max_items,
+        object_type=object_type,
     )
 
 
@@ -561,13 +567,20 @@ def get_model_draft_consumer_api_schema(
 )
 @requires("model.author", at=INSTANCE)
 def get_model_draft_consumer_api_example(
-    draft_id: str, consumer_api: str, request: Request, session: DbSession
+    draft_id: str,
+    consumer_api: str,
+    request: Request,
+    session: DbSession,
+    object_type: Annotated[str | None, Query(alias="objectType")] = None,
 ) -> dict[str, Any]:
-    """One object message valid against the definition's schema, written from it; no record is read (D56)."""
+    """One object message of a type valid against the definition's schema, written from it; no record
+    is read (D56). `objectType` names the type (a public name; `400 UNKNOWN_OBJECT_TYPE` otherwise), the
+    first type the definition exposes by default."""
     return draft_example(
         load_draft(session, draft_id),
         consumer_api,
         resolve_max_items=request.app.state.consumer_resolve_max_items,
+        object_type=object_type,
     )
 
 

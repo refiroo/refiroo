@@ -1,29 +1,23 @@
 {
   "operation": "GET /api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json",
   "name": "stops",
-  "summary": "One object message valid against that schema",
+  "summary": "One object message of the Municipality type, valid against its schema",
   "request": {
     "path": {
       "draft_id": "00000000-0000-4000-8000-000000000024",
       "consumer_api": "stops"
+    },
+    "query": {
+      "objectType": "Municipality"
     }
   },
   "response": {
     "status": 200,
     "body": {
-      "objectType": "Mode",
+      "objectType": "Municipality",
       "id": "Example id",
-      "code": "Example code",
       "name": "Example name",
-      "validFrom": "2026-01-01",
-      "validTo": "2026-01-01",
-      "stopNumber": 1,
-      "abbreviation": "Example abbreviation",
       "fsoNumber": 1,
-      "latitude": "Example latitude",
-      "longitude": "Example longitude",
-      "height": "Example height",
-      "sboid": "Example sboid",
       "parent": {
         "objectType": "Example objectType",
         "id": "Example id",
@@ -31,20 +25,6 @@
         "name": "Example name"
       },
       "path": "Example path",
-      "operator": {
-        "id": "Example id",
-        "code": "Example code",
-        "name": "Example name",
-        "localName": "Example localName",
-        "isPrimary": true
-      },
-      "modes": [
-        {
-          "id": "Example id",
-          "code": "Example code",
-          "name": "Example name"
-        }
-      ],
       "systemCodes": [
         {
           "system": "Example system",

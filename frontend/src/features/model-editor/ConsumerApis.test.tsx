@@ -4,6 +4,7 @@ import { api } from "@/api/client";
 import { ConsumerApiPanel } from "@/features/model-editor/ConsumerApis";
 import { consumerDefinitionFixture, outlineFixture } from "@/test/draftOutline";
 import { ToastProvider } from "@/ui/Toast";
+import * as download from "@/api/download";
 
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
@@ -144,5 +145,91 @@ describe("editing the fields of a related block of the parent (0.17 CA1)", () =>
       ["id", "id"],
     ]);
     expect(Object.keys(sent[0].value)).toHaveLength(3);
+  });
+});
+
+describe("the Schema and the Message example of one type (OT1)", () => {
+  function panel(tab: "schema" | "example") {
+    return (
+      <ToastProvider>
+        <ConsumerApiPanel
+          draftId="d1"
+          outline={outlineFixture()}
+          selection={{ show: "consumerApi", key: "shop-feed", tab }}
+          onSelect={vi.fn()}
+          menuOpen={false}
+          onMenuOpenChange={vi.fn()}
+          onOperation={vi.fn()}
+          run={vi.fn()}
+        />
+      </ToastProvider>
+    );
+  }
+
+  beforeEach(() => {
+    vi.mocked(api.modelDraftConsumerApi).mockResolvedValue({
+      version: 4,
+      valid: true,
+      definition: consumerDefinitionFixture(),
+    });
+    vi.mocked(api.modelDraftConsumerApiDocument).mockResolvedValue({ type: "object" });
+  });
+
+  const documents = () =>
+    vi
+      .mocked(api.modelDraftConsumerApiDocument)
+      .mock.calls.filter(([, , document]) => document !== undefined)
+      .map(([, , document, objectType]) => `${document}:${objectType ?? ""}`);
+
+  it("offers All types first on the Schema and every exposed type, with the chosen one on the button", async () => {
+    render(panel("schema"));
+    const button = await screen.findByRole("button", { name: "Object type: All types" });
+    fireEvent.click(button);
+    const options = await screen.findAllByRole("menuitemradio");
+    expect(options.map((option) => option.textContent)).toEqual(["All types", "Shelf", "StorageBin"]);
+    expect(options[0]).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(options[2]);
+    await waitFor(() => expect(documents()).toContain("schema:StorageBin"));
+    expect(await screen.findByRole("button", { name: "Object type: StorageBin" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Download storagebin-schema.json/ })).toHaveAttribute(
+      "href",
+      "/api/v1/model-drafts/d1/consumer-apis/shop-feed/schema.json?objectType=StorageBin",
+    );
+  });
+
+  it("shows the first type on the example, which has no All types", async () => {
+    render(panel("example"));
+    fireEvent.click(await screen.findByRole("button", { name: "Object type: Shelf" }));
+    const options = await screen.findAllByRole("menuitemradio");
+    expect(options.map((option) => option.textContent)).toEqual(["Shelf", "StorageBin"]);
+    await waitFor(() => expect(documents()).toContain("example:Shelf"));
+  });
+
+  it("is searched and chosen by keyboard, and the choice is shared by the two tabs", async () => {
+    const { rerender } = render(panel("schema"));
+    const button = await screen.findByRole("button", { name: "Object type: All types" });
+    fireEvent.click(button);
+    const search = await screen.findByRole("searchbox", { name: "Search: Object type" });
+    fireEvent.change(search, { target: { value: "bin" } });
+    await waitFor(() => expect(screen.getAllByRole("menuitemradio")).toHaveLength(1));
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    fireEvent.keyDown(search, { key: "Enter" });
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    expect(await screen.findByRole("button", { name: "Object type: StorageBin" })).toBeInTheDocument();
+    rerender(panel("example"));
+    expect(await screen.findByRole("button", { name: "Object type: StorageBin" })).toBeInTheDocument();
+    await waitFor(() => expect(documents()).toContain("example:StorageBin"));
+  });
+
+  it("downloads the chosen type under the API's key and the type's name", async () => {
+    const save = vi.spyOn(download, "downloadFrom").mockResolvedValue();
+    render(panel("example"));
+    fireEvent.click(await screen.findByRole("button", { name: "Object type: Shelf" }));
+    fireEvent.click((await screen.findAllByRole("menuitemradio"))[1]);
+    fireEvent.click(await screen.findByRole("link", { name: /Download storagebin-example.json/ }));
+    expect(save).toHaveBeenCalledWith(
+      "/api/v1/model-drafts/d1/consumer-apis/shop-feed/example.json?objectType=StorageBin",
+      "shop-feed-storagebin-example.json",
+    );
   });
 });

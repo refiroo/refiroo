@@ -4707,17 +4707,21 @@ one) and `contract` (as the outline's). Three documents an integration takes fro
 is installed, each a download of its own:
 
 - `…/schema.json`: the **JSON Schema** (2020-12) of the object message the definition serves (its
-  OpenAPI document's `Object` component and the schemas it refers to, under `$defs`), which an
-  integration validates messages against or generates types from;
-- `…/example.json`: **a message example**, one message valid against that schema, written by the
-  server from it: a value of each property's type, a related block as one object or a list of one. No
+  OpenAPI document's `Object` component, a union of one schema per exposed type told apart by
+  `objectType`, and the schemas it refers to, under `$defs`), which an integration validates messages
+  against or generates types from. With `?objectType=<PublicName>` it is that one type's schema, holding
+  only the fields and related blocks the type holds;
+- `…/example.json`: **a message example**, one message of one type valid against that schema, written by
+  the server from it: a value of each property's type, a related block as one object or a list of one.
+  `?objectType=<PublicName>` names the type; without it, the first type the definition exposes. No
   record is read, so the consumer tier never reads a model that is not running; messages from real
   records come from the consumer API after activation;
 - `…/openapi.json`: the definition's **OpenAPI document** as the consumer tier will serve it.
 
 They read only. Refusals: `404 MODEL_DRAFT_NOT_FOUND`, `404 CONSUMER_API_NOT_FOUND`
-(`details.consumerApi`), and for the three documents `422 INVALID_MODEL` with the diagnostics while
-the draft does not compile. Registered with `MODEL_ADMIN_MUTATIONS_ENABLED`, as the other draft
+(`details.consumerApi`), for the three documents `422 INVALID_MODEL` with the diagnostics while
+the draft does not compile, and for an `objectType` the definition does not expose
+`400 UNKNOWN_OBJECT_TYPE` with `details.publicNames` listing the names it does. Registered with `MODEL_ADMIN_MUTATIONS_ENABLED`, as the other draft
 routes.
 
 ### Source files and their profiles

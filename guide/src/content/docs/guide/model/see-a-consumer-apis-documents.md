@@ -17,27 +17,43 @@ Viewing a document is separate from giving a consuming client permission to read
 
 1. In the model editor, select **Consumer APIs**, then the API. Check the selected API's
    name and **Contract version**. You are reviewing a draft; its changes are not yet live.
-2. Open **Schema**. Compare the field names and types with **Fields**. Check required and
-   nullable values, the parent and the shape of each related block. A single related
-   record is an object or null; a many-valued relationship is an array. Review the whole
-   object, because Get by ID, list items and lookup results share this shape.
-3. Open **Message example**. It shows one object generated from the declared field types,
-   not a record fetched from a workspace. Check that all intended fields and related
-   blocks are present. Do not use the placeholder values as evidence that real records
-   have those values, or that a lookup finds a particular record.
-4. Use **Copy**, **Download schema.json** or **Download example.json** to share the
-   selected document. Check the API and contract version before handing it over. After
-   any draft edit, inspect the newly generated documents again.
+2. Open **Schema**. Under the description, open **Object type**. The searchable list shows
+   each exposed type with its coloured tile and ticks the current choice. **All types** shows
+   the whole document, with a choice between types and each type’s own schema. Choose a type
+   to inspect just its fields. Compare it with **Fields**, checking required and nullable
+   values, the parent and each related block. Get by ID, list items and lookup results use
+   that type’s shape.
+3. Open **Message example**. **Object type** offers each exposed type, without **All types**.
+   It shows one message generated from the chosen type’s fields, not a record fetched from
+   a workspace. Until you choose another type, it shows the first exposed type. The type
+   choice is shared between the two tabs while you stay on this API. Choose each type in
+   turn and check its intended fields and related blocks. A missing field can mean that
+   type does not attach its source attribute; a missing block can mean its relationship
+   does not reach that type. Do not use the placeholder values as evidence that real
+   records have those values, or that a lookup finds a particular record.
+4. Use **Copy** to copy what is shown, or **Download** to save the selected document.
+   With **All types**, the schema button reads **Download schema.json**. Choosing a type
+   adds its name to the download, for example **Download stop-schema.json** or
+   **Download stop-example.json**. The saved file also includes the API’s key. Check the API,
+   type and contract version before handing it over. After any draft edit, inspect the
+   newly generated documents again.
 
-![Generated schema tab of the Stops API in a model draft](/docs/screens/model-consumer-tab-schema.png)
+![Schema tab with Object type open on All types and the four exposed types](/docs/screens/model-consumer-tab-schema.png)
 
-Above: the schema generated for Stops API in the reference model.
+Above: Stops API’s Schema tab in the reference model. Object type is open with All types
+ticked, followed by Stop, Municipality, Operator and Mode, each with its coloured tile.
 
-**Reference-data example:** the generated schema describes the stop number as an integer that can be empty. Its public name comes from **Output name** and its type from the selected source. It also describes operator as one object or empty and modes as a list. These are the shapes consuming teams rely on; ask the integrator to review the detailed document.
+**Reference-data example:** All types describes the choice between the four exposed types.
+Selecting Stop shows the stop’s own fields, including its integer stop number, operator and
+modes. Municipality has its FSO number; Operator has its business identifier. Those fields
+are absent from Stop because its type does not hold them. Ask the integrator to review each
+type’s schema as part of the agreement.
 
-![Generated message example with placeholder values](/docs/screens/model-consumer-tab-example.png)
+![Message example tab with Object type set to Stop and a generated stop message](/docs/screens/model-consumer-tab-example.png)
 
-Above: the reference API's generated example. Its values illustrate types, not live data.
+Above: Stops API’s Message example tab with Stop selected and Download stop-example.json.
+The stop message has its own fields, without the municipality’s FSO number or the operator’s
+business identifier. Its values illustrate types, not live data.
 
 The example uses placeholder values based on field types. They do not prove that a real record exists or has those values. For comparison, the reference stop Chur has stop number 8509000. Use real records as a separate check when agreeing the contract with its consumers.
 

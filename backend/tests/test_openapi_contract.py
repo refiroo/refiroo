@@ -640,9 +640,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # shortened to the reference's 130 words (the `agent-access` tag description), after the AS1
     # examples (`get-api-v1-agent-access.json`, `patch-api-v1-agent-access.json` and the
     # `get-api-v1-action-groups.json` operation count) it follows; no path or schema changed.
+    # Re-baselined for 0.17.3 OT1 (additive): `objectType` on a draft consumer API's `schema.json` and
+    # `example.json`, their `400 UNKNOWN_OBJECT_TYPE` and the reference text that names them.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "22987f16cf0b4b8be6df8b71fc3b7fab22d13b4b69f7fee03b441ea503764ce3"
+        "df0112857e3dd36bbab075e807e1acf1a7d3a7be311ded2a25d7ca87a12b169d"
     )
 
 

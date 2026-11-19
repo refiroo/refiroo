@@ -40,6 +40,7 @@ from ..model.consumer_contract import (
     parent_types,
     source_type,
     split_ancestor_reference,
+    type_holding,
 )
 from ..model.consumer_definitions import ServedVersion, served_versions
 from ..records.values import VALUE_COLUMNS, canonical_decimal, stored_json_value
@@ -161,6 +162,19 @@ class ConsumerObjects:
     def __init__(self, model: EngineModel, definition: ConsumerApiDefinition) -> None:
         self.definition = definition
         types = exposed_types(model, definition)
+        # What each exposed type's objects carry (OT-D1, OT-D2): the contract's rule, so the answer and
+        # the OpenAPI schemas cannot differ.
+        holding = type_holding(model, definition)
+        self._held = {item.key: holding.outputs(item.key) for item in types}
+        parents = parent_types(model, definition)
+        self._parent_blocks = {
+            item.key: frozenset(
+                f"{PARENT_BLOCK_PREFIX}{block}"
+                for block in (definition.object.parent.projections if definition.object.parent else ())
+                if holding.holds_block(item.key, f"{PARENT_BLOCK_PREFIX}{block}")
+            )
+            for item in parents
+        }
         self.public_names = {key: item.publicName for key, item in definition.objectTypes.items()}
         shape = definition.object
         self.roles: dict[str, _Field] = {}
@@ -177,7 +191,6 @@ class ConsumerObjects:
         ]
         self.parent = shape.parent
         # The parent's fields by output name, read as the object's own are (CA1).
-        parents = parent_types(model, definition)
         role_types = {
             role: source_type(model, types, getattr(shape, role).source)
             for role in OBJECT_ROLES
@@ -416,10 +429,13 @@ class ConsumerObjects:
         narrowed: ConsumerFilter,
     ) -> dict[str, Any]:
         result: dict[str, Any] = {"objectType": self.public_names[record.type_key]}
+        held = self._held[record.type_key]
         for item in self.roles.values():
-            result[item.output] = item.read(record)
+            if item.output in held:
+                result[item.output] = item.read(record)
         for item in self.attributes:
-            result[item.output] = item.read(record)
+            if item.output in held:
+                result[item.output] = item.read(record)
         chain = _chain(record.parent_id, ancestors)
         if self.parent is not None:
             result[self.parent.output] = self._parent(chain, ancestors, related, narrowed.include) if chain else None
@@ -431,7 +447,7 @@ class ConsumerObjects:
                 result[self.hierarchy] = names
         blocks = {item.output: self._items(item, record.id, related, ancestors) for item in self.projections if item.name in related}
         for item in self.projections:
-            if item.name in related and self._shown(item, narrowed.include):
+            if item.name in related and item.name in held and self._shown(item, narrowed.include):
                 result[item.output] = blocks[item.output]
         if narrowed.target is not None:
             result["target"] = blocks[narrowed.target.projection]
@@ -489,8 +505,9 @@ class ConsumerObjects:
                 if value is not None:
                     break
             result[output] = item.default if value is None else value
+        parent_held = self._parent_blocks.get(parent.type_key, frozenset())
         for item in self.parent_projections:
-            if item.name in related and self._shown(item, include):
+            if item.name in related and item.name in parent_held and self._shown(item, include):
                 result[item.output] = self._items(item, parent.id, related, ancestors)
         return result
 

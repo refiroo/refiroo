@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Per-type objects mock-up</title>
+<style>
+/* Values copied from frontend/src/styles/tokens.css and the consumer-document rules of
+   frontend/src/styles/model-editor.css, for this mock-up only. */
+:root {
+  --neutral-0:#fff; --neutral-50:#fbfaf8; --neutral-100:#f6f5f2; --neutral-150:#efede8; --neutral-200:#e4e2dc;
+  --neutral-450:#8a867d; --neutral-600:#69655e; --neutral-700:#55524c; --neutral-900:#1d1c1a;
+  --indigo-50:#eceefc; --indigo-600:#3346c9; --indigo-800:#26339a;
+  --red-50:#fdf0ee; --red-800:#7a1f17; --green-50:#e5f3ea; --green-800:#1b5e3a;
+  --teal-50:#ddf4ef; --teal-500:#11967f; --teal-800:#0b6e62;
+  --blue-50:#e3eefc; --blue-500:#3d7fe0; --blue-800:#1d5bb8;
+  --magenta-50:#fbe6f6; --magenta-500:#cf4fae; --magenta-800:#972178;
+  --font-sans:"Instrument Sans Variable","Instrument Sans",ui-sans-serif,system-ui,sans-serif;
+  --font-mono:"JetBrains Mono Variable","JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --text-xs:12px; --text-sm:13px; --text-md:14px; --text-lg:15px; --text-xl:19px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px;
+  --surface-app:var(--neutral-100); --surface-raised:var(--neutral-0); --surface-sunken:var(--neutral-50);
+  --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700); --text-tertiary:var(--neutral-600);
+  --border-subtle:var(--neutral-200); --border-control:var(--neutral-450);
+  --radius-control:6px; --radius-panel:8px; --radius-large:12px;
+  --focus-ring:0 0 0 3px rgba(51,70,201,.35);
+}
+[data-hue="1"] { --hue-fill:var(--teal-50); --hue-ink:var(--teal-800); --hue-marker:var(--teal-500); }
+[data-hue="2"] { --hue-fill:var(--blue-50); --hue-ink:var(--blue-800); --hue-marker:var(--blue-500); }
+[data-hue="3"] { --hue-fill:var(--magenta-50); --hue-ink:var(--magenta-800); --hue-marker:var(--magenta-500); }
+[data-hue="4"] { --hue-fill:#eef2d4; --hue-ink:#525d10; }
+[data-hue="5"] { --hue-fill:#fff1d6; --hue-ink:#6f3d06; }
+[data-hue="6"] { --hue-fill:#eceefc; --hue-ink:#26339a; }
+* { box-sizing:border-box; }
+body { margin:0; padding:var(--space-6) var(--space-4); background:var(--surface-app); color:var(--text-primary);
+  font-family:var(--font-sans); font-size:var(--text-md); line-height:1.45; }
+h1 { font-size:var(--text-xl); margin:0 0 var(--space-2); }
+.lede { color:var(--text-secondary); max-width:80ch; margin:0 0 var(--space-6); }
+.lede a { color:var(--indigo-600); }
+.states { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr)); gap:var(--space-6); align-items:start; }
+.state-label { font-size:var(--text-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+  color:var(--indigo-800); margin:0 0 var(--space-2); }
+.state-label.today { color:var(--red-800); }
+.panel { background:var(--surface-raised); border:1px solid var(--border-subtle); border-radius:var(--radius-large);
+  padding:var(--space-4) var(--space-5); }
+.tabs { display:flex; gap:var(--space-4); border-bottom:1px solid var(--border-subtle); margin:0 0 var(--space-4);
+  overflow-x:auto; font-size:var(--text-sm); color:var(--text-secondary); }
+.tabs span { padding:var(--space-2) 0; white-space:nowrap; }
+.tabs .on { color:var(--text-primary); font-weight:600; box-shadow:inset 0 -2px 0 var(--indigo-600); }
+.head { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2); }
+.head h3 { flex:1 1 auto; margin:0; font-size:var(--text-lg); }
+button.secondary { font:inherit; font-size:var(--text-sm); padding:6px 10px; border:1px solid var(--border-control);
+  border-radius:var(--radius-control); background:var(--surface-raised); color:var(--text-primary); }
+.muted { color:var(--text-tertiary); font-size:var(--text-sm); margin:var(--space-2) 0; }
+/* New: the type picker, SearchMenu (ui/SearchMenu.tsx) as a single choice: the button shows the chosen type
+   in its hue tile; the popover is SearchMenu's search and list, each type with its tile, the current one checked. */
+.type-picker { position:relative; display:flex; align-items:center; gap:var(--space-2); margin:var(--space-3) 0 0; }
+.type-picker > label { font-size:var(--text-sm); color:var(--text-secondary); }
+.type-trigger { display:inline-flex; align-items:center; gap:6px; font:inherit; font-size:var(--text-sm); padding:4px 8px 4px 5px;
+  border:1px solid var(--border-control); border-radius:var(--radius-control); background:var(--surface-raised); color:var(--text-primary); cursor:pointer; }
+.type-trigger:focus-visible { outline:none; box-shadow:var(--focus-ring); }
+.type-trigger .chev { color:var(--text-tertiary); margin-left:2px; }
+.hue-tile { display:inline-grid; place-items:center; width:20px; height:20px; border-radius:4px; flex:none;
+  background:var(--hue-fill, var(--neutral-150)); color:var(--hue-ink, var(--text-secondary)); font-size:11px; font-weight:700; }
+.picker-popover { position:absolute; top:calc(100% + 4px); left:0; z-index:5; width:min(360px, calc(100vw - 72px));
+  background:var(--surface-raised); border:1px solid var(--border-subtle); border-radius:var(--radius-panel);
+  box-shadow:0 12px 32px rgba(0,0,0,.14); }
+.picker-popover[hidden] { display:none; }
+.picker-search { display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3);
+  border-bottom:1px solid var(--neutral-150); color:var(--text-tertiary); }
+.picker-search input { flex:1; min-width:0; border:0; background:transparent; font:inherit; color:var(--text-primary); outline:none; }
+.picker-list { max-height:min(320px, 50vh); overflow-y:auto; padding:var(--space-1); margin:0; list-style:none; }
+.picker-option { display:flex; align-items:center; gap:var(--space-2); padding:6px 10px; border-radius:var(--radius-control);
+  font-size:var(--text-sm); cursor:pointer; }
+.picker-option:hover, .picker-option.focused { background:var(--neutral-100); }
+.picker-option[aria-selected="true"] { background:var(--indigo-50); font-weight:600; }
+.picker-option .tick { margin-left:auto; color:var(--indigo-600); visibility:hidden; }
+.picker-option[aria-selected="true"] .tick { visibility:visible; }
+.picker-option.all { border-bottom:1px solid var(--neutral-150); border-radius:0; margin-bottom:var(--space-1); }
+.picker-empty { padding:var(--space-2) var(--space-3); color:var(--text-tertiary); font-size:var(--text-sm); margin:0; }
+.body { max-height:420px; margin:var(--space-2) 0 0; padding:var(--space-3); overflow:auto; border:1px solid var(--border-subtle);
+  border-radius:var(--radius-control); background:var(--surface-sunken); font-family:var(--font-mono); font-size:var(--text-sm);
+  line-height:1.55; white-space:pre; }
+.body .gone { color:var(--red-800); background:var(--red-50); }
+.notes { margin:var(--space-6) 0 0; max-width:80ch; color:var(--text-secondary); font-size:var(--text-sm); }
+.notes li { margin:var(--space-1) 0; }
+</style>
+</head>
+<body>
+<h1>Each object in its type's shape</h1>
+<p class="lede">The model editor's Consumer APIs tab, Message example and Schema. A type picker chooses which object type
+to show: one button with the chosen type, opening a searchable list of every type in its colour from the model. The reference page needs no code of ours for its pickers: see
+<a href="scalar.html#tag/default/GET/objects/{id}">the reference page as Scalar renders the per-type contract</a>
+(open the 200 response for the schema picker; the example picker is under the example).</p>
+
+<div class="states">
+  <div>
+    <p class="state-label today">Today: Message example</p>
+    <div class="panel">
+      <div class="tabs"><span>Types and related</span><span>Fields (14)</span><span>Operations</span><span>Filters (3)</span><span>Schema</span><span class="on">Message example</span></div>
+      <div class="head"><h3>Message example</h3><button class="secondary">Copy</button><button class="secondary">Download example.json</button></div>
+      <p class="muted">One message as Get by ID would answer it, valid against the schema. No record is read: the values come from each field's type.</p>
+<div class="body">{
+  "objectType": "Country",
+  "id": "7f3c2a9e-1b4d-4c8a-9e21-5d0f6b8a3c11",
+  "code": "Example code",
+  "name": "Example name",
+  "isActive": true,
+  "alpha-3": "Example alpha-3",
+<span class="gone">  "minorUnits": 1,
+  "symbol": "Example symbol",
+  "nativeName": "Example nativeName",</span>
+  "path": "Example path",
+  …
+}</div>
+      <p class="muted">Every field of every type on one object: a country with a currency's minor units.</p>
+    </div>
+  </div>
+
+  <div>
+    <p class="state-label">With this package: Message example</p>
+    <div class="panel" id="example-panel">
+      <div class="tabs"><span>Types and related</span><span>Fields (14)</span><span>Operations</span><span>Filters (3)</span><span>Schema</span><span class="on">Message example</span></div>
+      <div class="head"><h3>Message example</h3><button class="secondary">Copy</button><button class="secondary" id="dl">Download country-example.json</button></div>
+      <p class="muted">One message as Get by ID would answer it for the chosen type, valid against the schema. An object carries only the fields its type holds. No record is read: the values come from each field's type.</p>
+      <div class="type-picker" data-for="example"></div>
+      <div class="body" id="example-body"></div>
+    </div>
+  </div>
+
+  <div>
+    <p class="state-label">With this package: Schema</p>
+    <div class="panel">
+      <div class="tabs"><span>Types and related</span><span>Fields (14)</span><span>Operations</span><span>Filters (3)</span><span class="on">Schema</span><span>Message example</span></div>
+      <div class="head"><h3>Schema</h3><button class="secondary">Copy</button><button class="secondary" id="dl-schema">Download schema.json</button></div>
+      <p class="muted">The JSON Schema of the message consumers receive: one of the types below, named by <code>objectType</code>. An integration validates messages against it or generates its types from it.</p>
+      <div class="type-picker" data-for="schema"></div>
+      <div class="body" id="schema-body"></div>
+    </div>
+  </div>
+</div>
+
+<ul class="notes">
+  <li>The picker is the editor's SearchMenu (the webhook dialog's "Add event" menu) as a single choice: one button whatever the number of types, a search field, and every exposed type in the model's order with its hue tile; the chosen one is ticked. The open menu here shows an API with 20 types. The Schema tab adds <b>All types</b> first (the whole document, as today's download); the example has no such choice, because a message is always one type.</li>
+  <li>The choice is shared by the two tabs and kept while the editor stays on this API; the download takes the chosen type (<code>schema.json?objectType=Country</code>, <code>example.json?objectType=Country</code>).</li>
+  <li>Everything else in the tab is unchanged: Copy, Download, the contract section under the schema.</li>
+</ul>
+
+<script>
+const own = {
+  Country: [{ "alpha-3": "Example alpha-3", callingCode: "Example callingCode" }, { "alpha-3": { type: ["string", "null"] }, callingCode: { type: ["string", "null"] } }],
+  Currency: [{ minorUnits: 1, symbol: "Example symbol" }, { minorUnits: { type: ["integer", "null"] }, symbol: { type: ["string", "null"] } }],
+  Language: [{ nativeName: "Example nativeName" }, { nativeName: { type: ["string", "null"] } }],
+};
+const names = ["Country", "Currency", "Language", "Region", "City", "Time zone", "Unit of measure", "Unit group", "Tax rate",
+  "Payment term", "Incoterm", "Industry", "Legal form", "Title", "Gender", "Marital status", "Document type", "Channel",
+  "Priority", "Status reason"];
+const types = names.map((name, i) => ({ name, hue: String((i % 6) + 1),
+  own: (own[name] || [{ sortOrder: 1 }])[0], schema: (own[name] || [, { sortOrder: { type: ["integer", "null"] } }])[1] }));
+const common = (name) => ({ objectType: name, id: "7f3c2a9e-1b4d-4c8a-9e21-5d0f6b8a3c11", code: "Example code", name: "Example name",
+  isActive: true, description: "Example description",
+  parent: { objectType: "Folder", id: "7f3c2a9e-1b4d-4c8a-9e21-5d0f6b8a3c11", code: "Example code", name: "Example name" },
+  path: "Example path", hierarchy: ["Example hierarchy"], translations: [{ languageCode: "Example languageCode", translatedName: "Example translatedName" }] });
+const commonSchema = { id: { type: "string" }, code: { type: ["string", "null"] }, name: { type: "string" }, isActive: { type: "boolean" },
+  description: { type: ["string", "null"] }, parent: { $ref: "#/$defs/Parent" }, path: { type: "string" },
+  hierarchy: { type: "array", items: { type: "string" } }, translations: { type: "array", items: { $ref: "#/$defs/Projection_translations" } } };
+const slug = (n) => n.replace(/ /g, "");
+const typeSchema = (t) => { const properties = { objectType: { const: t.name }, ...commonSchema, ...t.schema };
+  return { title: t.name, type: "object", properties, required: Object.keys(properties) }; };
+const whole = { $schema: "https://json-schema.org/draft/2020-12/schema", title: "Reference data",
+  oneOf: types.map((t) => ({ $ref: `#/$defs/Object_${slug(t.name)}` })), discriminator: { propertyName: "objectType" },
+  $defs: { ...Object.fromEntries(types.slice(0, 3).map((t) => [`Object_${t.name}`, typeSchema(t)])), "…": "one per type", Parent: "…", Projection_translations: "…" } };
+const file = (n) => n.toLowerCase().replace(/ /g, "-");
+const views = {
+  example: { all: false, show(t) {
+    document.getElementById("example-body").textContent = JSON.stringify({ ...common(t.name), ...t.own }, null, 2);
+    document.getElementById("dl").textContent = `Download ${file(t.name)}-example.json`; } },
+  schema: { all: true, show(t) {
+    const body = t ? { $schema: whole.$schema, ...typeSchema(t), $defs: { Parent: "…", Projection_translations: "…" } } : whole;
+    document.getElementById("schema-body").textContent = JSON.stringify(body, null, 2);
+    document.getElementById("dl-schema").textContent = t ? `Download ${file(t.name)}-schema.json` : "Download schema.json"; } },
+};
+const tile = (t) => t ? `<span class="hue-tile" data-hue="${t.hue}" aria-hidden="true">${t.name[0]}</span>` : `<span class="hue-tile" aria-hidden="true">*</span>`;
+let n = 0;
+for (const box of document.querySelectorAll(".type-picker")) {
+  const view = views[box.dataset.for]; const id = `picker-${n++}`;
+  let chosen = view.all ? null : types[0];
+  box.innerHTML = `<label id="${id}-l">Object type</label>
+    <button type="button" class="type-trigger" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="${id}-l ${id}-b" id="${id}-b"></button>
+    <div class="picker-popover" hidden><div class="picker-search">&#x1F50D;&#xFE0E;<input placeholder="Search" aria-label="Search object types"></div>
+    <ul class="picker-list" role="listbox" aria-labelledby="${id}-l"></ul></div>`;
+  const trigger = box.querySelector(".type-trigger"), pop = box.querySelector(".picker-popover"),
+    input = pop.querySelector("input"), list = pop.querySelector("ul");
+  const paint = () => { trigger.innerHTML = `${tile(chosen)}<span>${chosen ? chosen.name : "All types"}</span><span class="chev">▾</span>`; view.show(chosen); };
+  const render = () => {
+    const q = input.value.trim().toLowerCase();
+    const rows = [...(view.all && !q ? [null] : []), ...types.filter((t) => t.name.toLowerCase().includes(q))];
+    list.innerHTML = rows.length ? rows.map((t, i) => `<li role="option" data-i="${t ? types.indexOf(t) : -1}" class="picker-option${t ? "" : " all"}${i === 0 ? " focused" : ""}"
+      aria-selected="${t === chosen}">${tile(t)}<span>${t ? t.name : "All types"}</span><span class="tick">✓</span></li>`).join("")
+      : `<p class="picker-empty">Nothing matches.</p>`;
+  };
+  const open = (on) => { pop.hidden = !on; trigger.setAttribute("aria-expanded", String(on)); if (on) { input.value = ""; render(); input.focus(); } };
+  trigger.addEventListener("click", () => open(pop.hidden));
+  input.addEventListener("input", render);
+  input.addEventListener("keydown", (e) => {
+    const opts = [...list.querySelectorAll(".picker-option")]; let at = opts.findIndex((o) => o.classList.contains("focused"));
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); opts[at]?.classList.remove("focused");
+      at = (at + (e.key === "ArrowDown" ? 1 : -1) + opts.length) % opts.length; opts[at].classList.add("focused"); opts[at].scrollIntoView({ block: "nearest" }); }
+    if (e.key === "Enter" && opts[at]) opts[at].click();
+    if (e.key === "Escape") { open(false); trigger.focus(); }
+  });
+  list.addEventListener("click", (e) => { const li = e.target.closest("li"); if (!li) return;
+    const i = Number(li.dataset.i); chosen = i < 0 ? null : types[i]; open(false); paint(); trigger.focus(); });
+  document.addEventListener("click", (e) => { if (!box.contains(e.target)) open(false); });
+  paint();
+  if (box.dataset.for === "example") { open(true); input.blur(); }
+}
+</script>
+</body>
+</html>

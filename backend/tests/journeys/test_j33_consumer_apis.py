@@ -29,8 +29,10 @@ DISABLED = {"MODEL_ADMIN_MUTATIONS_ENABLED": "false"}
 FEED = "j33-feed"
 
 
-def _definition(world, draft: dict[str, Any], key: str = FEED, part: str = "") -> Any:
-    return world.api.get(f"/model-drafts/{draft['id']}/consumer-apis/{key}{part}")
+def _definition(
+    world, draft: dict[str, Any], key: str = FEED, part: str = "", **params: Any
+) -> Any:
+    return world.api.get(f"/model-drafts/{draft['id']}/consumer-apis/{key}{part}", **params)
 
 
 def _outline_entry(world, draft: dict[str, Any], key: str) -> dict[str, Any]:
@@ -108,11 +110,14 @@ def test_a_consumer_api_defined_by_operations_is_served_after_activation(world):
     assert written["operations"]["objects"] == {}
     assert sorted(item["of"] for item in written["operations"]["lists"].values()) == sorted([r, d])
 
-    schema = ok(_definition(world, draft, part="/schema.json"))
-    example = ok(_definition(world, draft, part="/example.json"))
-    assert set(fields) <= set(schema["properties"])
+    names = read["expanded"]["publicNames"]
+    union = ok(_definition(world, draft, part="/schema.json"))
+    assert {item["$ref"].rsplit("/", 1)[-1] for item in union["oneOf"]} == set(names.values())
+    schema = ok(_definition(world, draft, part="/schema.json", objectType=names[r]))
+    example = ok(_definition(world, draft, part="/example.json", objectType=names[r]))
     assert set(example) == set(schema["properties"])
     assert set(schema["required"]) <= set(example)
+    assert example["objectType"] == names[r]
 
     relation = _by_key(model["relationTypes"], world.key("Bown"))
     steps = [
@@ -161,7 +166,7 @@ def test_a_consumer_api_defined_by_operations_is_served_after_activation(world):
     assert "j33-in-region" in written["operations"]["lists"]
     assert written["object"]["related"]["j33Owned"]["via"] == relation["key"]
 
-    schema = ok(_definition(world, draft, part="/schema.json"))
+    schema = ok(_definition(world, draft, part="/schema.json", objectType=names[r]))
     _activate(world, draft, undone["version"], model)
     record = world.made("R", "J33 served")
     served = ok(consumer_object(world, record["id"], api=FEED))
@@ -172,6 +177,57 @@ def test_a_consumer_api_defined_by_operations_is_served_after_activation(world):
     list_key = next(key for key, item in written["operations"]["lists"].items() if item["of"] == r)
     page = ok(world.api.get(f"/api/consumer/{FEED}/v1/lists/{list_key}"))
     assert record["id"] in [item["id"] for item in page["items"]]
+
+
+@pytest.mark.journey("J33.13", "J25")
+@pytest.mark.structures("R", "D")
+def test_the_schema_and_the_example_are_written_per_type(world):
+    """Given a draft whose consumer API exposes R and D. When the schema is read without objectType,
+    then it is the union of the types' schemas, each named by its public name, discriminated on
+    objectType with no written mapping. With objectType, it is that type's own schema, holding only the
+    fields its type binds, and the example is one message of that type; the example without objectType
+    is the first exposed type's. A name the API does not expose is 400 UNKNOWN_OBJECT_TYPE naming the
+    valid ones."""
+    draft = _draft_of_active(world)
+    r, d = world.key("R"), world.key("D")
+    ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {"kind": "addConsumerApi", "name": "J33 Feed", "key": FEED, "exposes": [r, d]},
+        )
+    )
+    model = _model(world, draft)
+    expanded = ok(_definition(world, draft))["expanded"]
+    names, fields = expanded["publicNames"], expanded["object"]["fields"]
+    union = ok(_definition(world, draft, part="/schema.json"))
+    assert union["discriminator"] == {"propertyName": "objectType"}
+    assert set(union["$defs"]) >= set(names.values())
+    for key in (r, d):
+        schema = ok(_definition(world, draft, part="/schema.json", objectType=names[key]))
+        assert schema["title"] == names[key]
+        assert schema["properties"]["objectType"] == {"type": "string", "enum": [names[key]]}
+        bound = set(_bound(world, model, "R" if key == r else "D"))
+        for name, source in fields.items():
+            if isinstance(source, str):
+                assert (name in schema["properties"]) == (source in bound), name
+        example = ok(_definition(world, draft, part="/example.json", objectType=names[key]))
+        assert example["objectType"] == names[key]
+        assert set(example) == set(schema["properties"])
+    default = ok(_definition(world, draft, part="/example.json"))
+    assert default["objectType"] == names[r]
+    error = refused(
+        _definition(world, draft, part="/schema.json", objectType="j33-Nothing"),
+        400,
+        "UNKNOWN_OBJECT_TYPE",
+    )
+    assert error["details"]["publicNames"] == sorted(names.values())
+    refused(
+        _definition(world, draft, part="/example.json", objectType="j33-Nothing"),
+        400,
+        "UNKNOWN_OBJECT_TYPE",
+    )
 
 
 @pytest.mark.journey("J33.13", "J33.8", "J25.8")

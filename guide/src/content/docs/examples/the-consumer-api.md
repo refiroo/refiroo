@@ -239,7 +239,7 @@ related blocks are omitted from this excerpt; it is not a complete model to inst
 | --- | --- |
 | `key` and `contractVersion` | The base address `/api/consumer/stops/v1`. |
 | `exposes` and `publicNames` | Public types `Stop`, `Municipality`, `Operator` and `Mode`. |
-| `object.fields` | Output names such as `stopNumber`, sourced from the model's fields. `code` takes the first nonempty source in its list. A missing value takes a declared default, otherwise null. |
+| `object.fields` | Output names such as `stopNumber`, sourced from the model's fields. `code` takes the first nonempty source in its list. On a type that holds the field, a missing value takes a declared default, otherwise null. A type that holds none of its sources omits the field. |
 | `parent` and `path` | The immediate parent and its ancestor path, without the stop itself in that path. |
 | `related.operator` | An operator object, or null; the other declared blocks include arrays of modes, codes and translations. |
 | `operations.objects` | A read by public record ID at `/objects/{id}`. |
@@ -284,11 +284,9 @@ ETag: W/"aa0a706f7657c2adb5a7:1"
   "validTo": null,
   "stopNumber": 8505173,
   "abbreviation": "TSSE",
-  "fsoNumber": null,
   "latitude": "46.65674442039232",
   "longitude": "8.709084193690385",
   "height": "1701.3",
-  "sboid": null,
   "parent": {
     "objectType": "Municipality",
     "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
@@ -324,7 +322,7 @@ ETag: W/"aa0a706f7657c2adb5a7:1"
 
 The UUID in the path is the record's stable identity. Its code and stop number are separate business
 identifiers. The stop number is an integer; decimal coordinates and height use decimal strings to
-retain precision. Null fields have no applicable value here. The parent is one object, modes and
+retain precision. A main object field is null when the record has no value for a field its type holds. Fields the type cannot hold are absent, so this stop has no fsoNumber or sboid. The parent is one object, modes and
 system codes are arrays, and an empty translations array is a complete answer.
 
 This declaration selects only the parent's type, identity, code and name, and serves its
@@ -361,11 +359,9 @@ RDM-Workspace: graubuenden
       "validTo": null,
       "stopNumber": 8500004,
       "abbreviation": "SAXX",
-      "fsoNumber": null,
       "latitude": "46.662107304536484",
       "longitude": "8.723794590415595",
       "height": "1553.9",
-      "sboid": null,
       "parent": {
         "objectType": "Municipality",
         "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
@@ -433,11 +429,9 @@ RDM-Workspace: graubuenden
       "validTo": null,
       "stopNumber": 8505173,
       "abbreviation": "TSSE",
-      "fsoNumber": null,
       "latitude": "46.65674442039232",
       "longitude": "8.709084193690385",
       "height": "1701.3",
-      "sboid": null,
       "parent": {
         "objectType": "Municipality",
         "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
@@ -512,11 +506,9 @@ RDM-Workspace: graubuenden
   "validTo": null,
   "stopNumber": 8505173,
   "abbreviation": "TSSE",
-  "fsoNumber": null,
   "latitude": "46.65674442039232",
   "longitude": "8.709084193690385",
   "height": "1701.3",
-  "sboid": null,
   "parent": {
     "objectType": "Municipality",
     "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
@@ -606,11 +598,9 @@ RDM-Workspace: graubuenden
         "validTo": null,
         "stopNumber": 8505173,
         "abbreviation": "TSSE",
-        "fsoNumber": null,
         "latitude": "46.65674442039232",
         "longitude": "8.709084193690385",
         "height": "1701.3",
-        "sboid": null,
         "parent": {
           "objectType": "Municipality",
           "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",

@@ -10,13 +10,13 @@ A model administrator [designs the consumer API](/docs/model/consumer-apis/). De
 
 ## Learn one way to read business objects
 
-Consumer APIs share one way of presenting and reading business objects, whatever data the model describes. Within a consumer API, every exposed type uses the same declared object shape: common identity and descriptive fields, followed by the fields and related parts its definition adds. Get by ID, lists, lookups and batch resolution reuse that object. You do not need a separate parser for each type or a sequence of management reads to assemble its relationships.
+Consumer APIs share one way of presenting and reading business objects, whatever data the model describes. Within a consumer API, one declared object definition supplies the fields and related blocks, but each exposed type is answered in its own shape. An object carries only the fields its type holds and the blocks whose relationships reach that type. Get by ID, lists, lookups and batch resolution reuse that type’s shape. You can use the contract’s schemas to read each type without a sequence of management reads to assemble its relationships.
 
 The model chooses the content: exposed types, public names, field sources, related blocks, filters, matching rules and events. The engine supplies the ways to compose and read it. Related records can appear as an object or an array, with selected fields such as identity, code and name. System codes, translations, a parent and an ancestor path are declared parts of the same answer. They use ordinary fields and relationships; they are not special features tied to one domain.
 
-### Two types, one declared shape
+### Two types, each in its own shape
 
-**Reference-data example:** the `stops` API exposes both stops and operators. These two Get by ID answers have exactly the same fields. The table places their complete object bodies side by side; values were captured from the reference instance through Get by ID.
+**Reference-data example:** the `stops` API exposes both stops and operators. These two Get by ID answers carry different fields from one declared object definition. The table places their complete object bodies side by side; values were captured from the reference instance through Get by ID.
 
 | Field | Stop: Tschamut-Selva | Operator: Matterhorn Gotthard Bahn (fo) |
 | --- | --- | --- |
@@ -24,23 +24,22 @@ The model chooses the content: exposed types, public names, field sources, relat
 | `id` | `"8d90eede-23cf-47c1-8dac-cb37956f5fd5"` | `"f94ef862-2a95-4675-9e31-6b1d0a03317f"` |
 | `code` | `"ch:1:sloid:5173"` | `"MGB-fo"` |
 | `name` | `"Tschamut-Selva"` | `"Matterhorn Gotthard Bahn (fo)"` |
-| `validFrom` | `"2021-04-01"` | `null` |
-| `validTo` | `null` | `null` |
-| `stopNumber` | `8505173` | `null` |
-| `abbreviation` | `"TSSE"` | `null` |
-| `fsoNumber` | `null` | `null` |
-| `latitude` | `"46.65674442039232"` | `null` |
-| `longitude` | `"8.709084193690385"` | `null` |
-| `height` | `"1701.3"` | `null` |
-| `sboid` | `null` | `"ch:1:sboid:100029"` |
+| `validFrom` | `"2021-04-01"` | not in the answer |
+| `validTo` | `null` | not in the answer |
+| `stopNumber` | `8505173` | not in the answer |
+| `abbreviation` | `"TSSE"` | not in the answer |
+| `latitude` | `"46.65674442039232"` | not in the answer |
+| `longitude` | `"8.709084193690385"` | not in the answer |
+| `height` | `"1701.3"` | not in the answer |
+| `sboid` | not in the answer | `"ch:1:sboid:100029"` |
 | `parent` | `{"objectType": "Municipality", "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc", "code": null, "name": "Tujetsch"}` | `null` |
 | `path` | `"Graubünden/Surselva/Tujetsch"` | `""` |
-| `operator` | `{"id": "f94ef862-2a95-4675-9e31-6b1d0a03317f", "code": "MGB-fo", "name": "Matterhorn Gotthard Bahn (fo)", "localName": null, "isPrimary": null}` | `null` |
-| `modes` | `[{"id": "0f61601d-ec0c-4944-bab9-cf0d1d8665a9", "code": "TRAIN", "name": "Train"}]` | `[]` |
-| `systemCodes` | `[{"system": "Wikidata: stations", "systemKey": "wikidata-stations", "code": "Q33467326", "name": "Q33467326 Tschamut-Selva"}]` | `[]` |
-| `translations` | `[]` | `[]` |
+| `operator` | `{"id": "f94ef862-2a95-4675-9e31-6b1d0a03317f", "code": "MGB-fo", "name": "Matterhorn Gotthard Bahn (fo)", "localName": null, "isPrimary": null}` | not in the answer |
+| `modes` | `[{"id": "0f61601d-ec0c-4944-bab9-cf0d1d8665a9", "code": "TRAIN", "name": "Train"}]` | not in the answer |
+| `systemCodes` | `[{"system": "Wikidata: stations", "systemKey": "wikidata-stations", "code": "Q33467326", "name": "Q33467326 Tschamut-Selva"}]` | not in the answer |
+| `translations` | `[]` | `[{"languageCode": "de", "translatedName": "Matterhorn Gotthard Bahn (fo)", "isActive": true}, {"languageCode": "fr", "translatedName": "Matterhorn Gotthard Bahn (fo)", "isActive": true}]` |
 
-The operator's stop-specific fields are null, while its own business identifier appears in `sboid`. It has no parent, so `parent` is null and `path` is empty. Its related arrays are empty. A reader handles these using the same rules as for the stop. Values keep their declared types: `stopNumber` is an integer, while decimals are strings to retain precision.
+The operator's stop-specific fields and blocks are absent, while its own business identifier appears in `sboid`. Neither type holds `fsoNumber`, so neither answer includes it. The operator has no parent, so `parent` is null and `path` is empty. Its `translations` array lists the operator's own translated names. For a main object field, `null` means the record has no value for a field its type holds; an absent field means the type does not hold it. A client reading several types should expect a field only on the types that hold it, as each type’s schema in the generated OpenAPI document describes. Values keep their declared types: `stopNumber` is an integer, while decimals are strings to retain precision.
 
 ### What carries across consumer APIs
 
@@ -58,7 +57,9 @@ The operator's stop-specific fields are null, while its own business identifier 
 
 The operation patterns are shared; availability is declared. An API can omit Get by ID, XREF, Resolve, lists or events. Crosswalk needs an enabled related filter, and business-date filtering needs declared validity periods. List pages, XREF pages, batch answers and event pages have their own envelopes, reused across APIs; they are not one interchangeable envelope. The linked [read examples](/docs/integrate/reading-business-objects/), [lookup examples](/docs/integrate/looking-up-and-resolving/) and [event and webhook examples](/docs/integrate/consumer-events-and-webhooks/) show their complete requests and answers.
 
-This lets you reuse a parser and the same read, page, resolve, cache and event-processing flows across types and consumer APIs. A client driven by the declared contract can accommodate another type or API through configuration. Check its generated document: output names, optional parts, related fields and cardinality can differ between declarations, so a client with fixed field names may need changes.
+This lets you reuse a parser and the same read, page, resolve, cache and event-processing flows across types and consumer APIs. A client driven by the declared contract can accommodate another type or API through configuration. Check its generated OpenAPI document: it has one schema per exposed type. Output names, optional parts, related fields and cardinality can differ between declarations, so a client with fixed field names may need changes.
+
+Each type’s schema is named and titled with its public name. Its fields are required, except for related blocks served on request. In the [API reference](/docs/api/?api=consumer-stops-v1), a response schema shows **One of** with a type selector and marks `objectType` as the discriminator. The named example picker under **The answer.** offers an example for each exposed type; a list offers its own type’s example. These examples come from field types, without reading a record.
 
 Each consumer contract has its own version, separate from the model release and management API. Model changes can preserve what consumers read; breaking contract changes require a higher version. Stability protects an agreed contract while its underlying model evolves. It does not promise that every declaration has identical field names or that a new version requires no client changes.
 
@@ -87,7 +88,7 @@ The paths below are the shared route patterns. Replace `{consumer_api}` with the
 | `GET /api/consumer/{consumer_api}/v{contract_version}/publications` | Find snapshots and their event positions before a fixed extract. See [Load, then follow changes](/docs/guide/integrate/load-then-follow-changes/). |
 | `GET /api/consumer/{consumer_api}/v{contract_version}/events` | Follow the contract's business events from a saved position. See [Consumer events and webhooks](/docs/integrate/consumer-events-and-webhooks/). |
 
-**Reference-data example:** the `stops` contract declares these five lists. They all return the shared object in a paged `items` envelope. Supply `workspace=graubuenden` and a consumer token. Full request and response bodies are in [Reading business objects](/docs/integrate/reading-business-objects/); the instance's [generated list operations](/docs/api/?api=consumer-stops-v1) describe the concrete schemas.
+**Reference-data example:** the `stops` contract declares these five lists. They return objects in their listed type’s shape, in a paged `items` envelope. Supply `workspace=graubuenden` and a consumer token. Full request and response bodies are in [Reading business objects](/docs/integrate/reading-business-objects/); the instance's [generated list operations](/docs/api/?api=consumer-stops-v1) describe the concrete schemas.
 
 | Request | Records and scope |
 | --- | --- |
@@ -101,7 +102,11 @@ The paths below are the shared route patterns. Replace `{consumer_api}` with the
 
 ## Understand the shared object
 
-Reads by ID, lists and lookups use the same declared business representation. Values retain their types. Declared fields use their configured sources, defaults or an empty value. The parent's fields use author-chosen output names; in the short list form, built-in fields keep their role's output name and other sources become camelCase words. An unexposed parent's public type is null. The declaration can include the parent, ancestor path and hierarchy as part of that representation. Related blocks follow cardinality: a single object or an ordered list. A projected public type is available only when the definition exposes all reachable types.
+Reads by ID, lists, XREF, batch resolution, full event payloads and webhook deliveries all use each type’s business representation, including when reading a publication. Values retain their types. A main object field is present only when at least one source is a built-in field, such as `id` or `name`, or an attribute bound to that type. A field the type holds uses its configured sources, then its default or `null` when the record has no value. A default never adds a field to a type that does not hold it. `objectType` is always present; declared parent, path and hierarchy outputs remain present on every type, as do `matchScore` for XREF and `target` for a crosswalk.
+
+The parent's fields use author-chosen output names; in the short list form, built-in fields keep their role's output name and other sources become camelCase words. An unexposed parent's public type is null. The declaration can include the parent, ancestor path and hierarchy as part of that representation.
+
+A related block is present only when the object’s type is an end of its relationship in the declared direction; for a parent’s block, the parent’s type decides. A block the type cannot hold is absent. When the type holds a served block but there are no related records, it is `null` for one or `[]` for many. On-request blocks also need to be named in `include`. Related blocks follow cardinality: a single object or an ordered list. A projected public type is available only when the definition exposes all reachable types.
 
 The object's identity is its public record ID. Other codes are lookup inputs, not substitutes for that identity. Parameters can narrow which objects are visible and which related records appear. A target representation can translate a code or name through a declared relationship; see [Looking up and resolving](/docs/integrate/looking-up-and-resolving/).
 
@@ -173,7 +178,7 @@ The complete reference declaration also exposes dates, coordinates, height and o
 | --- | --- |
 | `key: stops`, `contractVersion: 1` | The base path `/api/consumer/stops/v1`; another model can choose a different key and version. |
 | `exposes` and `publicNames` | Those records can appear, named `Stop`, `Municipality`, `Operator` and `Mode` in `objectType`. Other types remain internal. |
-| `object.fields` | Every shared object has these output names. `stopNumber` reads the underlying `stop-number` value. |
+| `object.fields` | Each type carries only the output names whose sources it holds. `stopNumber` reads the underlying `stop-number` value on types that bind it. |
 | Ordered `from` sources | `code` takes the first non-empty source available on that record. An operator can therefore use its operator code while a stop uses its stop code. |
 | A field default | When no source yields a value, the declared default is returned; with no default the value is `null`. The reference stop example shows nulls rather than an invented value. |
 | `parent` and `path` | A parent object and a slash-separated ancestor path appear. Path lists the ancestors, not the record itself. |
@@ -325,7 +330,7 @@ These names and data are illustrative, not part of the reference instance.
 ```
 
 Each related block has `served`: `always`, the default, or `onRequest`. Always-served blocks
-are present in ordinary answers. On-request blocks are absent unless named in `include`:
+are present in ordinary answers only on types their relationship reaches. On-request blocks are absent unless named in `include`:
 `codes` asks for the object's block, and `parent.codes` asks for the parent's. Repeat the
 parameter or separate names with commas. These names work on Get by ID, lists and XREF;
 Resolve accepts them in each item's `include` or in `defaults.include`.
@@ -429,11 +434,9 @@ RDM-Workspace: graubuenden
   "validTo": null,
   "stopNumber": 8505331,
   "abbreviation": "PALU",
-  "fsoNumber": null,
   "latitude": "46.55352096785679",
   "longitude": "9.868828554080435",
   "height": "1755.847",
-  "sboid": null,
   "parent": {
     "objectType": "Municipality",
     "id": "8ec1aea0-c18a-4802-ba4f-ac14fc5a00e6",
@@ -516,7 +519,7 @@ for complete bodies, signing, retries, CloudEvents and recovery.
 
 Activation compares with what consumers read in the workspace’s current release and refuses unversioned breaks. Draft contract review compares with its base release, or the latest installed release of the same model when there is no base. Review the target workspace’s activation compatibility as well. Installing a release alone does not change the API consumers read. Removing a whole definition produces a warning and ends its address on activation; it does not preserve the old API.
 
-Removing or retyping a field, changing related cardinality, removing an exposed type, operation, list or filter, changing a filter’s verb, changing a list’s type, parent scope or ordering, changing matching weights or score restrictions, or disabling crosswalks can require a higher `contractVersion`. Event coverage is checked too. Adding fields or operations is normally compatible. Coordinate any version increase before activation: the server serves the current definition and any retained earlier definitions. See [Compatibility](/docs/integrate/compatibility/) for notice ownership and [earlier versions](#earlier-contract-versions) for discovery and recovery.
+Removing or retyping a field, changing related cardinality, removing an exposed type, operation, list or filter, changing a filter’s verb, changing a list’s type, parent scope or ordering, changing matching weights or score restrictions, or disabling crosswalks can require a higher `contractVersion`. Event coverage is checked too. Unbinding an attribute from a type, or changing a relation so a related block no longer reaches that type, removes an output from that type’s objects and is breaking. A field or block joining a type is additive. Adding fields or operations is normally compatible. Coordinate any version increase before activation: the server serves the current definition and any retained earlier definitions. See [Compatibility](/docs/integrate/compatibility/) for notice ownership and [earlier versions](#earlier-contract-versions) for discovery and recovery.
 
 ## Earlier contract versions
 

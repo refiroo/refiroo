@@ -4887,6 +4887,28 @@ form.install-dialog .dialog-actions {
   color: var(--text-tertiary);
   font-size: var(--text-xs);
 }
+/* A single choice (SearchMenu with `selected`, OT-D5): the button shows the chosen item and its tile; the
+   list ticks it. */
+.search-menu-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 5px;
+}
+.search-menu-choice > .icon {
+  color: var(--text-tertiary);
+}
+.picker-choice .picker-option {
+  align-items: center;
+}
+.picker-choice .picker-text span {
+  font-family: inherit;
+}
+.picker-tick {
+  display: inline-grid;
+  margin-left: auto;
+  color: var(--action-primary);
+}
 .picker-empty {
   margin: 0;
   padding: var(--space-3);

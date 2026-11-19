@@ -57,11 +57,13 @@ def _dependant(world, owner, g, name):
 def test_the_shared_object(world):
     """Given an R with typed values, R.u set and R2.u empty text, one B11 target, two Bown dependants
     under different Gs, and an R2 under it. When each is read by its object ID. Then each answers
-    exactly the declared fields with declared types: code skips the empty text and reads R.u, and the
-    unset attribute takes its default; R's parent is null, its hierarchy [] and path ""; R2's parent
-    names R, and its hierarchy is [R's name]; the B11 projection is an object, and null on a record
-    without the relationship; the Bown projection is an array ordered by name, with each G's name; a
-    record with no dependants has []."""
+    exactly the declared fields its type holds, with declared types: code skips the empty text and reads
+    R.u, and the unset attribute takes its default; R's parent is null, its hierarchy [] and path "";
+    R2's parent names R, and its hierarchy is [R's name]; R2 binds neither R.b, R.n nor R.dt, so it has
+    no field for them, not even the default, and is no end of B11 or Bown, so it has no block for
+    them (OT-D1, OT-D2); the B11 projection is an object, and null on an R without the relationship;
+    the Bown projection is an array ordered by name, with each G's name; R2's Bscope block, which R2 is
+    an end of, is []."""
     r = world.made("R", "Alpha ledger", values={"R.u": "LED-1", "R.b": False, "R.dt": "2026-03-04"})
     token = world.made("K", "Paired token", values={"K.code": "TK-1"})
     ok(world.relate("B11", r["id"], token["id"]), 201)
@@ -77,6 +79,10 @@ def test_the_shared_object(world):
         *(_out(world, name) for name in ("parent", "path", "hierarchy", "B11", "Bown", "Bscope")),
     }
     ledger = _read(world, r["id"])
+    held_by_r2 = declared - {
+        *(_out(world, name) for name in ("active", "n", "dt")),
+        *(_out(world, name) for name in ("B11", "Bown")),
+    }
     assert set(ledger) == declared
     assert ledger["objectType"] == world.key("Capi.R")
     assert ledger[_out(world, "id")] == r["id"]
@@ -97,12 +103,9 @@ def test_the_shared_object(world):
     ]
 
     entry = _read(world, r2["id"])
-    assert set(entry) == declared
+    assert set(entry) == held_by_r2
     assert entry["objectType"] == world.key("Capi.R2")
     assert entry[_out(world, "code")] == "ENT-1"
-    assert entry[_out(world, "active")] is True
-    assert entry[_out(world, "n")] == 50
-    assert entry[_out(world, "dt")] is None
     # The parent's keys are the roles' output names, as the object's own (C-D75).
     assert entry[_out(world, "parent")] == {
         "objectType": world.key("Capi.R"),
@@ -112,8 +115,7 @@ def test_the_shared_object(world):
     }
     assert entry[_out(world, "hierarchy")] == ["Alpha ledger"]
     assert entry[_out(world, "path")] == "Alpha ledger"
-    assert entry[_out(world, "B11")] is None
-    assert entry[_out(world, "Bown")] == []
+    assert entry[_out(world, "Bscope")] == []
 
 
 @pytest.mark.journey("J28.1")

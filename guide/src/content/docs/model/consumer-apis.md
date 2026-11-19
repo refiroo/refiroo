@@ -13,9 +13,12 @@ Start with [Define a consumer API](/docs/guide/model/define-a-consumer-api/).
 
 Every consumer API uses the same patterns for presenting business objects, reading lists,
 looking up values, resolving several inputs and reporting changes. Within your API, all exposed
-record types share one declared object shape. Selected fields, related records, system codes,
-translations and parent information fit into that shape. A field without a value uses its declared
-fallback or stays empty; it does not require a different form for that record type.
+record types use one declared object definition, but each type has its own output shape.
+An object carries a field only if its type holds a built-in source or attaches an attribute
+the field reads. If the record has no value, the field uses its declared fallback or stays
+empty. A default does not put the field on a type that does not hold its source. Related
+blocks appear only on types their relationship reaches in the chosen direction. Declared
+parent, path and hierarchy outputs remain on every type.
 
 Your choices supply the content: which types are exposed, what fields mean, which relationships
 are followed, how lookups match and which changes are reported. The engine supplies the common
@@ -37,10 +40,10 @@ for the integrator's explanation.
 
 A **business object** is one record presented in the shape you choose for other systems.
 It can include fields from that record, its parent and related records. Get by ID, lists
-and lookups all return this same shape. A lookup adds a match score; a list wraps objects
+and lookups all return the record in its type’s shape. A lookup adds a match score; a list wraps objects
 in a page. Changing the shape therefore affects more than one operation.
 
-**Reference-data example:** Stops API exposes stops, municipalities, operators and modes. A stop’s business object includes its name, stop number, operator, modes and selected system codes. An operator uses the same declared fields, with stop-specific values empty. These are choices in this model, not built-in transport features.
+**Reference-data example:** Stops API exposes stops, municipalities, operators and modes. A stop’s business object includes its name, stop number, operator, modes and selected system codes. An operator carries its own fields, including its business identifier, and omits the stop-specific fields and blocks. A stop omits the municipality’s FSO number and the operator’s business identifier. These are choices in this model, not built-in transport features.
 
 ## The business object consumers read
 
@@ -56,7 +59,7 @@ an integer and validTo can be null.
 
 **Reference-data example:** Chur’s stop is named Chur, has stop number 8509000 and abbreviation CH. Its operator is Schweizerische Bundesbahnen SBB and its mode is Train. The containment path names Graubünden, Plessur and Chur, excluding the stop itself.
 
-A field does not inherit a parent’s or related record’s value automatically. Choose the parent’s fields in **Parent**, or publish related values through an explicit related block. A single-valued relationship gives one related object or an empty value; a many-valued relationship gives a list, which can be empty. This shape follows the relationship’s cardinality and is part of the contract. Decimal values retain precision; integers, booleans and dates keep their declared types.
+A field does not inherit a parent’s or related record’s value automatically. Choose the parent’s fields in **Parent**, or publish related values through an explicit related block. A single-valued relationship gives one related object or an empty value; a many-valued relationship gives a list, which can be empty. This shape follows the relationship’s cardinality and is part of the contract. If the object’s type is not an end of that relationship in the chosen direction, the block is absent; for a parent’s block, the parent’s type decides. Decimal values retain precision; integers, booleans and dates keep their declared types.
 
 ### The parent can carry its own values
 
@@ -96,11 +99,11 @@ large or rarely used block only on request.
 ### Serve related records always or on request
 
 In **Types and related**, each related block has a **Served** column. The same column appears
-under **Parent's related records** on **Fields**. Choose **Always** for a block in every answer,
+under **Parent's related records** on **Fields**. Choose **Always** for a block in every answer whose type holds it,
 or **On request** when consumers should explicitly ask for it. Always is the default for an
 existing block and for a new one.
 
-An on-request block is absent from an ordinary answer. When requested, it has its usual object
+An on-request block is absent from an ordinary answer. When requested on a type its relationship reaches, it has its usual object
 or list shape, including null or an empty list when there is no related record. This keeps the
 default answer small without losing its declared types. On **Operations**, **Include** lists
 the accepted choices automatically; edit **Served** to change that list. Parent choices have
@@ -229,8 +232,15 @@ draft is valid**. Fix model errors before relying on the compatibility result.
 | Fields | Output names, value sources and roles. Ordered sources use the first non-empty value. |
 | Operations | Get by ID, cross-reference and resolve choices, lists and custom events. |
 | Filters | Named ways to narrow or match records, including through related blocks. |
-| Schema | The generated description of the data shape. |
-| Message example | A generated example of the declared shape, rather than a live record sample. |
+| Schema | The generated description of each type’s fields. Object type selects All types or one exposed type. |
+| Message example | A generated message for the exposed type chosen in Object type, rather than a live record sample. |
+
+The **Object type** dropdown in **Schema** and **Message example** opens a searchable list
+with each type’s coloured tile and the current choice ticked. The choice is shared while you
+stay on the API. Schema’s **All types** shows the whole document; a single type shows only
+its schema. Message example has no All types and starts with the first exposed type.
+**Copy** copies what is shown; **Download** saves that document with the selected type’s
+name, or the whole schema when All types is chosen.
 
 ![Consumer API definition on the Types and related tab](/docs/screens/model-consumer-tab-types.png)
 

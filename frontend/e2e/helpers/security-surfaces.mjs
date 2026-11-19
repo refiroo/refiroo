@@ -301,12 +301,29 @@ with engine.begin() as connection:
     // digit of a time or an age becomes 0 and the build line's version too, so the widths are the same each run.
     const settleTimes = (target) =>
       target.evaluate(() => {
-        const timePattern = /just now|\d+ (second|minute|hour|day|week|month)s? ago|\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2}/g;
+        // Every time is replaced whole by one fixed form, so its width does not depend on the hour's digit
+        // count, the month's or the day's, AM or PM, or the time zone.
+        const forms = [
+          // A port after any address or host name (the engine's, a provider's, a mail server's), before the
+          // times, whose pattern would otherwise cut into it.
+          [/\b(\d{1,3}(\.\d{1,3}){3}|[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z0-9-]+)*):\d{2,5}\b/g, "$1:00000"],
+          // "today, 03:20 PM", "yesterday, …", "Nov 18, …": the day's word depends on the zone and the day.
+          [/(today|yesterday|[A-Z][a-z]{2} \d{1,2}(, \d{4})?), (?<![\d.:])\d{1,2}:\d{2}( ?[AP]M)?/g, "today, 00:00 AM"],
+          // A day shown without a time: "Nov 18", "Nov 18, 2026", "18 Nov 2026".
+          [/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}(, \d{4})?\b/g, "Jan 00, 0000"],
+          [/\b\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*( \d{4})?\b/g, "Jan 00, 0000"],
+          [/\d{1,2}\/\d{1,2}\/\d{4}/g, "00/00/0000"],
+          [/\d{4}-\d{2}-\d{2}/g, "0000-00-00"],
+          [/(?<![\d.:])\d{1,2}:\d{2}(:\d{2})?( ?[AP]M)?/g, "00:00 AM"],
+          [/just now|\d+ (second|minute|hour|day|week|month)s? ago/g, "0 minutes ago"],
+        ];
         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
           const inBuild = node.parentElement?.closest(".sign-in-build");
           const text = node.nodeValue ?? "";
-          const next = inBuild ? text.replace(/\d/g, "0") : text.replace(timePattern, (hit) => hit.replace(/\d/g, "0"));
+          const next = inBuild
+            ? text.replace(/\d/g, "0")
+            : forms.reduce((value, [pattern, form]) => value.replace(pattern, form), text);
           if (next !== text) node.nodeValue = next;
         }
       });
