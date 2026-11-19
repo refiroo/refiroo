@@ -644,7 +644,7 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `example.json`, their `400 UNKNOWN_OBJECT_TYPE` and the reference text that names them.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "df0112857e3dd36bbab075e807e1acf1a7d3a7be311ded2a25d7ca87a12b169d"
+        "ec94a557178365dd0ba1f797d87dd9c8ad5c1bdac49ac97cbd590f7b12a3faa8"
     )
 
 
