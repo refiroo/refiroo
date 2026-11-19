@@ -82,6 +82,7 @@ from ..agent_access import applications
 from ..agent_access import calls as agent_calls
 from ..authorization.requesters import job_writer
 from ..authorization.writes import set_writer
+from ..identity import sessions
 from ..imports.binding import ImportLimits, bind_import
 from ..model import change_set_migrations, migrations
 from ..moves import move_job, move_load
@@ -273,7 +274,8 @@ class JobWorker:
     def sweep(self, now: datetime | None = None) -> int:
         """Expire finished jobs past their retention, delete source files superseded longer ago
         (0.10 A3, D5), delete inbox notices past theirs (0.12 NT1, D465) and remove the files no
-        job or source file serves any more; the number of jobs expired."""
+        job or source file serves any more, and delete the refresh tokens no renewal can use (0.17
+        AS-D4); the number of jobs expired."""
         now = now or datetime.now(UTC)
         with self.session_factory() as session:
             expired = expire_jobs(session, now)
@@ -284,6 +286,7 @@ class JobWorker:
             agent_calls.expire(session, now, get_settings().mcp_calls_days)
             ai_calls.expire_content(session, now)
             applications.expire(session, now)
+            sessions.prune_refresh_tokens(session, now)
             session.commit()
             if self.files is not None:
                 for source_file_id in superseded_files:

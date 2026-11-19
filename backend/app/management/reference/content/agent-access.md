@@ -1,10 +1,10 @@
 # agent-access
 
-Agent access lets an assistant, a program speaking the Model Context Protocol, reach the instance at `/mcp`. The operator switches it on with `MCP_ENABLED`. A person's assistant works with that person's grants cut down to Browse and Work in change sets; an agent client, made with `kind: agent`, works with its own. You use these operations to see the settings, the agent clients and the assistants, to review every call, to register, block or restore an assistant, and to set how long an assistant stays signed in. Reading needs `agent-access.read` and changing `agent-access.write`, both in Security administration.
+Agent access lets an assistant, a program speaking the Model Context Protocol, reach the instance at `/mcp`. `MCP_ENABLED` switches it on. A person's assistant works with that person's grants cut down to Browse and Work in change sets; an agent client, made with `kind: agent`, works with its own. These operations show the settings, agent clients and assistants, review every call, register, block or restore an assistant, and set how long it stays signed in. Reading needs `agent-access.read` and changing `agent-access.write`, both in Security administration.
 
 1. Connect a program: `POST /api/v1/clients` with `kind: agent`, give it a role with `POST /api/v1/grants`, then `POST /oauth/token` with `scope=agent`.
 2. Set how long assistants stay signed in: `PATCH /api/v1/agent-access`.
-3. Review use: `GET /api/v1/agent-access/calls`, and `POST /api/v1/agent-access/applications/{application_id}/block` for an assistant that should stop.
+3. Review use: `GET /api/v1/agent-access/calls`, and `POST /api/v1/agent-access/applications/{application_id}/block` to stop one.
 
 ## GET /api/v1/agent-access
 

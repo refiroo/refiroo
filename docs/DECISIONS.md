@@ -1731,7 +1731,10 @@ the consumer APIs alike (ROADMAP), with no API keys and no credential in a URL (
   `SameSite=Strict` cookie read only by the token and revocation endpoints. Refresh tokens are
   opaque, stored hashed and rotated on every use; a reused one ends the session, except an
   assistant's (0.17 AS-D1, amending D251 for assistants only: any refresh token an assistant's
-  session was given renews it, since several windows share one sign-in and each renews on its own;
+  session was given renews it, since several windows share one sign-in and each renews on its own,
+  a spent one only while it was issued less than the days without use ago (AS-D4: later it is
+  refused as `invalid_grant` and the session goes on; the remaining risk is that a copied spent token
+  stays usable within that window, as long as the session lives, and is never found out as reuse);
   its limits are its own, 30 days without use and 90 in all, set on the Agent access page,
   AS-D2/AS-D3). The frontend and the
   engine share a site.

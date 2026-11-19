@@ -14,6 +14,7 @@ import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useAddressTab } from "@/lib/hooks/useAddressTab";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
+import { holdsAnywhere, useHeldAnywhere } from "@/state/permissions";
 import type { Hue } from "@/model/hues";
 import type { AgentAccessStatus, AgentApplication, AgentCall, AgentClient, RouteState } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
@@ -69,6 +70,9 @@ export function AgentAccessPage({ onNavigate }: { onNavigate: (route: RouteState
   const [clientsVersion, setClientsVersion] = useState(0);
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const head = settingsHead("agent-access");
+  // Registering, blocking and restoring assistants and setting their sign-in limits are
+  // `agent-access.write`, which the Security administration group gives (D323: shown only when held).
+  const canWrite = holdsAnywhere(useHeldAnywhere(), "security-admin");
 
   function load() {
     agentAccess.status().then(
@@ -120,9 +124,9 @@ export function AgentAccessPage({ onNavigate }: { onNavigate: (route: RouteState
                 content: (
                   <>
                     <ConnectSection status={status} hue={head.hue} />
-                    <SignInsSection status={status} onSaved={setStatus} />
+                    <SignInsSection status={status} canWrite={canWrite} onSaved={setStatus} />
                     <ClientsSection version={clientsVersion} onNavigate={onNavigate} />
-                    <ApplicationsSection hue={head.hue} />
+                    <ApplicationsSection hue={head.hue} canWrite={canWrite} />
                   </>
                 ),
               },
@@ -192,9 +196,11 @@ function ConnectSection({ status, hue }: { status: AgentAccessStatus; hue: Hue }
 /** How long an assistant stays signed in, beside the browser's limits, which are a fact (0.17 AS-D3). */
 function SignInsSection({
   status,
+  canWrite,
   onSaved,
 }: {
   status: AgentAccessStatus;
+  canWrite: boolean;
   onSaved: (status: AgentAccessStatus) => void;
 }) {
   const [changing, setChanging] = useState(false);
@@ -206,9 +212,11 @@ function SignInsSection({
       title="Sign-ins"
       description="How long an assistant someone signed in stays signed in. It renews on its own while it is used, also from several windows at once."
       action={
-        <button type="button" className="secondary" onClick={() => setChanging(true)}>
-          Change…
-        </button>
+        canWrite ? (
+          <button type="button" className="secondary" onClick={() => setChanging(true)}>
+            Change…
+          </button>
+        ) : undefined
       }
     >
       <SettingsPanel>
@@ -302,42 +310,48 @@ function SignInsDialog({
         }}
       >
         <FormField
-          label="Signed out after no use for (days)"
+          label="Signed out after no use for"
           help="Counted from the assistant's last renewal. 1 to 365."
           error={idleError}
         >
           {(control) => (
-            <input
-              {...control}
-              autoFocus
-              className="sign-in-days"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={365}
-              required
-              value={idle}
-              onChange={(event) => setIdle(event.target.value)}
-            />
+            <span className="sign-in-days-field">
+              <input
+                {...control}
+                autoFocus
+                className="sign-in-days"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={365}
+                required
+                value={idle}
+                onChange={(event) => setIdle(event.target.value)}
+              />
+              days
+            </span>
           )}
         </FormField>
         <FormField
-          label="Signed out in all after (days)"
+          label="Signed out in all after"
           help="Counted from the sign-in. Not fewer than the days without use. Applies to new sign-ins."
           error={allError}
         >
           {(control) => (
-            <input
-              {...control}
-              className="sign-in-days"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={365}
-              required
-              value={all}
-              onChange={(event) => setAll(event.target.value)}
-            />
+            <span className="sign-in-days-field">
+              <input
+                {...control}
+                className="sign-in-days"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={365}
+                required
+                value={all}
+                onChange={(event) => setAll(event.target.value)}
+              />
+              days
+            </span>
           )}
         </FormField>
         <p className="muted">
@@ -428,7 +442,7 @@ function ClientRow({ client, onNavigate }: { client: AgentClient; onNavigate: (r
   );
 }
 
-function ApplicationsSection({ hue }: { hue: Hue }) {
+function ApplicationsSection({ hue, canWrite }: { hue: Hue; canWrite: boolean }) {
   const feed = useCursorFeed((cursor) => agentAccess.applications(cursor), []);
   const [registering, setRegistering] = useState(false);
   const [blocking, setBlocking] = useState<AgentApplication>();
@@ -456,9 +470,11 @@ function ApplicationsSection({ hue }: { hue: Hue }) {
       title="Assistants people sign in with"
       description="The name is what the assistant says about itself. Blocking ends its sessions on their next call."
       action={
-        <button ref={registerRef} type="button" className="secondary" onClick={() => setRegistering(true)}>
-          New assistant
-        </button>
+        canWrite ? (
+          <button ref={registerRef} type="button" className="secondary" onClick={() => setRegistering(true)}>
+            New assistant
+          </button>
+        ) : undefined
       }
     >
       <ActionNotices guard={guard} hideError={Boolean(blocking)} />
@@ -506,7 +522,7 @@ function ApplicationsSection({ hue }: { hue: Hue }) {
                     {application.lastUsedAt ? formatServerDayTime(application.lastUsedAt) : "Never"}
                   </td>
                   <td className="grant-action">
-                    {application.blocked ? (
+                    {!canWrite ? null : application.blocked ? (
                       <button
                         type="button"
                         className="ghost"

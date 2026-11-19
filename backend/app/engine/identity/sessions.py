@@ -10,20 +10,22 @@ that started it is disabled (I3, D367). Its access tokens carry
 
 An assistant's session (0.17 AS-D1, AS-D2) differs in two ways: any refresh token it was given
 renews it, so several windows sharing one sign-in never end it, and its limits are the days set on
-the Agent access page (``agent_limits``), not the browser's.
+the Agent access page (``load_agent_limits``), not the browser's. A spent token of it renews only while
+it is younger than those days without use (AS-D4), and ``prune_refresh_tokens`` deletes what no
+renewal can use any more.
 """
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ...errors import api_error
-from ...models.database import SessionRefreshToken, User, UserSession
-from . import agent_limits, managed, security_events
+from ...errors import api_error, version_conflict
+from ...models.database import AgentAccessSettings, SessionRefreshToken, User, UserSession
+from . import managed, security_events
 from .passwords import digest, new_token
 from .settings import IdentitySettings
 
@@ -102,7 +104,7 @@ def start(
         ends_at = now + timedelta(days=settings.session_days)
         idle_ends_at = min(now + timedelta(hours=settings.session_idle_hours), ends_at)
     else:
-        limits = agent_limits.load(session)
+        limits = load_agent_limits(session)
         ends_at = now + timedelta(days=limits.days)
         idle_ends_at = min(now + timedelta(days=limits.idle_days), ends_at)
     user_session = UserSession(
@@ -175,7 +177,8 @@ def renew(
     ends its session (D251), except within ``REFRESH_REUSE_GRACE`` of its use while its successor is
     unused: then the session renews from the successor. An assistant's session never ends for a used
     token (0.17 AS-D1): the windows that share its sign-in each renew from whichever token they
-    hold. A token presented after the session lapsed also ends it. A token of a session started for
+    hold, a spent one only within the days without use of its issue (AS-D4); later it is refused
+    and the session stays open. A token presented after the session lapsed also ends it. A token of a session started for
     another assistant, or for the browser, renews nothing and spends nothing (0.16 AG-D12). Commits
     either way."""
     row = session.execute(
@@ -191,6 +194,15 @@ def renew(
     if user_session.agent_application_id != application_id:
         raise SessionRefused
     assistant = user_session.agent_application_id is not None
+    # AS-D4: a spent token is accepted only within the days without use of its issue; the session
+    # itself goes on, and a newer token renews it.
+    if (
+        assistant
+        and token.used_at is not None
+        and token.issued_at + timedelta(days=load_agent_limits(session).idle_days) <= now
+    ):
+        session.commit()
+        raise SessionRefused
     if token.used_at is not None and not assistant:
         # The successor is the session's next token: renewing issues it as the token is used.
         successor = (
@@ -220,7 +232,7 @@ def renew(
         token.used_at = now
     user_session.last_used_at = now
     idle = (
-        timedelta(days=agent_limits.load(session).idle_days)
+        timedelta(days=load_agent_limits(session).idle_days)
         if assistant
         else timedelta(hours=settings.session_idle_hours)
     )
@@ -228,6 +240,30 @@ def renew(
     renewed = _refresh_token(session, user_session, now)
     session.commit()
     return Renewed(user_session, user, renewed)
+
+
+def prune_refresh_tokens(session: Session, now: datetime) -> int:
+    """Delete the refresh tokens no renewal can use any more: every token of an ended or lapsed session
+    (past ``ends_at`` or ``idle_ends_at``, as ``is_open`` reads them), and an assistant's spent token
+    past the days without use (AS-D4). One statement in the database; the
+    caller commits. How many were deleted."""
+    idle_cut = now - timedelta(days=load_agent_limits(session).idle_days)
+    return session.execute(
+        delete(SessionRefreshToken)
+        .where(SessionRefreshToken.session_id == UserSession.id)
+        .where(
+            or_(
+                UserSession.ended_at.is_not(None),
+                UserSession.ends_at <= now,
+                UserSession.idle_ends_at <= now,
+                and_(
+                    UserSession.agent_application_id.is_not(None),
+                    SessionRefreshToken.used_at.is_not(None),
+                    SessionRefreshToken.issued_at <= idle_cut,
+                ),
+            )
+        )
+    ).rowcount
 
 
 def end_by_refresh_token(session: Session, refresh_token: str, reason: EndReason) -> Ended | None:
@@ -388,3 +424,104 @@ def session_page(
         page_size=page_size,
         message="Session list cursor is invalid",
     )
+
+
+# --- How long an assistant stays signed in (Product 0.17 AS-D2, AS-D3) ----------------------------
+#
+# An assistant's session (a ``UserSession`` with ``agent_application_id``) has limits of its own: it
+# ends after ``session_idle_days`` without a renewal and ``session_days`` in all. They are one row an
+# administrator sets on the Agent access page; without a row the defaults hold. The browser keeps
+# ``SESSION_IDLE_HOURS`` and ``SESSION_DAYS``. A change applies to a session's next renewal (days
+# without use) and to new sign-ins (days in all). Saving is a security event.
+
+AGENT_LIMITS_AGGREGATE = "agent-access-settings"
+# The one setting's identity in a security event.
+AGENT_LIMITS_EVENT_ID = "agent-access"
+AGENT_DEFAULT_IDLE_DAYS = 30
+AGENT_DEFAULT_DAYS = 90
+AGENT_LIMIT_DAYS = 365
+
+
+@dataclass(frozen=True)
+class AgentLimits:
+    idle_days: int
+    days: int
+    version: int
+    updated_at: datetime | None
+
+
+def _agent_limits_row(session: Session, *, for_update: bool = False) -> AgentAccessSettings | None:
+    statement = select(AgentAccessSettings).where(AgentAccessSettings.id == 1)
+    return session.scalar(statement.with_for_update() if for_update else statement)
+
+
+def load_agent_limits(session: Session) -> AgentLimits:
+    """The limits now in force: the saved row, or the defaults before any is saved."""
+    row = _agent_limits_row(session)
+    if row is None:
+        return AgentLimits(AGENT_DEFAULT_IDLE_DAYS, AGENT_DEFAULT_DAYS, 0, None)
+    return AgentLimits(row.session_idle_days, row.session_days, row.version, row.updated_at)
+
+
+def save_agent_limits(
+    session: Session,
+    *,
+    idle_days: int | None,
+    days: int | None,
+    expected_version: int | None,
+) -> AgentLimits:
+    """Change the limits named (the other keeps its value); commits. ``422
+    AGENT_SESSION_LIMITS_INVALID`` when the days in all are fewer than the days without use, ``409
+    VERSION_CONFLICT`` for a stale ``expected_version``."""
+    row = _agent_limits_row(session, for_update=True)
+    held = (
+        AgentLimits(AGENT_DEFAULT_IDLE_DAYS, AGENT_DEFAULT_DAYS, 0, None)
+        if row is None
+        else load_agent_limits(session)
+    )
+    if expected_version is not None and expected_version != held.version:
+        session.rollback()
+        raise version_conflict(held.version, "", message="The sign-in limits have changed")
+    new_idle = held.idle_days if idle_days is None else idle_days
+    new_days = held.days if days is None else days
+    if (
+        not 1 <= new_idle <= AGENT_LIMIT_DAYS
+        or not 1 <= new_days <= AGENT_LIMIT_DAYS
+        or new_days < new_idle
+    ):
+        session.rollback()
+        raise api_error(
+            422,
+            "AGENT_SESSION_LIMITS_INVALID",
+            "Days without use and days in all are each 1 to 365, and the days in all are not "
+            "fewer than the days without use",
+        )
+    changed = [
+        name
+        for name, before, after in (
+            ("sessionIdleDays", held.idle_days, new_idle),
+            ("sessionDays", held.days, new_days),
+        )
+        if before != after
+    ]
+    now = datetime.now(UTC)
+    if row is None:
+        row = AgentAccessSettings(
+            id=1, session_idle_days=new_idle, session_days=new_days, version=1, updated_at=now
+        )
+        session.add(row)
+    elif changed:
+        row.session_idle_days = new_idle
+        row.session_days = new_days
+        row.version += 1
+        row.updated_at = now
+    if changed:
+        session.flush()
+        security_events.record(
+            session, AGENT_LIMITS_AGGREGATE, AGENT_LIMITS_EVENT_ID, "updated", version=row.version,
+            details=security_events.changed(
+                changed, sessionIdleDays=new_idle, sessionDays=new_days
+            ),
+        )  # fmt: skip
+    session.commit()
+    return load_agent_limits(session)

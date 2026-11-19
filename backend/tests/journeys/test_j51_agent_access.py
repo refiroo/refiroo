@@ -6,7 +6,8 @@ once revoked. An ``agent`` token reaches nothing else, and no other token reache
 runs on two configurations through the public API.
 """
 
-from datetime import UTC, datetime
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -22,7 +23,7 @@ from test_j39_sign_in import _sign_in as browser_sign_in
 from test_j39_sign_in import address as email_of
 
 from app.engine.identity.passwords import digest
-from app.models.database import SessionRefreshToken, UserSession
+from app.models.database import SessionRefreshToken
 
 ON = {"MCP_ENABLED": "true"}
 CALLBACK = "http://localhost:43123/callback"
@@ -496,15 +497,41 @@ def test_what_a_self_registration_may_carry_and_how_often_one_address_may_regist
     assert "try again in" in slowed.json()["error_description"]
 
 
-def _assistant_session(world, refresh_token: str) -> UserSession:
+def _assistant_ends(world, name: str, application: str) -> list[float]:
+    """Days until each of a person's open assistant sessions ends, as the sessions API shows them
+    (a fresh browser sign-in of the person lists them), in the order they started."""
+    own = _browser(world)
+    access = browser_sign_in(own, name)
+    items = ok(world.api.client.get("/api/v1/me/sessions", headers=_bearer(access)))["items"]
+    return [
+        _days_from_now(datetime.fromisoformat(item["endsAt"]))
+        for item in items
+        if item["application"] == application
+    ]
+
+
+def _issued_long_ago(world, refresh_token: str, days: int) -> None:
+    """Age a refresh token's issue by ``days``, as that time passing would."""
     with world.api.client.app.state.session_factory() as session:
-        row = session.scalar(
-            select(UserSession)
-            .join(SessionRefreshToken, SessionRefreshToken.session_id == UserSession.id)
-            .where(SessionRefreshToken.token_hash == digest(refresh_token))
+        token = session.scalar(
+            select(SessionRefreshToken).where(
+                SessionRefreshToken.token_hash == digest(refresh_token)
+            )
         )
-        session.expunge(row)
-        return row
+        token.issued_at = token.issued_at - timedelta(days=days)
+        session.commit()
+
+
+def _tokens_held(world, *refresh_tokens: str) -> int:
+    """How many of these refresh tokens the engine still holds (no API shows it)."""
+    with world.api.client.app.state.session_factory() as session:
+        return len(
+            session.scalars(
+                select(SessionRefreshToken.id).where(
+                    SessionRefreshToken.token_hash.in_([digest(t) for t in refresh_tokens])
+                )
+            ).all()
+        )
 
 
 def _days_from_now(moment: datetime) -> float:
@@ -537,21 +564,28 @@ def test_a_spent_refresh_token_renews_an_assistant_but_still_ends_a_browser(worl
     browser_sign_in(own, "petra")
     cookie = own.cookies.get("oauth_refresh")
     ok(own.post("/oauth/token", data={"grant_type": "refresh_token", "client_id": "browser"}))
+    newer = own.cookies.get("oauth_refresh")
     _used_long_ago(world, cookie)
-    gone = own.post(
-        "/oauth/token",
-        data={"grant_type": "refresh_token", "client_id": "browser", "refresh_token": cookie},
-    )
-    assert gone.json()["error"] == "invalid_grant"
+    for presented in (cookie, newer):
+        gone = own.post(
+            "/oauth/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": "browser",
+                "refresh_token": presented,
+            },
+        )
+        assert gone.json()["error"] == "invalid_grant"
 
 
 @pytest.mark.journey("J51.8")
 @pytest.mark.settings(**ON)
 def test_the_limits_set_on_the_page_decide_when_a_session_ends(world):
-    """Given the defaults, an assistant's sign-in lasts 90 days and a renewal moves its end to 30
-    days ahead. When an administrator sets 10 days without use and 20 in all, then the next renewal
-    ends the session 10 days ahead and a new sign-in 20 days in all; the browser keeps its own limits.
-    A change is a security event."""
+    """Given the defaults, an assistant's sign-in ends 30 days ahead unless renewed and 90 days in all
+     (the sessions API's end). When an administrator sets 10 days without use and 20 in all,
+    then the next renewal ends the session 10 days ahead, as does a new sign-in; with both at 15 a new
+    sign-in ends 15 days ahead, the days in all. The browser keeps its own limits. A change is a
+    security event."""
     shown = ok(world.api.get("/agent-access"))
     assert (shown["sessionIdleDays"], shown["sessionDays"]) == (30, 90)
     assert (shown["browserSessionIdleHours"], shown["browserSessionDays"]) == (12, 14)
@@ -560,9 +594,8 @@ def test_the_limits_set_on_the_page_decide_when_a_session_ends(world):
     person = _person(world, "petra")
     _grant(world, "user", person["id"], "reader")
     tokens = ok(_sign_in(browser, application, "petra"))
-    held = _assistant_session(world, tokens["refresh_token"])
-    assert 89 < _days_from_now(held.ends_at) <= 90
-    assert 29 < _days_from_now(held.idle_ends_at) <= 30
+    [first_end] = _assistant_ends(world, "petra", "Claude Code")
+    assert 29 < first_end <= 30
 
     changed = ok(
         world.api.patch(
@@ -576,23 +609,90 @@ def test_the_limits_set_on_the_page_decide_when_a_session_ends(world):
     )
     assert (changed["sessionIdleDays"], changed["sessionDays"]) == (10, 20)
     assert changed["sessionLimitsVersion"] > shown["sessionLimitsVersion"]
-    renewed = ok(_renew(browser, application, tokens["refresh_token"]))
-    after = _assistant_session(world, renewed["refresh_token"])
-    assert 9 < _days_from_now(after.idle_ends_at) <= 10
-    assert after.ends_at == held.ends_at
-    fresh = _assistant_session(
-        world, ok(_sign_in(_browser(world), application, "petra"))["refresh_token"]
-    )
-    assert 19 < _days_from_now(fresh.ends_at) <= 20
-    assert 9 < _days_from_now(fresh.idle_ends_at) <= 10
+    ok(_renew(browser, application, tokens["refresh_token"]))
+    ok(_sign_in(_browser(world), application, "petra"))
+    renewed_end, fresh_end = _assistant_ends(world, "petra", "Claude Code")
+    assert 9 < renewed_end <= 10 and 9 < fresh_end <= 10
 
     events = ok(world.api.get("/security-events", aggregateType="agent-access-settings"))
     [event] = events["items"]
     assert event["details"]["changedFields"] == ["sessionIdleDays", "sessionDays"]
     assert (event["details"]["sessionIdleDays"], event["details"]["sessionDays"]) == (10, 20)
 
+    both = ok(world.api.patch("/agent-access", {"sessionIdleDays": 15, "sessionDays": 15}))
+    assert (both["sessionIdleDays"], both["sessionDays"]) == (15, 15)
+    ok(_sign_in(_browser(world), application, "petra"))
+    assert 14 < _assistant_ends(world, "petra", "Claude Code")[-1] <= 15
+
     one = ok(world.api.patch("/agent-access", {"sessionIdleDays": 5}))
-    assert (one["sessionIdleDays"], one["sessionDays"]) == (5, 20)
+    assert (one["sessionIdleDays"], one["sessionDays"]) == (5, 15)
+
+
+@pytest.mark.journey("J51.8")
+@pytest.mark.settings(**ON)
+def test_a_spent_token_stops_at_sign_out_a_block_and_the_window(world):
+    """Given a spent refresh token of an assistant's session. When the person signs out, or the
+    assistant is blocked, then the spent token and the newest both get `invalid_grant` (while it is blocked the application itself is refused as `invalid_client`). When the
+    days without use have passed since the spent token was issued, then it is refused while the
+    newest still renews and the session stays open (AS-D4); the next sweep deletes the spent token
+    and, once a session has ended, all of its tokens."""
+    browser = _browser(world)
+    application = ok(_register(browser), 201)["client_id"]
+    person = _person(world, "petra")
+    _grant(world, "user", person["id"], "reader")
+
+    def spent_pair() -> tuple[str, str]:
+        first = ok(_sign_in(browser, application, "petra"))["refresh_token"]
+        return first, ok(_renew(browser, application, first))["refresh_token"]
+
+    sweep = world.api.client.app.state.job_worker.sweep
+
+    spent, newest = spent_pair()
+    ok(browser.post("/oauth/revoke", data={"token": newest}))
+    for token in (spent, newest):
+        assert _renew(browser, application, token).json()["error"] == "invalid_grant"
+    sweep()
+    assert _tokens_held(world, spent, newest) == 0
+
+    spent, newest = spent_pair()
+    ok(world.api.post(f"/agent-access/applications/{application}/block", {}))
+    for token in (spent, newest):  # a blocked application is no client at all
+        assert _renew(browser, application, token).json()["error"] == "invalid_client"
+    ok(world.api.post(f"/agent-access/applications/{application}/restore", {}))
+    for token in (spent, newest):  # and its sessions stay ended once it is restored
+        assert _renew(browser, application, token).json()["error"] == "invalid_grant"
+
+    spent, newest = spent_pair()
+    _issued_long_ago(world, spent, 31)
+    assert _renew(browser, application, spent).json()["error"] == "invalid_grant"
+    renewed = ok(_renew(browser, application, newest))
+    assert len(_assistant_ends(world, "petra", "Claude Code")) == 1
+    sweep()
+    assert _tokens_held(world, spent) == 0 and _tokens_held(world, newest) == 1
+    ok(_renew(browser, application, renewed["refresh_token"]))
+
+
+@pytest.mark.journey("J51.8")
+@pytest.mark.settings(**ON)
+def test_two_windows_renew_one_session_at_the_same_moment(world):
+    """Given two windows holding different tokens of one assistant session. When both renew at the
+    same moment, then both succeed with new tokens, the person has one assistant session, and each
+    new token renews it."""
+    application = ok(_register(_browser(world)), 201)["client_id"]
+    person = _person(world, "petra")
+    _grant(world, "user", person["id"], "reader")
+    first = ok(_sign_in(_browser(world), application, "petra"))["refresh_token"]
+    second = ok(_renew(_browser(world), application, first))["refresh_token"]
+    windows = [(_browser(world), first), (_browser(world), second)]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        answers = [
+            ok(done) for done in pool.map(lambda w: _renew(w[0], application, w[1]), windows)
+        ]
+    new = [answer["refresh_token"] for answer in answers]
+    assert len(set(new) | {first, second}) == 4
+    assert len(_assistant_ends(world, "petra", "Claude Code")) == 1
+    for token in new:
+        ok(_renew(_browser(world), application, token))
 
 
 @pytest.mark.journey("J51.8")

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { agentAccess } from "@/api/agentAccessClient";
 import { ApiError } from "@/api/errors";
@@ -21,6 +21,13 @@ vi.mock("@/api/agentAccessClient", () => ({
   },
 }));
 vi.mock("@/api/securityClient", () => ({ security: { createClient: vi.fn() } }));
+
+// What the person holds anywhere; the page offers a change only with Security administration.
+let held: { key: string }[] | undefined = [];
+vi.mock("@/state/permissions", async (original) => ({
+  ...(await original<typeof import("@/state/permissions")>()),
+  useHeldAnywhere: () => held,
+}));
 
 const status: AgentAccessStatus = {
   enabled: true,
@@ -105,6 +112,7 @@ function open(
 describe("Settings › Security › Agent access (0.16 AG1)", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    held = [{ key: "security-admin" }];
     window.history.replaceState(null, "", "/");
   });
 
@@ -207,6 +215,25 @@ describe("Settings › Security › Agent access (0.16 AG1)", () => {
     ).toBeInTheDocument();
   });
 
+  it("offers Change… and New assistant only to someone who may change agent access", async () => {
+    open({ applications: [application({}), application({ id: "a2", name: "Other", blocked: true })] });
+    await screen.findByRole("button", { name: "Change…" });
+    expect(screen.getByRole("button", { name: "New assistant" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Block Claude Code" })).toBeInTheDocument();
+    cleanup();
+
+    for (const none of [[], undefined]) {
+      held = none;
+      open({ applications: [application({})] });
+      await screen.findByRole("region", { name: "Sign-ins" });
+      await screen.findByText("Claude Code");
+      expect(screen.queryByRole("button", { name: "Change…" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "New assistant" })).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Block / })).toBeNull();
+      cleanup();
+    }
+  });
+
   it("changes the limits in a dialog, refuses what is out of range, and shows the saved values", async () => {
     open();
     vi.mocked(agentAccess.setSessionLimits).mockResolvedValue({
@@ -217,8 +244,8 @@ describe("Settings › Security › Agent access (0.16 AG1)", () => {
     });
     fireEvent.click(await screen.findByRole("button", { name: "Change…" }));
     const dialog = await screen.findByRole("dialog", { name: "Assistant sign-ins" });
-    const idle = within(dialog).getByLabelText("Signed out after no use for (days)");
-    const all = within(dialog).getByLabelText("Signed out in all after (days)");
+    const idle = within(dialog).getByLabelText("Signed out after no use for");
+    const all = within(dialog).getByLabelText("Signed out in all after");
     expect(idle).toHaveValue(30);
     expect(all).toHaveValue(90);
     fireEvent.change(idle, { target: { value: "0" } });
@@ -248,7 +275,7 @@ describe("Settings › Security › Agent access (0.16 AG1)", () => {
     );
     fireEvent.click(await screen.findByRole("button", { name: "Change…" }));
     const dialog = await screen.findByRole("dialog", { name: "Assistant sign-ins" });
-    fireEvent.change(within(dialog).getByLabelText("Signed out in all after (days)"), { target: { value: "60" } });
+    fireEvent.change(within(dialog).getByLabelText("Signed out in all after"), { target: { value: "60" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await within(dialog).findByText("The sign-in limits have changed");
   });

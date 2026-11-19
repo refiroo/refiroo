@@ -635,9 +635,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.17.3 AS1 (additive): `PATCH /agent-access` (`AgentAccessUpdate`), the sign-in
     # limits on `AgentAccessStatus`, `AGENT_SESSION_LIMITS_INVALID`, the `agent-access-settings`
     # security aggregate and the reference text that names them; nothing else changed.
+    # Re-baselined for the CI fix after AS1 (descriptions only; computed in a clean copy of the commit
+    # with the files of that fix): the Agent access overview in `reference/content/agent-access.md`
+    # shortened to the reference's 130 words (the `agent-access` tag description), after the AS1
+    # examples (`get-api-v1-agent-access.json`, `patch-api-v1-agent-access.json` and the
+    # `get-api-v1-action-groups.json` operation count) it follows; no path or schema changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "2f6ce8ce34325ed5b78859d97d8e8a81d1c3fa45ce8fe9909fa6dc179b4040e0"
+        "22987f16cf0b4b8be6df8b71fc3b7fab22d13b4b69f7fee03b441ea503764ce3"
     )
 
 

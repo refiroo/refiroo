@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from ...config import get_settings
 from ...engine.agent_access import applications, calls
-from ...engine.identity import agent_limits
+from ...engine.identity import sessions
 from ...engine.identity.clients import client_page
 from ...models.database import AgentApplication, OAuthClient, User
 from ..access import INSTANCE, AuthorizedRoute, requires
@@ -34,7 +34,7 @@ def _status(request: Request, session: DbSession) -> AgentAccessStatus:
     identity = request.app.state.identity_settings
     settings = get_settings()
     totals = calls.totals(session, datetime.now(UTC))
-    limits = agent_limits.load(session)
+    limits = sessions.load_agent_limits(session)
     return AgentAccessStatus(
         enabled=identity.agent_access,
         url=applications.endpoint(identity),
@@ -70,7 +70,7 @@ def patch_agent_access(
     change applies to each session's next renewal (days without use) and to new sign-ins (days in
     all). ``422 AGENT_SESSION_LIMITS_INVALID`` when the days in all are fewer than the days without
     use."""
-    agent_limits.save(
+    sessions.save_agent_limits(
         session,
         idle_days=payload.sessionIdleDays,
         days=payload.sessionDays,

@@ -78,13 +78,13 @@ async function whenOn() {
     await press(signIns.getByRole("button", { name: "Change…" }));
     const limits = page.getByRole("dialog", { name: "Assistant sign-ins" });
     await limits.waitFor();
-    await limits.getByLabel("Signed out after no use for (days)").fill("100");
+    await limits.getByLabel("Signed out after no use for").fill("100");
     await limits.getByText("Must be at least the days without use.").waitFor();
     assert.equal(await limits.getByRole("button", { name: "Save" }).isDisabled(), true, "Save waits for valid days");
     await shot("sign-ins-dialog-refused-1440");
     await accessible(page, "as1-sign-ins-dialog");
-    await limits.getByLabel("Signed out after no use for (days)").fill("10");
-    await limits.getByLabel("Signed out in all after (days)").fill("20");
+    await limits.getByLabel("Signed out after no use for").fill("10");
+    await limits.getByLabel("Signed out in all after").fill("20");
     await page.keyboard.press("Enter");
     await limits.waitFor({ state: "detached" });
     await limitRow("Without use", "10 days");

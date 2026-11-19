@@ -1560,6 +1560,10 @@ def test_an_assistant_reaches_the_engine_through_agent_access(security):
         status=422,
         code="AGENT_SESSION_LIMITS_INVALID",
     )
+    # The shared database goes back to the defaults for the calls that follow.
+    s.call(
+        "PATCH", "/api/v1/agent-access", body={"sessionIdleDays": 30, "sessionDays": 90}, status=200
+    )
     agent = s.call(
         "POST",
         "/api/v1/clients",

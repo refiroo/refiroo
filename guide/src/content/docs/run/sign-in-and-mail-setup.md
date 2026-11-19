@@ -144,7 +144,11 @@ it is `Secure` when `PUBLIC_URL` uses HTTPS. Each renewal replaces its refresh t
 sign-ins, presenting an already-used refresh token ends the session as a suspected copied
 credential, except within a 30-second recovery grace while its successor is unused. An assistant's
 session is the exception: it can renew from any refresh token issued to it, even one already used,
-and has its own limits set on **Settings › Connections › Agent access**, not by
+but an already-used token is accepted only within the days without use after it was issued.
+After that window, it is refused with `invalid_grant`; the session stays open and the newest
+refresh token can still renew it. Keep the newest refresh token after each renewal. A copy of
+an old token therefore stays usable only inside that window. The assistant has its own limits
+set under **Sign-ins** on **Settings › Connections › Agent access**, not by
 `SESSION_IDLE_HOURS` and `SESSION_DAYS`.
 
 If `VITE_API_URL` separates the frontend and engine, both must share a site, such as

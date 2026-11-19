@@ -3403,6 +3403,12 @@ a.account-reach-app:hover {
   background: var(--hue-1-fill);
   color: var(--hue-1-ink);
 }
-.sign-in-days {
+.sign-in-days-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+.dialog form .sign-in-days-field input.sign-in-days:not([type="checkbox"]):not([type="radio"]) {
   width: 7em;
+  flex: none;
 }
